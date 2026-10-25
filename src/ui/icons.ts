@@ -1,5 +1,6 @@
 import { ITEMS } from '../data';
-import { paintChar, paintHat, type Look } from '../game/art';
+import * as THREE from 'three';
+import { buildCharacter, type Look } from '../three/models';
 
 const cache = new Map<string, string>();
 
@@ -63,15 +64,34 @@ export function itemIcon(id: string): string {
   return url;
 }
 
-/** Draws a character (with optional hat) onto a canvas, scaled to fit. */
-export function drawLook(cv: HTMLCanvasElement, look: Look, dir: 'f' | 'b' = 'f', hat?: string) {
+let preview: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null = null;
+
+/** Renders a 3D character (with optional hat) onto a 2D canvas: creator preview, character slots, equipment window. */
+export function drawLook(cv: HTMLCanvasElement, look: Look, dir: 'f' | 'b' | number = 'f', hat?: string) {
+  if (!preview) {
+    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    r.outputColorSpace = THREE.SRGBColorSpace;
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.6));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.8);
+    sun.position.set(2, 3, 4);
+    scene.add(sun);
+    const cam = new THREE.PerspectiveCamera(28, 1, 0.1, 20);
+    preview = { r, scene, cam };
+  }
+  const { r, scene, cam } = preview;
+  const rig = buildCharacter(look, hat);
+  rig.root.rotation.y = typeof dir === 'number' ? dir : dir === 'b' ? Math.PI : -0.35;
+  scene.add(rig.root);
+  r.setPixelRatio(1);
+  r.setSize(cv.width, cv.height, false);
+  cam.aspect = cv.width / cv.height;
+  cam.position.set(0, 1.0, 4.4);
+  cam.lookAt(0, 0.82, 0);
+  cam.updateProjectionMatrix();
+  r.render(scene, cam);
   const c = cv.getContext('2d')!;
   c.clearRect(0, 0, cv.width, cv.height);
-  const s = Math.min(cv.width / 60, cv.height / 84);
-  c.save();
-  c.translate((cv.width - 60 * s) / 2, (cv.height - 84 * s) / 2);
-  c.scale(s, s);
-  paintChar(c, look, dir);
-  if (hat && (dir === 'f' || hat !== 'note_ribbon')) paintHat(c, hat);
-  c.restore();
+  c.drawImage(r.domElement, 0, 0, cv.width, cv.height);
+  scene.remove(rig.root);
 }

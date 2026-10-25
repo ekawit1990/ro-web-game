@@ -1,10 +1,9 @@
-import Phaser from 'phaser';
 import { Client, type Room } from '@colyseus/sdk';
 import './style.css';
 import type { Character } from './data';
 import { getMap } from './game/maps';
 import { Session } from './game/session';
-import { WorldScene } from './game/WorldScene';
+import { World3D } from './three/World3D';
 import { LocalStore } from './services/localStore';
 import type { GameStore } from './services/store';
 import { supabase } from './services/supabase';
@@ -12,16 +11,9 @@ import { SupabaseStore } from './services/supabaseStore';
 import { Hud } from './ui/hud';
 import { $, characterScreen, loginScreen, show } from './ui/screens';
 
-const game = new Phaser.Game({
-  type: Phaser.AUTO,
-  parent: 'game',
-  backgroundColor: '#2d3a2a',
-  scale: { mode: Phaser.Scale.RESIZE, width: window.innerWidth, height: window.innerHeight },
-  input: { windowEvents: false }, // clicks on the HTML windows must not reach the map
-  scene: [],
-});
-game.scene.add('world', WorldScene, false);
-(window as unknown as { __game: Phaser.Game }).__game = game; // handy for debugging in the console
+const container = document.getElementById('game')!;
+let world: World3D | undefined;
+(window as unknown as { __world: () => World3D | undefined }).__world = () => world; // handy for debugging in the console
 
 /** Game server address. Every map is a room on this server. */
 const SERVER_URL = (import.meta.env.VITE_COLYSEUS_URL as string | undefined) || 'ws://localhost:2567';
@@ -47,13 +39,17 @@ function myPlayer(room: Room): Promise<{ x: number; y: number }> {
   });
 }
 
+function stopWorld() {
+  world?.destroy();
+  world = undefined;
+}
+
 async function play(char: Character): Promise<void> {
   show('loading');
   const fresh = await store.getCharacter(char.id);
   const inv = await store.loadInventory(char.id);
   const session = new Session(store, fresh, inv);
   const client = new Client(SERVER_URL);
-  const world = () => (game.scene.isActive('world') ? (game.scene.getScene('world') as WorldScene) : undefined);
 
   let room: Room | undefined;
   let done = false;
@@ -64,11 +60,11 @@ async function play(char: Character): Promise<void> {
       if (done) return;
       done = true;
       hud.destroy();
-      game.scene.stop('world');
+      stopWorld();
       room?.leave();
       resolve();
     };
-    const hud = new Hud(session, { scene: world, send: (t, m) => room?.send(t, m), exit });
+    const hud = new Hud(session, { scene: () => world, send: (t, m) => room?.send(t, m), exit });
     show('hud');
 
     const enter = async (mapId: string) => {
@@ -76,7 +72,7 @@ async function play(char: Character): Promise<void> {
       loading(true, `กำลังเดินทางไป ${getMap(mapId).name}…`);
       const old = room;
       room = undefined;
-      game.scene.stop('world');
+      stopWorld();
       if (old) await old.leave(true).catch(() => {});
 
       session.char.map = mapId;
@@ -89,7 +85,7 @@ async function play(char: Character): Promise<void> {
       const pos = await myPlayer(r);
       const map = getMap(mapId);
       hud.setMap(map);
-      game.scene.start('world', { session, room: r, map, hooks: hud, x: pos.x, y: pos.y });
+      world = new World3D(container, { session, room: r, map, hooks: hud, x: pos.x, y: pos.y });
       loading(false);
       switching = false;
     };
@@ -123,7 +119,7 @@ async function play(char: Character): Promise<void> {
       if (!done) {
         done = true;
         hud.destroy();
-        game.scene.stop('world');
+        stopWorld();
         room?.leave();
       }
       reject(e);

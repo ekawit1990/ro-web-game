@@ -4,7 +4,7 @@ import {
 } from '../data';
 import type { GameMap, Npc } from '../game/maps';
 import type { Session } from '../game/session';
-import type { WorldHooks, WorldScene } from '../game/WorldScene';
+import type { World3D, WorldHooks } from '../three/World3D';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
 
@@ -21,7 +21,7 @@ interface TradeView {
 }
 
 export interface HudActions {
-  scene(): WorldScene | undefined;
+  scene(): World3D | undefined;
   send(type: string, msg?: unknown): void;
   exit(): void;
 }

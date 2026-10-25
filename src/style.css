@@ -297,3 +297,34 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
   .hk { width: 32px; height: 32px; }
   .create { grid-template-columns: 1fr; }
 }
+
+/* ---------- 3D world overlay: names, bars, damage numbers, bubbles ---------- */
+#game canvas { display: block; }
+.world-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; font-family: 'Kanit', Tahoma, sans-serif; }
+.world-overlay > * { position: absolute; left: 0; top: 0; will-change: transform; }
+.wl { display: flex; flex-direction: column; align-items: center; transform-origin: 0 0; margin-top: 4px; }
+.wl > * { transform: translateX(-50%); position: relative; left: 0; }
+.wl .nm, .wl .npc, .wl .portal { font-size: 12px; color: #fff; white-space: nowrap; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+.wl .npc { color: #9fe3ff; }
+.wl .portal { color: #c8f0ff; }
+.wl.me .nm { color: #fff7c2; }
+.wl.mon .nm { display: none; color: #ffdede; }
+.wl.mon.named .nm { display: block; }
+.wl.boss .nm { color: #ffd54a; }
+.wl-bar { width: 42px; height: 5px; background: #10141a; border: 1px solid #10141a; margin-bottom: 2px; }
+.wl-bar i { display: block; height: 3px; background: #4cd964; }
+.wl-bar b { display: block; height: 2px; background: #3f7fe8; }
+.wl:not(.mon) .wl-bar { height: auto; }
+.wl.mon .wl-bar i { background: #e04848; height: 3px; }
+.wf { font-family: Impact, 'Arial Black', sans-serif; font-size: 24px; color: #fff; white-space: nowrap; margin-left: -30px; width: 60px; text-align: center;
+  -webkit-text-stroke: 1px #000; text-shadow: 0 2px 0 #000, 0 0 3px #000; }
+.wf.crit { color: #ffe34a; font-size: 32px; -webkit-text-stroke: 1px #a33000; }
+.wf.take { color: #ff4d4d; }
+.wf.skill { color: #fff1a8; font-size: 28px; }
+.wf.other { color: #c9dcff; font-size: 18px; }
+.wf.heal { color: #6dff8a; }
+.wf.miss { font-family: Georgia, serif; font-style: italic; font-size: 20px; color: #ffd6d6; -webkit-text-stroke: 0; }
+.wf.shout { font-family: 'Kanit', sans-serif; font-size: 16px; width: 200px; margin-left: -100px; -webkit-text-stroke: 0; text-shadow: 0 0 3px #1a3a7a, 0 0 3px #1a3a7a, 0 0 3px #1a3a7a; }
+.wf.level { font-family: Georgia, serif; font-style: italic; font-size: 30px; color: #fff27a; width: 300px; margin-left: -150px; -webkit-text-stroke: 1px #7a4a00; }
+.wb { max-width: 200px; padding: 3px 9px; background: #fff; color: #222; border: 1px solid #7a8aa0; border-radius: 7px; font-size: 13px; text-align: center; translate: -50% -100%; }
+.wb::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -5px; border: 5px solid transparent; border-top-color: #fff; border-bottom: 0; }
