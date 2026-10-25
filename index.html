@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#1d2a3a" />
+    <title>Aster Online</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="game"></div>
+
+    <!-- Login -->
+    <section id="screen-login" class="screen hidden">
+      <div class="card">
+        <h1 class="logo">Aster Online</h1>
+        <p class="sub">ผจญภัยในทุ่งแอสเตอร์</p>
+        <form id="login-form">
+          <input id="login-email" type="email" placeholder="อีเมล" autocomplete="email" required />
+          <input id="login-password" type="password" placeholder="รหัสผ่าน (6 ตัวขึ้นไป)" autocomplete="current-password" minlength="6" required />
+          <div class="row">
+            <button type="submit" id="btn-login">เข้าสู่ระบบ</button>
+            <button type="button" id="btn-signup" class="ghost">สมัครใหม่</button>
+          </div>
+        </form>
+        <p id="login-msg" class="msg"></p>
+      </div>
+    </section>
+
+    <!-- Character select -->
+    <section id="screen-chars" class="screen hidden">
+      <div class="card wide">
+        <h1 class="logo small">เลือกตัวละคร</h1>
+        <p class="sub" id="chars-user"></p>
+        <div id="char-list" class="char-list"></div>
+        <form id="create-form" class="create">
+          <h3>สร้างตัวละครใหม่</h3>
+          <input id="create-name" placeholder="ชื่อตัวละคร (2-16 ตัว)" maxlength="16" required />
+          <div id="class-pick" class="class-pick"></div>
+          <button type="submit">สร้าง</button>
+        </form>
+        <p id="chars-msg" class="msg"></p>
+        <button id="btn-signout" class="ghost small">ออกจากระบบ</button>
+      </div>
+    </section>
+
+    <!-- In-game HUD -->
+    <section id="hud" class="hidden">
+      <div class="status-box">
+        <div class="status-head"><b id="hud-name"></b> <span id="hud-class"></span> <span class="lv">Lv <b id="hud-level"></b></span></div>
+        <div class="bar hp"><div id="hud-hp-fill"></div><span id="hud-hp"></span></div>
+        <div class="bar sp"><div id="hud-sp-fill"></div><span id="hud-sp"></span></div>
+        <div class="bar exp"><div id="hud-exp-fill"></div><span id="hud-exp"></span></div>
+        <div class="zeny">💰 <span id="hud-zeny"></span> z</div>
+      </div>
+      <div class="menu">
+        <button data-panel="inventory" title="กระเป๋า (I)">🎒<span>กระเป๋า</span></button>
+        <button data-panel="stats" title="สเตตัส (S)">📊<span>สเตตัส</span><i id="hud-points" class="badge hidden"></i></button>
+        <button id="btn-potion" title="ใช้ยาฟื้นพลัง (Q)">🧪<span>ยา</span><i id="hud-potions" class="badge count">0</i></button>
+        <button id="btn-exit" title="กลับหน้าเลือกตัวละคร">🚪<span>ออก</span></button>
+      </div>
+      <div class="chat">
+        <div id="chat-log"></div>
+        <form id="chat-form"><input id="chat-input" placeholder="กด Enter เพื่อแชท" maxlength="120" autocomplete="off" /></form>
+      </div>
+      <div id="panel" class="panel hidden">
+        <div class="panel-head"><b id="panel-title"></b><button id="panel-close">✕</button></div>
+        <div id="panel-body"></div>
+      </div>
+      <div id="toasts"></div>
+      <div id="death" class="death hidden">
+        <div class="card">
+          <h2>คุณหมดสติ…</h2>
+          <p>เสีย EXP 5% แล้วกลับไปฟื้นที่เมือง</p>
+          <button id="btn-respawn">ฟื้นคืนชีพ</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="loading" class="screen"><p>กำลังโหลด…</p></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

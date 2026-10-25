@@ -1,0 +1,89 @@
+{
+  "classes": {
+    "swordsman": {
+      "name": "นักดาบ",
+      "color": "#d9534f",
+      "hpMod": 1.4,
+      "spMod": 0.7,
+      "range": 1.4,
+      "attackType": "melee",
+      "startWeapon": "knife",
+      "baseStats": { "str": 8, "agi": 5, "vit": 7, "int": 1, "dex": 4 }
+    },
+    "archer": {
+      "name": "นักธนู",
+      "color": "#5cb85c",
+      "hpMod": 1.0,
+      "spMod": 1.0,
+      "range": 5.5,
+      "attackType": "ranged",
+      "startWeapon": "short_bow",
+      "baseStats": { "str": 3, "agi": 7, "vit": 4, "int": 2, "dex": 9 }
+    },
+    "mage": {
+      "name": "นักเวทย์",
+      "color": "#5b8def",
+      "hpMod": 0.8,
+      "spMod": 1.6,
+      "range": 4.5,
+      "attackType": "magic",
+      "startWeapon": "rod",
+      "baseStats": { "str": 1, "agi": 4, "vit": 4, "int": 10, "dex": 6 }
+    }
+  },
+  "items": {
+    "red_potion": { "name": "ยาแดง", "type": "consumable", "heal": 45, "price": 25, "color": "#e04848" },
+    "orange_potion": { "name": "ยาส้ม", "type": "consumable", "heal": 110, "price": 70, "color": "#f0902a" },
+    "blue_potion": { "name": "ยาฟ้า", "type": "consumable", "sp": 40, "price": 120, "color": "#4a7df0" },
+    "apple": { "name": "แอปเปิ้ล", "type": "consumable", "heal": 20, "price": 8, "color": "#c0392b" },
+    "jelly_goo": { "name": "เมือกเจลลี่", "type": "loot", "price": 4, "color": "#f2a3c7" },
+    "spore": { "name": "สปอร์เห็ด", "type": "loot", "price": 10, "color": "#b5835a" },
+    "stinger": { "name": "เหล็กไนผึ้ง", "type": "loot", "price": 18, "color": "#e8c33a" },
+    "stone_chip": { "name": "เศษหิน", "type": "loot", "price": 30, "color": "#8c8c8c" },
+    "crown_shard": { "name": "เศษมงกุฎ", "type": "loot", "price": 400, "color": "#ffd700" },
+    "knife": { "name": "มีดสั้น", "type": "weapon", "atk": 12, "price": 50, "classes": ["swordsman", "archer", "mage"], "color": "#cccccc" },
+    "iron_sword": { "name": "ดาบเหล็ก", "type": "weapon", "atk": 35, "price": 600, "classes": ["swordsman"], "color": "#a0b4c8" },
+    "short_bow": { "name": "ธนูสั้น", "type": "weapon", "atk": 15, "price": 80, "classes": ["archer"], "color": "#a0522d" },
+    "long_bow": { "name": "ธนูยาว", "type": "weapon", "atk": 38, "price": 700, "classes": ["archer"], "color": "#8b4513" },
+    "rod": { "name": "คทาไม้", "type": "weapon", "atk": 8, "matk": 15, "price": 60, "classes": ["mage"], "color": "#c8a050" },
+    "crystal_staff": { "name": "คทาคริสตัล", "type": "weapon", "atk": 15, "matk": 45, "price": 750, "classes": ["mage"], "color": "#9be0ff" },
+    "cotton_shirt": { "name": "เสื้อผ้าฝ้าย", "type": "armor", "def": 3, "price": 40, "color": "#eeeeee" },
+    "leather_vest": { "name": "เสื้อหนัง", "type": "armor", "def": 9, "price": 400, "color": "#7a4a2a" }
+  },
+  "shop": ["red_potion", "orange_potion", "blue_potion", "apple", "iron_sword", "long_bow", "crystal_staff", "cotton_shirt", "leather_vest"],
+  "monsters": {
+    "jelly": {
+      "name": "เจลลี่", "level": 1, "hp": 50, "atk": 6, "def": 0, "exp": 6, "zeny": [2, 8],
+      "speed": 50, "aggressive": false, "color": "#f48fb1", "size": 0.8,
+      "drops": [["jelly_goo", 0.7], ["apple", 0.3], ["red_potion", 0.05]]
+    },
+    "mushy": {
+      "name": "มัชชี่", "level": 3, "hp": 110, "atk": 12, "def": 2, "exp": 15, "zeny": [5, 15],
+      "speed": 40, "aggressive": false, "color": "#c98b5a", "size": 0.9,
+      "drops": [["spore", 0.6], ["red_potion", 0.1], ["cotton_shirt", 0.02]]
+    },
+    "buzzer": {
+      "name": "บัซเซอร์", "level": 6, "hp": 190, "atk": 22, "def": 4, "exp": 34, "zeny": [10, 30],
+      "speed": 85, "aggressive": true, "color": "#f2c230", "size": 0.75,
+      "drops": [["stinger", 0.55], ["orange_potion", 0.08], ["short_bow", 0.03]]
+    },
+    "rocky": {
+      "name": "ร็อคกี้", "level": 9, "hp": 420, "atk": 34, "def": 12, "exp": 70, "zeny": [25, 60],
+      "speed": 35, "aggressive": false, "color": "#8d8d8d", "size": 1.05,
+      "drops": [["stone_chip", 0.6], ["leather_vest", 0.02], ["iron_sword", 0.015]]
+    },
+    "king_jelly": {
+      "name": "ราชาเจลลี่", "level": 15, "hp": 3000, "atk": 60, "def": 15, "exp": 900, "zeny": [400, 900],
+      "speed": 45, "aggressive": true, "color": "#e91e63", "size": 1.9, "boss": true,
+      "drops": [["crown_shard", 1.0], ["crystal_staff", 0.2], ["long_bow", 0.2], ["iron_sword", 0.2]]
+    }
+  },
+  "spawns": [
+    { "monster": "jelly", "count": 14, "area": [14, 4, 32, 18] },
+    { "monster": "mushy", "count": 10, "area": [4, 18, 22, 34] },
+    { "monster": "buzzer", "count": 8, "area": [30, 18, 46, 30] },
+    { "monster": "rocky", "count": 6, "area": [26, 30, 46, 38] },
+    { "monster": "king_jelly", "count": 1, "area": [40, 4, 46, 10], "respawnSec": 300 }
+  ],
+  "levels": { "maxLevel": 50, "statPointsPerLevel": 5 }
+}
