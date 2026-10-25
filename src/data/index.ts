@@ -4,15 +4,17 @@ export type StatKey = 'str' | 'agi' | 'vit' | 'int' | 'dex';
 export const STAT_KEYS: StatKey[] = ['str', 'agi', 'vit', 'int', 'dex'];
 export type Stats = Record<StatKey, number>;
 
-export type ClassKey = 'swordsman' | 'archer' | 'mage';
+export type ClassKey = 'singer' | 'guitarist' | 'drummer' | 'bassist' | 'keyboardist';
 
 export interface ClassDef {
   name: string;
+  desc: string;
   color: string;
   hpMod: number;
   spMod: number;
   range: number;
   attackType: 'melee' | 'ranged' | 'magic';
+  projectile: 'note' | 'wave' | 'chord' | null;
   startWeapon: string;
   baseStats: Stats;
 }

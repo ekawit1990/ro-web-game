@@ -96,7 +96,7 @@ form { display: flex; flex-direction: column; gap: 10px; }
 .char-item .info small { color: var(--muted); display: block; }
 .create { border-top: 1px solid var(--line); padding-top: 12px; }
 .create h3 { margin: 0; font-size: 16px; }
-.class-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.class-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; }
 .class-pick label {
   border: 2px solid var(--line);
   border-radius: 10px;

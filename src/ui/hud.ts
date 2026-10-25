@@ -7,7 +7,7 @@ const STAT_HELP: Record<StatKey, string> = {
   agi: 'ความเร็วโจมตี/เดิน',
   vit: 'HP และพลังป้องกัน',
   int: 'พลังเวทย์และ SP',
-  dex: 'พลังธนูและคริติคอล',
+  dex: 'พลังโจมตีไกลและคริติคอล',
 };
 
 type PanelKind = 'inventory' | 'stats' | 'shop' | null;
@@ -163,7 +163,7 @@ export class Hud {
         <p class="panel-note">ได้ ${5} แต้มทุกครั้งที่เลเวลอัป</p>`;
       this.bind(body, 'stat', (k) => this.s.allocate(k as StatKey));
     } else if (this.panel === 'shop') {
-      $('panel-title').textContent = `🏪 ร้านป้ามะลิ (มี ${this.s.char.zeny.toLocaleString()} z)`;
+      $('panel-title').textContent = `🏪 ร้านดนตรีป้ามะลิ (มี ${this.s.char.zeny.toLocaleString()} z)`;
       const sellable = this.s.inv.filter((i) => !i.equipped);
       body.innerHTML =
         '<p class="panel-note">ซื้อ</p>' +
@@ -215,7 +215,7 @@ export class Hud {
     if (this.s.hp >= this.s.derived.maxHp) return this.toast('HP เต็มอยู่แล้ว');
     try {
       const it = await this.s.use(p.id);
-      this.toast(`ใช้ ${it.name}`);
+      if (it) this.toast(`ใช้ ${it.name}`);
     } catch (e) {
       this.toast((e as Error).message, 'bad');
     }

@@ -15,8 +15,8 @@ export const enum T {
 /** Town is a safe zone: monsters never enter it. */
 export const TOWN = { x0: 1, y0: 1, x1: 11, y1: 11 };
 export const NPCS = [
-  { id: 'shop', name: 'ร้านค้า ป้ามะลิ', x: 3, y: 7, color: '#e7a33e' },
-  { id: 'healer', name: 'แม่ชีรักษา', x: 8, y: 3, color: '#ffffff' },
+  { id: 'shop', name: 'ร้านดนตรีป้ามะลิ', x: 3, y: 7, color: '#e7a33e' },
+  { id: 'healer', name: 'ครูเพลงใจดี', x: 8, y: 3, color: '#ffffff' },
 ];
 
 function mulberry32(seed: number) {

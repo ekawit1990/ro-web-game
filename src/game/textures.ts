@@ -102,8 +102,10 @@ function drawTree(scene: Phaser.Scene) {
   tex.refresh();
 }
 
-function drawPerson(scene: Phaser.Scene, key: string, body: string, hair: string, weapon?: ClassKey | 'none') {
-  const { tex, ctx } = canvas(scene, key, 36, 48);
+function drawPerson(scene: Phaser.Scene, key: string, body: string, hair: string, instrument?: ClassKey | 'none') {
+  const { tex, ctx } = canvas(scene, key, 44, 50);
+  ctx.save();
+  ctx.translate(4, 1); // person is drawn 36px wide, centred in the 44px canvas
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.beginPath();
   ctx.ellipse(18, 44, 11, 4, 0, 0, Math.PI * 2);
@@ -132,31 +134,81 @@ function drawPerson(scene: Phaser.Scene, key: string, body: string, hair: string
   ctx.fillStyle = '#222';
   ctx.fillRect(20, 13, 2, 3);
   ctx.fillRect(24, 13, 2, 3);
-  // weapon on the right side
-  if (weapon === 'swordsman') {
-    ctx.fillStyle = '#d8e2ec';
-    ctx.fillRect(29, 12, 3, 20);
-    ctx.fillStyle = '#7a5a2a';
-    ctx.fillRect(26, 30, 9, 3);
-  } else if (weapon === 'archer') {
-    ctx.strokeStyle = '#8b5a2b';
-    ctx.lineWidth = 2.5;
+  ctx.restore();
+
+  // instruments are drawn in front of the body, in canvas coordinates (centre x = 22)
+  const line = (x1: number, y1: number, x2: number, y2: number, color: string, w: number) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = w;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.arc(26, 26, 10, -1.2, 1.2);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
     ctx.stroke();
-    ctx.strokeStyle = '#eee';
-    ctx.lineWidth = 1;
+  };
+  const dot = (x: number, y: number, r: number, color: string) => {
+    ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(29.6, 16.7);
-    ctx.lineTo(29.6, 35.3);
-    ctx.stroke();
-  } else if (weapon === 'mage') {
-    ctx.fillStyle = '#8b5a2b';
-    ctx.fillRect(30, 14, 3, 26);
-    ctx.fillStyle = '#7fd6ff';
-    ctx.beginPath();
-    ctx.arc(31.5, 12, 4, 0, Math.PI * 2);
+    ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
+  };
+  const hand = (x: number, y: number) => dot(x, y, 2.6, '#ffd9b3');
+
+  if (instrument === 'singer') {
+    // microphone with a cable
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(35, 31);
+    ctx.quadraticCurveTo(40, 40, 34, 47);
+    ctx.stroke();
+    line(35, 31, 34, 22, '#222', 3);
+    hand(35, 28);
+    dot(34, 19, 4, '#9aa0a6');
+    dot(33, 18, 1.4, '#e0e0e0');
+  } else if (instrument === 'guitarist' || instrument === 'bassist') {
+    const bass = instrument === 'bassist';
+    const bodyColor = bass ? '#5a3a8a' : '#d9822b';
+    // neck + headstock
+    line(22, 30, bass ? 42 : 39, bass ? 6 : 11, '#6b4320', bass ? 3 : 2.5);
+    line(bass ? 40 : 37, bass ? 8.5 : 13, bass ? 43 : 40, bass ? 5 : 10, '#3b2410', 4);
+    // body (two lobes)
+    dot(15, 34, bass ? 7 : 6.5, bodyColor);
+    dot(20, 29, bass ? 5.5 : 5, bodyColor);
+    if (bass) {
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillRect(11, 33, 7, 2);
+    } else {
+      dot(17, 32, 2.2, '#3b2410');
+    }
+    hand(31, 20);
+    hand(17, 30);
+  } else if (instrument === 'drummer') {
+    // a stick in each hand
+    line(9, 31, 2, 17, '#e3c18f', 2.5);
+    line(35, 31, 42, 17, '#e3c18f', 2.5);
+    dot(2, 17, 1.8, '#f3dcb5');
+    dot(42, 17, 1.8, '#f3dcb5');
+    hand(9, 31);
+    hand(35, 31);
+  } else if (instrument === 'keyboardist') {
+    // keytar-style keyboard held across the body
+    ctx.save();
+    ctx.translate(22, 31);
+    ctx.rotate(-0.18);
+    ctx.fillStyle = '#263238';
+    ctx.beginPath();
+    ctx.roundRect(-19, -5, 38, 10, 2);
+    ctx.fill();
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(-16, -2, 30, 6);
+    ctx.fillStyle = '#222';
+    for (let x = -14; x < 13; x += 4) ctx.fillRect(x, -2, 1.6, 3.5);
+    ctx.fillStyle = '#40c4ff';
+    ctx.fillRect(15, -3, 3, 2);
+    ctx.restore();
+    hand(9, 33);
+    hand(33, 29);
   }
   tex.refresh();
 }
@@ -250,21 +302,30 @@ function drawMonster(scene: Phaser.Scene, key: string, color: string, size: numb
 }
 
 function drawDots(scene: Phaser.Scene) {
-  const arrow = canvas(scene, 'arrow', 18, 4);
-  arrow.ctx.fillStyle = '#6b4320';
-  arrow.ctx.fillRect(0, 1, 14, 2);
-  arrow.ctx.fillStyle = '#ddd';
-  arrow.ctx.fillRect(14, 0, 4, 4);
-  arrow.tex.refresh();
+  const glyph = (key: string, text: string, color: string) => {
+    const c = canvas(scene, key, 22, 22);
+    c.ctx.font = 'bold 18px sans-serif';
+    c.ctx.textAlign = 'center';
+    c.ctx.textBaseline = 'middle';
+    c.ctx.lineWidth = 3;
+    c.ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    c.ctx.strokeText(text, 11, 12);
+    c.ctx.fillStyle = color;
+    c.ctx.fillText(text, 11, 12);
+    c.tex.refresh();
+  };
+  glyph('note', '\u266A', '#ffd166');
+  glyph('chord', '\u266B', '#7ff0e6');
 
-  const bolt = canvas(scene, 'bolt', 14, 14);
-  const g = bolt.ctx.createRadialGradient(7, 7, 1, 7, 7, 7);
-  g.addColorStop(0, '#ffffff');
-  g.addColorStop(0.4, '#8fd8ff');
-  g.addColorStop(1, 'rgba(60,120,255,0)');
-  bolt.ctx.fillStyle = g;
-  bolt.ctx.fillRect(0, 0, 14, 14);
-  bolt.tex.refresh();
+  const wave = canvas(scene, 'wave', 20, 20);
+  wave.ctx.lineWidth = 2;
+  [4, 7, 10].forEach((r, i) => {
+    wave.ctx.strokeStyle = `rgba(255,140,200,${1 - i * 0.25})`;
+    wave.ctx.beginPath();
+    wave.ctx.arc(4, 10, r, -0.9, 0.9);
+    wave.ctx.stroke();
+  });
+  wave.tex.refresh();
 
   const marker = canvas(scene, 'marker', 20, 10);
   marker.ctx.strokeStyle = '#fff27a';
@@ -279,7 +340,9 @@ export function makeTextures(scene: Phaser.Scene) {
   drawTiles(scene);
   drawTree(scene);
   drawDots(scene);
-  const hair: Record<ClassKey, string> = { swordsman: '#4a2c1a', archer: '#d9a13b', mage: '#6a3fa0' };
+  const hair: Record<ClassKey, string> = {
+    singer: '#7b2d5b', guitarist: '#3b2410', drummer: '#1f1f1f', bassist: '#c0392b', keyboardist: '#f1c40f',
+  };
   for (const [key, def] of Object.entries(CLASSES) as [ClassKey, (typeof CLASSES)[ClassKey]][]) {
     drawPerson(scene, `char_${key}`, def.color, hair[key], key);
   }

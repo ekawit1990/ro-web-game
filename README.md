@@ -1,19 +1,23 @@
-# Aster Online (ro-web-game)
+# ♪ Music Land
 
-เกมผจญภัยแนว Ragnarok Online เล่นบนเว็บ: เดินคลิก ตีมอนสเตอร์ เก็บเลเวล อัปสเตตัส เก็บไอเท็ม ซื้อของ และเห็นผู้เล่นคนอื่นพร้อมแชท
+เกมผจญภัยออนไลน์แนว Ragnarok Online ธีมดนตรี เล่นบนเว็บ ผู้เล่นหลายคนเห็นกัน ตีมอนสเตอร์ตัวเดียวกัน และรุมบอสด้วยกันได้
 
-- **หน้าเว็บ:** Phaser 3 + TypeScript + Vite วางบน **Cloudflare Pages**
-- **ฐานข้อมูล:** **Supabase** (Auth, Postgres, Realtime)
-- **ภาพทั้งหมดวาดด้วยโค้ด** ไม่มีไฟล์ลิขสิทธิ์ของ RO หรือของใคร (ดู `src/game/textures.ts`)
+| ส่วน | ใช้อะไร | วางที่ไหน |
+|---|---|---|
+| หน้าเว็บ (ภาพ, เมนู) | Phaser 3 + TypeScript + Vite | **Cloudflare Pages** |
+| เซิร์ฟเวอร์เกม (มอนสเตอร์, การต่อสู้, ผู้เล่นหลายคน) | **Colyseus** (Node.js) | Render / Fly.io / VPS / Colyseus Cloud |
+| บัญชีผู้เล่นและเซฟ | **Supabase** (Auth + Postgres) | Supabase |
 
-## มีอะไรในเกมตอนนี้
+ภาพทั้งหมดวาดด้วยโค้ด (`src/game/textures.ts`) ไม่มีไฟล์ลิขสิทธิ์ของใคร
 
-- 3 อาชีพ: นักดาบ (ประชิด HP สูง), นักธนู (ยิงไกล), นักเวทย์ (เวทย์แรง ใช้ SP)
-- เมืองปลอดภัย มีร้านค้าและแม่ชีฟื้นพลัง
-- มอนสเตอร์ 4 ชนิด + บอสราชาเจลลี่ (เกิดใหม่ทุก 5 นาที)
+## มีอะไรในเกม
+
+- 5 อาชีพ: **นักร้อง** (ไมค์ ยิงคลื่นเสียง), **มือกีตาร์** (ยิงโน้ตไกล), **มือกลอง** (ไม้กลอง 2 มือ ตีประชิด), **มือเบส** (แทงก์ HP สูง), **มือคีย์บอร์ด** (ยิงคอร์ดเวทย์ไกล)
+- เมืองปลอดภัย มีร้านดนตรีและครูเพลงฟื้นพลัง
+- มอนสเตอร์ 4 ชนิด + บอส **ราชาเสียงเพี้ยน** (เกิดใหม่ทุก 5 นาที) ใครตีเกิน 10% ของเลือดบอสได้รางวัลเต็มทุกคน
 - เลเวลสูงสุด 50, ได้ 5 แต้มสเตตัสต่อเลเวล, ตายเสีย EXP 5%
-- กระเป๋า สวมอาวุธ/เสื้อ ซื้อ/ขายของ ยาด่วนปุ่ม Q
-- เห็นผู้เล่นอื่นในแผนที่เดียวกัน + แชทพร้อมบอลลูนเหนือหัว
+- กระเป๋า สวมเครื่องดนตรี/เสื้อ ซื้อ/ขายของ ใช้ยาปุ่ม Q
+- แชทพร้อมบอลลูนเหนือหัว
 
 ปุ่มลัด: `I` กระเป๋า, `S` สเตตัส, `Q` ใช้ยา, `Enter` แชท, `Esc` ปิดหน้าต่าง
 
@@ -21,52 +25,64 @@
 
 ```bash
 npm install
-npm run dev
+cd server && npm install && cd ..
+
+npm run server          # เซิร์ฟเวอร์เกมที่ ws://localhost:2567
+npm run dev             # หน้าเว็บ (อีกหน้าต่าง terminal)
 ```
 
-ถ้ายังไม่ตั้งค่า Supabase เกมจะรัน **โหมดออฟไลน์** (เซฟใน browser, เปิดอีกแท็บจะเห็นกันเหมือนผู้เล่นอื่น) เหมาะไว้ทดสอบ
+- ไม่ใส่อะไรใน `.env.local` เลย = **โหมดออฟไลน์** มอนสเตอร์จำลองใน browser เซฟใน browser
+- ใส่แค่ `VITE_COLYSEUS_URL=ws://localhost:2567` = เล่นผ่านเซิร์ฟเวอร์ แต่ยังเซฟใน browser (เซิร์ฟเวอร์ใช้ฐานข้อมูลในหน่วยความจำ **ห้ามใช้แบบนี้บนเซิร์ฟเวอร์จริง**)
+- ใส่ครบ (Supabase + Colyseus) = แบบเดียวกับตอนเปิดจริง
 
-## ตั้งค่า Supabase
+## 1) ตั้งค่า Supabase
 
-1. สร้างโปรเจกต์ที่ https://supabase.com
-2. เปิด **SQL Editor** แล้วรันไฟล์ตามลำดับ:
-   - `supabase/migrations/0001_init.sql` (ตาราง + กฎเกม)
-   - `supabase/migrations/0002_seed.sql` (ข้อมูลไอเท็ม/มอนสเตอร์)
-3. **Authentication → Sign In / Providers → Email**: ถ้าอยากให้สมัครแล้วเล่นได้ทันที ให้ปิด *Confirm email*
-4. คัดลอก `.env.example` เป็น `.env.local` แล้วใส่ `VITE_SUPABASE_URL` กับ `VITE_SUPABASE_ANON_KEY` จาก **Project Settings → API**
+1. เปิด **SQL Editor** วางไฟล์ `supabase/setup.sql` ทั้งไฟล์ แล้วกด **Run** (รันซ้ำได้)
+2. **Authentication → Sign In / Providers → Email**: ถ้าอยากให้สมัครแล้วเล่นได้ทันที ให้ปิด *Confirm email*
+3. จด 2 ค่าจาก **Project Settings → API Keys**:
+   - `anon` / publishable key: ใส่ในหน้าเว็บได้ (เปิดเผยได้)
+   - `service_role` / secret key: **ใส่เฉพาะที่เซิร์ฟเวอร์เกม ห้ามใส่ในหน้าเว็บ ห้าม commit ห้ามส่งในแชท**
 
-> แก้ค่าเกม (ราคา, EXP, ดรอป) ที่ `src/data/gamedata.json` แล้วรัน `npm run gen:seed` เพื่อสร้าง `0002_seed.sql` ใหม่ จากนั้นรันไฟล์นั้นใน SQL Editor อีกครั้ง
+> แก้ค่าเกม (ราคา, EXP, ดรอป, อาชีพ) ที่ `src/data/gamedata.json` แล้วรัน `npm run gen:seed` จากนั้นรัน `supabase/setup.sql` ใหม่
 
-### กันโกงทำอะไรไว้บ้าง
+## 2) Deploy เซิร์ฟเวอร์เกม (Colyseus)
 
-ฝั่ง browser **อ่าน** ข้อมูลตัวเองได้อย่างเดียว ทุกอย่างที่เปลี่ยนความคืบหน้า (EXP, เงิน, ดรอป, ซื้อขาย, อัปสเตตัส) ทำผ่านฟังก์ชันในฐานข้อมูล ซึ่งเป็นคนสุ่มดรอปและคิด EXP เอง และจำกัดความถี่การฆ่ามอนสเตอร์ไว้
-ข้อจำกัดที่ต้องรู้: การต่อสู้ยังคำนวณใน browser คนที่แก้โค้ดเองอาจฆ่ามอนสเตอร์ได้เร็วกว่าปกติ (แต่ไม่เกินเพดานความถี่) ถ้าเกมโตขึ้นค่อยย้ายการต่อสู้ไปฝั่งเซิร์ฟเวอร์
+ตัวอย่างใช้ **Render** (มีแพ็กเกจฟรี แต่จะหลับถ้าไม่มีคนเล่น 15 นาที ตื่นช้าราว 1 นาที):
 
-## Deploy บน Cloudflare Pages
+1. https://render.com → **New → Blueprint** → เลือก repo นี้ (ใช้ `render.yaml` + `Dockerfile` ให้อัตโนมัติ)
+2. ใส่ `SUPABASE_SERVICE_ROLE_KEY` ในหน้า Environment ของ service
+3. ได้ URL เช่น `https://music-land-server.onrender.com` ใช้เป็น `wss://music-land-server.onrender.com`
 
-1. Cloudflare Dashboard → **Workers & Pages → Create → Pages → Connect to Git** แล้วเลือก repo นี้
-2. ตั้งค่า build:
-   - Framework preset: `Vite` (หรือ None)
-   - Build command: `npm run build`
-   - Build output directory: `dist`
-3. **Environment variables**: ใส่ `VITE_SUPABASE_URL` และ `VITE_SUPABASE_ANON_KEY`
-4. กด Deploy ทุกครั้งที่ push เข้า `main` จะ deploy ใหม่ให้อัตโนมัติ
+ที่อื่นก็ได้ ขอแค่รัน Docker หรือ Node 22 ได้และเปิด WebSocket ได้ (Cloudflare Pages รัน Colyseus ไม่ได้)
+
+## 3) Deploy หน้าเว็บบน Cloudflare Pages
+
+1. **Workers & Pages → Create → Pages → Connect to Git** เลือก repo นี้
+2. Build command: `npm run build` · Build output directory: `dist`
+3. Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_COLYSEUS_URL` (เช่น `wss://music-land-server.onrender.com`)
+4. Deploy (push เข้า `main` ครั้งต่อไปจะ deploy ให้เอง)
+
+## กันโกง
+
+- เซิร์ฟเวอร์ Colyseus เป็นคนคุมมอนสเตอร์ คำนวณดาเมจ เช็กระยะ/ความเร็วตี/ความเร็วเดิน และ HP ของทุกคน
+- EXP เงิน ดรอป ยา และการตาย บันทึกผ่านฟังก์ชันในฐานข้อมูลที่ **เรียกได้เฉพาะเซิร์ฟเวอร์เกม** (service role)
+- หน้าเว็บเรียกได้แค่เมนู: สร้างตัวละคร อัปสเตตัส ซื้อ/ขาย สวมใส่ (ฐานข้อมูลเช็กเงื่อนไขทุกอย่างเอง)
 
 ## โครงสร้าง
 
 ```
-src/
-  data/gamedata.json    ค่าเกมทั้งหมด (อาชีพ ไอเท็ม มอนสเตอร์ จุดเกิด)
-  data/index.ts         สูตรคำนวณสเตตัส/EXP
-  game/WorldScene.ts    แผนที่ การเดิน การต่อสู้ AI มอนสเตอร์
-  game/map.ts           สร้างแผนที่ + หาเส้นทาง (A*)
-  game/textures.ts      วาดภาพตัวละคร/มอนสเตอร์ด้วยโค้ด
-  game/session.ts       สถานะตัวละครที่กำลังเล่น
-  services/             เชื่อม Supabase / โหมดออฟไลน์ / ผู้เล่นออนไลน์
-  ui/                   หน้าล็อกอิน เลือกตัวละคร HUD
-supabase/migrations/    SQL สำหรับ Supabase
+src/data/gamedata.json   ค่าเกมทั้งหมด (ใช้ร่วมกันทั้งหน้าเว็บและเซิร์ฟเวอร์)
+src/data/index.ts        สูตรสเตตัส/EXP
+src/game/WorldScene.ts   แผนที่ การเดิน ภาพการต่อสู้ (ออนไลน์ + ออฟไลน์)
+src/game/map.ts          แผนที่ + หาเส้นทาง (ใช้ร่วมกับเซิร์ฟเวอร์)
+src/game/textures.ts     วาดตัวละคร เครื่องดนตรี มอนสเตอร์
+src/services/            Supabase, โหมดออฟไลน์
+src/ui/                  หน้าล็อกอิน เลือกตัวละคร HUD
+server/src/FieldRoom.ts  ห้องเกม Colyseus: มอนสเตอร์ การต่อสู้ รางวัล
+server/src/db.ts         เซิร์ฟเวอร์คุยกับ Supabase
+supabase/setup.sql       SQL ทั้งหมดสำหรับวางใน SQL Editor
 ```
 
 ## ไอเดียต่อยอด
 
-สกิลอาชีพ, เปลี่ยนอาชีพขั้น 2, แผนที่เพิ่ม/ดันเจี้ยน, ปาร์ตี้แชร์ EXP, เพลงประกอบ, เปลี่ยนภาพเป็น sprite จริง (เช่นชุดฟรีจาก Kenney.nl หรือ OpenGameArt ที่เป็น CC0)
+สกิลประจำอาชีพ (โซโล่กีตาร์, กลองรัว), ปาร์ตี้/วงดนตรีแชร์ EXP, แผนที่เพิ่ม, เพลงประกอบตามอาชีพ, เปลี่ยนภาพเป็น sprite จริง (เช่นชุดฟรี CC0 จาก Kenney.nl หรือ OpenGameArt)

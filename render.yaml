@@ -1,0 +1,12 @@
+# One-click setup on https://render.com (New > Blueprint). The free plan sleeps when idle.
+services:
+  - type: web
+    name: music-land-server
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SUPABASE_URL
+        value: https://udylzxxjayoprpfkxxjf.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false # paste it in the Render dashboard, never commit it

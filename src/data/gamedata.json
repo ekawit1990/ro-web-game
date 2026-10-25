@@ -1,89 +1,507 @@
 {
   "classes": {
-    "swordsman": {
-      "name": "นักดาบ",
-      "color": "#d9534f",
-      "hpMod": 1.4,
-      "spMod": 0.7,
-      "range": 1.4,
-      "attackType": "melee",
-      "startWeapon": "knife",
-      "baseStats": { "str": 8, "agi": 5, "vit": 7, "int": 1, "dex": 4 }
+    "singer": {
+      "name": "นักร้อง",
+      "desc": "ยิงคลื่นเสียง ใช้ SP แรงสุด",
+      "color": "#ec5fa8",
+      "hpMod": 0.85,
+      "spMod": 1.6,
+      "range": 4.5,
+      "attackType": "magic",
+      "projectile": "wave",
+      "startWeapon": "basic_mic",
+      "baseStats": {
+        "str": 1,
+        "agi": 4,
+        "vit": 4,
+        "int": 10,
+        "dex": 6
+      }
     },
-    "archer": {
-      "name": "นักธนู",
-      "color": "#5cb85c",
+    "guitarist": {
+      "name": "มือกีตาร์",
+      "desc": "ยิงโน้ตไกล ตีเร็ว",
+      "color": "#f08a24",
       "hpMod": 1.0,
       "spMod": 1.0,
       "range": 5.5,
       "attackType": "ranged",
-      "startWeapon": "short_bow",
-      "baseStats": { "str": 3, "agi": 7, "vit": 4, "int": 2, "dex": 9 }
+      "projectile": "note",
+      "startWeapon": "acoustic_guitar",
+      "baseStats": {
+        "str": 3,
+        "agi": 7,
+        "vit": 4,
+        "int": 2,
+        "dex": 9
+      }
     },
-    "mage": {
-      "name": "นักเวทย์",
-      "color": "#5b8def",
-      "hpMod": 0.8,
-      "spMod": 1.6,
-      "range": 4.5,
+    "drummer": {
+      "name": "มือกลอง",
+      "desc": "ตีประชิด 2 ไม้ แรงและอึด",
+      "color": "#d9443f",
+      "hpMod": 1.4,
+      "spMod": 0.7,
+      "range": 1.4,
+      "attackType": "melee",
+      "projectile": null,
+      "startWeapon": "wood_sticks",
+      "baseStats": {
+        "str": 9,
+        "agi": 6,
+        "vit": 6,
+        "int": 1,
+        "dex": 3
+      }
+    },
+    "bassist": {
+      "name": "มือเบส",
+      "desc": "แทงก์ HP สูงสุด ตีหนัก",
+      "color": "#7a4fd0",
+      "hpMod": 1.65,
+      "spMod": 0.7,
+      "range": 1.8,
+      "attackType": "melee",
+      "projectile": null,
+      "startWeapon": "basic_bass",
+      "baseStats": {
+        "str": 7,
+        "agi": 3,
+        "vit": 9,
+        "int": 1,
+        "dex": 5
+      }
+    },
+    "keyboardist": {
+      "name": "มือคีย์บอร์ด",
+      "desc": "ยิงคอร์ดเวทย์ ระยะไกลสุด",
+      "color": "#2fb3a8",
+      "hpMod": 0.9,
+      "spMod": 1.4,
+      "range": 5.5,
       "attackType": "magic",
-      "startWeapon": "rod",
-      "baseStats": { "str": 1, "agi": 4, "vit": 4, "int": 10, "dex": 6 }
+      "projectile": "chord",
+      "startWeapon": "mini_keyboard",
+      "baseStats": {
+        "str": 1,
+        "agi": 5,
+        "vit": 4,
+        "int": 9,
+        "dex": 6
+      }
     }
   },
   "items": {
-    "red_potion": { "name": "ยาแดง", "type": "consumable", "heal": 45, "price": 25, "color": "#e04848" },
-    "orange_potion": { "name": "ยาส้ม", "type": "consumable", "heal": 110, "price": 70, "color": "#f0902a" },
-    "blue_potion": { "name": "ยาฟ้า", "type": "consumable", "sp": 40, "price": 120, "color": "#4a7df0" },
-    "apple": { "name": "แอปเปิ้ล", "type": "consumable", "heal": 20, "price": 8, "color": "#c0392b" },
-    "jelly_goo": { "name": "เมือกเจลลี่", "type": "loot", "price": 4, "color": "#f2a3c7" },
-    "spore": { "name": "สปอร์เห็ด", "type": "loot", "price": 10, "color": "#b5835a" },
-    "stinger": { "name": "เหล็กไนผึ้ง", "type": "loot", "price": 18, "color": "#e8c33a" },
-    "stone_chip": { "name": "เศษหิน", "type": "loot", "price": 30, "color": "#8c8c8c" },
-    "crown_shard": { "name": "เศษมงกุฎ", "type": "loot", "price": 400, "color": "#ffd700" },
-    "knife": { "name": "มีดสั้น", "type": "weapon", "atk": 12, "price": 50, "classes": ["swordsman", "archer", "mage"], "color": "#cccccc" },
-    "iron_sword": { "name": "ดาบเหล็ก", "type": "weapon", "atk": 35, "price": 600, "classes": ["swordsman"], "color": "#a0b4c8" },
-    "short_bow": { "name": "ธนูสั้น", "type": "weapon", "atk": 15, "price": 80, "classes": ["archer"], "color": "#a0522d" },
-    "long_bow": { "name": "ธนูยาว", "type": "weapon", "atk": 38, "price": 700, "classes": ["archer"], "color": "#8b4513" },
-    "rod": { "name": "คทาไม้", "type": "weapon", "atk": 8, "matk": 15, "price": 60, "classes": ["mage"], "color": "#c8a050" },
-    "crystal_staff": { "name": "คทาคริสตัล", "type": "weapon", "atk": 15, "matk": 45, "price": 750, "classes": ["mage"], "color": "#9be0ff" },
-    "cotton_shirt": { "name": "เสื้อผ้าฝ้าย", "type": "armor", "def": 3, "price": 40, "color": "#eeeeee" },
-    "leather_vest": { "name": "เสื้อหนัง", "type": "armor", "def": 9, "price": 400, "color": "#7a4a2a" }
+    "water": {
+      "name": "น้ำเปล่า",
+      "type": "consumable",
+      "heal": 45,
+      "price": 25,
+      "color": "#8fd3ff"
+    },
+    "energy_drink": {
+      "name": "เครื่องดื่มชูกำลัง",
+      "type": "consumable",
+      "heal": 110,
+      "price": 70,
+      "color": "#f0902a"
+    },
+    "honey_lemon": {
+      "name": "น้ำผึ้งมะนาว",
+      "type": "consumable",
+      "sp": 40,
+      "price": 120,
+      "color": "#f4d03f"
+    },
+    "banana": {
+      "name": "กล้วย",
+      "type": "consumable",
+      "heal": 20,
+      "price": 8,
+      "color": "#ffe066"
+    },
+    "note_shard": {
+      "name": "เศษโน้ตเพี้ยน",
+      "type": "loot",
+      "price": 4,
+      "color": "#f2a3c7"
+    },
+    "silent_spore": {
+      "name": "สปอร์เงียบ",
+      "type": "loot",
+      "price": 10,
+      "color": "#b5835a"
+    },
+    "buzz_stinger": {
+      "name": "เหล็กไนเสียงหึ่ง",
+      "type": "loot",
+      "price": 18,
+      "color": "#e8c33a"
+    },
+    "rock_chip": {
+      "name": "เศษหินร็อค",
+      "type": "loot",
+      "price": 30,
+      "color": "#8c8c8c"
+    },
+    "golden_clef": {
+      "name": "กุญแจซอลทองคำ",
+      "type": "loot",
+      "price": 400,
+      "color": "#ffd700"
+    },
+    "basic_mic": {
+      "name": "ไมค์ธรรมดา",
+      "type": "weapon",
+      "atk": 6,
+      "matk": 15,
+      "price": 60,
+      "classes": [
+        "singer"
+      ],
+      "color": "#9aa0a6"
+    },
+    "golden_mic": {
+      "name": "ไมค์ทองคำ",
+      "type": "weapon",
+      "atk": 12,
+      "matk": 45,
+      "price": 750,
+      "classes": [
+        "singer"
+      ],
+      "color": "#ffd700"
+    },
+    "acoustic_guitar": {
+      "name": "กีตาร์โปร่ง",
+      "type": "weapon",
+      "atk": 15,
+      "price": 80,
+      "classes": [
+        "guitarist"
+      ],
+      "color": "#c8843c"
+    },
+    "electric_guitar": {
+      "name": "กีตาร์ไฟฟ้า",
+      "type": "weapon",
+      "atk": 38,
+      "price": 700,
+      "classes": [
+        "guitarist"
+      ],
+      "color": "#e23b3b"
+    },
+    "wood_sticks": {
+      "name": "ไม้กลองไม้",
+      "type": "weapon",
+      "atk": 13,
+      "price": 50,
+      "classes": [
+        "drummer"
+      ],
+      "color": "#d2a679"
+    },
+    "steel_sticks": {
+      "name": "ไม้กลองเหล็ก",
+      "type": "weapon",
+      "atk": 36,
+      "price": 650,
+      "classes": [
+        "drummer"
+      ],
+      "color": "#b0bec5"
+    },
+    "basic_bass": {
+      "name": "เบส 4 สาย",
+      "type": "weapon",
+      "atk": 14,
+      "price": 70,
+      "classes": [
+        "bassist"
+      ],
+      "color": "#5a3a8a"
+    },
+    "five_string_bass": {
+      "name": "เบส 5 สาย",
+      "type": "weapon",
+      "atk": 37,
+      "price": 700,
+      "classes": [
+        "bassist"
+      ],
+      "color": "#2e2e48"
+    },
+    "mini_keyboard": {
+      "name": "คีย์บอร์ดจิ๋ว",
+      "type": "weapon",
+      "atk": 7,
+      "matk": 14,
+      "price": 60,
+      "classes": [
+        "keyboardist"
+      ],
+      "color": "#eeeeee"
+    },
+    "synth": {
+      "name": "ซินธิไซเซอร์",
+      "type": "weapon",
+      "atk": 14,
+      "matk": 44,
+      "price": 750,
+      "classes": [
+        "keyboardist"
+      ],
+      "color": "#40c4ff"
+    },
+    "band_tshirt": {
+      "name": "เสื้อยืดวง",
+      "type": "armor",
+      "def": 3,
+      "price": 40,
+      "color": "#333333"
+    },
+    "leather_jacket": {
+      "name": "แจ็คเก็ตหนังร็อค",
+      "type": "armor",
+      "def": 9,
+      "price": 400,
+      "color": "#5a3a22"
+    }
   },
-  "shop": ["red_potion", "orange_potion", "blue_potion", "apple", "iron_sword", "long_bow", "crystal_staff", "cotton_shirt", "leather_vest"],
+  "shop": [
+    "water",
+    "energy_drink",
+    "honey_lemon",
+    "banana",
+    "golden_mic",
+    "electric_guitar",
+    "steel_sticks",
+    "five_string_bass",
+    "synth",
+    "band_tshirt",
+    "leather_jacket"
+  ],
   "monsters": {
     "jelly": {
-      "name": "เจลลี่", "level": 1, "hp": 50, "atk": 6, "def": 0, "exp": 6, "zeny": [2, 8],
-      "speed": 50, "aggressive": false, "color": "#f48fb1", "size": 0.8,
-      "drops": [["jelly_goo", 0.7], ["apple", 0.3], ["red_potion", 0.05]]
+      "name": "โน้ตเพี้ยน",
+      "level": 1,
+      "hp": 50,
+      "atk": 6,
+      "def": 0,
+      "exp": 6,
+      "zeny": [
+        2,
+        8
+      ],
+      "speed": 50,
+      "aggressive": false,
+      "color": "#f48fb1",
+      "size": 0.8,
+      "drops": [
+        [
+          "note_shard",
+          0.7
+        ],
+        [
+          "banana",
+          0.3
+        ],
+        [
+          "water",
+          0.05
+        ]
+      ]
     },
     "mushy": {
-      "name": "มัชชี่", "level": 3, "hp": 110, "atk": 12, "def": 2, "exp": 15, "zeny": [5, 15],
-      "speed": 40, "aggressive": false, "color": "#c98b5a", "size": 0.9,
-      "drops": [["spore", 0.6], ["red_potion", 0.1], ["cotton_shirt", 0.02]]
+      "name": "เห็ดเงียบ",
+      "level": 3,
+      "hp": 110,
+      "atk": 12,
+      "def": 2,
+      "exp": 15,
+      "zeny": [
+        5,
+        15
+      ],
+      "speed": 40,
+      "aggressive": false,
+      "color": "#c98b5a",
+      "size": 0.9,
+      "drops": [
+        [
+          "silent_spore",
+          0.6
+        ],
+        [
+          "water",
+          0.1
+        ],
+        [
+          "band_tshirt",
+          0.02
+        ]
+      ]
     },
     "buzzer": {
-      "name": "บัซเซอร์", "level": 6, "hp": 190, "atk": 22, "def": 4, "exp": 34, "zeny": [10, 30],
-      "speed": 85, "aggressive": true, "color": "#f2c230", "size": 0.75,
-      "drops": [["stinger", 0.55], ["orange_potion", 0.08], ["short_bow", 0.03]]
+      "name": "ผึ้งเสียงหึ่ง",
+      "level": 6,
+      "hp": 190,
+      "atk": 22,
+      "def": 4,
+      "exp": 34,
+      "zeny": [
+        10,
+        30
+      ],
+      "speed": 85,
+      "aggressive": true,
+      "color": "#f2c230",
+      "size": 0.75,
+      "drops": [
+        [
+          "buzz_stinger",
+          0.55
+        ],
+        [
+          "energy_drink",
+          0.08
+        ],
+        [
+          "acoustic_guitar",
+          0.03
+        ]
+      ]
     },
     "rocky": {
-      "name": "ร็อคกี้", "level": 9, "hp": 420, "atk": 34, "def": 12, "exp": 70, "zeny": [25, 60],
-      "speed": 35, "aggressive": false, "color": "#8d8d8d", "size": 1.05,
-      "drops": [["stone_chip", 0.6], ["leather_vest", 0.02], ["iron_sword", 0.015]]
+      "name": "หินร็อค",
+      "level": 9,
+      "hp": 420,
+      "atk": 34,
+      "def": 12,
+      "exp": 70,
+      "zeny": [
+        25,
+        60
+      ],
+      "speed": 35,
+      "aggressive": false,
+      "color": "#8d8d8d",
+      "size": 1.05,
+      "drops": [
+        [
+          "rock_chip",
+          0.6
+        ],
+        [
+          "leather_jacket",
+          0.02
+        ],
+        [
+          "steel_sticks",
+          0.015
+        ]
+      ]
     },
     "king_jelly": {
-      "name": "ราชาเจลลี่", "level": 15, "hp": 3000, "atk": 60, "def": 15, "exp": 900, "zeny": [400, 900],
-      "speed": 45, "aggressive": true, "color": "#e91e63", "size": 1.9, "boss": true,
-      "drops": [["crown_shard", 1.0], ["crystal_staff", 0.2], ["long_bow", 0.2], ["iron_sword", 0.2]]
+      "name": "ราชาเสียงเพี้ยน",
+      "level": 15,
+      "hp": 3000,
+      "atk": 60,
+      "def": 15,
+      "exp": 900,
+      "zeny": [
+        400,
+        900
+      ],
+      "speed": 45,
+      "aggressive": true,
+      "color": "#e91e63",
+      "size": 1.9,
+      "boss": true,
+      "drops": [
+        [
+          "golden_clef",
+          1.0
+        ],
+        [
+          "golden_mic",
+          0.15
+        ],
+        [
+          "electric_guitar",
+          0.15
+        ],
+        [
+          "synth",
+          0.15
+        ],
+        [
+          "five_string_bass",
+          0.15
+        ],
+        [
+          "steel_sticks",
+          0.15
+        ]
+      ]
     }
   },
   "spawns": [
-    { "monster": "jelly", "count": 14, "area": [14, 4, 32, 18] },
-    { "monster": "mushy", "count": 10, "area": [4, 18, 22, 34] },
-    { "monster": "buzzer", "count": 8, "area": [30, 18, 46, 30] },
-    { "monster": "rocky", "count": 6, "area": [26, 30, 46, 38] },
-    { "monster": "king_jelly", "count": 1, "area": [40, 4, 46, 10], "respawnSec": 300 }
+    {
+      "monster": "jelly",
+      "count": 14,
+      "area": [
+        14,
+        4,
+        32,
+        18
+      ]
+    },
+    {
+      "monster": "mushy",
+      "count": 10,
+      "area": [
+        4,
+        18,
+        22,
+        34
+      ]
+    },
+    {
+      "monster": "buzzer",
+      "count": 8,
+      "area": [
+        30,
+        18,
+        46,
+        30
+      ]
+    },
+    {
+      "monster": "rocky",
+      "count": 6,
+      "area": [
+        26,
+        30,
+        46,
+        38
+      ]
+    },
+    {
+      "monster": "king_jelly",
+      "count": 1,
+      "area": [
+        40,
+        4,
+        46,
+        10
+      ],
+      "respawnSec": 300
+    }
   ],
-  "levels": { "maxLevel": 50, "statPointsPerLevel": 5 }
+  "levels": {
+    "maxLevel": 50,
+    "statPointsPerLevel": 5
+  }
 }

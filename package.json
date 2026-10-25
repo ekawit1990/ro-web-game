@@ -1,5 +1,5 @@
 {
-  "name": "ro-web-game",
+  "name": "music-land",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "gen:seed": "node scripts/gen-seed.mjs"
+    "gen:seed": "node scripts/gen-seed.mjs",
+    "server": "npm --prefix server run dev"
   },
   "dependencies": {
+    "@colyseus/sdk": "^0.18.6",
     "@supabase/supabase-js": "^2.118.0",
     "phaser": "^3.90.0"
   },

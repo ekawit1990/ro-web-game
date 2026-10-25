@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import type { Room } from '@colyseus/sdk';
 import { CLASSES, ITEMS, MAGIC_SP_COST, MONSTERS, MonsterDef, SPAWNS, SpawnDef } from '../data';
 import type { Net, PeerInfo } from '../services/net';
 import { TOWN_SPAWN } from '../services/localStore';
@@ -11,6 +12,15 @@ export interface WorldHooks {
   system(text: string): void;
   openShop(): void;
   onDeath(): void;
+  chat(name: string, text: string): void;
+}
+
+/** Shape of the Colyseus room state (see server/src/FieldRoom.ts). */
+interface RemotePlayer { name: string; cls: string; level: number; x: number; y: number; hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean }
+interface RemoteMonster { key: string; x: number; y: number; hp: number; maxHp: number; dead: boolean }
+interface RemoteState {
+  players: { forEach(cb: (p: RemotePlayer, id: string) => void): void; get(id: string): RemotePlayer | undefined };
+  monsters: { forEach(cb: (m: RemoteMonster, id: string) => void): void };
 }
 
 interface Actor {
@@ -22,6 +32,7 @@ interface Actor {
 
 interface Monster extends Actor {
   uid: number;
+  rid?: string; // id on the game server
   key: string;
   def: MonsterDef;
   spawn: SpawnDef;
@@ -41,6 +52,8 @@ interface Npc extends Actor {
 interface Peer extends Actor {
   tx: number;
   ty: number;
+  cls: PeerInfo['cls'];
+  level: number;
 }
 
 type Target = { kind: 'monster'; m: Monster } | { kind: 'npc'; n: Npc } | null;
@@ -65,15 +78,22 @@ export class WorldScene extends Phaser.Scene {
   private peers = new Map<string, Peer>();
   private marker!: Phaser.GameObjects.Image;
   private uidSeq = 0;
+  /** Online: the Colyseus room. Offline: undefined and monsters are simulated here. */
+  private room?: Room;
+  private remoteMonsters = new Map<string, Monster>();
+  private unsubs: (() => void)[] = [];
 
   constructor() {
     super('world');
   }
 
-  init(data: { session: Session; net: Net; hooks: WorldHooks }) {
+  init(data: { session: Session; net: Net; hooks: WorldHooks; room?: Room }) {
     this.session = data.session;
     this.net = data.net;
     this.hooks = data.hooks;
+    this.room = data.room;
+    this.remoteMonsters = new Map();
+    this.unsubs = [];
     this.monsters = [];
     this.npcs = [];
     this.peers = new Map();
@@ -117,7 +137,8 @@ export class WorldScene extends Phaser.Scene {
       label: this.makeLabel(c.name, '#ffffff'),
     };
 
-    for (const s of SPAWNS) for (let i = 0; i < s.count; i++) this.spawnMonster(s);
+    if (!this.room) for (const s of SPAWNS) for (let i = 0; i < s.count; i++) this.spawnMonster(s);
+    else this.listenRemote(this.room);
 
     this.marker = this.add.image(0, 0, 'marker').setVisible(false).setDepth(-5);
 
@@ -131,12 +152,15 @@ export class WorldScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => this.onClick(p, over));
 
-    this.time.addEvent({ delay: 2000, loop: true, callback: () => this.regen() });
-    this.time.addEvent({ delay: 10000, loop: true, callback: () => this.save() });
+    if (!this.room) {
+      this.time.addEvent({ delay: 2000, loop: true, callback: () => this.regen() });
+      this.time.addEvent({ delay: 10000, loop: true, callback: () => this.save() });
+    }
 
     this.events.once('shutdown', () => {
       this.scale.off('resize', fitZoom);
-      this.save();
+      this.unsubs.forEach((u) => u());
+      if (!this.room) this.save();
       this.net.leave();
     });
     this.syncActor(this.player);
@@ -147,7 +171,7 @@ export class WorldScene extends Phaser.Scene {
   addPeer(p: PeerInfo) {
     if (this.peers.has(p.id)) return;
     const peer: Peer = {
-      x: p.x, y: p.y, tx: p.x, ty: p.y,
+      x: p.x, y: p.y, tx: p.x, ty: p.y, cls: p.cls, level: p.level,
       sprite: this.add.image(0, 0, `char_${p.cls}`).setOrigin(0.5, 1).setAlpha(0.95),
       label: this.makeLabel(`${p.name} Lv${p.level}`, '#9fd3ff'),
     };
@@ -251,8 +275,9 @@ export class WorldScene extends Phaser.Scene {
 
   update(time: number, delta: number) {
     const dt = Math.min(delta, 100) / 1000;
+    if (this.room) this.syncRemote(dt);
     if (!this.dead) this.updatePlayer(time, dt);
-    for (const m of this.monsters) this.updateMonster(m, time, dt);
+    if (!this.room) for (const m of this.monsters) this.updateMonster(m, time, dt);
     for (const p of this.peers.values()) {
       p.x += (p.tx - p.x) * Math.min(1, dt * 8);
       p.y += (p.ty - p.y) * Math.min(1, dt * 8);
@@ -261,7 +286,10 @@ export class WorldScene extends Phaser.Scene {
     if (time - this.lastSent > 120 && (this.player.x !== this.sentPos.x || this.player.y !== this.sentPos.y)) {
       this.lastSent = time;
       this.sentPos = { x: this.player.x, y: this.player.y };
-      this.net.sendMove(+this.player.x.toFixed(2), +this.player.y.toFixed(2));
+      const x = +this.player.x.toFixed(2);
+      const y = +this.player.y.toFixed(2);
+      if (this.room) this.room.send('move', { x, y });
+      else this.net.sendMove(x, y);
     }
   }
 
@@ -283,7 +311,10 @@ export class WorldScene extends Phaser.Scene {
         this.face(m.x);
         if (time - this.lastAttack >= this.session.derived.attackDelay) {
           this.lastAttack = time;
-          this.attack(m);
+          if (this.room) {
+            this.room.send('attack', { id: m.rid });
+            this.lunge(this.player, m.x);
+          } else this.attack(m);
         }
       }
     } else if (t?.kind === 'npc') {
@@ -386,17 +417,15 @@ export class WorldScene extends Phaser.Scene {
 
   private attack(m: Monster) {
     const s = this.session;
-    const type = CLASSES[s.char.cls].attackType;
+    const cls = CLASSES[s.char.cls];
+    const projectile = cls.projectile;
     let dmg: number;
-    let projectile: string | null = null;
-    if (type === 'magic' && s.sp >= MAGIC_SP_COST) {
+    if (cls.attackType === 'magic' && s.sp >= MAGIC_SP_COST) {
       s.sp -= MAGIC_SP_COST;
       s.emit();
       dmg = s.derived.matk * Phaser.Math.FloatBetween(0.95, 1.15) - m.def.def / 2;
-      projectile = 'bolt';
     } else {
       dmg = s.derived.atk * Phaser.Math.FloatBetween(0.9, 1.1) - m.def.def;
-      if (type === 'ranged') projectile = 'arrow';
     }
     const crit = Math.random() < 0.05 + s.char.dex * 0.003;
     if (crit) dmg *= 1.5;
@@ -411,20 +440,27 @@ export class WorldScene extends Phaser.Scene {
       if (m.hp <= 0) this.killMonster(m);
     };
 
-    // a small lunge so every attack reads clearly
-    this.tweens.add({
-      targets: this.player.sprite, x: this.player.sprite.x + (m.x < this.player.x ? -5 : 5), duration: 70, yoyo: true,
-    });
+    this.lunge(this.player, m.x);
+    this.shoot(this.player, m, projectile, land);
+  }
 
+  /** a small lunge so every attack reads clearly */
+  private lunge(a: Actor, towardX: number) {
+    this.tweens.add({ targets: a.sprite, x: a.sprite.x + (towardX < a.x ? -5 : 5), duration: 70, yoyo: true });
+  }
+
+  /** Attack visual from an attacker to a monster; `land` runs when it hits. */
+  private shoot(from_: Actor, m: Monster, projectile: string | null, land: () => void) {
     if (!projectile) {
       this.slash(m);
       land();
       return;
     }
-    const from = { x: this.player.sprite.x, y: this.player.sprite.y - 24 };
+    const from = { x: from_.sprite.x, y: from_.sprite.y - 24 };
     const to = { x: m.sprite.x, y: m.sprite.y - m.sprite.height / 2 };
     const p = this.add.image(from.x, from.y, projectile).setDepth(99999);
-    p.setRotation(Phaser.Math.Angle.Between(from.x, from.y, to.x, to.y));
+    if (projectile === 'wave') p.setRotation(Phaser.Math.Angle.Between(from.x, from.y, to.x, to.y));
+    else this.tweens.add({ targets: p, scale: 1.3, duration: 120, yoyo: true, repeat: -1 });
     this.tweens.add({
       targets: p, x: to.x, y: to.y, duration: Phaser.Math.Distance.Between(from.x, from.y, to.x, to.y) * 1.6,
       onComplete: () => {
@@ -495,24 +531,176 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
-  private levelUpFx(level: number) {
-    this.hooks.system(`เลเวลอัป! ตอนนี้ Lv ${level} ได้แต้มสเตตัสเพิ่ม`);
-    this.net.updateInfo({ level });
+  private levelUpFx(level: number, announce = true) {
+    if (announce) {
+      this.hooks.system(`เลเวลอัป! ตอนนี้ Lv ${level} ได้แต้มสเตตัสเพิ่ม`);
+      this.net.updateInfo({ level });
+    }
     const ring = this.add.circle(this.player.sprite.x, this.player.sprite.y - 20, 10, 0xfff27a, 0.6).setDepth(99998);
     this.tweens.add({ targets: ring, radius: 60, alpha: 0, duration: 700, onComplete: () => ring.destroy() });
     this.floatText(this.player.sprite.x, this.player.sprite.y - 70, 'LEVEL UP!', '#fff27a', 22);
+  }
+
+  // ------------------------------------------------------------ online (Colyseus)
+
+  private listenRemote(room: Room) {
+    const actorOf = (sid: string): Actor | undefined => (sid === room.sessionId ? this.player : this.peers.get(sid));
+    const on = (type: string, fn: (msg: any) => void) => this.unsubs.push(room.onMessage(type, fn));
+
+    on('hit', (msg: { by: string; m: string; dmg: number; crit: boolean }) => {
+      const m = this.remoteMonsters.get(msg.m);
+      const attacker = actorOf(msg.by);
+      if (!m) return;
+      const cls = attacker === this.player ? CLASSES[this.session.char.cls] : CLASSES[(attacker as Peer | undefined)?.cls ?? 'drummer'];
+      const land = () => {
+        this.floatText(m.sprite.x, m.sprite.y - m.sprite.height, msg.crit ? `${msg.dmg}!` : `${msg.dmg}`,
+          msg.crit ? '#ffef5a' : attacker === this.player ? '#ffffff' : '#bcd7ff');
+        this.tweens.add({ targets: m.sprite, alpha: 0.4, duration: 60, yoyo: true });
+      };
+      if (attacker && attacker !== this.player) this.lunge(attacker, m.x);
+      if (attacker) this.shoot(attacker, m, cls.projectile, land);
+      else land();
+    });
+    on('mhit', (msg: { m: string; to: string; dmg: number }) => {
+      const victim = actorOf(msg.to);
+      const m = this.remoteMonsters.get(msg.m);
+      if (m) this.tweens.add({ targets: m.sprite, y: m.sprite.y - 6, duration: 80, yoyo: true });
+      if (!victim) return;
+      this.floatText(victim.sprite.x, victim.sprite.y - 50, `${msg.dmg}`, '#ff6b6b');
+      if (victim === this.player) {
+        this.player.sprite.setTintFill(0xff4444);
+        this.time.delayedCall(90, () => this.player.sprite.clearTint());
+        if (!this.target && !this.path.length && m && !m.dead) this.target = { kind: 'monster', m }; // fight back
+      }
+    });
+    on('reward', (msg: { monster: string; exp: number; zeny: number; drops: string[]; leveledUp: boolean }) => {
+      this.hooks.toast(`${MONSTERS[msg.monster]?.name ?? msg.monster}: +${msg.exp} EXP  +${msg.zeny} z`, 'good');
+      for (const d of msg.drops) this.hooks.toast(`ได้รับ ${ITEMS[d]?.name ?? d}`, 'good');
+      if (msg.leveledUp) this.levelUpFx(0, false);
+    });
+    on('sync', (msg: { character: Session['char']; inventory: Session['inv'] }) => this.session.applySync(msg.character, msg.inventory));
+    on('correct', (msg: { x: number; y: number }) => {
+      this.player.x = msg.x;
+      this.player.y = msg.y;
+      this.path = [];
+      this.syncActor(this.player);
+    });
+    on('healed', () => {
+      this.hooks.toast('ครูเพลง: พักเสียงหน่อยนะ (ฟื้น HP/SP เต็ม)', 'good');
+      const ring = this.add.circle(this.player.sprite.x, this.player.sprite.y - 20, 8, 0x9be0ff, 0.6).setDepth(99998);
+      this.tweens.add({ targets: ring, radius: 40, alpha: 0, duration: 600, onComplete: () => ring.destroy() });
+    });
+    on('used', (msg: { itemId: string }) => this.hooks.toast(`ใช้ ${ITEMS[msg.itemId]?.name ?? msg.itemId}`));
+    on('chat', (msg: { name: string; text: string }) => {
+      this.hooks.chat(msg.name, msg.text);
+      this.bubble(msg.name, msg.text);
+    });
+    on('system', (msg: { text: string }) => this.hooks.system(msg.text));
+    on('error', (msg: { text: string }) => this.hooks.toast(msg.text, 'bad'));
+  }
+
+  /** Mirror the server state into sprites, once per frame. */
+  private syncRemote(dt: number) {
+    const state = this.room!.state as RemoteState | undefined;
+    if (!state?.players) return;
+    const k = Math.min(1, dt * 10);
+
+    const seenM = new Set<string>();
+    state.monsters.forEach((rm, id) => {
+      seenM.add(id);
+      let m = this.remoteMonsters.get(id);
+      if (!m) {
+        m = this.spawnMonster(SPAWNS.find((s) => s.monster === rm.key)!, { x: rm.x, y: rm.y });
+        m.rid = id;
+        m.dead = rm.dead;
+        m.sprite.setAlpha(rm.dead ? 0 : 1);
+        this.remoteMonsters.set(id, m);
+      }
+      if (rm.dead && !m.dead) this.fadeMonster(m);
+      else if (!rm.dead && m.dead) {
+        m.x = rm.x;
+        m.y = rm.y;
+        this.reviveMonster(m);
+      }
+      if (Math.abs(rm.x - m.x) > 0.01) m.sprite.setFlipX(rm.x < m.x);
+      const moving = Math.hypot(rm.x - m.x, rm.y - m.y) > 0.01;
+      m.x += (rm.x - m.x) * k;
+      m.y += (rm.y - m.y) * k;
+      m.hp = rm.hp;
+      this.syncActor(m);
+      m.sprite.setScale(1, moving ? 1 + Math.sin(this.time.now / 120 + m.uid) * 0.05 : 1);
+      if (!m.dead) this.drawHpBar(m);
+    });
+
+    const seenP = new Set<string>();
+    state.players.forEach((rp, sid) => {
+      if (sid === this.room!.sessionId) {
+        const s = this.session;
+        if (s.hp !== rp.hp || s.sp !== rp.sp) {
+          s.hp = rp.hp;
+          s.sp = rp.sp;
+          s.emit();
+        }
+        if (rp.dead && !this.dead) this.die();
+        else if (!rp.dead && this.dead) this.revive(rp.x, rp.y);
+        return;
+      }
+      seenP.add(sid);
+      if (!this.peers.has(sid)) {
+        this.addPeer({ id: sid, name: rp.name, cls: rp.cls as PeerInfo['cls'], level: rp.level, x: rp.x, y: rp.y });
+      }
+      const peer = this.peers.get(sid)!;
+      if (peer.level !== rp.level) {
+        peer.level = rp.level;
+        peer.label.setText(`${rp.name} Lv${rp.level}`);
+      }
+      if (Math.abs(rp.x - peer.tx) > 0.01) peer.sprite.setFlipX(rp.x < peer.x);
+      peer.tx = rp.x;
+      peer.ty = rp.y;
+      peer.sprite.setAlpha(rp.dead ? 0.5 : 0.95).setAngle(rp.dead ? 90 : 0);
+    });
+    for (const id of [...this.peers.keys()]) if (!seenP.has(id)) this.removePeer(id);
+  }
+
+  private fadeMonster(m: Monster) {
+    m.dead = true;
+    m.hpBar.clear();
+    m.label.setVisible(false);
+    m.sprite.disableInteractive();
+    this.tweens.add({ targets: m.sprite, alpha: 0, scaleY: 0.2, duration: 400 });
+    if (this.target?.kind === 'monster' && this.target.m === m) this.target = null;
+  }
+
+  private reviveMonster(m: Monster) {
+    m.dead = false;
+    m.hp = m.def.hp;
+    m.sprite.setAlpha(1).setScale(1).setInteractive({ useHandCursor: true });
+    m.label.setVisible(!!m.def.boss);
+    this.syncActor(m);
+  }
+
+  private revive(x: number, y: number) {
+    this.dead = false;
+    this.player.x = x;
+    this.player.y = y;
+    this.player.sprite.setAlpha(1).setAngle(0);
+    this.path = [];
+    this.target = null;
+    this.syncActor(this.player);
   }
 
   // ------------------------------------------------------------ npcs, regen, save
 
   private talk(n: Npc) {
     if (n.id === 'shop') this.hooks.openShop();
-    if (n.id === 'healer') {
+    if (n.id === 'healer' && this.room) {
+      this.room.send('heal');
+    } else if (n.id === 'healer') {
       const s = this.session;
       s.hp = s.derived.maxHp;
       s.sp = s.derived.maxSp;
       s.emit();
-      this.hooks.toast('แม่ชี: ขอพรให้ปลอดภัยนะ (ฟื้น HP/SP เต็ม)', 'good');
+      this.hooks.toast('ครูเพลง: พักเสียงหน่อยนะ (ฟื้น HP/SP เต็ม)', 'good');
       const ring = this.add.circle(this.player.sprite.x, this.player.sprite.y - 20, 8, 0x9be0ff, 0.6).setDepth(99998);
       this.tweens.add({ targets: ring, radius: 40, alpha: 0, duration: 600, onComplete: () => ring.destroy() });
     }
@@ -536,9 +724,9 @@ export class WorldScene extends Phaser.Scene {
 
   // ------------------------------------------------------------ helpers
 
-  private spawnMonster(spawn: SpawnDef) {
+  private spawnMonster(spawn: SpawnDef, at?: { x: number; y: number }): Monster {
     const def = MONSTERS[spawn.monster];
-    const spot = this.randomSpot(spawn);
+    const spot = at ?? this.randomSpot(spawn);
     const sprite = this.add.image(0, 0, `mon_${spawn.monster}`).setOrigin(0.5, 1);
     sprite.setInteractive({ useHandCursor: true, pixelPerfect: false });
     const label = this.makeLabel(`${def.name} Lv${def.level}`, def.boss ? '#ff8a8a' : '#ffffff').setVisible(!!def.boss);
@@ -553,6 +741,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.monsters.push(m);
     this.syncActor(m);
+    return m;
   }
 
   private randomSpot(s: SpawnDef) {

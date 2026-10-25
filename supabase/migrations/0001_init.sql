@@ -1,6 +1,9 @@
--- RO Web Game: schema + game rules.
+-- Music Land: schema + game rules.
 -- Clients can only SELECT their own rows; every change goes through the
 -- security definer functions below, so EXP, zeny and drops are decided here.
+-- Menu actions (create, stats, shop, equip) are called by the browser.
+-- Combat results (kills, potions, death, HP/position) are called only by the
+-- Colyseus game server with the service role key, passing the player's user id.
 
 create table if not exists public.class_defs (
   id text primary key,
@@ -82,11 +85,11 @@ revoke insert, update on public.characters, public.inventory from anon, authenti
 create or replace function public.exp_to_next(lvl int) returns int
 language sql immutable as $$ select floor(15 * power(lvl::float8, 1.9))::int + 10 $$;
 
-create or replace function public._own_char(p_char uuid) returns public.characters
+create or replace function public._own_char(p_char uuid, p_user uuid default null) returns public.characters
 language plpgsql security definer set search_path = public as $$
 declare c public.characters;
 begin
-  select * into c from public.characters where id = p_char and user_id = auth.uid() for update;
+  select * into c from public.characters where id = p_char and user_id = coalesce(p_user, auth.uid()) for update;
   if not found then raise exception 'ไม่พบตัวละคร'; end if;
   return c;
 end $$;
@@ -108,7 +111,7 @@ begin
   end if;
 end $$;
 
-revoke execute on function public._own_char(uuid) from public, anon, authenticated;
+revoke execute on function public._own_char(uuid, uuid) from public, anon, authenticated;
 revoke execute on function public._add_item(uuid, text, int) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------- game actions
@@ -135,21 +138,17 @@ begin
 
   insert into public.inventory (character_id, item_id, qty, equipped)
     values (c.id, d.start_weapon, 1, true) returning id into inv_id;
-  perform public._add_item(c.id, 'red_potion', 5);
+  perform public._add_item(c.id, 'water', 5);
   return c;
 end $$;
 
-create or replace function public.report_kill(p_char uuid, p_monster text) returns jsonb
+create or replace function public.report_kill(p_user uuid, p_char uuid, p_monster text) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
   c public.characters; m public.monster_defs; d jsonb;
   got text[] := '{}'; z int; start_level int; max_level constant int := 50;
 begin
-  c := public._own_char(p_char);
-  -- simple anti-cheat: nobody kills faster than this
-  if c.last_kill_at is not null and c.last_kill_at > now() - interval '400 milliseconds' then
-    raise exception 'too fast';
-  end if;
+  c := public._own_char(p_char, p_user);
   select * into m from public.monster_defs where id = p_monster;
   if not found then raise exception 'unknown monster'; end if;
 
@@ -222,11 +221,11 @@ begin
   return c;
 end $$;
 
-create or replace function public.use_item(p_char uuid, p_inv uuid) returns text
+create or replace function public.use_item(p_user uuid, p_char uuid, p_inv uuid) returns text
 language plpgsql security definer set search_path = public as $$
 declare r public.inventory;
 begin
-  perform public._own_char(p_char);
+  perform public._own_char(p_char, p_user);
   select inv.* into r from public.inventory inv join public.item_defs i on i.id = inv.item_id
     where inv.id = p_inv and inv.character_id = p_char and i.type = 'consumable' for update of inv;
   if not found then raise exception 'ใช้ไม่ได้'; end if;
@@ -255,43 +254,45 @@ begin
   update public.inventory set equipped = p_equipped where id = p_inv;
 end $$;
 
-create or replace function public.save_state(p_char uuid, p_hp int, p_sp int, p_x real, p_y real) returns void
+create or replace function public.save_state(p_user uuid, p_char uuid, p_hp int, p_sp int, p_x real, p_y real) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  perform public._own_char(p_char);
+  perform public._own_char(p_char, p_user);
   update public.characters
     set hp = greatest(p_hp, 1), sp = greatest(p_sp, 0),
         pos_x = least(greatest(p_x, 0), 50), pos_y = least(greatest(p_y, 0), 40)
     where id = p_char;
 end $$;
 
-create or replace function public.on_death(p_char uuid) returns public.characters
+create or replace function public.on_death(p_user uuid, p_char uuid) returns public.characters
 language plpgsql security definer set search_path = public as $$
 declare c public.characters;
 begin
-  c := public._own_char(p_char);
+  c := public._own_char(p_char, p_user);
   update public.characters
     set exp = greatest(0, exp - floor(public.exp_to_next(level) * 0.05)::int), pos_x = 5.5, pos_y = 5.5
     where id = p_char returning * into c;
   return c;
 end $$;
 
+-- browser (signed-in player)
 revoke execute on function public.create_character(text, text) from public, anon;
-revoke execute on function public.report_kill(uuid, text) from public, anon;
 revoke execute on function public.allocate_stat(uuid, text) from public, anon;
 revoke execute on function public.buy_item(uuid, text, int) from public, anon;
 revoke execute on function public.sell_item(uuid, uuid, int) from public, anon;
-revoke execute on function public.use_item(uuid, uuid) from public, anon;
 revoke execute on function public.set_equipped(uuid, uuid, boolean) from public, anon;
-revoke execute on function public.save_state(uuid, int, int, real, real) from public, anon;
-revoke execute on function public.on_death(uuid) from public, anon;
-
 grant execute on function public.create_character(text, text) to authenticated;
-grant execute on function public.report_kill(uuid, text) to authenticated;
 grant execute on function public.allocate_stat(uuid, text) to authenticated;
 grant execute on function public.buy_item(uuid, text, int) to authenticated;
 grant execute on function public.sell_item(uuid, uuid, int) to authenticated;
-grant execute on function public.use_item(uuid, uuid) to authenticated;
 grant execute on function public.set_equipped(uuid, uuid, boolean) to authenticated;
-grant execute on function public.save_state(uuid, int, int, real, real) to authenticated;
-grant execute on function public.on_death(uuid) to authenticated;
+
+-- game server only (service role)
+revoke execute on function public.report_kill(uuid, uuid, text) from public, anon, authenticated;
+revoke execute on function public.use_item(uuid, uuid, uuid) from public, anon, authenticated;
+revoke execute on function public.save_state(uuid, uuid, int, int, real, real) from public, anon, authenticated;
+revoke execute on function public.on_death(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.report_kill(uuid, uuid, text) to service_role;
+grant execute on function public.use_item(uuid, uuid, uuid) to service_role;
+grant execute on function public.save_state(uuid, uuid, int, int, real, real) to service_role;
+grant execute on function public.on_death(uuid, uuid) to service_role;

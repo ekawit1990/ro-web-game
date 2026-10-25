@@ -60,7 +60,7 @@ export function characterScreen(store: GameStore): Promise<Character | null> {
     .map(
       ([k, c], i) => `<label><input type="radio" name="cls" value="${k}" ${i === 0 ? 'checked' : ''}/>
         <span style="color:${c.color}">●</span> ${c.name}
-        <small>${c.attackType === 'melee' ? 'ระยะประชิด HP สูง' : c.attackType === 'ranged' ? 'ยิงไกล โจมตีเร็ว' : 'เวทย์แรง ใช้ SP'}</small></label>`,
+        <small>${c.desc}</small></label>`,
     )
     .join('');
 

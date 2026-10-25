@@ -3,7 +3,7 @@ import {
 } from '../data';
 import type { GameStore, KillResult } from './store';
 
-const KEY = 'ro-web-game-save-v1';
+const KEY = 'music-land-save-v1';
 export const TOWN_SPAWN = { x: 5.5, y: 5.5 };
 
 interface SaveFile {
@@ -89,7 +89,7 @@ export class LocalStore implements GameStore {
     this.data.characters.push(c);
     this.addItem(c.id, def.startWeapon, 1);
     this.inv(c.id)[0].equipped = true;
-    this.addItem(c.id, 'red_potion', 5);
+    this.addItem(c.id, 'water', 5);
     this.persist();
     return { ...c };
   }
@@ -200,4 +200,13 @@ export class LocalStore implements GameStore {
   }
 
   async signOut() {}
+
+  /** Replace a character with the copy the dev game server sends back (offline + local server testing). */
+  importCharacter(c: Character, inv: InvItem[]) {
+    const i = this.data.characters.findIndex((x) => x.id === c.id);
+    if (i >= 0) this.data.characters[i] = { ...c };
+    else this.data.characters.push({ ...c });
+    this.data.inventory[c.id] = inv.map((x) => ({ ...x }));
+    this.persist();
+  }
 }

@@ -1,4 +1,3 @@
-import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import type { ClassKey } from '../data';
 
 export interface PeerInfo {
@@ -27,60 +26,12 @@ export interface Net {
 const MAP = 'meadow';
 export const MAX_CHAT = 120;
 
-/** Online multiplayer: Supabase Realtime presence (who is here) + broadcast (moves, chat). */
-export function joinSupabase(sb: SupabaseClient, me: PeerInfo, h: NetHandlers): Net {
-  const known = new Set<string>();
-  const channel: RealtimeChannel = sb.channel(`map:${MAP}`, {
-    config: { presence: { key: me.id }, broadcast: { self: false } },
-  });
-
-  channel
-    .on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState<PeerInfo>();
-      const present = new Set(Object.keys(state).filter((k) => k !== me.id));
-      for (const id of present) {
-        if (!known.has(id)) {
-          known.add(id);
-          h.onPeerJoin(state[id][0]);
-        }
-      }
-      for (const id of [...known]) {
-        if (!present.has(id)) {
-          known.delete(id);
-          h.onPeerLeave(id);
-        }
-      }
-    })
-    .on('broadcast', { event: 'move' }, ({ payload }) => h.onPeerMove(payload.id, payload.x, payload.y))
-    .on('broadcast', { event: 'chat' }, ({ payload }) =>
-      h.onChat(String(payload.name).slice(0, 16), String(payload.text).slice(0, MAX_CHAT)),
-    )
-    .subscribe((status) => {
-      if (status === 'SUBSCRIBED') channel.track(me);
-    });
-
-  return {
-    sendMove(x, y) {
-      me.x = x;
-      me.y = y;
-      channel.send({ type: 'broadcast', event: 'move', payload: { id: me.id, x, y } });
-    },
-    sendChat(text) {
-      channel.send({ type: 'broadcast', event: 'chat', payload: { name: me.name, text: text.slice(0, MAX_CHAT) } });
-    },
-    updateInfo(p) {
-      Object.assign(me, p);
-      channel.track(me);
-    },
-    leave() {
-      channel.unsubscribe();
-    },
-  };
-}
+/** Online play talks to the Colyseus room directly, so this is a no-op. */
+export const noNet: Net = { sendMove() {}, sendChat() {}, updateInfo() {}, leave() {} };
 
 /** Offline mode: other browser tabs on the same computer act as other players (handy for testing). */
 export function joinLocal(me: PeerInfo, h: NetHandlers): Net {
-  const bc = new BroadcastChannel(`ro-web-game:${MAP}`);
+  const bc = new BroadcastChannel(`music-land:${MAP}`);
   const seen = new Map<string, number>();
   const hello = () => bc.postMessage({ t: 'hello', p: me });
 
