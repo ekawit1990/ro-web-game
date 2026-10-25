@@ -1,7 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Character, InvItem } from '../../src/data/index.ts';
 import { LocalStore } from '../../src/services/localStore.ts';
-import type { KillResult } from '../../src/services/store.ts';
+import type { KillResult, TradeOffer } from '../../src/services/store.ts';
+import { CHAR_COLUMNS } from '../../src/services/supabaseStore.ts';
 
 export interface Loaded {
   userId: string;
@@ -18,7 +19,22 @@ export interface ServerDb {
   reportKill(userId: string, charId: string, monster: string): Promise<KillResult>;
   useItem(userId: string, charId: string, invId: string): Promise<string>;
   onDeath(userId: string, charId: string): Promise<Character>;
-  saveState(userId: string, charId: string, s: { hp: number; sp: number; x: number; y: number }): Promise<void>;
+  saveState(userId: string, charId: string, s: SavedState): Promise<void>;
+  trade(a: TradeSide, b: TradeSide): Promise<void>;
+}
+
+export interface SavedState {
+  hp: number;
+  sp: number;
+  map: string;
+  x: number;
+  y: number;
+}
+
+export interface TradeSide {
+  userId: string;
+  charId: string;
+  offer: TradeOffer;
 }
 
 export interface JoinOptions {
@@ -27,8 +43,6 @@ export interface JoinOptions {
   /** dev mode only: the client's own copy of the character */
   dev?: { char: Character; inv: InvItem[] };
 }
-
-const CHAR_COLUMNS = 'id,name,cls,level,exp,zeny,stat_points,str,agi,vit,int,dex,hp,sp,pos_x,pos_y';
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
@@ -72,10 +86,19 @@ export class SupabaseDb implements ServerDb {
     return check(await this.sb.rpc('on_death', { p_user: userId, p_char: charId })) as Character;
   }
 
-  async saveState(userId: string, charId: string, s: { hp: number; sp: number; x: number; y: number }) {
+  async saveState(userId: string, charId: string, s: SavedState) {
     check(
       await this.sb.rpc('save_state', {
-        p_user: userId, p_char: charId, p_hp: Math.round(s.hp), p_sp: Math.round(s.sp), p_x: s.x, p_y: s.y,
+        p_user: userId, p_char: charId, p_hp: Math.round(s.hp), p_sp: Math.round(s.sp), p_map: s.map, p_x: s.x, p_y: s.y,
+      }),
+    );
+  }
+
+  async trade(a: TradeSide, b: TradeSide) {
+    check(
+      await this.sb.rpc('trade_execute', {
+        p_user_a: a.userId, p_char_a: a.charId, p_items_a: a.offer.items, p_zeny_a: a.offer.zeny,
+        p_user_b: b.userId, p_char_b: b.charId, p_items_b: b.offer.items, p_zeny_b: b.offer.zeny,
       }),
     );
   }
@@ -88,7 +111,7 @@ export class SupabaseDb implements ServerDb {
  */
 export class DevDb implements ServerDb {
   readonly name = 'dev (memory, trusts clients)';
-  private store = new LocalStore();
+  private store = new LocalStore(false);
 
   async load(o: JoinOptions): Promise<Loaded> {
     if (!o.dev) throw new Error('dev server expects a dev character');
@@ -113,7 +136,11 @@ export class DevDb implements ServerDb {
     return this.store.onDeath(charId);
   }
 
-  saveState(_u: string, charId: string, s: { hp: number; sp: number; x: number; y: number }) {
-    return this.store.saveState(charId, { hp: s.hp, sp: s.sp, pos_x: s.x, pos_y: s.y });
+  saveState(_u: string, charId: string, s: SavedState) {
+    return this.store.saveState(charId, { hp: s.hp, sp: s.sp, map: s.map, pos_x: s.x, pos_y: s.y });
+  }
+
+  trade(a: TradeSide, b: TradeSide) {
+    return this.store.trade(a.charId, a.offer, b.charId, b.offer);
   }
 }

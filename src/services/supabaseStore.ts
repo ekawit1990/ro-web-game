@@ -1,8 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Character, ClassKey, InvItem, StatKey } from '../data';
-import type { GameStore, KillResult } from './store';
+import type { Appearance, Character, ClassKey, InvItem, StatKey } from '../data';
+import type { GameStore } from './store';
 
-const CHAR_COLUMNS = 'id,name,cls,level,exp,zeny,stat_points,str,agi,vit,int,dex,hp,sp,pos_x,pos_y';
+export const CHAR_COLUMNS =
+  'id,name,cls,level,exp,job_level,job_exp,zeny,stat_points,skill_points,skills,str,agi,vit,int,dex,luk,gender,hair,hair_color,face,hp,sp,map,pos_x,pos_y';
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
@@ -27,8 +28,14 @@ export class SupabaseStore implements GameStore {
     return check(await this.sb.from('characters').select(CHAR_COLUMNS).order('created_at')) as unknown as Character[];
   }
 
-  async createCharacter(name: string, cls: ClassKey) {
-    return clean(check(await this.sb.rpc('create_character', { p_name: name, p_cls: cls })));
+  async createCharacter(name: string, cls: ClassKey, look: Appearance) {
+    return clean(
+      check(
+        await this.sb.rpc('create_character', {
+          p_name: name, p_cls: cls, p_gender: look.gender, p_hair: look.hair, p_hair_color: look.hair_color, p_face: look.face,
+        }),
+      ),
+    );
   }
 
   async deleteCharacter(id: string) {
@@ -45,12 +52,12 @@ export class SupabaseStore implements GameStore {
     ) as InvItem[];
   }
 
-  async reportKill(charId: string, monster: string) {
-    return check(await this.sb.rpc('report_kill', { p_char: charId, p_monster: monster })) as KillResult;
-  }
-
   async allocateStat(charId: string, stat: StatKey) {
     return clean(check(await this.sb.rpc('allocate_stat', { p_char: charId, p_stat: stat })));
+  }
+
+  async learnSkill(charId: string, skill: string) {
+    return clean(check(await this.sb.rpc('learn_skill', { p_char: charId, p_skill: skill })));
   }
 
   async buyItem(charId: string, itemId: string, qty: number) {
@@ -61,24 +68,8 @@ export class SupabaseStore implements GameStore {
     return clean(check(await this.sb.rpc('sell_item', { p_char: charId, p_inv: invId, p_qty: qty })));
   }
 
-  async useItem(charId: string, invId: string) {
-    return check(await this.sb.rpc('use_item', { p_char: charId, p_inv: invId })) as string;
-  }
-
   async setEquipped(charId: string, invId: string, equipped: boolean) {
     check(await this.sb.rpc('set_equipped', { p_char: charId, p_inv: invId, p_equipped: equipped }));
-  }
-
-  async saveState(charId: string, s: { hp: number; sp: number; pos_x: number; pos_y: number }) {
-    check(
-      await this.sb.rpc('save_state', {
-        p_char: charId, p_hp: Math.round(s.hp), p_sp: Math.round(s.sp), p_x: s.pos_x, p_y: s.pos_y,
-      }),
-    );
-  }
-
-  async onDeath(charId: string) {
-    return clean(check(await this.sb.rpc('on_death', { p_char: charId })));
   }
 
   async signOut() {

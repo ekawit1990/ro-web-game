@@ -1,790 +1,871 @@
 import Phaser from 'phaser';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, ITEMS, MAGIC_SP_COST, MONSTERS, MonsterDef, SPAWNS, SpawnDef } from '../data';
-import type { Net, PeerInfo } from '../services/net';
-import { TOWN_SPAWN } from '../services/localStore';
-import { MAP_H, MAP_W, NPCS, TILE, WorldMap, buildMap, findPath, inTown } from './map';
+import { CLASSES, ClassKey, MONSTERS, SKILLS, skillSp } from '../data';
+import { charKey, groundKey, GROUND_VARIANTS, hatKey, makeEffectTextures, monsterKey, objectKey } from './art';
+import { Iso, TH, TW } from './iso';
+import { findPath, GameMap, Npc, walkable } from './maps';
 import type { Session } from './session';
-import { makeTextures } from './textures';
+
+const TILE_PX = 32; // derived.moveSpeed is pixels/second at this tile size (same as the server)
+const MOVE_SEND_MS = 100;
 
 export interface WorldHooks {
-  toast(text: string, kind?: 'good' | 'bad'): void;
   system(text: string): void;
-  openShop(): void;
-  onDeath(): void;
-  chat(name: string, text: string): void;
+  toast(text: string, kind?: 'good' | 'bad'): void;
+  talk(npc: Npc): void;
+  playerMenu(sessionId: string, name: string, x: number, y: number): void;
+  death(dead: boolean): void;
+  targeting(skillName: string | null): void;
 }
 
-/** Shape of the Colyseus room state (see server/src/FieldRoom.ts). */
-interface RemotePlayer { name: string; cls: string; level: number; x: number; y: number; hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean }
+interface RemotePlayer {
+  name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number; head: string;
+  x: number; y: number; hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean; sitting: boolean;
+}
 interface RemoteMonster { key: string; x: number; y: number; hp: number; maxHp: number; dead: boolean }
 interface RemoteState {
-  players: { forEach(cb: (p: RemotePlayer, id: string) => void): void; get(id: string): RemotePlayer | undefined };
-  monsters: { forEach(cb: (m: RemoteMonster, id: string) => void): void };
+  players: { forEach(fn: (p: RemotePlayer, id: string) => void): void; get(id: string): RemotePlayer | undefined };
+  monsters: { forEach(fn: (m: RemoteMonster, id: string) => void): void; get(id: string): RemoteMonster | undefined };
 }
 
+/** Anything drawn standing on the map. x/y are tile coordinates. */
 interface Actor {
+  x: number;
+  y: number;
   sprite: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.Text;
-  x: number; // tile units (float)
-  y: number;
+  shadowDepthBias?: number;
 }
 
-interface Monster extends Actor {
-  uid: number;
-  rid?: string; // id on the game server
-  key: string;
-  def: MonsterDef;
-  spawn: SpawnDef;
-  hp: number;
-  dead: boolean;
-  aggro: boolean;
-  lastAttack: number;
-  wanderAt: number;
-  wanderTo: { x: number; y: number } | null;
-  hpBar: Phaser.GameObjects.Graphics;
-}
-
-interface Npc extends Actor {
+interface PlayerActor extends Actor {
   id: string;
-}
-
-interface Peer extends Actor {
   tx: number;
   ty: number;
-  cls: PeerInfo['cls'];
-  level: number;
+  look: string; // texture key without direction, to notice appearance changes
+  cls: ClassKey;
+  dir: 'f' | 'b';
+  hat?: Phaser.GameObjects.Image;
+  hatId: string;
+  bar: Phaser.GameObjects.Graphics;
+  moving: number;
+  dead: boolean;
+  sitting: boolean;
+  bubble?: Phaser.GameObjects.Container;
 }
 
-type Target = { kind: 'monster'; m: Monster } | { kind: 'npc'; n: Npc } | null;
+interface MonsterActor extends Actor {
+  id: string;
+  key: string;
+  bar: Phaser.GameObjects.Graphics;
+  dead: boolean;
+  hp: number;
+  maxHp: number;
+  phase: number;
+}
 
-const px = (t: number) => t * TILE;
+type Target =
+  | { kind: 'monster'; id: string }
+  | { kind: 'npc'; npc: Npc };
+
+interface Footprint { x0: number; y0: number; x1: number; y1: number; depth: number; sx0: number; sx1: number }
 
 export class WorldScene extends Phaser.Scene {
   private session!: Session;
-  private net!: Net;
+  private room!: Room;
+  private map!: GameMap;
   private hooks!: WorldHooks;
-  private map!: WorldMap;
-  private player!: Actor;
+  private iso!: Iso;
+
+  private me!: PlayerActor;
+  private players = new Map<string, PlayerActor>();
+  private monsters = new Map<string, MonsterActor>();
+  private footprints: Footprint[] = [];
   private path: { x: number; y: number }[] = [];
-  private target: Target = null;
+  private target: Target | null = null;
+  private pendingSkill: { id: string; target?: string } | null = null;
+  private targetingSkill: string | null = null;
   private lastAttack = 0;
-  private lastRepath = 0;
-  private lastSent = 0;
-  private sentPos = { x: 0, y: 0 };
+  private lastSend = 0;
+  private sentX = 0;
+  private sentY = 0;
   private dead = false;
-  private monsters: Monster[] = [];
-  private npcs: Npc[] = [];
-  private peers = new Map<string, Peer>();
   private marker!: Phaser.GameObjects.Image;
-  private uidSeq = 0;
-  /** Online: the Colyseus room. Offline: undefined and monsters are simulated here. */
-  private room?: Room;
-  private remoteMonsters = new Map<string, Monster>();
+  private cursorRing!: Phaser.GameObjects.Ellipse;
   private unsubs: (() => void)[] = [];
 
   constructor() {
     super('world');
   }
 
-  init(data: { session: Session; net: Net; hooks: WorldHooks; room?: Room }) {
+  init(data: { session: Session; room: Room; map: GameMap; hooks: WorldHooks; x: number; y: number }) {
     this.session = data.session;
-    this.net = data.net;
-    this.hooks = data.hooks;
     this.room = data.room;
-    this.remoteMonsters = new Map();
-    this.unsubs = [];
-    this.monsters = [];
-    this.npcs = [];
-    this.peers = new Map();
+    this.map = data.map;
+    this.hooks = data.hooks;
+    this.iso = new Iso(this.map.h);
+    this.players.clear();
+    this.monsters.clear();
+    this.footprints = [];
     this.path = [];
     this.target = null;
+    this.pendingSkill = null;
+    this.targetingSkill = null;
     this.dead = false;
+    this.unsubs = [];
+    this.sentX = data.x;
+    this.sentY = data.y;
   }
 
-  create() {
-    if (!this.textures.exists('tiles')) makeTextures(this);
-    this.map = buildMap();
-
-    const tm = this.make.tilemap({ data: this.map.tiles, tileWidth: TILE, tileHeight: TILE });
-    const tileset = tm.addTilesetImage('tiles', 'tiles', TILE, TILE, 0, 0)!;
-    tm.createLayer(0, tileset, 0, 0)!.setDepth(-10);
-
-    for (const t of this.map.trees) {
-      this.add.image(px(t.x + 0.5), px(t.y + 1) + 4, 'tree').setOrigin(0.5, 1).setDepth(px(t.y + 1));
-    }
-
-    for (const n of NPCS) {
-      const sprite = this.add.image(px(n.x + 0.5), px(n.y + 0.5) + 8, `npc_${n.id}`).setOrigin(0.5, 1);
-      sprite.setInteractive({ useHandCursor: true });
-      const npc: Npc = { id: n.id, x: n.x + 0.5, y: n.y + 0.5, sprite, label: this.makeLabel(n.name, '#ffe08a') };
-      sprite.setData('npc', npc);
-      this.map.blocked[n.y][n.x] = true;
-      this.npcs.push(npc);
-    }
+  create(data: { x: number; y: number }) {
+    makeEffectTextures(this);
+    this.drawGround();
+    this.drawObjects();
+    this.drawNpcs();
+    this.drawPortals();
 
     const c = this.session.char;
-    let sx = c.pos_x;
-    let sy = c.pos_y;
-    if (!(sx > 0 && sy > 0 && sx < MAP_W && sy < MAP_H) || this.map.blocked[Math.floor(sy)][Math.floor(sx)]) {
-      sx = TOWN_SPAWN.x;
-      sy = TOWN_SPAWN.y;
-    }
-    this.player = {
-      x: sx,
-      y: sy,
-      sprite: this.add.image(0, 0, `char_${c.cls}`).setOrigin(0.5, 1),
-      label: this.makeLabel(c.name, '#ffffff'),
-    };
+    this.me = this.makePlayer(this.room.sessionId, {
+      name: c.name, cls: c.cls, level: c.level, gender: c.gender, hair: c.hair, hairColor: c.hair_color, face: c.face,
+      head: this.session.equippedOf('head')?.item_id ?? '', x: data.x, y: data.y, hp: 1, maxHp: 1, sp: 0, maxSp: 0,
+      dead: false, sitting: false,
+    });
+    this.me.label.setColor('#fff7c2');
 
-    if (!this.room) for (const s of SPAWNS) for (let i = 0; i < s.count; i++) this.spawnMonster(s);
-    else this.listenRemote(this.room);
+    const size = (this.map.w + this.map.h) * (TW / 2);
+    this.cameras.main.setBounds(-200, -300, size + 400, (this.map.w + this.map.h) * (TH / 2) + 500);
+    this.cameras.main.startFollow(this.me.sprite, true, 0.15, 0.15, 0, 30);
+    this.cameras.main.setBackgroundColor(this.map.safe ? '#33402f' : '#2f4a2a');
 
-    this.marker = this.add.image(0, 0, 'marker').setVisible(false).setDepth(-5);
-
-    const cam = this.cameras.main;
-    cam.setBounds(0, 0, px(MAP_W), px(MAP_H));
-    cam.startFollow(this.player.sprite, true, 0.15, 0.15);
-    cam.setRoundPixels(true);
-    const fitZoom = () => cam.setZoom(this.scale.width < 600 ? 0.9 : 1.15);
-    fitZoom();
-    this.scale.on('resize', fitZoom);
-
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => this.onClick(p, over));
-
-    if (!this.room) {
-      this.time.addEvent({ delay: 2000, loop: true, callback: () => this.regen() });
-      this.time.addEvent({ delay: 10000, loop: true, callback: () => this.save() });
-    }
-
+    this.marker = this.add.image(0, 0, 'marker').setVisible(false).setDepth(1);
+    this.cursorRing = this.add.ellipse(0, 0, 60, 26).setStrokeStyle(2, 0xff5a5a).setVisible(false).setDepth(2);
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+      if (p.rightButtonDown()) return this.cancelTargeting();
+      if (over.length) return; // handled by the object itself
+      this.clickGround(p.worldX, p.worldY);
+    });
+    this.input.mouse?.disableContextMenu();
+    this.listen();
     this.events.once('shutdown', () => {
-      this.scale.off('resize', fitZoom);
       this.unsubs.forEach((u) => u());
-      if (!this.room) this.save();
-      this.net.leave();
+      this.unsubs = [];
     });
-    this.syncActor(this.player);
   }
 
-  // ------------------------------------------------------------ public API (HUD, network)
+  // ------------------------------------------------------------ static map
 
-  addPeer(p: PeerInfo) {
-    if (this.peers.has(p.id)) return;
-    const peer: Peer = {
-      x: p.x, y: p.y, tx: p.x, ty: p.y, cls: p.cls, level: p.level,
-      sprite: this.add.image(0, 0, `char_${p.cls}`).setOrigin(0.5, 1).setAlpha(0.95),
-      label: this.makeLabel(`${p.name} Lv${p.level}`, '#9fd3ff'),
+  private drawGround() {
+    const W = (this.map.w + this.map.h) * (TW / 2);
+    const H = (this.map.w + this.map.h) * (TH / 2) + TH;
+    const rt = this.add.renderTexture(0, 0, W, H).setOrigin(0, 0).setDepth(-100000);
+    rt.beginDraw();
+    for (let y = 0; y < this.map.h; y++) {
+      for (let x = 0; x < this.map.w; x++) {
+        const s = this.iso.toScreen(x, y);
+        const key = groundKey(this, this.map.ground[y][x], (x * 7 + y * 13) % GROUND_VARIANTS);
+        rt.batchDraw(key, s.x - TW / 2, s.y);
+      }
+    }
+    rt.endDraw();
+  }
+
+  private drawObjects() {
+    this.map.objects.forEach((o, i) => {
+      const [key, ox, oy] = objectKey(this, o, i);
+      let fx: number; // footprint
+      let fy: number;
+      let fw = 1;
+      let fh = 1;
+      let ax: number; // anchor in tile coords
+      let ay: number;
+      if (o.kind === 'building') {
+        [fx, fy, fw, fh] = [o.x, o.y, o.w, o.h];
+        [ax, ay] = [o.x + o.w, o.y + o.h];
+      } else if (o.kind === 'stall') {
+        [fx, fy, fw, fh] = [o.x, o.y, 2, 2];
+        [ax, ay] = [o.x + 2, o.y + 2];
+      } else if (o.kind === 'fountain') {
+        [fx, fy, fw, fh] = [Math.floor(o.x), Math.floor(o.y), 4, 4];
+        [ax, ay] = [fx + 2, fy + 2];
+      } else {
+        [fx, fy] = [o.x, o.y];
+        [ax, ay] = [o.x + 0.5, o.y + 0.5];
+      }
+      const s = this.iso.toScreen(ax, ay);
+      const front = this.iso.toScreen(fx + fw, fy + fh);
+      const img = this.add.image(s.x, s.y, key).setOrigin(ox, oy).setDepth(front.y);
+      if (fw * fh > 1) {
+        const l = this.iso.toScreen(fx, fy + fh);
+        const r = this.iso.toScreen(fx + fw, fy);
+        this.footprints.push({ x0: fx, y0: fy, x1: fx + fw, y1: fy + fh, depth: front.y, sx0: l.x - 30, sx1: r.x + 30 });
+      }
+      if (o.kind === 'tree') {
+        this.tweens.add({ targets: img, angle: { from: -1, to: 1 }, duration: 2200 + (i % 7) * 200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      }
+    });
+  }
+
+  private drawNpcs() {
+    for (const n of this.map.npcs) {
+      const s = this.iso.toScreen(n.x + 0.5, n.y + 0.5);
+      const img = this.add.image(s.x, s.y, charKey(this, n.look, 'f')).setOrigin(0.5, 0.95).setDepth(s.y);
+      img.setInteractive({ useHandCursor: true, pixelPerfect: false });
+      img.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        if (p.rightButtonDown()) return;
+        this.cancelTargeting();
+        this.target = { kind: 'npc', npc: n };
+        this.walkNear(n.x + 0.5, n.y + 0.5, 1.5);
+      });
+      this.add.text(s.x, s.y + 4, n.name, nameStyle('#9fe3ff')).setOrigin(0.5, 0).setDepth(900000);
+      this.tweens.add({ targets: img, scaleY: 1.02, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
+  }
+
+  private drawPortals() {
+    for (const p of this.map.portals) {
+      const s = this.iso.toScreen(p.x + 0.5, p.y + 0.5);
+      const img = this.add.image(s.x, s.y, 'portal').setDepth(s.y - 40).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({ targets: img, scale: { from: 0.9, to: 1.1 }, alpha: { from: 0.7, to: 1 }, duration: 900, yoyo: true, repeat: -1 });
+      this.add.text(s.x, s.y - 34, `➜ ${p.label}`, nameStyle('#c8f0ff')).setOrigin(0.5).setDepth(900000);
+      const spark = this.add.particles(s.x, s.y, 'spark', {
+        lifespan: 900, speedY: { min: -60, max: -20 }, speedX: { min: -12, max: 12 }, scale: { start: 0.5, end: 0 },
+        quantity: 1, frequency: 120, blendMode: 'ADD', emitZone: { type: 'random', source: new Phaser.Geom.Ellipse(0, 0, 60, 26) } as never,
+      });
+      spark.setDepth(s.y + 1);
+    }
+  }
+
+  // ------------------------------------------------------------ actors
+
+  private makePlayer(id: string, rp: RemotePlayer): PlayerActor {
+    const look = { cls: rp.cls as ClassKey, gender: rp.gender as 'm' | 'f', hair: rp.hair, hair_color: rp.hairColor, face: rp.face };
+    const s = this.iso.toScreen(rp.x, rp.y);
+    const sprite = this.add.image(s.x, s.y, charKey(this, look, 'f')).setOrigin(0.5, 0.95);
+    const label = this.add.text(s.x, s.y + 4, `${rp.name}`, nameStyle('#ffffff')).setOrigin(0.5, 0).setDepth(900000);
+    const actor: PlayerActor = {
+      id, x: rp.x, y: rp.y, tx: rp.x, ty: rp.y, sprite, label, look: lookKey(rp), cls: rp.cls as ClassKey, dir: 'f',
+      hatId: '', bar: this.add.graphics().setDepth(900001), moving: 0, dead: rp.dead, sitting: rp.sitting,
     };
-    this.peers.set(p.id, peer);
-    this.syncActor(peer);
+    if (id !== this.room.sessionId) {
+      sprite.setInteractive({ useHandCursor: true });
+      sprite.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        if (this.targetingSkill && SKILLS[this.targetingSkill].type === 'heal_target') return this.castAt(this.targetingSkill, id);
+        const cam = this.cameras.main;
+        this.hooks.playerMenu(id, rp.name, (sprite.x - cam.worldView.x) * cam.zoom, (sprite.y - 70 - cam.worldView.y) * cam.zoom);
+        p.event.stopPropagation();
+      });
+    } else {
+      sprite.setInteractive();
+      sprite.on('pointerdown', () => {
+        if (this.targetingSkill && SKILLS[this.targetingSkill].type === 'heal_target') this.castAt(this.targetingSkill, id);
+      });
+    }
+    this.setHat(actor, rp.head);
+    this.players.set(id, actor);
+    return actor;
   }
 
-  removePeer(id: string) {
-    const p = this.peers.get(id);
-    if (!p) return;
-    p.sprite.destroy();
-    p.label.destroy();
-    this.peers.delete(id);
+  private setHat(a: PlayerActor, item: string) {
+    if (a.hatId === item) return;
+    a.hatId = item;
+    a.hat?.destroy();
+    a.hat = undefined;
+    const key = item ? hatKey(this, item) : null;
+    if (key) a.hat = this.add.image(a.sprite.x, a.sprite.y, key).setOrigin(0.5, 0.95);
   }
 
-  movePeer(id: string, x: number, y: number) {
-    const p = this.peers.get(id);
-    if (!p) return;
-    p.tx = x;
-    p.ty = y;
-  }
-
-  bubble(name: string, text: string) {
-    let actor: Actor | undefined;
-    if (name === this.session.char.name) actor = this.player;
-    else actor = [...this.peers.values()].find((p) => p.label.text.startsWith(`${name} Lv`));
-    if (!actor) return;
-    const t = this.add
-      .text(actor.sprite.x, actor.sprite.y - 64, text, {
-        fontFamily: 'Kanit, sans-serif', fontSize: '13px', color: '#222', backgroundColor: '#ffffffee',
-        padding: { x: 6, y: 3 }, wordWrap: { width: 180 },
-      })
-      .setOrigin(0.5, 1)
-      .setDepth(100000);
-    const follow = this.time.addEvent({ delay: 16, loop: true, callback: () => t.setPosition(actor!.sprite.x, actor!.sprite.y - 64) });
-    this.time.delayedCall(4500, () => {
-      follow.remove();
-      t.destroy();
+  private makeMonster(id: string, rm: RemoteMonster): MonsterActor {
+    const def = MONSTERS[rm.key];
+    const key = monsterKey(this, rm.key);
+    const tex = this.textures.get(key).getSourceImage() as HTMLCanvasElement;
+    const s = this.iso.toScreen(rm.x, rm.y);
+    const sprite = this.add.image(s.x, s.y, key).setOrigin(0.5, (tex.height - 5) / tex.height);
+    sprite.setInteractive({ useHandCursor: true });
+    sprite.on('pointerover', () => this.cursorRing.setVisible(true).setPosition(sprite.x, sprite.y).setSize(tex.width, tex.width * 0.42));
+    sprite.on('pointerout', () => this.cursorRing.setVisible(false));
+    sprite.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (p.rightButtonDown()) return;
+      if (this.targetingSkill) return this.castAt(this.targetingSkill, id);
+      this.target = { kind: 'monster', id };
+      this.path = [];
     });
+    const label = this.add
+      .text(s.x, s.y + 4, def.boss ? `★ ${def.name} Lv${def.level}` : def.name, nameStyle(def.boss ? '#ffd54a' : '#ffdede'))
+      .setOrigin(0.5, 0)
+      .setDepth(900000)
+      .setVisible(!!def.boss);
+    sprite.on('pointerover', () => label.setVisible(true));
+    sprite.on('pointerout', () => label.setVisible(!!def.boss));
+    const m: MonsterActor = {
+      id, key: rm.key, x: rm.x, y: rm.y, sprite, label, bar: this.add.graphics().setDepth(900001), dead: rm.dead, hp: rm.hp,
+      maxHp: rm.maxHp, phase: Math.random() * 6,
+    };
+    if (rm.dead) sprite.setVisible(false).disableInteractive();
+    this.monsters.set(id, m);
+    return m;
   }
 
-  respawn() {
-    this.dead = false;
-    this.player.x = TOWN_SPAWN.x;
-    this.player.y = TOWN_SPAWN.y;
-    this.player.sprite.setAlpha(1).setAngle(0);
-    this.path = [];
-    this.target = null;
-    this.monsters.forEach((m) => (m.aggro = false));
-    this.syncActor(this.player);
-    this.net.sendMove(this.player.x, this.player.y);
-  }
-
-  playerTile() {
-    return { x: this.player.x, y: this.player.y };
+  /** Position + depth. Characters standing in front of a big object must draw over it. */
+  private place(a: Actor, lift = 0) {
+    const s = this.iso.toScreen(a.x, a.y);
+    a.sprite.setPosition(s.x, s.y - lift);
+    let depth = s.y;
+    for (const f of this.footprints) {
+      if (s.x < f.sx0 || s.x > f.sx1 || depth > f.depth) continue;
+      if (a.x >= f.x1 || a.y >= f.y1) depth = Math.max(depth, f.depth + 1 + s.y * 0.001);
+    }
+    a.sprite.setDepth(depth);
+    a.label.setPosition(s.x, s.y + 4);
+    return s;
   }
 
   // ------------------------------------------------------------ input
 
-  private onClick(p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) {
+  private clickGround(sx: number, sy: number) {
     if (this.dead) return;
-    const hit = over.find((o) => o.getData('monster') || o.getData('npc'));
-    if (hit?.getData('monster')) {
-      const m = hit.getData('monster') as Monster;
-      if (!m.dead) this.target = { kind: 'monster', m };
-      this.lastRepath = 0;
-      return;
+    if (this.targetingSkill) {
+      if (SKILLS[this.targetingSkill].type === 'heal_target') return this.castAt(this.targetingSkill, this.room.sessionId);
+      return this.cancelTargeting();
     }
-    if (hit?.getData('npc')) {
-      this.target = { kind: 'npc', n: hit.getData('npc') as Npc };
-      this.lastRepath = 0;
-      return;
-    }
+    const w = this.iso.toWorld(sx, sy);
     this.target = null;
-    const tx = Math.floor(p.worldX / TILE);
-    const ty = Math.floor(p.worldY / TILE);
-    this.walkTo(tx, ty);
-    this.marker.setPosition(px(tx + 0.5), px(ty + 0.5)).setVisible(true);
+    this.pendingSkill = null;
+    this.walkTo(w.x, w.y);
   }
 
-  private walkTo(tx: number, ty: number): boolean {
-    const path = findPath(this.map, Math.floor(this.player.x), Math.floor(this.player.y), tx, ty);
-    if (!path) return false;
-    this.path = path;
-    return true;
-  }
-
-  /** Walk to the closest free tile next to (x, y). */
-  private approach(x: number, y: number) {
-    const fx = Math.floor(x);
-    const fy = Math.floor(y);
-    const cands: [number, number][] = [];
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) cands.push([fx + dx, fy + dy]);
-    cands.sort((a, b) => Phaser.Math.Distance.Between(a[0], a[1], this.player.x, this.player.y) -
-      Phaser.Math.Distance.Between(b[0], b[1], this.player.x, this.player.y));
-    for (const [cx, cy] of cands) if (this.walkTo(cx, cy)) return;
-    this.walkTo(fx, fy);
-  }
-
-  // ------------------------------------------------------------ loop
-
-  update(time: number, delta: number) {
-    const dt = Math.min(delta, 100) / 1000;
-    if (this.room) this.syncRemote(dt);
-    if (!this.dead) this.updatePlayer(time, dt);
-    if (!this.room) for (const m of this.monsters) this.updateMonster(m, time, dt);
-    for (const p of this.peers.values()) {
-      p.x += (p.tx - p.x) * Math.min(1, dt * 8);
-      p.y += (p.ty - p.y) * Math.min(1, dt * 8);
-      this.syncActor(p);
-    }
-    if (time - this.lastSent > 120 && (this.player.x !== this.sentPos.x || this.player.y !== this.sentPos.y)) {
-      this.lastSent = time;
-      this.sentPos = { x: this.player.x, y: this.player.y };
-      const x = +this.player.x.toFixed(2);
-      const y = +this.player.y.toFixed(2);
-      if (this.room) this.room.send('move', { x, y });
-      else this.net.sendMove(x, y);
-    }
-  }
-
-  private updatePlayer(time: number, dt: number) {
-    const t = this.target;
-    if (t?.kind === 'monster' && t.m.dead) this.target = null;
-
-    if (t?.kind === 'monster' && !t.m.dead) {
-      const m = t.m;
-      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y);
-      const range = CLASSES[this.session.char.cls].range + m.def.size * 0.3;
-      if (d > range) {
-        if (time - this.lastRepath > 350 || !this.path.length) {
-          this.lastRepath = time;
-          this.approach(m.x, m.y);
-        }
-      } else {
-        this.path = [];
-        this.face(m.x);
-        if (time - this.lastAttack >= this.session.derived.attackDelay) {
-          this.lastAttack = time;
-          if (this.room) {
-            this.room.send('attack', { id: m.rid });
-            this.lunge(this.player, m.x);
-          } else this.attack(m);
-        }
-      }
-    } else if (t?.kind === 'npc') {
-      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, t.n.x, t.n.y);
-      if (d <= 1.6) {
-        this.path = [];
-        this.target = null;
-        this.face(t.n.x);
-        this.talk(t.n);
-      } else if (time - this.lastRepath > 500 || !this.path.length) {
-        this.lastRepath = time;
-        this.approach(t.n.x, t.n.y);
-      }
-    }
-
-    if (this.path.length) {
-      const next = this.path[0];
-      const speed = this.session.derived.moveSpeed / TILE;
-      const dx = next.x - this.player.x;
-      const dy = next.y - this.player.y;
-      const dist = Math.hypot(dx, dy);
-      const step = speed * dt;
-      if (dist <= step) {
-        this.player.x = next.x;
-        this.player.y = next.y;
-        this.path.shift();
-        if (!this.path.length) this.marker.setVisible(false);
-      } else {
-        this.player.x += (dx / dist) * step;
-        this.player.y += (dy / dist) * step;
-      }
-      if (Math.abs(dx) > 0.01) this.face(next.x);
-    }
-    this.syncActor(this.player);
-    if (this.path.length) this.player.sprite.y -= Math.abs(Math.sin(time / 70)) * 3;
-  }
-
-  private face(x: number) {
-    this.player.sprite.setFlipX(x < this.player.x);
-  }
-
-  private updateMonster(m: Monster, time: number, dt: number) {
-    if (m.dead) return;
-    const d = Phaser.Math.Distance.Between(m.x, m.y, this.player.x, this.player.y);
-    const home = { x: (m.spawn.area[0] + m.spawn.area[2]) / 2, y: (m.spawn.area[1] + m.spawn.area[3]) / 2 };
-    const playerSafe = this.dead || inTown(this.player.x, this.player.y);
-
-    if (!playerSafe && !m.aggro && m.def.aggressive && d < 5) m.aggro = true;
-    if (m.aggro && (playerSafe || Phaser.Math.Distance.Between(m.x, m.y, home.x, home.y) > 16)) m.aggro = false;
-
-    let goal: { x: number; y: number } | null = null;
-    let speed = m.def.speed / TILE;
-    if (m.aggro) {
-      const reach = 1.0 + m.def.size * 0.35;
-      if (d > reach) goal = { x: this.player.x, y: this.player.y };
-      else if (time - m.lastAttack > 1600) {
-        m.lastAttack = time;
-        this.monsterHit(m);
-      }
-      speed *= 1.3;
-    } else {
-      if (time > m.wanderAt) {
-        m.wanderAt = time + Phaser.Math.Between(2500, 6000);
-        m.wanderTo = Math.random() < 0.6 ? this.randomSpot(m.spawn) : null;
-      }
-      goal = m.wanderTo;
-    }
-
-    if (goal) {
-      const dx = goal.x - m.x;
-      const dy = goal.y - m.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist < 0.1) {
-        m.wanderTo = null;
-      } else {
-        const step = Math.min(dist, speed * dt);
-        const nx = m.x + (dx / dist) * step;
-        const ny = m.y + (dy / dist) * step;
-        if (this.monsterCanStand(nx, ny)) {
-          m.x = nx;
-          m.y = ny;
-        } else if (this.monsterCanStand(nx, m.y)) m.x = nx;
-        else if (this.monsterCanStand(m.x, ny)) m.y = ny;
-        else m.wanderTo = null;
-        m.sprite.setFlipX(dx < 0);
-      }
-    }
-    this.syncActor(m);
-    if (goal) m.sprite.setScale(1, 1 + Math.sin(time / 120 + m.uid) * 0.05);
-    this.drawHpBar(m);
-  }
-
-  private monsterCanStand(x: number, y: number) {
+  private walkTo(x: number, y: number) {
     const tx = Math.floor(x);
     const ty = Math.floor(y);
-    return tx > 0 && ty > 0 && tx < MAP_W - 1 && ty < MAP_H - 1 && !this.map.blocked[ty][tx] && !inTown(x, y);
+    if (!walkable(this.map, tx + 0.5, ty + 0.5)) return;
+    const p = findPath(this.map, Math.floor(this.me.x), Math.floor(this.me.y), tx, ty);
+    if (!p) return;
+    if (p.length) p[p.length - 1] = { x, y };
+    this.path = p;
+    const s = this.iso.toScreen(tx + 0.5, ty + 0.5);
+    this.marker.setPosition(s.x, s.y).setVisible(true).setAlpha(1);
+    this.tweens.add({ targets: this.marker, alpha: 0, duration: 800 });
   }
 
-  // ------------------------------------------------------------ combat
-
-  private attack(m: Monster) {
-    const s = this.session;
-    const cls = CLASSES[s.char.cls];
-    const projectile = cls.projectile;
-    let dmg: number;
-    if (cls.attackType === 'magic' && s.sp >= MAGIC_SP_COST) {
-      s.sp -= MAGIC_SP_COST;
-      s.emit();
-      dmg = s.derived.matk * Phaser.Math.FloatBetween(0.95, 1.15) - m.def.def / 2;
-    } else {
-      dmg = s.derived.atk * Phaser.Math.FloatBetween(0.9, 1.1) - m.def.def;
-    }
-    const crit = Math.random() < 0.05 + s.char.dex * 0.003;
-    if (crit) dmg *= 1.5;
-    const amount = Math.max(1, Math.round(dmg));
-
-    const land = () => {
-      if (m.dead) return;
-      m.hp -= amount;
-      m.aggro = true;
-      this.floatText(m.sprite.x, m.sprite.y - m.sprite.height, crit ? `${amount}!` : `${amount}`, crit ? '#ffef5a' : '#ffffff');
-      this.tweens.add({ targets: m.sprite, alpha: 0.4, duration: 60, yoyo: true });
-      if (m.hp <= 0) this.killMonster(m);
-    };
-
-    this.lunge(this.player, m.x);
-    this.shoot(this.player, m, projectile, land);
-  }
-
-  /** a small lunge so every attack reads clearly */
-  private lunge(a: Actor, towardX: number) {
-    this.tweens.add({ targets: a.sprite, x: a.sprite.x + (towardX < a.x ? -5 : 5), duration: 70, yoyo: true });
-  }
-
-  /** Attack visual from an attacker to a monster; `land` runs when it hits. */
-  private shoot(from_: Actor, m: Monster, projectile: string | null, land: () => void) {
-    if (!projectile) {
-      this.slash(m);
-      land();
+  /** Walk to the closest free tile around a point. */
+  private walkNear(x: number, y: number, range: number) {
+    if (Math.hypot(this.me.x - x, this.me.y - y) <= range) {
+      this.path = [];
       return;
     }
-    const from = { x: from_.sprite.x, y: from_.sprite.y - 24 };
-    const to = { x: m.sprite.x, y: m.sprite.y - m.sprite.height / 2 };
-    const p = this.add.image(from.x, from.y, projectile).setDepth(99999);
-    if (projectile === 'wave') p.setRotation(Phaser.Math.Angle.Between(from.x, from.y, to.x, to.y));
-    else this.tweens.add({ targets: p, scale: 1.3, duration: 120, yoyo: true, repeat: -1 });
+    let best: { x: number; y: number } | null = null;
+    let bestD = Infinity;
+    const r = Math.ceil(range);
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const nx = Math.floor(x) + dx + 0.5;
+        const ny = Math.floor(y) + dy + 0.5;
+        if (Math.hypot(nx - x, ny - y) > range || !walkable(this.map, nx, ny)) continue;
+        const d = Math.hypot(nx - this.me.x, ny - this.me.y);
+        if (d < bestD) {
+          bestD = d;
+          best = { x: nx, y: ny };
+        }
+      }
+    }
+    if (best) {
+      const p = findPath(this.map, Math.floor(this.me.x), Math.floor(this.me.y), Math.floor(best.x), Math.floor(best.y));
+      if (p) this.path = p;
+    }
+  }
+
+  /** Called by hotkeys and the skill window. */
+  useSkill(id: string) {
+    const skill = SKILLS[id];
+    const lv = this.session.char.skills?.[id] ?? 0;
+    if (!skill || !lv || skill.type === 'passive' || this.dead) return;
+    if (this.session.sp < skillSp(skill, lv)) return this.hooks.toast('SP ไม่พอ', 'bad');
+    if (skill.type === 'single' || skill.type === 'aoe') {
+      const t = this.target?.kind === 'monster' ? this.monsters.get(this.target.id) : undefined;
+      if (t && !t.dead) return this.castAt(id, t.id);
+      this.targetingSkill = id;
+      this.hooks.targeting(skill.name);
+      this.input.setDefaultCursor('crosshair');
+    } else if (skill.type === 'heal_target') {
+      if (this.targetingSkill === id) return this.castAt(id, this.room.sessionId); // press twice = self
+      this.targetingSkill = id;
+      this.hooks.targeting(skill.name);
+      this.input.setDefaultCursor('crosshair');
+    } else {
+      this.room.send('skill', { id });
+    }
+  }
+
+  private castAt(id: string, target: string) {
+    this.cancelTargeting();
+    this.pendingSkill = { id, target };
+    if (SKILLS[id].type !== 'heal_target') this.target = { kind: 'monster', id: target };
+  }
+
+  cancelTargeting() {
+    if (!this.targetingSkill) return;
+    this.targetingSkill = null;
+    this.hooks.targeting(null);
+    this.input.setDefaultCursor('default');
+  }
+
+  toggleSit() {
+    if (!this.dead) this.room.send('sit'); // moving stands up again on the server
+  }
+
+  // ------------------------------------------------------------ server messages
+
+  private listen() {
+    const on = (type: string, fn: (msg: any) => void) => this.unsubs.push(this.room.onMessage(type, fn));
+    on('hit', (msg: { by: string; m: string; dmg: number; crit: boolean }) => {
+      const m = this.monsters.get(msg.m);
+      const a = this.players.get(msg.by);
+      if (!m) return;
+      const land = () => {
+        if (msg.dmg === 0) this.missText(m.sprite.x, m.sprite.y - m.sprite.displayHeight * 0.8);
+        else this.damageText(m.sprite.x, m.sprite.y - m.sprite.displayHeight * 0.8, msg.dmg, msg.crit ? 'crit' : a === this.me ? 'deal' : 'other');
+        if (msg.dmg) this.flash(m.sprite);
+      };
+      if (a) {
+        this.face(a, m.x, m.y);
+        this.attackFx(a, m, land);
+      } else land();
+    });
+    on('mhit', (msg: { m: string; to: string; dmg: number }) => {
+      const v = this.players.get(msg.to);
+      const m = this.monsters.get(msg.m);
+      if (m) this.tweens.add({ targets: m.sprite, scaleX: 1.15, scaleY: 0.9, duration: 80, yoyo: true });
+      if (!v) return;
+      if (msg.dmg === 0) this.missText(v.sprite.x, v.sprite.y - 70);
+      else {
+        this.damageText(v.sprite.x, v.sprite.y - 70, msg.dmg, 'take');
+        this.flash(v.sprite, 0xff3333);
+      }
+      if (v === this.me && m && !m.dead && !this.target && !this.path.length) this.target = { kind: 'monster', id: m.id };
+    });
+    on('skill', (msg: { by: string; skill: string; x: number; y: number; target?: string; hits: { m?: string; p?: string; dmg: number }[] }) =>
+      this.skillFx(msg));
+    on('fx', (msg: { kind: string; to: string; item?: string }) => {
+      const a = this.players.get(msg.to);
+      if (!a) return;
+      if (msg.kind === 'potion') this.potionFx(a);
+      if (msg.kind === 'levelup') this.levelFx(a, 'LEVEL UP!', 0xfff27a);
+      if (msg.kind === 'joblevelup') this.levelFx(a, 'JOB LEVEL UP!', 0x9be0ff);
+    });
+    on('correct', (msg: { x: number; y: number }) => {
+      this.me.x = msg.x;
+      this.me.y = msg.y;
+      this.sentX = msg.x;
+      this.sentY = msg.y;
+      this.path = [];
+    });
+    on('healed', () => {
+      this.hooks.toast('ครูเพลง: พักเสียงสักหน่อยนะ (ฟื้น HP/SP เต็ม)', 'good');
+      this.potionFx(this.me, 0x9be0ff);
+    });
+    on('chat', (msg: { id: string; text: string }) => this.bubble(msg.id, msg.text));
+  }
+
+  // ------------------------------------------------------------ frame update
+
+  update(time: number, delta: number) {
+    const state = this.room.state as RemoteState | undefined;
+    if (!state?.players) return;
+    const dt = Math.min(delta, 100) / 1000;
+    this.syncMonsters(state, dt, time);
+    this.syncPlayers(state, dt, time);
+    this.updateMe(state, dt, time);
+  }
+
+  private syncMonsters(state: RemoteState, dt: number, time: number) {
+    const k = Math.min(1, dt * 10);
+    state.monsters.forEach((rm, id) => {
+      const m = this.monsters.get(id) ?? this.makeMonster(id, rm);
+      if (rm.dead && !m.dead) this.killMonster(m);
+      else if (!rm.dead && m.dead) {
+        m.dead = false;
+        m.x = rm.x;
+        m.y = rm.y;
+        m.sprite.setVisible(true).setAlpha(0).setScale(1).setInteractive({ useHandCursor: true });
+        this.tweens.add({ targets: m.sprite, alpha: 1, duration: 400 });
+      }
+      const dx = rm.x - m.x;
+      const dy = rm.y - m.y;
+      const moving = Math.hypot(dx, dy) > 0.02;
+      const sdx = dx - dy; // screen direction
+      if (Math.abs(sdx) > 0.02) m.sprite.setFlipX(sdx > 0);
+      m.x += dx * k;
+      m.y += dy * k;
+      m.hp = rm.hp;
+      m.maxHp = rm.maxHp;
+      if (m.dead) return;
+      const hop = moving ? Math.abs(Math.sin(time / 110 + m.phase)) * 6 : Math.sin(time / 400 + m.phase) * 1.2;
+      this.place(m, hop);
+      m.sprite.setScale(1 + (moving ? 0 : Math.sin(time / 300 + m.phase) * 0.03), 1 - (moving ? 0 : Math.sin(time / 300 + m.phase) * 0.03));
+      this.drawBar(m.bar, m.sprite.x, m.sprite.y + 2, m.hp / m.maxHp, m.hp < m.maxHp, 0xe04848);
+    });
+  }
+
+  private syncPlayers(state: RemoteState, dt: number, time: number) {
+    const seen = new Set<string>();
+    state.players.forEach((rp, id) => {
+      seen.add(id);
+      let a = this.players.get(id);
+      if (a && a.look !== lookKey(rp)) {
+        this.destroyPlayer(a);
+        a = undefined;
+      }
+      if (!a) a = this.makePlayer(id, rp);
+      if (a === this.me) {
+        this.session.setVitals(rp.hp, rp.sp);
+        if (rp.dead !== this.dead) {
+          this.dead = rp.dead;
+          this.path = [];
+          this.target = null;
+          this.hooks.death(rp.dead);
+        }
+      } else {
+        a.tx = rp.x;
+        a.ty = rp.y;
+        const dx = a.tx - a.x;
+        const dy = a.ty - a.y;
+        const d = Math.hypot(dx, dy);
+        if (d > 4) {
+          a.x = a.tx;
+          a.y = a.ty;
+        } else if (d > 0.01) {
+          const step = Math.min(d, dt * 6.5);
+          this.face(a, a.tx, a.ty);
+          a.x += (dx / d) * step;
+          a.y += (dy / d) * step;
+          a.moving = 0.15;
+        }
+        a.label.setText(rp.name);
+      }
+      a.dead = rp.dead;
+      a.sitting = rp.sitting;
+      this.setHat(a, rp.head);
+      a.moving = Math.max(0, a.moving - dt);
+      this.drawPlayer(a, time, rp);
+    });
+    for (const [id, a] of this.players) if (!seen.has(id) && a !== this.me) {
+      this.destroyPlayer(a);
+      this.players.delete(id);
+    }
+  }
+
+  private drawPlayer(a: PlayerActor, time: number, rp: RemotePlayer) {
+    const look = { cls: a.cls, gender: rp.gender as 'm' | 'f', hair: rp.hair, hair_color: rp.hairColor, face: rp.face };
+    const key = charKey(this, look, a.dir);
+    if (a.sprite.texture.key !== key) a.sprite.setTexture(key);
+    const bob = a.moving > 0 ? Math.abs(Math.sin(time / 90)) * 3 : 0;
+    const s = this.place(a, bob);
+    a.sprite.setAngle(a.dead ? 90 : 0).setAlpha(a.dead ? 0.6 : 1);
+    a.sprite.setScale(1, a.sitting ? 0.82 : 1);
+    if (a.hat) {
+      a.hat.setPosition(a.sprite.x, a.sprite.y).setDepth(a.sprite.depth + 0.01).setFlipX(a.sprite.flipX);
+      a.hat.setAngle(a.sprite.angle).setScale(1, a.sitting ? 0.82 : 1).setVisible(a.dir === 'f' || a.hatId !== 'note_ribbon');
+    }
+    this.drawBar(a.bar, s.x, s.y + 20, rp.hp / Math.max(1, rp.maxHp), true, 0x4cd964, a === this.me ? rp.sp / Math.max(1, rp.maxSp) : -1);
+    a.label.setY(s.y + 26);
+    if (a.bubble) a.bubble.setPosition(s.x, a.sprite.y - 90);
+  }
+
+  private updateMe(state: RemoteState, dt: number, time: number) {
+    const me = this.me;
+    if (this.dead) return;
+    const speed = this.session.derived.moveSpeed / TILE_PX;
+
+    // chase the current target
+    if (this.target?.kind === 'monster') {
+      const m = this.monsters.get(this.target.id);
+      if (!m || m.dead) {
+        this.target = null;
+        this.pendingSkill = null;
+      } else {
+        const skill = this.pendingSkill ? SKILLS[this.pendingSkill.id] : null;
+        const reach = (skill ? skill.range ?? 1 : CLASSES[this.session.char.cls].range) + MONSTERS[m.key].size * 0.3 + 0.3;
+        const d = Math.hypot(m.x - me.x, m.y - me.y);
+        if (d > reach) {
+          if (!this.path.length || time % 400 < 20) this.walkNear(m.x, m.y, Math.max(1, reach - 0.4));
+        } else {
+          this.path = [];
+          this.face(me, m.x, m.y);
+          if (this.pendingSkill) {
+            this.room.send('skill', this.pendingSkill);
+            this.pendingSkill = null;
+            this.lastAttack = time;
+          } else if (time - this.lastAttack >= this.session.derived.attackDelay) {
+            this.lastAttack = time;
+            this.room.send('attack', { id: m.id });
+          }
+        }
+      }
+    } else if (this.pendingSkill) {
+      // heal_target on a player
+      const p = state.players.get(this.pendingSkill.target ?? '');
+      if (!p) this.pendingSkill = null;
+      else {
+        const reach = (SKILLS[this.pendingSkill.id].range ?? 1) + 0.3;
+        if (Math.hypot(p.x - me.x, p.y - me.y) > reach) {
+          if (!this.path.length) this.walkNear(p.x, p.y, Math.max(1, reach - 0.4));
+        } else {
+          this.path = [];
+          this.room.send('skill', this.pendingSkill);
+          this.pendingSkill = null;
+        }
+      }
+    } else if (this.target?.kind === 'npc' && !this.path.length) {
+      const n = this.target.npc;
+      if (Math.hypot(n.x + 0.5 - me.x, n.y + 0.5 - me.y) <= 2.2) {
+        this.face(me, n.x + 0.5, n.y + 0.5);
+        this.target = null;
+        this.hooks.talk(n);
+      } else this.target = null;
+    }
+
+    // follow the path
+    if (this.path.length) {
+      let step = speed * dt;
+      while (step > 0 && this.path.length) {
+        const wp = this.path[0];
+        const dx = wp.x - me.x;
+        const dy = wp.y - me.y;
+        const d = Math.hypot(dx, dy);
+        this.face(me, wp.x, wp.y);
+        if (d <= step) {
+          me.x = wp.x;
+          me.y = wp.y;
+          step -= d;
+          this.path.shift();
+        } else {
+          me.x += (dx / d) * step;
+          me.y += (dy / d) * step;
+          step = 0;
+        }
+      }
+      me.moving = 0.12;
+    }
+    if (time - this.lastSend > MOVE_SEND_MS && (me.x !== this.sentX || me.y !== this.sentY)) {
+      this.lastSend = time;
+      this.sentX = me.x;
+      this.sentY = me.y;
+      this.room.send('move', { x: me.x, y: me.y });
+    }
+
+    // portals
+    for (const p of this.map.portals) {
+      if (Math.hypot(me.x - (p.x + 0.5), me.y - (p.y + 0.5)) < 1.2) {
+        if (!this.warping) {
+          this.warping = true;
+          this.room.send('move', { x: me.x, y: me.y });
+          this.time.delayedCall(120, () => this.room.send('warp'));
+          this.time.delayedCall(3000, () => (this.warping = false));
+        }
+      }
+    }
+  }
+  private warping = false;
+
+  // ------------------------------------------------------------ effects
+
+  private face(a: PlayerActor | Actor, x: number, y: number) {
+    const sdx = (x - a.x) - (y - a.y);
+    const sdy = (x - a.x) + (y - a.y);
+    if (Math.abs(sdx) > 0.05) a.sprite.setFlipX(sdx < 0);
+    if ('dir' in a && Math.abs(sdy) > 0.05) a.dir = sdy < 0 ? 'b' : 'f';
+  }
+
+  private attackFx(a: PlayerActor, m: MonsterActor, land: () => void) {
+    const cls = CLASSES[a.cls];
+    if (!cls.projectile) {
+      // melee: lunge
+      const sx = a.sprite.x;
+      this.tweens.add({ targets: a.sprite, x: sx + (m.sprite.x > sx ? 8 : -8), duration: 70, yoyo: true });
+      this.time.delayedCall(90, land);
+      return;
+    }
+    const p = this.add.image(a.sprite.x, a.sprite.y - 40, cls.projectile).setDepth(900002);
+    if (cls.projectile === 'wave') p.setRotation(Phaser.Math.Angle.Between(p.x, p.y, m.sprite.x, m.sprite.y - 20));
     this.tweens.add({
-      targets: p, x: to.x, y: to.y, duration: Phaser.Math.Distance.Between(from.x, from.y, to.x, to.y) * 1.6,
-      onComplete: () => {
+      targets: p, x: m.sprite.x, y: m.sprite.y - 20, duration: 220, onComplete: () => {
         p.destroy();
         land();
       },
     });
   }
 
-  private slash(m: Monster) {
-    const g = this.add.graphics().setDepth(99999);
-    g.lineStyle(3, 0xffffff, 0.9);
-    const cx = m.sprite.x;
-    const cy = m.sprite.y - m.sprite.height / 2;
-    g.beginPath();
-    g.arc(cx, cy, 16, -2.2, -0.4);
-    g.strokePath();
-    this.tweens.add({ targets: g, alpha: 0, duration: 200, onComplete: () => g.destroy() });
-  }
-
-  private monsterHit(m: Monster) {
-    if (this.dead) return;
-    const s = this.session;
-    const dmg = Math.max(1, Math.round(m.def.atk * Phaser.Math.FloatBetween(0.85, 1.15) - s.derived.def));
-    s.hp = Math.max(0, s.hp - dmg);
-    s.emit();
-    this.floatText(this.player.sprite.x, this.player.sprite.y - 50, `${dmg}`, '#ff6b6b');
-    this.player.sprite.setTintFill(0xff4444);
-    this.time.delayedCall(90, () => this.player.sprite.clearTint());
-    this.tweens.add({ targets: m.sprite, y: m.sprite.y - 6, duration: 80, yoyo: true });
-    if (!this.target && !this.path.length) this.target = { kind: 'monster', m }; // fight back, like RO auto-counter
-    if (s.hp <= 0) this.die();
-  }
-
-  private die() {
-    this.dead = true;
-    this.path = [];
-    this.target = null;
-    this.player.sprite.setAlpha(0.6).setAngle(90);
-    this.monsters.forEach((m) => (m.aggro = false));
-    this.hooks.onDeath();
-  }
-
-  private killMonster(m: Monster) {
-    m.dead = true;
-    m.hpBar.clear();
-    m.label.setVisible(false);
-    m.sprite.disableInteractive();
-    this.tweens.add({ targets: m.sprite, alpha: 0, scaleY: 0.2, duration: 400 });
-    if (this.target?.kind === 'monster' && this.target.m === m) this.target = null;
-
-    this.session.kill(m.key).then(
-      (r) => {
-        const bits = [`+${r.exp} EXP`, `+${r.zeny} z`];
-        this.hooks.toast(`${m.def.name}: ${bits.join('  ')}`, 'good');
-        for (const d of r.drops) this.hooks.toast(`ได้รับ ${ITEMS[d]?.name ?? d}`, 'good');
-        if (r.leveledUp) this.levelUpFx(r.character.level);
-      },
-      (e: Error) => this.hooks.toast(`บันทึกผลไม่ได้: ${e.message}`, 'bad'),
-    );
-
-    this.time.delayedCall((m.spawn.respawnSec ?? 8) * 1000, () => {
-      const spot = this.randomSpot(m.spawn);
-      Object.assign(m, { x: spot.x, y: spot.y, hp: m.def.hp, dead: false, aggro: false });
-      m.sprite.setAlpha(1).setScale(1).setInteractive({ useHandCursor: true });
-      this.syncActor(m);
-      if (m.def.boss) this.hooks.system(`${m.def.name} ปรากฏตัวขึ้นอีกครั้ง!`);
-    });
-  }
-
-  private levelUpFx(level: number, announce = true) {
-    if (announce) {
-      this.hooks.system(`เลเวลอัป! ตอนนี้ Lv ${level} ได้แต้มสเตตัสเพิ่ม`);
-      this.net.updateInfo({ level });
+  private skillFx(msg: { by: string; skill: string; x: number; y: number; target?: string; hits: { m?: string; p?: string; dmg: number }[] }) {
+    const skill = SKILLS[msg.skill];
+    const a = this.players.get(msg.by);
+    if (!skill) return;
+    if (a) {
+      // RO-style skill shout above the caster
+      const t = this.add.text(a.sprite.x, a.sprite.y - 96, `${skill.name}!!`, {
+        fontFamily: 'Kanit, sans-serif', fontSize: '15px', color: '#ffffff', stroke: '#1a3a7a', strokeThickness: 4,
+      }).setOrigin(0.5).setDepth(900010);
+      this.tweens.add({ targets: t, y: t.y - 16, alpha: 0, delay: 600, duration: 500, onComplete: () => t.destroy() });
+      this.face(a, msg.x, msg.y);
     }
-    const ring = this.add.circle(this.player.sprite.x, this.player.sprite.y - 20, 10, 0xfff27a, 0.6).setDepth(99998);
-    this.tweens.add({ targets: ring, radius: 60, alpha: 0, duration: 700, onComplete: () => ring.destroy() });
-    this.floatText(this.player.sprite.x, this.player.sprite.y - 70, 'LEVEL UP!', '#fff27a', 22);
-  }
-
-  // ------------------------------------------------------------ online (Colyseus)
-
-  private listenRemote(room: Room) {
-    const actorOf = (sid: string): Actor | undefined => (sid === room.sessionId ? this.player : this.peers.get(sid));
-    const on = (type: string, fn: (msg: any) => void) => this.unsubs.push(room.onMessage(type, fn));
-
-    on('hit', (msg: { by: string; m: string; dmg: number; crit: boolean }) => {
-      const m = this.remoteMonsters.get(msg.m);
-      const attacker = actorOf(msg.by);
-      if (!m) return;
-      const cls = attacker === this.player ? CLASSES[this.session.char.cls] : CLASSES[(attacker as Peer | undefined)?.cls ?? 'drummer'];
-      const land = () => {
-        this.floatText(m.sprite.x, m.sprite.y - m.sprite.height, msg.crit ? `${msg.dmg}!` : `${msg.dmg}`,
-          msg.crit ? '#ffef5a' : attacker === this.player ? '#ffffff' : '#bcd7ff');
-        this.tweens.add({ targets: m.sprite, alpha: 0.4, duration: 60, yoyo: true });
-      };
-      if (attacker && attacker !== this.player) this.lunge(attacker, m.x);
-      if (attacker) this.shoot(attacker, m, cls.projectile, land);
-      else land();
-    });
-    on('mhit', (msg: { m: string; to: string; dmg: number }) => {
-      const victim = actorOf(msg.to);
-      const m = this.remoteMonsters.get(msg.m);
-      if (m) this.tweens.add({ targets: m.sprite, y: m.sprite.y - 6, duration: 80, yoyo: true });
-      if (!victim) return;
-      this.floatText(victim.sprite.x, victim.sprite.y - 50, `${msg.dmg}`, '#ff6b6b');
-      if (victim === this.player) {
-        this.player.sprite.setTintFill(0xff4444);
-        this.time.delayedCall(90, () => this.player.sprite.clearTint());
-        if (!this.target && !this.path.length && m && !m.dead) this.target = { kind: 'monster', m }; // fight back
+    const s = this.iso.toScreen(msg.x, msg.y);
+    const tint = Phaser.Display.Color.HexStringToColor(CLASSES[skill.cls].color).color;
+    if (skill.type === 'aoe' || skill.type === 'aoe_self' || skill.type === 'heal') {
+      const r = (skill.radius ?? 1) * TW * 0.7;
+      const ring = this.add.ellipse(s.x, s.y, 10, 5, tint, 0.35).setStrokeStyle(3, tint).setDepth(s.y - 1);
+      this.tweens.add({ targets: ring, width: r * 2, height: r, alpha: 0, duration: 650, onComplete: () => ring.destroy() });
+      this.burst(s.x, s.y - 10, tint, 18);
+    } else if (skill.type === 'buff' && a) {
+      this.levelFx(a, '', tint);
+    } else if (skill.type === 'single' && a) {
+      const glyph = CLASSES[skill.cls].projectile ?? 'note';
+      for (let i = 0; i < Math.min(3, skill.hits ?? 1); i++) {
+        const p = this.add.image(a.sprite.x, a.sprite.y - 40, glyph).setDepth(900002).setScale(1.5).setTint(0xffffff);
+        this.tweens.add({ targets: p, x: s.x, y: s.y - 24, delay: i * 90, duration: 200, onComplete: () => p.destroy() });
       }
-    });
-    on('reward', (msg: { monster: string; exp: number; zeny: number; drops: string[]; leveledUp: boolean }) => {
-      this.hooks.toast(`${MONSTERS[msg.monster]?.name ?? msg.monster}: +${msg.exp} EXP  +${msg.zeny} z`, 'good');
-      for (const d of msg.drops) this.hooks.toast(`ได้รับ ${ITEMS[d]?.name ?? d}`, 'good');
-      if (msg.leveledUp) this.levelUpFx(0, false);
-    });
-    on('sync', (msg: { character: Session['char']; inventory: Session['inv'] }) => this.session.applySync(msg.character, msg.inventory));
-    on('correct', (msg: { x: number; y: number }) => {
-      this.player.x = msg.x;
-      this.player.y = msg.y;
-      this.path = [];
-      this.syncActor(this.player);
-    });
-    on('healed', () => {
-      this.hooks.toast('ครูเพลง: พักเสียงหน่อยนะ (ฟื้น HP/SP เต็ม)', 'good');
-      const ring = this.add.circle(this.player.sprite.x, this.player.sprite.y - 20, 8, 0x9be0ff, 0.6).setDepth(99998);
-      this.tweens.add({ targets: ring, radius: 40, alpha: 0, duration: 600, onComplete: () => ring.destroy() });
-    });
-    on('used', (msg: { itemId: string }) => this.hooks.toast(`ใช้ ${ITEMS[msg.itemId]?.name ?? msg.itemId}`));
-    on('chat', (msg: { name: string; text: string }) => {
-      this.hooks.chat(msg.name, msg.text);
-      this.bubble(msg.name, msg.text);
-    });
-    on('system', (msg: { text: string }) => this.hooks.system(msg.text));
-    on('error', (msg: { text: string }) => this.hooks.toast(msg.text, 'bad'));
-  }
-
-  /** Mirror the server state into sprites, once per frame. */
-  private syncRemote(dt: number) {
-    const state = this.room!.state as RemoteState | undefined;
-    if (!state?.players) return;
-    const k = Math.min(1, dt * 10);
-
-    const seenM = new Set<string>();
-    state.monsters.forEach((rm, id) => {
-      seenM.add(id);
-      let m = this.remoteMonsters.get(id);
-      if (!m) {
-        m = this.spawnMonster(SPAWNS.find((s) => s.monster === rm.key)!, { x: rm.x, y: rm.y });
-        m.rid = id;
-        m.dead = rm.dead;
-        m.sprite.setAlpha(rm.dead ? 0 : 1);
-        this.remoteMonsters.set(id, m);
-      }
-      if (rm.dead && !m.dead) this.fadeMonster(m);
-      else if (!rm.dead && m.dead) {
-        m.x = rm.x;
-        m.y = rm.y;
-        this.reviveMonster(m);
-      }
-      if (Math.abs(rm.x - m.x) > 0.01) m.sprite.setFlipX(rm.x < m.x);
-      const moving = Math.hypot(rm.x - m.x, rm.y - m.y) > 0.01;
-      m.x += (rm.x - m.x) * k;
-      m.y += (rm.y - m.y) * k;
-      m.hp = rm.hp;
-      this.syncActor(m);
-      m.sprite.setScale(1, moving ? 1 + Math.sin(this.time.now / 120 + m.uid) * 0.05 : 1);
-      if (!m.dead) this.drawHpBar(m);
-    });
-
-    const seenP = new Set<string>();
-    state.players.forEach((rp, sid) => {
-      if (sid === this.room!.sessionId) {
-        const s = this.session;
-        if (s.hp !== rp.hp || s.sp !== rp.sp) {
-          s.hp = rp.hp;
-          s.sp = rp.sp;
-          s.emit();
+      this.time.delayedCall(220, () => this.burst(s.x, s.y - 24, tint, 10));
+    }
+    msg.hits.forEach((h, i) => {
+      this.time.delayedCall(240 + i * 110, () => {
+        if (h.m) {
+          const m = this.monsters.get(h.m);
+          if (!m) return;
+          this.damageText(m.sprite.x, m.sprite.y - m.sprite.displayHeight * 0.8 - i * 4, h.dmg, msg.by === this.room.sessionId ? 'skill' : 'other');
+          this.flash(m.sprite);
+        } else if (h.p) {
+          const p = this.players.get(h.p);
+          if (p) this.damageText(p.sprite.x, p.sprite.y - 70, -h.dmg, 'heal');
         }
-        if (rp.dead && !this.dead) this.die();
-        else if (!rp.dead && this.dead) this.revive(rp.x, rp.y);
-        return;
-      }
-      seenP.add(sid);
-      if (!this.peers.has(sid)) {
-        this.addPeer({ id: sid, name: rp.name, cls: rp.cls as PeerInfo['cls'], level: rp.level, x: rp.x, y: rp.y });
-      }
-      const peer = this.peers.get(sid)!;
-      if (peer.level !== rp.level) {
-        peer.level = rp.level;
-        peer.label.setText(`${rp.name} Lv${rp.level}`);
-      }
-      if (Math.abs(rp.x - peer.tx) > 0.01) peer.sprite.setFlipX(rp.x < peer.x);
-      peer.tx = rp.x;
-      peer.ty = rp.y;
-      peer.sprite.setAlpha(rp.dead ? 0.5 : 0.95).setAngle(rp.dead ? 90 : 0);
+      });
     });
-    for (const id of [...this.peers.keys()]) if (!seenP.has(id)) this.removePeer(id);
   }
 
-  private fadeMonster(m: Monster) {
+  private burst(x: number, y: number, tint: number, n: number) {
+    const e = this.add.particles(x, y, 'spark', {
+      speed: { min: 60, max: 180 }, lifespan: 450, scale: { start: 0.7, end: 0 }, tint, blendMode: 'ADD', emitting: false,
+    }).setDepth(900003);
+    e.explode(n);
+    this.time.delayedCall(600, () => e.destroy());
+  }
+
+  private potionFx(a: PlayerActor, tint = 0x7dff9a) {
+    for (let i = 0; i < 8; i++) {
+      const p = this.add.image(a.sprite.x + Phaser.Math.Between(-14, 14), a.sprite.y - 10, 'spark')
+        .setTint(tint).setScale(0.5).setBlendMode('ADD').setDepth(900003);
+      this.tweens.add({ targets: p, y: p.y - 60, alpha: 0, delay: i * 40, duration: 600, onComplete: () => p.destroy() });
+    }
+  }
+
+  private levelFx(a: PlayerActor, text: string, tint: number) {
+    const pillar = this.add.rectangle(a.sprite.x, a.sprite.y, 46, 10, tint, 0.45).setOrigin(0.5, 1).setDepth(a.sprite.depth - 0.5)
+      .setBlendMode('ADD');
+    this.tweens.add({ targets: pillar, height: 220, alpha: 0, duration: 1100, onComplete: () => pillar.destroy() });
+    this.burst(a.sprite.x, a.sprite.y - 40, tint, 24);
+    if (!text) return;
+    const t = this.add.text(a.sprite.x, a.sprite.y - 110, text, {
+      fontFamily: 'Georgia, serif', fontSize: '24px', fontStyle: 'bold italic', color: '#fff27a', stroke: '#7a4a00', strokeThickness: 5,
+    }).setOrigin(0.5).setDepth(900010);
+    this.tweens.add({ targets: t, y: t.y - 30, alpha: 0, delay: 900, duration: 700, onComplete: () => t.destroy() });
+  }
+
+  /** RO-style bouncing damage numbers. */
+  private damageText(x: number, y: number, n: number, kind: 'deal' | 'crit' | 'take' | 'skill' | 'other' | 'heal') {
+    const style = {
+      deal: ['#ffffff', '#000000', 22], crit: ['#ffe34a', '#a33000', 30], take: ['#ff4d4d', '#3a0000', 22],
+      skill: ['#fff1a8', '#4a2a00', 26], other: ['#c9dcff', '#0d2350', 18], heal: ['#6dff8a', '#0b3a14', 22],
+    }[kind] as [string, string, number];
+    const t = this.add.text(x, y, kind === 'crit' ? `${n}` : `${n}`, {
+      fontFamily: 'Impact, "Arial Black", sans-serif', fontSize: `${style[2]}px`, color: style[0], stroke: style[1], strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(900020);
+    if (kind === 'crit') {
+      const star = this.add.star(x, y, 10, 18, 34, 0xff9a2a, 0.85).setDepth(900019);
+      this.tweens.add({ targets: star, scale: 1.4, alpha: 0, angle: 30, duration: 400, onComplete: () => star.destroy() });
+    }
+    const dx = Phaser.Math.Between(-30, 30);
+    t.setScale(kind === 'crit' ? 1.6 : 1.2);
+    this.tweens.add({ targets: t, scale: 1, duration: 120 });
+    this.tweens.add({ targets: t, x: x + dx, duration: 900 });
+    this.tweens.add({ targets: t, y: y - 40, duration: 350, ease: 'Quad.out', yoyo: true, hold: 0, onYoyo: () => undefined });
+    this.tweens.add({ targets: t, alpha: 0, delay: 700, duration: 300, onComplete: () => t.destroy() });
+  }
+
+  private missText(x: number, y: number) {
+    const t = this.add.text(x, y, 'Miss', {
+      fontFamily: 'Georgia, serif', fontSize: '18px', fontStyle: 'bold italic', color: '#ffd6d6', stroke: '#5a0000', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(900020);
+    this.tweens.add({ targets: t, y: y - 30, alpha: 0, duration: 800, onComplete: () => t.destroy() });
+  }
+
+  private flash(img: Phaser.GameObjects.Image, color = 0xffffff) {
+    img.setTintFill(color);
+    this.time.delayedCall(70, () => img.clearTint());
+  }
+
+  private killMonster(m: MonsterActor) {
     m.dead = true;
-    m.hpBar.clear();
+    m.bar.clear();
     m.label.setVisible(false);
     m.sprite.disableInteractive();
-    this.tweens.add({ targets: m.sprite, alpha: 0, scaleY: 0.2, duration: 400 });
-    if (this.target?.kind === 'monster' && this.target.m === m) this.target = null;
+    this.cursorRing.setVisible(false);
+    this.tweens.add({ targets: m.sprite, alpha: 0, scaleY: 0.2, duration: 450, onComplete: () => m.sprite.setVisible(false) });
+    if (this.target?.kind === 'monster' && this.target.id === m.id) this.target = null;
   }
 
-  private reviveMonster(m: Monster) {
-    m.dead = false;
-    m.hp = m.def.hp;
-    m.sprite.setAlpha(1).setScale(1).setInteractive({ useHandCursor: true });
-    m.label.setVisible(!!m.def.boss);
-    this.syncActor(m);
+  private destroyPlayer(a: PlayerActor) {
+    a.sprite.destroy();
+    a.label.destroy();
+    a.bar.destroy();
+    a.hat?.destroy();
+    a.bubble?.destroy();
+    this.players.delete(a.id);
   }
 
-  private revive(x: number, y: number) {
-    this.dead = false;
-    this.player.x = x;
-    this.player.y = y;
-    this.player.sprite.setAlpha(1).setAngle(0);
-    this.path = [];
-    this.target = null;
-    this.syncActor(this.player);
+  private drawBar(g: Phaser.GameObjects.Graphics, x: number, y: number, frac: number, visible: boolean, color: number, sp = -1) {
+    g.clear();
+    if (!visible) return;
+    const w = 40;
+    g.fillStyle(0x10141a, 0.85).fillRect(x - w / 2 - 1, y - 1, w + 2, sp >= 0 ? 9 : 6);
+    g.fillStyle(frac < 0.25 ? 0xff3b30 : color, 1).fillRect(x - w / 2, y, w * Math.max(0, Math.min(1, frac)), 4);
+    if (sp >= 0) g.fillStyle(0x3f7fe8, 1).fillRect(x - w / 2, y + 4, w * Math.max(0, Math.min(1, sp)), 3);
   }
 
-  // ------------------------------------------------------------ npcs, regen, save
-
-  private talk(n: Npc) {
-    if (n.id === 'shop') this.hooks.openShop();
-    if (n.id === 'healer' && this.room) {
-      this.room.send('heal');
-    } else if (n.id === 'healer') {
-      const s = this.session;
-      s.hp = s.derived.maxHp;
-      s.sp = s.derived.maxSp;
-      s.emit();
-      this.hooks.toast('ครูเพลง: พักเสียงหน่อยนะ (ฟื้น HP/SP เต็ม)', 'good');
-      const ring = this.add.circle(this.player.sprite.x, this.player.sprite.y - 20, 8, 0x9be0ff, 0.6).setDepth(99998);
-      this.tweens.add({ targets: ring, radius: 40, alpha: 0, duration: 600, onComplete: () => ring.destroy() });
-    }
+  bubble(id: string, text: string) {
+    const a = this.players.get(id);
+    if (!a) return;
+    a.bubble?.destroy();
+    const t = this.add.text(0, 0, text, {
+      fontFamily: 'Kanit, sans-serif', fontSize: '13px', color: '#222', wordWrap: { width: 180 }, align: 'center',
+    }).setOrigin(0.5);
+    const bg = this.add.graphics();
+    const w = t.width + 16;
+    const h = t.height + 8;
+    bg.fillStyle(0xffffff, 0.95).fillRoundedRect(-w / 2, -h / 2, w, h, 6).lineStyle(1, 0x7a8aa0).strokeRoundedRect(-w / 2, -h / 2, w, h, 6);
+    bg.fillStyle(0xffffff, 0.95).fillTriangle(-5, h / 2 - 1, 5, h / 2 - 1, 0, h / 2 + 6);
+    const c = this.add.container(a.sprite.x, a.sprite.y - 90, [bg, t]).setDepth(900030);
+    a.bubble = c;
+    this.time.delayedCall(4500, () => {
+      if (a.bubble === c) a.bubble = undefined;
+      c.destroy();
+    });
   }
 
-  private regen() {
-    if (this.dead) return;
-    const s = this.session;
-    const fighting = this.monsters.some((m) => m.aggro && !m.dead);
-    if (fighting) return;
-    const boost = inTown(this.player.x, this.player.y) ? 4 : 1;
-    s.hp = Math.min(s.derived.maxHp, s.hp + Math.ceil((s.derived.maxHp * 0.01 + s.char.vit / 5) * boost));
-    s.sp = Math.min(s.derived.maxSp, s.sp + Math.ceil((1 + s.char.int / 6) * boost));
-    s.emit();
+  // ------------------------------------------------------------ for the HUD
+
+  /** Positions for the minimap, in tile coordinates. */
+  minimapDots() {
+    const others: { x: number; y: number }[] = [];
+    for (const a of this.players.values()) if (a !== this.me) others.push({ x: a.x, y: a.y });
+    return { me: { x: this.me.x, y: this.me.y }, others };
   }
 
-  private save() {
-    if (this.dead) return;
-    this.session.save(+this.player.x.toFixed(2), +this.player.y.toFixed(2)).catch(() => {});
+  isTargeting() {
+    return !!this.targetingSkill;
   }
 
-  // ------------------------------------------------------------ helpers
-
-  private spawnMonster(spawn: SpawnDef, at?: { x: number; y: number }): Monster {
-    const def = MONSTERS[spawn.monster];
-    const spot = at ?? this.randomSpot(spawn);
-    const sprite = this.add.image(0, 0, `mon_${spawn.monster}`).setOrigin(0.5, 1);
-    sprite.setInteractive({ useHandCursor: true, pixelPerfect: false });
-    const label = this.makeLabel(`${def.name} Lv${def.level}`, def.boss ? '#ff8a8a' : '#ffffff').setVisible(!!def.boss);
-    const m: Monster = {
-      uid: this.uidSeq++, key: spawn.monster, def, spawn, x: spot.x, y: spot.y, sprite, label, hp: def.hp, dead: false,
-      aggro: false, lastAttack: 0, wanderAt: 0, wanderTo: null, hpBar: this.add.graphics(),
-    };
-    sprite.setData('monster', m);
-    if (!def.boss) {
-      sprite.on('pointerover', () => label.setVisible(!m.dead));
-      sprite.on('pointerout', () => label.setVisible(false));
-    }
-    this.monsters.push(m);
-    this.syncActor(m);
-    return m;
-  }
-
-  private randomSpot(s: SpawnDef) {
-    const [x0, y0, x1, y1] = s.area;
-    for (let i = 0; i < 50; i++) {
-      const x = Phaser.Math.FloatBetween(x0, x1);
-      const y = Phaser.Math.FloatBetween(y0, y1);
-      if (this.monsterCanStand(x, y)) return { x: Math.floor(x) + 0.5, y: Math.floor(y) + 0.5 };
-    }
-    return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
-  }
-
-  private syncActor(a: Actor) {
-    const sx = px(a.x);
-    const sy = px(a.y) + 10;
-    a.sprite.setPosition(sx, sy).setDepth(sy);
-    a.label.setPosition(sx, sy + 2).setDepth(sy + 0.5);
-  }
-
-  private drawHpBar(m: Monster) {
-    m.hpBar.clear();
-    if (m.hp >= m.def.hp) return;
-    const w = 32;
-    const x = m.sprite.x - w / 2;
-    const y = m.sprite.y + 15;
-    m.hpBar.setDepth(m.sprite.depth + 0.6);
-    m.hpBar.fillStyle(0x000000, 0.6).fillRect(x - 1, y - 1, w + 2, 6);
-    m.hpBar.fillStyle(0xe0464b).fillRect(x, y, (w * Math.max(0, m.hp)) / m.def.hp, 4);
-  }
-
-  private makeLabel(text: string, color: string) {
-    return this.add
-      .text(0, 0, text, { fontFamily: 'Kanit, sans-serif', fontSize: '12px', color, stroke: '#000', strokeThickness: 3 })
-      .setOrigin(0.5, 0);
-  }
-
-  private floatText(x: number, y: number, text: string, color: string, size = 16) {
-    const t = this.add
-      .text(x, y, text, {
-        fontFamily: 'Kanit, sans-serif', fontSize: `${size}px`, fontStyle: 'bold', color, stroke: '#000', strokeThickness: 4,
-      })
-      .setOrigin(0.5)
-      .setDepth(100001);
-    this.tweens.add({ targets: t, y: y - 36, alpha: 0, duration: 900, ease: 'Cubic.easeOut', onComplete: () => t.destroy() });
-  }
 }
+
+function nameStyle(color: string): Phaser.Types.GameObjects.Text.TextStyle {
+  return { fontFamily: 'Kanit, sans-serif', fontSize: '12px', color, stroke: '#000000', strokeThickness: 3 };
+}
+
+function lookKey(rp: RemotePlayer) {
+  return `${rp.cls}_${rp.gender}_${rp.hair}_${rp.hairColor}_${rp.face}`;
+}
+

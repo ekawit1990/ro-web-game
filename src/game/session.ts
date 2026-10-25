@@ -1,23 +1,28 @@
 import { Character, Derived, ITEMS, InvItem, StatKey, derive } from '../data';
 import type { LocalStore } from '../services/localStore';
-import type { GameStore, KillResult } from '../services/store';
+import type { GameStore } from '../services/store';
 
 type Listener = () => void;
 
-/** Online play: combat actions go to the game server instead of the store. */
+/** Connection to the game server for the current map. */
 export interface ServerLink {
   send(type: string, msg?: unknown): void;
   /** Set when the game server runs without Supabase: it needs our copy after menu changes. */
   devStore?: LocalStore;
 }
 
-/** The playing character: progress from the store plus live HP/SP. */
+/**
+ * The playing character. Progress (level, stats, items) comes from the store and the server's
+ * 'sync' messages; live HP/SP comes from the server's room state.
+ */
 export class Session {
   derived: Derived;
   hp: number;
   sp: number;
-  private listeners: Listener[] = [];
+  /** Active buffs: skill id -> end time (ms, performance.now()). */
+  buffs = new Map<string, number>();
   link?: ServerLink;
+  private listeners: Listener[] = [];
 
   constructor(public store: GameStore, public char: Character, public inv: InvItem[]) {
     this.derived = derive(char, inv);
@@ -27,30 +32,32 @@ export class Session {
 
   onChange(fn: Listener) {
     this.listeners.push(fn);
+    return () => (this.listeners = this.listeners.filter((f) => f !== fn));
   }
 
   emit() {
-    this.derived = derive(this.char, this.inv);
-    this.hp = Math.min(this.hp, this.derived.maxHp);
-    this.sp = Math.min(this.sp, this.derived.maxSp);
     this.listeners.forEach((fn) => fn());
   }
 
-  private setChar(c: Character) {
-    this.char = { ...c, hp: this.char.hp, sp: this.char.sp, pos_x: this.char.pos_x, pos_y: this.char.pos_y };
+  private recompute() {
+    this.derived = derive(this.char, this.inv);
   }
 
-  private async reloadInv() {
-    this.inv = await this.store.loadInventory(this.char.id);
+  /** HP/SP changed on the server. */
+  setVitals(hp: number, sp: number) {
+    if (hp === this.hp && sp === this.sp) return;
+    this.hp = hp;
+    this.sp = sp;
+    this.emit();
   }
 
-  /** Tell the game server that stats/equipment/inventory changed through the menus. */
-  private notifyServer() {
-    if (!this.link) return;
-    this.link.send('refresh', this.link.devStore ? { charId: this.char.id, dev: { char: this.char, inv: this.inv } } : {});
+  /** The server's numbers include buffs, so they win over our own derive(). */
+  applyDerived(d: Derived) {
+    this.derived = d;
+    this.emit();
   }
 
-  /** The game server sent the latest character (after a kill, potion or death). */
+  /** The game server sent the latest character (after a kill, potion, trade or death). */
   applySync(c: Character, inv: InvItem[]) {
     this.char = { ...c };
     this.inv = inv;
@@ -58,90 +65,56 @@ export class Session {
     this.emit();
   }
 
-  async kill(monster: string): Promise<KillResult> {
-    const r = await this.store.reportKill(this.char.id, monster);
-    this.setChar(r.character);
-    if (r.drops.length) await this.reloadInv();
+  /** Tell the game server that stats/skills/equipment/inventory changed through the menus. */
+  private notifyServer() {
+    if (!this.link) return;
+    this.link.send('refresh', this.link.devStore ? { charId: this.char.id, dev: { char: this.char, inv: this.inv } } : {});
+  }
+
+  private async after(c: Character, reloadInv: boolean) {
+    this.char = { ...c, hp: this.char.hp, sp: this.char.sp, map: this.char.map, pos_x: this.char.pos_x, pos_y: this.char.pos_y };
+    if (reloadInv) this.inv = await this.store.loadInventory(this.char.id);
+    this.recompute();
     this.emit();
-    if (r.leveledUp) {
-      // a level up fully restores, like in RO
-      this.hp = this.derived.maxHp;
-      this.sp = this.derived.maxSp;
-      this.emit();
-    }
-    return r;
+    this.notifyServer();
   }
 
   async allocate(stat: StatKey) {
-    this.setChar(await this.store.allocateStat(this.char.id, stat));
-    this.emit();
-    this.notifyServer();
+    await this.after(await this.store.allocateStat(this.char.id, stat), false);
+  }
+
+  async learn(skill: string) {
+    await this.after(await this.store.learnSkill(this.char.id, skill), false);
   }
 
   async buy(itemId: string, qty: number) {
-    this.setChar(await this.store.buyItem(this.char.id, itemId, qty));
-    await this.reloadInv();
-    this.emit();
-    this.notifyServer();
+    await this.after(await this.store.buyItem(this.char.id, itemId, qty), true);
   }
 
   async sell(invId: string, qty: number) {
-    this.setChar(await this.store.sellItem(this.char.id, invId, qty));
-    await this.reloadInv();
-    this.emit();
-    this.notifyServer();
-  }
-
-  /** Online the server applies the heal and answers with 'used'; returns null then. */
-  async use(invId: string) {
-    if (this.link) {
-      this.link.send('useItem', { invId });
-      return null;
-    }
-    const itemId = await this.store.useItem(this.char.id, invId);
-    const item = ITEMS[itemId];
-    this.hp = Math.min(this.derived.maxHp, this.hp + (item.heal ?? 0));
-    this.sp = Math.min(this.derived.maxSp, this.sp + (item.sp ?? 0));
-    await this.reloadInv();
-    this.emit();
-    return item;
+    await this.after(await this.store.sellItem(this.char.id, invId, qty), true);
   }
 
   async setEquipped(invId: string, equipped: boolean) {
     await this.store.setEquipped(this.char.id, invId, equipped);
-    await this.reloadInv();
-    this.emit();
-    this.notifyServer();
+    await this.after(this.char, true);
   }
 
-  /** Best healing potion for the quick-use button. */
-  quickPotion(): InvItem | undefined {
-    return this.inv
-      .filter((i) => ITEMS[i.item_id].type === 'consumable' && ITEMS[i.item_id].heal)
-      .sort((a, b) => (ITEMS[a.item_id].heal ?? 0) - (ITEMS[b.item_id].heal ?? 0))[0];
+  /** The server applies the heal and answers with 'sync'. */
+  use(invId: string) {
+    this.link?.send('useItem', { invId });
   }
 
-  potionCount(): number {
-    return this.inv
-      .filter((i) => ITEMS[i.item_id].type === 'consumable' && ITEMS[i.item_id].heal)
-      .reduce((s, i) => s + i.qty, 0);
+  /** First inventory row holding this item (for hotkeys, which remember item ids). */
+  findItem(itemId: string): InvItem | undefined {
+    return this.inv.find((i) => i.item_id === itemId);
   }
 
-  async die() {
-    if (this.link) {
-      this.link.send('respawn');
-      return;
-    }
-    this.setChar(await this.store.onDeath(this.char.id));
-    this.hp = Math.ceil(this.derived.maxHp / 2);
-    this.sp = Math.ceil(this.derived.maxSp / 2);
-    this.emit();
+  countItem(itemId: string): number {
+    return this.inv.filter((i) => i.item_id === itemId).reduce((s, i) => s + i.qty, 0);
   }
 
-  async save(x: number, y: number) {
-    if (this.link) return; // the server saves online
-    this.char.pos_x = x;
-    this.char.pos_y = y;
-    await this.store.saveState(this.char.id, { hp: this.hp, sp: this.sp, pos_x: x, pos_y: y });
+  equippedOf(type: string): InvItem | undefined {
+    return this.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === type);
   }
 }
