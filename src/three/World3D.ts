@@ -4,7 +4,8 @@ import { CLASSES, ClassKey, MONSTERS, SKILLS, skillSp } from '../data';
 import { findPath, GameMap, Npc, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
-import { animateCharacter, animateMonster, buildCharacter, buildMonster, CharRig, MonsterRig, setHat } from './models';
+import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setHat } from './models';
+import { animateRig, buildVrmCharacter } from './vrm';
 import { buildGround, buildPortal, buildProps } from './props';
 import { glyphTexture, sparkTexture } from './toon';
 
@@ -216,6 +217,7 @@ export class World3D {
       this.hits.push(hit);
       this.animated.push(rig.root);
       rig.root.userData.rig = rig;
+      this.upgradeNpc(rig, { ...n.look }, hit);
       this.staticLabel(`<span class="npc">${escapeHtml(n.name)}</span>`, new THREE.Vector3(n.x + 0.5, 0, n.y + 0.5));
     }
     for (const p of this.map.portals) {
@@ -275,7 +277,33 @@ export class World3D {
       dead: rp.dead, sitting: rp.sitting, hp: rp.hp, maxHp: rp.maxHp, label: this.makeLabel(escapeHtml(rp.name), true, id === this.room.sessionId), hit,
     };
     this.players.set(id, a);
+    this.upgradePlayer(a, look, rp.head);
     return a;
+  }
+
+  /** Swap the built-in character for a VRoid model once it has loaded (if models are configured). */
+  private async upgradePlayer(a: PlayerActor, look: Look, head: string) {
+    const old = a.rig;
+    const v = await buildVrmCharacter(look, head);
+    if (!v || this.ac.signal.aborted || a.rig !== old || this.players.get(a.id) !== a) return;
+    v.root.position.copy(old.root.position);
+    v.root.rotation.y = old.root.rotation.y;
+    v.root.add(a.hit);
+    this.scene.remove(old.root);
+    this.scene.add(v.root);
+    setHat(v, old.hat);
+    a.rig = v;
+  }
+
+  private async upgradeNpc(old: CharRig, look: Look, hit: THREE.Mesh) {
+    const v = await buildVrmCharacter(look);
+    if (!v || this.ac.signal.aborted) return;
+    v.root.position.copy(old.root.position);
+    v.root.add(hit);
+    v.root.userData.rig = v;
+    this.scene.remove(old.root);
+    this.scene.add(v.root);
+    this.animated = this.animated.map((o) => (o === old.root ? v.root : o));
   }
 
   private destroyPlayer(a: PlayerActor) {
@@ -550,7 +578,7 @@ export class World3D {
     for (const o of this.animated) {
       if (o.name === 'flag') o.rotation.y = Math.sin(t * 2 + o.id) * 0.25;
       else if (o.name === 'water') o.position.y = 0.36 + Math.sin(t * 2) * 0.01;
-      else if (o.userData.rig) animateCharacter(o.userData.rig, t + o.id, { moving: false, sitting: false, dead: false, attack: 0 });
+      else if (o.userData.rig) animateRig(o.userData.rig, t + o.id, { moving: false, sitting: false, dead: false, attack: 0 });
       else {
         for (let i = 0; i < 3; i++) {
           const ring = o.getObjectByName(`ring${i}`);
@@ -653,7 +681,7 @@ export class World3D {
       a.moving = Math.max(0, a.moving - dt);
       a.attack = Math.max(0, a.attack - dt * 4);
       a.rig.root.position.set(a.x, 0, a.y);
-      animateCharacter(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack });
+      animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack });
     });
     for (const [id, a] of this.players) {
       if (!seen.has(id) && a !== this.me) this.destroyPlayer(a);

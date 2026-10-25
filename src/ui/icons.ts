@@ -1,6 +1,7 @@
 import { ITEMS } from '../data';
 import * as THREE from 'three';
-import { buildCharacter, type Look } from '../three/models';
+import { buildCharacter, type CharRig, type Look } from '../three/models';
+import { animateRig, buildVrmCharacter } from '../three/vrm';
 
 const cache = new Map<string, string>();
 
@@ -66,8 +67,18 @@ export function itemIcon(id: string): string {
 
 let preview: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null = null;
 
-/** Renders a 3D character (with optional hat) onto a 2D canvas: creator preview, character slots, equipment window. */
+/** Renders a 3D character (with optional hat) onto a 2D canvas: creator preview, character slots, equipment window.
+ *  Draws the built-in character at once, then the VRoid model on top when one is configured. */
 export function drawLook(cv: HTMLCanvasElement, look: Look, dir: 'f' | 'b' | number = 'f', hat?: string) {
+  const token = String(Math.random());
+  cv.dataset.look = token;
+  render(cv, buildCharacter(look, hat), dir);
+  buildVrmCharacter(look, hat).then((rig) => {
+    if (rig && cv.dataset.look === token) render(cv, rig, dir);
+  });
+}
+
+function render(cv: HTMLCanvasElement, rig: CharRig, dir: 'f' | 'b' | number) {
   if (!preview) {
     const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     r.outputColorSpace = THREE.SRGBColorSpace;
@@ -80,8 +91,8 @@ export function drawLook(cv: HTMLCanvasElement, look: Look, dir: 'f' | 'b' | num
     preview = { r, scene, cam };
   }
   const { r, scene, cam } = preview;
-  const rig = buildCharacter(look, hat);
   rig.root.rotation.y = typeof dir === 'number' ? dir : dir === 'b' ? Math.PI : -0.35;
+  animateRig(rig, 0, { moving: false, sitting: false, dead: false, attack: 0 });
   scene.add(rig.root);
   r.setPixelRatio(1);
   r.setSize(cv.width, cv.height, false);
