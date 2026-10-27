@@ -176,7 +176,7 @@ begin
     raise exception 'สร้างได้สูงสุด 3 ตัวละคร';
   end if;
   if exists (select 1 from public.characters where name = p_name) then raise exception 'ชื่อนี้ถูกใช้แล้ว'; end if;
-  if p_gender not in ('m', 'f') or p_hair not between 0 and 5 or p_hair_color not between 0 and 7 or p_face not between 0 and 3 then
+  if p_gender not in ('m', 'f') or p_hair not between 0 and 63 or p_hair_color not between 0 and 7 or p_face not between 0 and 3 then
     raise exception 'หน้าตาไม่ถูกต้อง';
   end if;
   select * into d from public.class_defs where id = p_cls;

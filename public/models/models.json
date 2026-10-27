@@ -1,0 +1,28 @@
+{
+ "m": [
+  "avatar_c.vrm.gz",
+  "avatar_g.vrm.gz",
+  "avatar_n.vrm.gz",
+  "avatar_p.vrm.gz",
+  "avatar_r.vrm.gz",
+  "avatar_v.vrm.gz"
+ ],
+ "f": [
+  "avatar_a.vrm.gz",
+  "avatar_b.vrm.gz",
+  "avatar_d.vrm.gz",
+  "avatar_e.vrm.gz",
+  "avatar_f.vrm.gz",
+  "avatar_h.vrm.gz",
+  "avatar_i.vrm.gz",
+  "avatar_j.vrm.gz",
+  "avatar_k.vrm.gz",
+  "avatar_l.vrm.gz",
+  "avatar_m.vrm.gz",
+  "avatar_o.vrm.gz",
+  "avatar_q.vrm.gz",
+  "avatar_s.vrm.gz",
+  "avatar_u.vrm.gz"
+ ],
+ "tintHair": false
+}

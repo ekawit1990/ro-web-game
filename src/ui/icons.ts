@@ -69,11 +69,11 @@ let preview: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.Perspectiv
 
 /** Renders a 3D character (with optional hat) onto a 2D canvas: creator preview, character slots, equipment window.
  *  Draws the built-in character at once, then the VRoid model on top when one is configured. */
-export function drawLook(cv: HTMLCanvasElement, look: Look, dir: 'f' | 'b' | number = 'f', hat?: string) {
+export function drawLook(cv: HTMLCanvasElement, look: Look, dir: 'f' | 'b' | number = 'f', hat?: string, vrm = true) {
   const token = String(Math.random());
   cv.dataset.look = token;
   render(cv, buildCharacter(look, hat), dir);
-  buildVrmCharacter(look, hat).then((rig) => {
+  if (vrm) buildVrmCharacter(look, hat).then((rig) => {
     if (rig && cv.dataset.look === token) render(cv, rig, dir);
   });
 }

@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { Appearance, CLASSES, CLASS_KEYS, Character, ClassKey, FACES, HAIR_COLORS, HAIR_STYLES } from '../data';
 import type { GameStore } from '../services/store';
 import { drawLook } from './icons';
+import { vrmModelCount } from '../three/vrm';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -138,9 +139,21 @@ function createScreen(store: GameStore): Promise<boolean> {
   msg.textContent = '';
   $<HTMLInputElement>('create-name').value = '';
 
+  // with VRoid models installed, the "hair style" control picks the model instead (and hair colour may not apply)
+  let styles = HAIR_STYLES;
+  let models = false;
+  const countStyles = () =>
+    vrmModelCount(look.gender).then(({ count, tintHair }) => {
+      models = count > 0;
+      styles = models ? count : HAIR_STYLES;
+      look.hair %= styles;
+      $('lbl-hair').textContent = models ? 'แบบตัวละคร' : 'ทรงผม';
+      $('row-color').classList.toggle('hidden', models && !tintHair);
+      $('val-hair').textContent = `${look.hair + 1} / ${styles}`;
+    });
   const draw = () => {
     drawLook(cv, look, dir);
-    $('val-hair').textContent = `${look.hair + 1} / ${HAIR_STYLES}`;
+    $('val-hair').textContent = `${look.hair + 1} / ${styles}`;
     $('val-face').textContent = `${look.face + 1} / ${FACES}`;
     document.querySelectorAll('[data-gender]').forEach((b) => b.classList.toggle('on', (b as HTMLElement).dataset.gender === look.gender));
     document.querySelectorAll('[data-color]').forEach((b) => b.classList.toggle('on', Number((b as HTMLElement).dataset.color) === look.hair_color));
@@ -152,7 +165,7 @@ function createScreen(store: GameStore): Promise<boolean> {
   $('hair-colors').innerHTML = HAIR_COLORS.map((h, i) => `<button type="button" data-color="${i}" style="background:${h}"></button>`).join('');
   $('cls-pick').innerHTML = CLASS_KEYS.map((k) => `<button type="button" data-cls="${k}"><canvas width="44" height="62"></canvas>${CLASSES[k].name}</button>`).join('');
   document.querySelectorAll<HTMLElement>('[data-cls]').forEach((b) => {
-    drawLook(b.querySelector('canvas')!, { ...look, cls: b.dataset.cls as ClassKey }, 'f');
+    drawLook(b.querySelector('canvas')!, { ...look, cls: b.dataset.cls as ClassKey }, 'f', undefined, false); // tiny icons: skip the heavy VRM
   });
 
   const wrap = (v: number, n: number) => (v + n) % n;
@@ -161,21 +174,28 @@ function createScreen(store: GameStore): Promise<boolean> {
       fn(el);
       draw();
     }));
-  bind('[data-gender]', (el) => (look.gender = el.dataset.gender as 'm' | 'f'));
+  bind('[data-gender]', (el) => {
+    look.gender = el.dataset.gender as 'm' | 'f';
+    countStyles().then(draw);
+  });
   bind('[data-color]', (el) => (look.hair_color = Number(el.dataset.color)));
   bind('[data-cls]', (el) => (look.cls = el.dataset.cls as ClassKey));
-  bind('#hair-prev', () => (look.hair = wrap(look.hair - 1, HAIR_STYLES)));
-  bind('#hair-next', () => (look.hair = wrap(look.hair + 1, HAIR_STYLES)));
+  bind('#hair-prev', () => (look.hair = wrap(look.hair - 1, styles)));
+  bind('#hair-next', () => (look.hair = wrap(look.hair + 1, styles)));
   bind('#face-prev', () => (look.face = wrap(look.face - 1, FACES)));
   bind('#face-next', () => (look.face = wrap(look.face + 1, FACES)));
   bind('#btn-turn', () => (dir = dir === 'f' ? 'b' : 'f'));
   bind('#btn-random', () => {
     look.gender = Math.random() < 0.5 ? 'm' : 'f';
-    look.hair = Math.floor(Math.random() * HAIR_STYLES);
+    countStyles().then(() => {
+      look.hair = Math.floor(Math.random() * styles);
+      draw();
+    });
     look.hair_color = Math.floor(Math.random() * HAIR_COLORS.length);
     look.face = Math.floor(Math.random() * FACES);
   });
   draw();
+  countStyles();
 
   return new Promise((resolve) => {
     $<HTMLFormElement>('create-form').onsubmit = async (e) => {

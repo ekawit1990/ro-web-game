@@ -8,7 +8,7 @@ import { mesh, toon } from './toon';
 /**
  * Anime characters made in VRoid Studio (or any VRM 0.x / 1.0 model).
  *
- * Put the .vrm files in `public/models/` and list them in `public/models/models.json`:
+ * Put the .vrm (or gzipped .vrm.gz) files in `public/models/` and list them in `public/models/models.json`:
  *   { "m": ["boy1.vrm", "boy2.vrm"], "f": ["girl1.vrm"], "tintHair": true }
  * The hair-style choice picks a model from the list for that gender (style % list length).
  * Without the file (or if a model fails to load) the game keeps the built-in characters.
@@ -34,6 +34,14 @@ export function vrmCatalog(): Promise<VrmCatalog | null> {
   return catalog;
 }
 
+/** How many VRM models the creator can pick from for a gender (0 = built-in characters). */
+export async function vrmModelCount(gender: 'm' | 'f'): Promise<{ count: number; tintHair: boolean }> {
+  const cat = await vrmCatalog();
+  if (!cat) return { count: 0, tintHair: true };
+  const list = (gender === 'f' ? cat.f : cat.m)?.length ? (gender === 'f' ? cat.f : cat.m) : cat.m?.length ? cat.m : cat.f;
+  return { count: list?.length ?? 0, tintHair: cat.tintHair !== false };
+}
+
 function modelFor(cat: VrmCatalog, look: Look): string | null {
   const list = (look.gender === 'f' ? cat.f : cat.m)?.length ? (look.gender === 'f' ? cat.f : cat.m) : cat.m?.length ? cat.m : cat.f;
   if (!list?.length) return null;
@@ -46,7 +54,7 @@ async function parse(file: string): Promise<VRM> {
     buf = fetch(BASE + file).then((r) => {
       if (!r.ok) throw new Error(`${file}: ${r.status}`);
       return r.arrayBuffer();
-    });
+    }).then(gunzip);
     buffers.set(file, buf);
   }
   const data = await buf;
@@ -55,6 +63,14 @@ async function parse(file: string): Promise<VRM> {
   if (!vrm) throw new Error(`${file} is not a VRM model`);
   VRMUtils.rotateVRM0(vrm); // VRM 0.x faces -Z
   return vrm;
+}
+
+/** `.vrm.gz` files are gzipped (a VRoid model shrinks ~4x); a host may already have decoded them, so check the magic bytes. */
+async function gunzip(buf: ArrayBuffer): Promise<ArrayBuffer> {
+  const head = new Uint8Array(buf, 0, 2);
+  if (head[0] !== 0x1f || head[1] !== 0x8b) return buf;
+  const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).arrayBuffer();
 }
 
 const HEIGHT = 1.55; // world units (tiles) for a VRM character
@@ -104,7 +120,10 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
   const bone = (n: VRMHumanBoneName) => vrm.humanoid.getNormalizedBoneNode(n);
   const g = (o: THREE.Object3D | null) => (o ?? new THREE.Group()) as THREE.Group;
   const head = g(bone('head'));
+  // VRM 0.x normalized bones keep the model's original -Z facing, so anything parented to them is turned around
+  const v0 = vrm.meta?.metaVersion === '0';
   const hatSlot = new THREE.Group();
+  if (v0) hatSlot.rotation.y = Math.PI;
   hatSlot.scale.setScalar(0.37); // our hats fit a 0.33 head; a VRoid head is ~0.12 m
   hatSlot.position.y = 0.11;
   head.add(hatSlot);
@@ -114,14 +133,21 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
     legR: g(bone('rightUpperLeg')), hatSlot, hat: '', height: HEIGHT, vrm,
   };
   rig.root.userData.vrmFace = EXPRESSIONS[look.face] ?? 'neutral';
-  if (look.cls) attachInstrument(vrm, look.cls, 1 / (HEIGHT / h));
+  if (look.cls) attachInstrument(vrm, look.cls, 1 / (HEIGHT / h), v0);
   rig.root.userData.cls = look.cls;
   setHat(rig, hat);
   return rig;
 }
 
-function attachInstrument(vrm: VRM, cls: ClassKey, s: number) {
-  const bone = (n: VRMHumanBoneName) => vrm.humanoid.getNormalizedBoneNode(n);
+function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean) {
+  const bone = (n: VRMHumanBoneName) => {
+    const b = vrm.humanoid.getNormalizedBoneNode(n);
+    if (!b || !v0) return b;
+    const turned = new THREE.Group();
+    turned.rotation.y = Math.PI;
+    b.add(turned);
+    return turned;
+  };
   const handR = bone('rightHand');
   const handL = bone('leftHand');
   const chest = bone('upperChest') ?? bone('chest') ?? bone('spine');
@@ -170,6 +196,9 @@ const POSES: Record<string, { rU: [number, number]; rL: number; lU: [number, num
   drummer: { rU: [-0.2, 1.2], rL: 0.9, lU: [-0.2, -1.2], lL: -0.9, locked: false },
 };
 
+const POSED: VRMHumanBoneName[] = ['rightUpperArm', 'leftUpperArm', 'rightLowerArm', 'leftLowerArm', 'leftUpperLeg', 'rightUpperLeg',
+  'leftLowerLeg', 'rightLowerLeg', 'spine', 'head'];
+
 export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: { moving: boolean; sitting: boolean; dead: boolean; attack: number }) {
   const vrm = rig.vrm!;
   const dt = Math.min(0.1, Math.max(0, t - (rig.root.userData.lastT ?? t)));
@@ -178,6 +207,7 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: { moving:
   const pose = POSES[rig.root.userData.cls as string] ?? POSES.idle;
   rig.body.rotation.set(0, 0, 0);
   rig.body.position.set(0, 0, 0);
+  for (const n of POSED) b(n)?.rotation.set(0, 0, 0);
 
   const swing = s.moving ? Math.sin(t * 11) : 0;
   const armSwing = pose.locked ? swing * 0.1 : swing * 0.5;
@@ -210,6 +240,14 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: { moving:
   if (s.dead) {
     rig.body.rotation.x = -Math.PI / 2;
     rig.body.position.y = 0.12;
+  }
+
+  // VRM 0.x normalized bones face -Z: the same pose there is mirrored in x and z
+  if (vrm.meta?.metaVersion === '0') {
+    for (const n of POSED) {
+      const r = b(n)?.rotation;
+      if (r) r.set(-r.x, r.y, -r.z);
+    }
   }
 
   // facial expression + blinking
