@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRM, VRMLoaderPlugin, VRMUtils, type VRMHumanBoneName } from '@pixiv/three-vrm';
 import { HAIR_COLORS, type ClassKey } from '../data';
 import { animateCharacter, setHat, type CharRig, type Look } from './models';
+import { buildStringed } from './bass';
 import { mesh, toon } from './toon';
 
 /**
@@ -133,13 +134,22 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
     legR: g(bone('rightUpperLeg')), hatSlot, hat: '', height: HEIGHT, vrm,
   };
   rig.root.userData.vrmFace = EXPRESSIONS[look.face] ?? 'neutral';
-  if (look.cls) attachInstrument(vrm, look.cls, 1 / (HEIGHT / h), v0);
+  if (look.cls) rig.root.userData.ik = attachInstrument(vrm, look.cls, 1 / (HEIGHT / h), v0);
   rig.root.userData.cls = look.cls;
   setHat(rig, hat);
   return rig;
 }
 
-function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean) {
+/** Wrist targets the arms reach for every frame (two-bone IK), plus where the elbows should point. */
+interface ArmTargets {
+  grip: THREE.Object3D;
+  pluck: THREE.Object3D;
+  pluckRest: THREE.Vector3;
+  poleL: THREE.Object3D;
+  poleR: THREE.Object3D;
+}
+
+function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean): ArmTargets | undefined {
   const bone = (n: VRMHumanBoneName) => {
     const b = vrm.humanoid.getNormalizedBoneNode(n);
     if (!b || !v0) return b;
@@ -167,16 +177,24 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean) {
       h.add(stick);
     }
   } else if ((cls === 'guitarist' || cls === 'bassist') && chest) {
+    // slung low across the body on a strap: body at the right hip, neck rising to the left
     const bass = cls === 'bassist';
-    const mat = toon(bass ? '#5a3a8a' : '#d9822b');
-    const a = mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.07, 18), mat);
-    a.rotation.x = Math.PI / 2;
-    const b = mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.07, 18), mat, 0, 0.17, 0);
-    b.rotation.x = Math.PI / 2;
-    prop.add(a, b, mesh(new THREE.BoxGeometry(0.05, bass ? 0.62 : 0.5, 0.03), toon('#6b4320'), 0, bass ? 0.55 : 0.48, 0.01));
-    prop.position.set(0.02 * s, -0.18 * s, 0.17 * s);
-    prop.rotation.z = -1.05;
-    chest.add(prop);
+    const inst = buildStringed(bass ? 'bass' : 'guitar');
+    const hang = new THREE.Group();
+    hang.add(inst.group);
+    const fit = (s * HEIGHT) / 1.62; // model height vs. the ~1.6 m the strap height was tuned on
+    hang.scale.setScalar((bass ? 0.95 : 1) * fit);
+    hang.position.set(0.03 * fit, (bass ? -0.26 : -0.24) * fit, 0.155 * fit);
+    hang.rotation.set(-0.12, -0.32, 0.5, 'YZX');
+    chest.add(hang);
+    vrm.scene.updateMatrixWorld(true);
+    addStrap(vrm, chest, inst.group);
+    const poleL = new THREE.Object3D();
+    poleL.position.set(0.45, -0.35, -0.25).multiplyScalar(fit);
+    const poleR = new THREE.Object3D();
+    poleR.position.set(-0.45, -0.1, -0.35).multiplyScalar(fit);
+    chest.add(poleL, poleR);
+    return { grip: inst.grip, pluck: inst.pluck, pluckRest: inst.pluck.position.clone(), poleL, poleR };
   } else if (cls === 'keyboardist' && chest) {
     prop.add(mesh(new THREE.BoxGeometry(0.62, 0.05, 0.16), toon('#263238')));
     prop.add(mesh(new THREE.BoxGeometry(0.5, 0.012, 0.1), toon('#fafafa'), 0.02, 0.03, 0.01));
@@ -184,6 +202,85 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean) {
     prop.rotation.set(0.4, 0, 0.1);
     chest.add(prop);
   }
+}
+
+/** A black strap from the horn, over the left shoulder, round the back to the tail. */
+function addStrap(vrm: VRM, chest: THREE.Object3D, inst: THREE.Object3D) {
+  const local = (o: THREE.Object3D | null, v = new THREE.Vector3()) => (o ? chest.worldToLocal(o.localToWorld(v.clone())) : null);
+  const [horn, tail] = (inst.userData.strapPins as THREE.Vector3[]).map((p) => local(inst, p)!);
+  const sh = local(vrm.humanoid.getNormalizedBoneNode('leftUpperArm')) ?? new THREE.Vector3(0.15, 0.1, 0);
+  const side = Math.sign(sh.x) || 1;
+  const pts = [
+    horn,
+    new THREE.Vector3(sh.x * 0.75, sh.y - 0.08, 0.1),
+    new THREE.Vector3(sh.x * 0.62, sh.y + 0.075, 0.0),
+    new THREE.Vector3(sh.x * 0.4, sh.y - 0.02, -0.11),
+    new THREE.Vector3(-side * 0.1, tail.y + 0.12, -0.13),
+    new THREE.Vector3(-side * 0.16, tail.y + 0.02, -0.03),
+    tail,
+  ];
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const geo = new THREE.TubeGeometry(curve, 48, 0.011, 6);
+  const strap = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: 0.8 }));
+  chest.add(strap);
+}
+
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3();
+const _q = new THREE.Quaternion(), _p = new THREE.Quaternion(), _w = new THREE.Quaternion();
+
+/** Turns `bone` (in world space) so the direction `from` becomes `to`. */
+function aim(bone: THREE.Object3D, from: THREE.Vector3, to: THREE.Vector3) {
+  _q.setFromUnitVectors(from.normalize(), to.normalize());
+  bone.parent!.getWorldQuaternion(_p);
+  bone.getWorldQuaternion(_w);
+  bone.quaternion.copy(_p.invert().multiply(_q.multiply(_w)));
+  bone.updateWorldMatrix(false, true);
+}
+
+/** Two-bone IK: put the wrist on `target`, bending the elbow towards `pole` (both world space). */
+function reach(vrm: VRM, side: 'left' | 'right', target: THREE.Vector3, pole: THREE.Vector3, twist = 0) {
+  const up = vrm.humanoid.getNormalizedBoneNode(`${side}UpperArm`);
+  const lo = vrm.humanoid.getNormalizedBoneNode(`${side}LowerArm`);
+  const hand = vrm.humanoid.getNormalizedBoneNode(`${side}Hand`);
+  if (!up || !lo || !hand) return;
+  up.quaternion.identity();
+  lo.quaternion.identity();
+  up.updateWorldMatrix(true, true);
+  const S = up.getWorldPosition(new THREE.Vector3());
+  const E0 = lo.getWorldPosition(new THREE.Vector3());
+  const H0 = hand.getWorldPosition(new THREE.Vector3());
+  const l1 = S.distanceTo(E0), l2 = E0.distanceTo(H0);
+  const dir = _a.subVectors(target, S);
+  const d = THREE.MathUtils.clamp(dir.length(), Math.abs(l1 - l2) + 1e-4, (l1 + l2) * 0.999);
+  dir.normalize();
+  const along = (l1 * l1 - l2 * l2 + d * d) / (2 * d);
+  const out = Math.sqrt(Math.max(0, l1 * l1 - along * along));
+  const bend = _b.subVectors(pole, S);
+  bend.addScaledVector(dir, -bend.dot(dir)).normalize();
+  const E = _c.copy(S).addScaledVector(dir, along).addScaledVector(bend, out);
+  aim(up, _d.subVectors(E0, S), E.clone().sub(S));
+  const E1 = lo.getWorldPosition(new THREE.Vector3());
+  const H1 = hand.getWorldPosition(new THREE.Vector3());
+  aim(lo, H1.sub(E1), target.clone().sub(E1));
+  if (twist) {
+    // roll the forearm about itself so the palm faces the instrument
+    _q.setFromAxisAngle(_a.subVectors(target, E1).normalize(), twist);
+    lo.parent!.getWorldQuaternion(_p);
+    lo.getWorldQuaternion(_w);
+    lo.quaternion.copy(_p.invert().multiply(_q.multiply(_w)));
+  }
+}
+
+const FINGERS = ['Index', 'Middle', 'Ring', 'Little'] as const;
+const JOINTS = ['Proximal', 'Intermediate', 'Distal'] as const;
+
+/** Curls the fingers of one hand (VRM 1.0 convention; mirrored for 0.x). */
+function curl(vrm: VRM, side: 'left' | 'right', amount: number[], v0: boolean) {
+  const sgn = (side === 'left' ? -1 : 1) * (v0 ? -1 : 1);
+  FINGERS.forEach((f, i) => {
+    for (const j of JOINTS) vrm.humanoid.getNormalizedBoneNode(`${side}${f}${j}` as VRMHumanBoneName)?.rotation.set(0, 0, sgn * amount[i]);
+  });
+  vrm.humanoid.getNormalizedBoneNode(`${side}ThumbProximal` as VRMHumanBoneName)?.rotation.set(0, (side === 'left' ? -0.5 : 0.5), 0);
 }
 
 /** Per-class arm poses (normalized VRM bones, T-pose = all zero, model faces +Z). */
@@ -221,7 +318,7 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: { moving:
   set('leftLowerLeg', s.moving ? Math.max(0, -swing) * 0.8 : 0, 0, 0);
   set('rightLowerLeg', s.moving ? Math.max(0, swing) * 0.8 : 0, 0, 0);
   set('spine', s.moving ? 0.06 : Math.sin(t * 2) * 0.015, 0, 0);
-  set('head', 0, 0, s.moving ? 0 : Math.sin(t * 1.3) * 0.04);
+  set('head', rig.root.userData.ik ? 0.14 : 0, 0, s.moving ? 0 : Math.sin(t * 1.3) * 0.04);
   rig.body.position.y = s.moving ? Math.abs(Math.sin(t * 11)) * 0.04 : 0;
 
   if (s.attack > 0) {
@@ -248,6 +345,20 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: { moving:
       const r = b(n)?.rotation;
       if (r) r.set(-r.x, r.y, -r.z);
     }
+  }
+
+  // instrument players: wrists go to the neck and over the strings
+  const ik = rig.root.userData.ik as ArmTargets | undefined;
+  if (ik && !s.dead) {
+    const v0 = vrm.meta?.metaVersion === '0';
+    const k = s.attack > 0 ? Math.sin(s.attack * Math.PI) : 0;
+    ik.pluck.position.copy(ik.pluckRest);
+    ik.pluck.position.y += -0.05 * k + (s.moving ? 0 : Math.sin(t * 9) * 0.006);
+    ik.pluck.position.z += 0.02 * k;
+    reach(vrm, 'left', ik.grip.getWorldPosition(new THREE.Vector3()), ik.poleL.getWorldPosition(new THREE.Vector3()), -1.5);
+    reach(vrm, 'right', ik.pluck.getWorldPosition(new THREE.Vector3()), ik.poleR.getWorldPosition(new THREE.Vector3()), -1.5);
+    curl(vrm, 'left', [1.0, 1.1, 1.15, 1.2], v0);
+    curl(vrm, 'right', [0.55, 0.7, 0.9, 1.0], v0);
   }
 
   // facial expression + blinking
