@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#1d2a3a" />
+    <title>Music Land</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="game"></div>
+
+    <!-- Login -->
+    <section id="screen-login" class="screen hidden">
+      <div class="card">
+        <h1 class="logo">♪ Music Land</h1>
+        <p class="sub">ผจญภัยในดินแดนแห่งเสียงเพลง</p>
+        <form id="login-form">
+          <input id="login-email" type="email" placeholder="อีเมล" autocomplete="email" required />
+          <input id="login-password" type="password" placeholder="รหัสผ่าน (6 ตัวขึ้นไป)" autocomplete="current-password" minlength="6" required />
+          <div class="row">
+            <button type="submit" id="btn-login">เข้าสู่ระบบ</button>
+            <button type="button" id="btn-signup" class="ghost">สมัครใหม่</button>
+          </div>
+        </form>
+        <p id="login-msg" class="msg"></p>
+      </div>
+    </section>
+
+    <!-- Character select (3 slots, like RO) -->
+    <section id="screen-chars" class="screen hidden">
+      <div class="rw static wide">
+        <div class="rw-title"><span>เลือกตัวละคร</span></div>
+        <div class="rw-body">
+          <p class="sub" id="chars-user"></p>
+          <div id="char-slots" class="char-slots"></div>
+          <div id="char-detail" class="char-detail"></div>
+          <div class="npc-btns">
+            <button id="btn-play" class="ok">เข้าเกม</button>
+            <button id="btn-make" class="ok hidden">สร้าง</button>
+            <button id="btn-delete" class="close">ลบ</button>
+            <button id="btn-signout" class="close">ออกจากระบบ</button>
+          </div>
+          <p id="chars-msg" class="msg"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Character creator -->
+    <section id="screen-create" class="screen hidden">
+      <form id="create-form" class="rw static wide">
+        <div class="rw-title"><span>สร้างตัวละคร</span></div>
+        <div class="rw-body create">
+          <div class="cr-preview">
+            <canvas id="create-preview" width="180" height="252"></canvas>
+            <div class="row"><button type="button" id="btn-turn" class="close">หมุน</button><button type="button" id="btn-random" class="close">สุ่ม</button></div>
+          </div>
+          <div class="cr-opts">
+            <label>ชื่อ<input id="create-name" placeholder="2-16 ตัวอักษร" maxlength="16" required /></label>
+            <div class="cr-row"><span>เพศ</span><button type="button" data-gender="m">ชาย</button><button type="button" data-gender="f">หญิง</button></div>
+            <div class="cr-row"><span id="lbl-hair">ทรงผม</span><button type="button" id="hair-prev">◀</button><b id="val-hair"></b><button type="button" id="hair-next">▶</button></div>
+            <div class="cr-row" id="row-color"><span>สีผม</span><div id="hair-colors" class="swatches"></div></div>
+            <div class="cr-row"><span>หน้าตา</span><button type="button" id="face-prev">◀</button><b id="val-face"></b><button type="button" id="face-next">▶</button></div>
+            <div class="cr-cls"><span>อาชีพ</span><div id="cls-pick" class="cls-pick"></div><p id="cls-desc" class="cls-desc"></p></div>
+            <div class="npc-btns"><button type="submit" class="ok">สร้าง</button><button type="button" id="btn-create-cancel" class="close">ยกเลิก</button></div>
+            <p id="create-msg" class="msg"></p>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- In-game windows are built by src/ui/hud.ts -->
+    <section id="hud" class="hidden"></section>
+
+    <div id="loading" class="screen"><p>กำลังโหลด…</p></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

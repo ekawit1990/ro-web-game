@@ -1,0 +1,24 @@
+{
+  "name": "music-land",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "gen:seed": "node scripts/gen-seed.mjs",
+    "server": "npm --prefix server run dev"
+  },
+  "dependencies": {
+    "@colyseus/sdk": "^0.18.6",
+    "@pixiv/three-vrm": "^3.4.0",
+    "@supabase/supabase-js": "^2.118.0",
+    "@types/three": "^0.170.0",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
+  }
+}
