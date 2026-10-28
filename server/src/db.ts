@@ -65,13 +65,12 @@ export class SupabaseDb implements ServerDb {
   }
 
   async reload(userId: string, charId: string) {
-    const char = check(
-      await this.sb.from('characters').select(CHAR_COLUMNS).eq('id', charId).eq('user_id', userId).single(),
-    ) as unknown as Character;
-    const inv = check(
-      await this.sb.from('inventory').select('id,item_id,qty,equipped').eq('character_id', charId),
-    ) as InvItem[];
-    return { char, inv };
+    // two independent queries: run them side by side (one round trip instead of two)
+    const [c, i] = await Promise.all([
+      this.sb.from('characters').select(CHAR_COLUMNS).eq('id', charId).eq('user_id', userId).single(),
+      this.sb.from('inventory').select('id,item_id,qty,equipped').eq('character_id', charId),
+    ]);
+    return { char: check(c) as unknown as Character, inv: check(i) as InvItem[] };
   }
 
   async reportKill(userId: string, charId: string, monster: string) {

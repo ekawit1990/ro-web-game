@@ -69,6 +69,7 @@ async function play(char: Character): Promise<void> {
 
     const enter = async (mapId: string) => {
       switching = true;
+      const t0 = performance.now();
       loading(true, `กำลังเดินทางไป ${getMap(mapId).name}…`);
       const old = room;
       room = undefined;
@@ -79,6 +80,7 @@ async function play(char: Character): Promise<void> {
       const token = supabase ? (await supabase.auth.getSession()).data.session?.access_token : undefined;
       const dev = devStore ? { char: session.char, inv: session.inv } : undefined;
       const r = await client.joinOrCreate(mapId, { token, charId: session.char.id, dev });
+      const tJoin = performance.now();
       room = r;
       session.link = { send: (t, m) => r.send(t, m), devStore };
       wire(r);
@@ -88,6 +90,7 @@ async function play(char: Character): Promise<void> {
       world = new World3D(container, { session, room: r, map, hooks: hud, x: pos.x, y: pos.y });
       loading(false);
       switching = false;
+      console.info(`enter ${mapId}: server join ${Math.round(tJoin - t0)} ms, world ready ${Math.round(performance.now() - t0)} ms`);
     };
 
     const wire = (r: Room) => {
