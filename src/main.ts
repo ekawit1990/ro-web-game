@@ -10,6 +10,7 @@ import { supabase } from './services/supabase';
 import { SupabaseStore } from './services/supabaseStore';
 import { Hud } from './ui/hud';
 import { $, characterScreen, loginScreen, show } from './ui/screens';
+import { playMusic, sfx, unlockAudio } from './audio/sound';
 
 const container = document.getElementById('game')!;
 let world: World3D | undefined;
@@ -78,6 +79,7 @@ async function play(char: Character): Promise<void> {
     const enter = async (mapId: string) => {
       switching = true;
       const t0 = performance.now();
+      hud.death(false); // reviving in town is a map change: the old death dialog is done
       loading(true, `กำลังเดินทางไป ${getMap(mapId).name}…`);
       const old = room;
       room = undefined;
@@ -100,6 +102,8 @@ async function play(char: Character): Promise<void> {
       hud.setMap(map);
       world = new World3D(container, { session, room: r, map, hooks: hud, x: pos.x, y: pos.y });
       loading(false);
+      sfx(old ? 'warp' : 'enter');
+      playMusic(mapId);
       switching = false;
       console.info(`enter ${mapId}: server join ${Math.round(tJoin - t0)} ms, world ready ${Math.round(performance.now() - t0)} ms`);
     };
@@ -145,7 +149,9 @@ async function play(char: Character): Promise<void> {
 }
 
 async function main() {
+  unlockAudio();
   for (;;) {
+    playMusic('title');
     if (supabase) {
       const { data } = await supabase.auth.getSession();
       if (!data.session) await loginScreen(supabase);

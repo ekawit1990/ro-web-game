@@ -6,6 +6,7 @@ import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setHat } from './models';
 import { animateRig, buildVrmCharacter } from './vrm';
+import { sfx, sfxAttack, sfxSkill } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { glyphTexture, sparkTexture } from './toon';
 
@@ -513,8 +514,10 @@ export class World3D {
       const m = this.monsters.get(msg.m);
       const a = this.players.get(msg.by);
       if (!m) return;
+      const vol = this.vol(m.x, m.y, a === this.me);
       const land = () => {
         const p = this.top(m);
+        sfx(msg.dmg === 0 ? 'miss' : msg.crit ? 'crit' : 'hit', vol);
         if (msg.dmg === 0) this.floatText(p, 'Miss', 'miss');
         else {
           this.floatText(p, String(msg.dmg), msg.crit ? 'crit' : a === this.me ? 'deal' : 'other');
@@ -524,6 +527,7 @@ export class World3D {
       if (a) {
         this.face(a, m.x, m.y);
         a.attack = 1;
+        sfxAttack(a.cls, this.vol(a.x, a.y, a === this.me));
         this.attackFx(a, m, land);
       } else land();
     });
@@ -532,6 +536,7 @@ export class World3D {
       const m = this.monsters.get(msg.m);
       if (m && v) this.lunge(m.rig.root, v.x - m.x, v.y - m.y);
       if (!v) return;
+      if (v === this.me) sfx(msg.dmg === 0 ? 'miss' : 'hurt');
       const p = new THREE.Vector3(v.x, 1.7, v.y);
       if (msg.dmg === 0) this.floatText(p, 'Miss', 'miss');
       else {
@@ -544,9 +549,19 @@ export class World3D {
     on('fx', (msg: { kind: string; to: string }) => {
       const a = this.players.get(msg.to);
       if (!a) return;
-      if (msg.kind === 'potion') this.sparkle(a, 0x7dff9a);
-      if (msg.kind === 'levelup') this.levelFx(a, 'LEVEL UP!', 0xfff27a);
-      if (msg.kind === 'joblevelup') this.levelFx(a, 'JOB LEVEL UP!', 0x9be0ff);
+      const vol = this.vol(a.x, a.y, a === this.me);
+      if (msg.kind === 'potion') {
+        this.sparkle(a, 0x7dff9a);
+        sfx('potion', vol);
+      }
+      if (msg.kind === 'levelup') {
+        this.levelFx(a, 'LEVEL UP!', 0xfff27a);
+        sfx('levelup', vol);
+      }
+      if (msg.kind === 'joblevelup') {
+        this.levelFx(a, 'JOB LEVEL UP!', 0x9be0ff);
+        sfx('joblevel', vol);
+      }
     });
     on('correct', (msg: { x: number; y: number }) => {
       this.me.x = msg.x;
@@ -558,6 +573,7 @@ export class World3D {
     on('healed', () => {
       this.hooks.toast('ครูเพลง: พักเสียงสักหน่อยนะ (ฟื้น HP/SP เต็ม)', 'good');
       this.sparkle(this.me, 0x9be0ff);
+      sfx('heal');
     });
     on('chat', (msg: { id: string; text: string }) => this.bubble(msg.id, msg.text));
   }
@@ -613,6 +629,7 @@ export class World3D {
       const m = this.monsters.get(id) ?? this.makeMonster(id, rm);
       if (rm.dead && !m.dead) {
         m.dead = true;
+        sfx('mdie', Math.min(1, this.vol(m.x, m.y, false) * 2));
         if (this.target?.kind === 'monster' && this.target.id === id) this.target = null;
       } else if (!rm.dead && m.dead) {
         m.dead = false;
@@ -654,6 +671,7 @@ export class World3D {
           this.path = [];
           this.target = null;
           this.hooks.death(rp.dead);
+          if (rp.dead) sfx('death');
         }
         if (a.label.sp) a.label.sp.style.width = `${(rp.sp / Math.max(1, rp.maxSp)) * 100}%`;
       } else {
@@ -825,6 +843,12 @@ export class World3D {
     });
   }
 
+  /** Effect volume: full for my own actions, quieter with distance for everyone else's. */
+  private vol(x: number, y: number, mine: boolean) {
+    if (mine) return 1;
+    return Math.max(0, 1 - Math.hypot(x - this.me.x, y - this.me.y) / 14) * 0.45;
+  }
+
   private top(m: MonsterActor) {
     return new THREE.Vector3(m.x, m.rig.height + 0.2, m.y);
   }
@@ -964,6 +988,7 @@ export class World3D {
     if (!skill) return;
     const color = new THREE.Color(CLASSES[skill.cls].color).getHex();
     if (a) {
+      sfxSkill(skill.cls, skill.type, this.vol(a.x, a.y, a === this.me));
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       this.face(a, msg.x, msg.y);
       a.attack = 1;

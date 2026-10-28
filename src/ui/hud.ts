@@ -5,6 +5,7 @@ import {
 import type { GameMap, Npc } from '../game/maps';
 import type { Session } from '../game/session';
 import type { World3D, WorldHooks } from '../three/World3D';
+import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
 
@@ -647,6 +648,7 @@ export class Hud implements WorldHooks {
     for (const d of msg.drops) this.line('good', `ได้รับไอเท็ม <b>${escapeHtml(ITEMS[d]?.name ?? d)}</b>`);
     if (msg.leveledUp) this.toast(`Base Level Up! ได้ Status Point แล้ว (กด Alt+Q)`, 'good');
     if (msg.jobLeveledUp) this.toast(`Job Level Up! ได้ Skill Point แล้ว (กด Alt+S)`, 'good');
+    setTimeout(() => sfx(msg.drops.length ? 'item' : 'coin'), 180);
   }
 
   // ------------------------------------------------------------ npc + shop
@@ -852,8 +854,24 @@ export class Hud implements WorldHooks {
         <div><kbd>F1-F9</kbd> / <kbd>1-9</kbd> ปุ่มลัด</div><div><kbd>Insert</kbd> นั่งพัก (ฟื้นไวขึ้น)</div>
         <div><kbd>Tab</kbd> แผนที่ย่อ</div><div><kbd>Enter</kbd> แชท</div><div>คลิกขวา = ยกเลิกการเล็งสกิล</div>
       </div>
+      <div class="sound-opts">
+        <label>เพลง <input type="range" id="opt-music" min="0" max="100"></label>
+        <label>เสียงเอฟเฟกต์ <input type="range" id="opt-sfx" min="0" max="100"></label>
+        <label class="chk"><input type="checkbox" id="opt-mute"> ปิดเสียงทั้งหมด</label>
+      </div>
       <div class="npc-btns"><button class="close" id="opt-exit">กลับไปเลือกตัวละคร</button></div>`;
     b.querySelector('#opt-exit')!.addEventListener('click', () => this.actions.exit());
+    const p = audioPrefs();
+    const music = b.querySelector<HTMLInputElement>('#opt-music')!;
+    const fx = b.querySelector<HTMLInputElement>('#opt-sfx')!;
+    const mute = b.querySelector<HTMLInputElement>('#opt-mute')!;
+    music.value = String(Math.round(p.music * 100));
+    fx.value = String(Math.round(p.sfx * 100));
+    mute.checked = p.muted;
+    music.oninput = () => setAudioPrefs({ music: Number(music.value) / 100 });
+    fx.oninput = () => setAudioPrefs({ sfx: Number(fx.value) / 100 });
+    fx.onchange = () => sfx('hit'); // let them hear the new level
+    mute.onchange = () => setAudioPrefs({ muted: mute.checked });
   }
 
   death(dead: boolean) {
@@ -866,9 +884,16 @@ export class Hud implements WorldHooks {
       <div class="npc-btns"><button class="ok">กลับไปจุดเซฟ</button></div></div>`;
     this.root.appendChild(d);
     this.bringFront(d);
-    d.querySelector('.ok')!.addEventListener('click', () => {
-      (d.querySelector('.ok') as HTMLButtonElement).disabled = true;
+    const ok = d.querySelector<HTMLButtonElement>('.ok')!;
+    ok.addEventListener('click', () => {
+      ok.disabled = true;
       this.actions.send('respawn');
+      // if the server never answers, let the player try again instead of being stuck
+      setTimeout(() => {
+        if (!d.isConnected) return;
+        ok.disabled = false;
+        ok.textContent = 'ลองอีกครั้ง';
+      }, 8000);
     });
   }
 

@@ -282,7 +282,7 @@ export class MapRoom extends Room<{ state: MapState }> {
         c.send('correct', { x: p.x, y: p.y });
       } else {
         // revive in town: send the player there
-        arrivals.set(seat.char.id, { map: seat.char.map, x: seat.char.pos_x, y: seat.char.pos_y, at: Date.now() });
+        arrivals.set(seat.char.id, { map: seat.char.map, x: seat.char.pos_x, y: seat.char.pos_y, at: Date.now(), ...half });
         await MapRoom.db.saveState(seat.userId, seat.char.id, { ...half, map: seat.char.map, x: seat.char.pos_x, y: seat.char.pos_y });
         c.send('warp', { map: seat.char.map });
       }

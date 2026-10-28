@@ -300,6 +300,10 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 
 /* ---------- 3D world overlay: names, bars, damage numbers, bubbles ---------- */
 #game canvas { display: block; }
+.sound-opts { display: grid; gap: 6px; margin: 10px 0 4px; padding-top: 8px; border-top: 1px solid #c8d3e2; font-size: 12px; }
+.sound-opts label { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 8px; }
+.sound-opts label.chk { display: flex; gap: 6px; }
+.sound-opts input[type=range] { width: 100%; accent-color: #4a7fc0; }
 .world-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; font-family: 'Kanit', Tahoma, sans-serif; }
 .world-overlay > * { position: absolute; left: 0; top: 0; will-change: transform; }
 .world-overlay > [hidden] { display: none !important; } /* .wl sets display:flex, which would beat the hidden attribute */
