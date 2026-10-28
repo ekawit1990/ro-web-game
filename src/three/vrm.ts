@@ -4,6 +4,7 @@ import { VRM, VRMLoaderPlugin, VRMUtils, type VRMHumanBoneName } from '@pixiv/th
 import { HAIR_COLORS, type ClassKey } from '../data';
 import { animateCharacter, setHat, type CharRig, type Look } from './models';
 import { buildStringed } from './bass';
+import { buildKeyboard } from './keyboard';
 import { mesh, toon } from './toon';
 
 /**
@@ -142,9 +143,11 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
 
 /** Wrist targets the arms reach for every frame (two-bone IK), plus where the elbows should point. */
 interface ArmTargets {
-  grip: THREE.Object3D;
-  pluck: THREE.Object3D;
-  pluckRest: THREE.Vector3;
+  play: 'strings' | 'keys';
+  left: THREE.Object3D;
+  right: THREE.Object3D;
+  restL: THREE.Vector3;
+  restR: THREE.Vector3;
   poleL: THREE.Object3D;
   poleR: THREE.Object3D;
 }
@@ -194,13 +197,21 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean): ArmT
     const poleR = new THREE.Object3D();
     poleR.position.set(-0.45, -0.1, -0.35).multiplyScalar(fit);
     chest.add(poleL, poleR);
-    return { grip: inst.grip, pluck: inst.pluck, pluckRest: inst.pluck.position.clone(), poleL, poleR };
+    return { play: 'strings', left: inst.grip, right: inst.pluck, restL: inst.grip.position.clone(), restR: inst.pluck.position.clone(), poleL, poleR };
   } else if (cls === 'keyboardist' && chest) {
-    prop.add(mesh(new THREE.BoxGeometry(0.62, 0.05, 0.16), toon('#263238')));
-    prop.add(mesh(new THREE.BoxGeometry(0.5, 0.012, 0.1), toon('#fafafa'), 0.02, 0.03, 0.01));
-    prop.position.set(0, -0.2 * s, 0.25 * s);
-    prop.rotation.set(0.4, 0, 0.1);
-    chest.add(prop);
+    // held flat in front of the waist, hands resting on the keys
+    const fit = (s * HEIGHT) / 1.62;
+    const kb = buildKeyboard();
+    kb.group.scale.setScalar(fit);
+    kb.group.position.set(0, -0.36 * fit, 0.3 * fit);
+    kb.group.rotation.x = 0.12;
+    chest.add(kb.group);
+    const poleL = new THREE.Object3D();
+    poleL.position.set(0.5, -0.25, -0.35).multiplyScalar(fit);
+    const poleR = new THREE.Object3D();
+    poleR.position.set(-0.5, -0.25, -0.35).multiplyScalar(fit);
+    chest.add(poleL, poleR);
+    return { play: 'keys', left: kb.left, right: kb.right, restL: kb.left.position.clone(), restR: kb.right.position.clone(), poleL, poleR };
   }
 }
 
@@ -352,13 +363,26 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: { moving:
   if (ik && !s.dead) {
     const v0 = vrm.meta?.metaVersion === '0';
     const k = s.attack > 0 ? Math.sin(s.attack * Math.PI) : 0;
-    ik.pluck.position.copy(ik.pluckRest);
-    ik.pluck.position.y += -0.05 * k + (s.moving ? 0 : Math.sin(t * 9) * 0.006);
-    ik.pluck.position.z += 0.02 * k;
-    reach(vrm, 'left', ik.grip.getWorldPosition(new THREE.Vector3()), ik.poleL.getWorldPosition(new THREE.Vector3()), -1.5);
-    reach(vrm, 'right', ik.pluck.getWorldPosition(new THREE.Vector3()), ik.poleR.getWorldPosition(new THREE.Vector3()), -1.5);
-    curl(vrm, 'left', [1.0, 1.1, 1.15, 1.2], v0);
-    curl(vrm, 'right', [0.55, 0.7, 0.9, 1.0], v0);
+    ik.left.position.copy(ik.restL);
+    ik.right.position.copy(ik.restR);
+    if (ik.play === 'strings') {
+      ik.right.position.y += -0.05 * k + (s.moving ? 0 : Math.sin(t * 9) * 0.006);
+      ik.right.position.z += 0.02 * k;
+    } else {
+      // little key presses, hands drifting along the keyboard; an attack is a two-hand chord
+      const press = (ph: number) => (s.moving ? 0 : Math.max(0, Math.sin(t * 7 + ph)) * 0.012);
+      ik.left.position.x += Math.sin(t * 1.3) * 0.03;
+      ik.right.position.x += Math.sin(t * 1.1 + 2) * 0.03;
+      ik.left.position.y -= press(0) + k * 0.012;
+      ik.right.position.y -= press(2.2) + k * 0.012;
+    }
+    const keys = ik.play === 'keys';
+    // forearm roll that turns the palms onto the neck / strings, or face-down onto the keys
+    const [twL, twR] = keys ? [-1.5, 1.5] : [-1.5, -1.5];
+    reach(vrm, 'left', ik.left.getWorldPosition(new THREE.Vector3()), ik.poleL.getWorldPosition(new THREE.Vector3()), twL);
+    reach(vrm, 'right', ik.right.getWorldPosition(new THREE.Vector3()), ik.poleR.getWorldPosition(new THREE.Vector3()), twR);
+    curl(vrm, 'left', keys ? [0.35, 0.4, 0.45, 0.5] : [1.0, 1.1, 1.15, 1.2], v0);
+    curl(vrm, 'right', keys ? [0.35, 0.4, 0.45, 0.5] : [0.55, 0.7, 0.9, 1.0], v0);
   }
 
   // facial expression + blinking
