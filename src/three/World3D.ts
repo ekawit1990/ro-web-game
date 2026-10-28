@@ -923,15 +923,19 @@ export class World3D {
     });
   }
 
+  /** Every normal attack sends black music notes flying at the monster; damage shows when the first one lands. */
   private attackFx(a: PlayerActor, m: MonsterActor, land: () => void) {
-    const cls = CLASSES[a.cls];
-    if (!cls.projectile) {
-      this.lunge(a.rig.root, m.x - a.x, m.y - a.y);
-      setTimeout(land, 90);
-      return;
+    const melee = !CLASSES[a.cls].projectile;
+    if (melee) this.lunge(a.rig.root, m.x - a.x, m.y - a.y);
+    const notes = ['♪', '♫', '♬'];
+    const first = Math.floor(Math.random() * notes.length);
+    for (let i = 0; i < 3; i++) {
+      const side = new THREE.Vector3(-(m.y - a.y), 0, m.x - a.x).normalize().multiplyScalar((i - 1) * 0.25);
+      const from = new THREE.Vector3(a.x, 1.0 + i * 0.12, a.y).add(side);
+      const to = new THREE.Vector3(m.x, m.rig.height * 0.6, m.y).addScaledVector(side, 0.3);
+      const tex = glyphTexture(notes[(first + i) % notes.length], '#111111', 'rgba(255,255,255,0.9)');
+      this.projectile(from, to, tex, i === 0 ? 0.55 : 0.42, melee ? 180 : 230, i === 0 ? land : undefined, i * 70);
     }
-    const glyph = { note: ['♪', '#ffd166'], chord: ['♫', '#7ff0e6'], wave: ['〰', '#ff8cc8'] }[cls.projectile];
-    this.projectile(new THREE.Vector3(a.x, 1.0, a.y), new THREE.Vector3(m.x, m.rig.height * 0.6, m.y), glyphTexture(glyph[0], glyph[1]), 0.5, 220, land);
   }
 
   private burst(pos: THREE.Vector3, color: number, n: number, speed = 3) {

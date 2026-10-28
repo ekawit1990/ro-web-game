@@ -82,15 +82,15 @@ export function shade(hex: string, amt: number): string {
 
 /** A glyph or emoji as a sprite texture (projectiles, effects). */
 const glyphCache = new Map<string, THREE.Texture>();
-export function glyphTexture(text: string, color: string) {
-  const key = text + color;
+export function glyphTexture(text: string, color: string, stroke = 'rgba(0,0,0,0.6)') {
+  const key = text + color + stroke;
   if (glyphCache.has(key)) return glyphCache.get(key)!;
   const t = canvasTexture(64, 64, (c) => {
     c.font = 'bold 48px sans-serif';
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.lineWidth = 6;
-    c.strokeStyle = 'rgba(0,0,0,0.6)';
+    c.strokeStyle = stroke;
     c.strokeText(text, 32, 34);
     c.fillStyle = color;
     c.fillText(text, 32, 34);
