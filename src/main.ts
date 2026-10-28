@@ -26,6 +26,14 @@ function loading(on: boolean, text = 'กำลังโหลด…') {
 }
 
 /** Wait until the server state contains our own player. */
+/** Rejects with `msg` if `p` takes longer than `ms`, so a stuck step shows an error instead of hanging. */
+function within<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(msg)), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 function myPlayer(room: Room): Promise<{ x: number; y: number }> {
   return new Promise((resolve, reject) => {
     const started = Date.now();
@@ -74,12 +82,15 @@ async function play(char: Character): Promise<void> {
       const old = room;
       room = undefined;
       stopWorld();
-      if (old) await old.leave(true).catch(() => {});
+      // don't wait forever for the old map to say goodbye
+      if (old) await within(old.leave(true), 3000, 'leave').catch(() => {});
 
       session.char.map = mapId;
       const token = supabase ? (await supabase.auth.getSession()).data.session?.access_token : undefined;
       const dev = devStore ? { char: session.char, inv: session.inv } : undefined;
-      const r = await client.joinOrCreate(mapId, { token, charId: session.char.id, dev });
+      // a sleeping free server can take ~1 minute to wake up
+      const r = await within(client.joinOrCreate(mapId, { token, charId: session.char.id, dev }), 75000,
+        `เข้าแผนที่ ${getMap(mapId).name} ไม่สำเร็จ: เซิร์ฟเวอร์ไม่ตอบสนอง`);
       const tJoin = performance.now();
       room = r;
       session.link = { send: (t, m) => r.send(t, m), devStore };
