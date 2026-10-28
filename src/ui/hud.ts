@@ -196,8 +196,18 @@ export class Hud implements WorldHooks {
 
   private buildInfo() {
     const w = this.win('info', 'Basic Info', 'info');
-    w.querySelector('.rw-x')!.remove();
+    const x = w.querySelector('.rw-x') as HTMLButtonElement;
+    x.textContent = '⊖';
+    x.title = 'ย่อหน้าต่าง';
+    x.replaceWith(x.cloneNode(true));
+    w.querySelector('.rw-x')!.addEventListener('click', () => this.setInfoMini(!w.classList.contains('mini')));
     this.body('info')!.innerHTML = `
+      <div class="bi-mini">
+        <div id="bi-m1"></div>
+        <div id="bi-m2"></div>
+        <button class="bi-expand" title="ขยายหน้าต่าง">︾</button>
+      </div>
+      <div class="bi-full">
       <div class="bi-name"><b id="bi-name"></b><span id="bi-class"></span></div>
       <div class="bi-row"><label>HP</label><div class="gauge hp"><i id="bi-hp"></i></div><span id="bi-hpt"></span></div>
       <div class="bi-row"><label>SP</label><div class="gauge sp"><i id="bi-sp"></i></div><span id="bi-spt"></span></div>
@@ -211,7 +221,14 @@ export class Hud implements WorldHooks {
         <button data-open="map" title="Tab">แผนที่</button>
         <button data-open="sit" title="Insert">นั่ง</button>
         <button data-open="option" title="Esc">ตั้งค่า</button>
+      </div>
       </div>`;
+    w.querySelector('.bi-expand')!.addEventListener('click', () => this.setInfoMini(false));
+    let mini = false;
+    try {
+      mini = localStorage.getItem('ml-info-mini') === '1';
+    } catch { /* storage may be blocked */ }
+    this.setInfoMini(mini);
     w.querySelectorAll<HTMLButtonElement>('[data-open]').forEach((b) =>
       b.addEventListener('click', () => {
         const k = b.dataset.open!;
@@ -222,12 +239,23 @@ export class Hud implements WorldHooks {
     );
   }
 
+  private setInfoMini(mini: boolean) {
+    const w = this.wins.get('info');
+    if (!w) return;
+    w.classList.toggle('mini', mini);
+    w.querySelector('.rw-title span')!.textContent = mini ? this.s.char.name : 'Basic Info';
+    try {
+      localStorage.setItem('ml-info-mini', mini ? '1' : '0');
+    } catch { /* storage may be blocked */ }
+  }
+
   private refreshInfo() {
     const { char: c, derived: d } = this.s;
     const set = (id: string, v: string) => {
       const el = this.root.querySelector(`#${id}`);
       if (el && el.textContent !== v) el.textContent = v;
     };
+    const set2 = (el: Element, v: string) => el.textContent !== v && (el.textContent = v);
     const bar = (id: string, f: number) => ((this.root.querySelector(`#${id}`) as HTMLElement).style.width = `${Math.max(0, Math.min(100, f * 100))}%`);
     set('bi-name', c.name);
     set('bi-class', CLASSES[c.cls].name);
@@ -243,6 +271,10 @@ export class Hud implements WorldHooks {
     bar('bi-jexp', jf);
     set('bi-expt', `${(ef * 100).toFixed(1)}%`);
     set('bi-jexpt', `${(jf * 100).toFixed(1)}%`);
+    set('bi-m1', `Lv. ${c.level} / ${CLASSES[c.cls].name} / Lv.${c.job_level} / Exp. ${(ef * 100).toFixed(1)} %`);
+    const wi = this.wins.get('info');
+    if (wi?.classList.contains('mini')) set2(wi.querySelector('.rw-title span')!, c.name);
+    set('bi-m2', `HP. ${this.s.hp} / ${d.maxHp} | SP. ${this.s.sp} / ${d.maxSp}`);
     const heavy = d.weight >= d.maxWeight * 0.9;
     set('bi-w', `${Math.floor(d.weight / 10)} / ${Math.floor(d.maxWeight / 10)}`);
     this.root.querySelector('#bi-w')!.classList.toggle('bad', heavy);

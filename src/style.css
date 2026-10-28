@@ -133,6 +133,12 @@ form { display: flex; flex-direction: column; gap: 10px; }
 
 /* Basic Info */
 .rw.info { width: 236px; }
+.rw.info .bi-mini { display: none; position: relative; font-size: 12px; line-height: 1.5; padding-right: 18px; white-space: nowrap; }
+.rw.info.mini { width: auto; min-width: 220px; }
+.rw.info.mini .bi-mini { display: block; }
+.rw.info.mini .bi-full { display: none; }
+.rw.info.mini .rw-body { padding: 3px 8px 4px; }
+.bi-expand { position: absolute; right: -4px; bottom: -2px; background: none !important; border: 0 !important; color: #5d7fb8 !important; font-size: 14px; padding: 0 2px !important; cursor: pointer; }
 .bi-name { display: flex; justify-content: space-between; margin-bottom: 3px; }
 .bi-name span { color: #4f5f7f; }
 .bi-row { display: grid; grid-template-columns: 70px 1fr 74px; align-items: center; gap: 4px; margin: 2px 0; }
