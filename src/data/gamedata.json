@@ -932,7 +932,7 @@
   "chorus_storm": {
    "cls": "singer",
    "name": "คอรัสพายุ",
-   "icon": "🌪",
+   "icon": "🌪️",
    "desc": "พายุเสียงโจมตีศัตรูรอบเป้าหมาย 2 ช่อง",
    "type": "aoe",
    "magic": true,
@@ -952,7 +952,7 @@
   "breath": {
    "cls": "singer",
    "name": "ลมหายใจนักร้อง",
-   "icon": "🌬",
+   "icon": "🌬️",
    "desc": "(ติดตัว) SP สูงสุด +6% ต่อเลเวล",
    "type": "passive",
    "maxLevel": 5,
@@ -1132,7 +1132,7 @@
   "sound_wall": {
    "cls": "bassist",
    "name": "กำแพงเสียง",
-   "icon": "🛡",
+   "icon": "🛡️",
    "desc": "ป้องกัน +5 ต่อเลเวล นาน 60 วินาที",
    "type": "buff",
    "maxLevel": 5,

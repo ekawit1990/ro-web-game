@@ -230,7 +230,7 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .hk img { width: 30px; height: 30px; }
 .hk img.gone { opacity: 0.3; }
 .hk i { position: absolute; right: 1px; bottom: -1px; font-style: normal; font-size: 10px; color: #000; text-shadow: 0 0 2px #fff; }
-.hk .em { font-size: 22px; }
+.hk .em { font-size: 22px; font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif; color: #2a3550; }
 .hk .cd { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(20, 30, 60, 0.55); }
 .minimap { position: absolute; top: 8px; right: 8px; background: #fff; border: 1px solid #5d6f8f; border-radius: 4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); }
 .mini-head { display: flex; justify-content: space-between; gap: 6px; padding: 1px 6px; font-size: 11px; color: #fff; background: linear-gradient(#b9cbe8, #7f9ccb); }
