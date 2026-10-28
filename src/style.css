@@ -244,6 +244,10 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .chatbox { position: absolute; left: 8px; bottom: 8px; width: min(400px, calc(100% - 16px)); }
 .chat-tabs { display: flex; gap: 2px; }
 .chat-tabs button { font-size: 11px; padding: 1px 8px; border-radius: 4px 4px 0 0; background: rgba(30, 40, 60, 0.7); color: #c8d4e8; font-weight: 400; }
+.chat-sp { flex: 1; }
+.chat-tabs .chat-fold { padding: 1px 6px; }
+.chat-grip { width: 20px; display: grid; place-items: center; font-size: 12px; color: #c8d4e8; background: rgba(30, 40, 60, 0.7); border-radius: 4px 4px 0 0; cursor: nesw-resize; touch-action: none; user-select: none; }
+.chatbox.folded .chat-log { display: none; }
 .chat-tabs button.on { background: rgba(20, 28, 44, 0.85); color: #fff; }
 .chat-log { height: 120px; overflow-y: auto; background: rgba(10, 16, 28, 0.62); padding: 4px 6px; font-size: 12px; line-height: 1.45; -webkit-user-select: text; user-select: text; }
 .chat-log .ln { color: #fff; text-shadow: 0 1px 1px #000; }

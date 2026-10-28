@@ -622,10 +622,14 @@ export class Hud implements WorldHooks {
       <div class="chatbox">
         <div class="chat-tabs">
           <button data-ct="all" class="on">ทั้งหมด</button><button data-ct="chat">แชท</button><button data-ct="sys">ระบบ</button>
+          <span class="chat-sp"></span>
+          <button class="chat-fold" title="ย่อ/ขยายแชท">▾</button>
+          <div class="chat-grip" title="ลากเพื่อยืด/หดหน้าต่างแชท">⇱</div>
         </div>
         <div id="chat-log" class="chat-log"></div>
         <form id="chat-form"><input id="chat-input" placeholder="Enter เพื่อพิมพ์ · /sit = นั่ง" maxlength="120" autocomplete="off"/></form>
       </div>`);
+    this.chatResize();
     const input = this.root.querySelector('#chat-input') as HTMLInputElement;
     this.root.querySelector('#chat-form')!.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -643,6 +647,56 @@ export class Hud implements WorldHooks {
         this.root.querySelector('#chat-log')!.setAttribute('data-tab', this.chatTab);
       }),
     );
+  }
+
+  /** Chat window size: drag the corner grip (box is anchored bottom-left), or fold the log away. */
+  private chatResize() {
+    const box = this.root.querySelector('.chatbox') as HTMLElement;
+    const log = this.root.querySelector('#chat-log') as HTMLElement;
+    const grip = box.querySelector('.chat-grip') as HTMLElement;
+    const fold = box.querySelector('.chat-fold') as HTMLButtonElement;
+    let size = { w: 0, h: 0, fold: false };
+    try {
+      size = { ...size, ...JSON.parse(localStorage.getItem('ml-chat-size') ?? '{}') };
+    } catch { /* storage may be blocked */ }
+    const save = () => {
+      try {
+        localStorage.setItem('ml-chat-size', JSON.stringify(size));
+      } catch { /* storage may be blocked */ }
+    };
+    const apply = () => {
+      if (size.w) box.style.width = `${Math.min(size.w, window.innerWidth - 16)}px`;
+      if (size.h) log.style.height = `${Math.min(size.h, window.innerHeight * 0.7)}px`;
+      box.classList.toggle('folded', size.fold);
+      fold.textContent = size.fold ? '▴' : '▾';
+    };
+    apply();
+    fold.addEventListener('click', () => {
+      size.fold = !size.fold;
+      apply();
+      save();
+    });
+    grip.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const sx = e.clientX, sy = e.clientY, w0 = box.offsetWidth, h0 = log.offsetHeight;
+      grip.setPointerCapture(e.pointerId);
+      if (size.fold) {
+        size.fold = false;
+        apply();
+      }
+      const move = (ev: PointerEvent) => {
+        size.w = Math.max(240, Math.min(window.innerWidth - 16, w0 + ev.clientX - sx));
+        size.h = Math.max(50, Math.min(window.innerHeight * 0.7, h0 - (ev.clientY - sy)));
+        apply();
+      };
+      const up = () => {
+        grip.removeEventListener('pointermove', move);
+        grip.removeEventListener('pointerup', up);
+        save();
+      };
+      grip.addEventListener('pointermove', move);
+      grip.addEventListener('pointerup', up);
+    }, { signal: this.ac.signal });
   }
 
   private line(kind: 'chat' | 'sys' | 'good' | 'bad', html: string) {
