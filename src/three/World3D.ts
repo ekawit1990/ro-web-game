@@ -186,9 +186,9 @@ export class World3D {
 
   private buildScene() {
     const town = this.map.safe;
-    this.scene.background = new THREE.Color(town ? '#9fc8e8' : '#a8d4ef');
-    this.scene.fog = new THREE.Fog(this.scene.background, 30, 70);
-    this.scene.add(new THREE.HemisphereLight(0xdfefff, 0x6a7a50, 1.3));
+    this.scene.background = new THREE.Color(town ? '#b9e2ff' : '#83c7ff');
+    this.scene.fog = new THREE.Fog(this.scene.background, 42, 105);
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7a50, 1.55));
     this.sun.position.set(-8, 14, 6);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
