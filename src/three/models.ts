@@ -624,6 +624,7 @@ export function buildMonster(id: string): MonsterRig {
   }
   if (def.boss) {
     const crown = new THREE.Group();
+    crown.name = 'crown';
     crown.add(mesh(CYL(0.2, 0.2, 0.1, 16), toon('#ffd700')));
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2;

@@ -510,6 +510,153 @@
    "price": 1500,
    "color": "#ff1744",
    "weight": 5
+  },
+  "cat_whisker": {
+   "name": "หนวดแมวฮัมเพลง",
+   "type": "loot",
+   "price": 6,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "dog_bone": {
+   "name": "กระดูกบีทบ็อกซ์",
+   "type": "loot",
+   "price": 9,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "pigeon_feather": {
+   "name": "ขนพิราบป๊อป",
+   "type": "loot",
+   "price": 22,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "monkey_drum": {
+   "name": "กลองลิงป่า",
+   "type": "loot",
+   "price": 50,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "wizard_hat": {
+   "name": "หมวกพ่อมดโน้ต",
+   "type": "loot",
+   "price": 60,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "ninja_scroll": {
+   "name": "คัมภีร์จังหวะนินจา",
+   "type": "loot",
+   "price": 65,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "squid_ink": {
+   "name": "หมึกโน้ตแจ๊ส",
+   "type": "loot",
+   "price": 68,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "alien_vine": {
+   "name": "เถาวัลย์ต่างดาว",
+   "type": "loot",
+   "price": 70,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "mud_tusk": {
+   "name": "เขี้ยวออร์คโคลน",
+   "type": "loot",
+   "price": 75,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "triple_eye": {
+   "name": "ลูกแก้วสามตา",
+   "type": "loot",
+   "price": 85,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "alpa_wool": {
+   "name": "ขนอัลปาคิง",
+   "type": "loot",
+   "price": 90,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "stone_wing": {
+   "name": "ปีกหินร้องเพลง",
+   "type": "loot",
+   "price": 95,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "tribal_mask": {
+   "name": "หน้ากากกลองเผ่า",
+   "type": "loot",
+   "price": 105,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "chord_blade": {
+   "name": "ดาบคอร์ดซามูไร",
+   "type": "loot",
+   "price": 115,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "frost_tentacle": {
+   "name": "หนวดภูตหิมะ",
+   "type": "loot",
+   "price": 125,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "ice_club": {
+   "name": "กระบองน้ำแข็ง",
+   "type": "loot",
+   "price": 135,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "snow_wool": {
+   "name": "ขนอัลปาคิงหิมะ",
+   "type": "loot",
+   "price": 150,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "skull_flame": {
+   "name": "เปลวกะโหลกร็อก",
+   "type": "loot",
+   "price": 175,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "trident_tip": {
+   "name": "ปลายตรีศูลเมทัล",
+   "type": "loot",
+   "price": 195,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "iron_skull": {
+   "name": "กะโหลกเหล็กเมทัล",
+   "type": "loot",
+   "price": 230,
+   "color": "#9e9e9e",
+   "weight": 1
+  },
+  "dove_feather": {
+   "name": "ขนนกพิราบป่า",
+   "type": "loot",
+   "price": 45,
+   "color": "#9e9e9e",
+   "weight": 1
   }
  },
  "shop": [
@@ -553,10 +700,11 @@
      "water",
      0.05
     ]
-   ]
+   ],
+   "model": "Blob_PinkBlob"
   },
   "drop": {
-   "name": "หยดเสียง",
+   "name": "วุ้นเขียวบีท",
    "level": 2,
    "hp": 70,
    "atk": 8,
@@ -580,10 +728,11 @@
      "water",
      0.1
     ]
-   ]
+   ],
+   "model": "Blob_GreenBlob"
   },
   "chick": {
-   "name": "ลูกเจี๊ยบร้องเพลง",
+   "name": "ไก่น้อยร้องเพลง",
    "level": 3,
    "hp": 90,
    "atk": 10,
@@ -597,7 +746,7 @@
    "speed": 70,
    "aggressive": false,
    "color": "#ffd54f",
-   "size": 0.7,
+   "size": 0.75,
    "drops": [
     [
      "chick_feather",
@@ -611,7 +760,8 @@
      "note_ribbon",
      0.01
     ]
-   ]
+   ],
+   "model": "Blob_Chicken"
   },
   "mushy": {
    "name": "เห็ดเงียบ",
@@ -642,7 +792,8 @@
      "band_tshirt",
      0.03
     ]
-   ]
+   ],
+   "model": "Blob_Mushnub"
   },
   "rabbit": {
    "name": "กระต่ายจังหวะ",
@@ -659,7 +810,7 @@
    "speed": 80,
    "aggressive": false,
    "color": "#f5f5f5",
-   "size": 0.8,
+   "size": 0.95,
    "drops": [
     [
      "rabbit_ear",
@@ -673,7 +824,8 @@
      "headphones",
      0.01
     ]
-   ]
+   ],
+   "model": "Big_Bunny"
   },
   "buzzer": {
    "name": "ผึ้งเสียงหึ่ง",
@@ -690,7 +842,7 @@
    "speed": 85,
    "aggressive": true,
    "color": "#f2c230",
-   "size": 0.75,
+   "size": 0.8,
    "drops": [
     [
      "buzz_stinger",
@@ -704,7 +856,8 @@
      "acoustic_guitar",
      0.03
     ]
-   ]
+   ],
+   "model": "Flying_Armabee"
   },
   "frog": {
    "name": "กบเบส",
@@ -721,7 +874,7 @@
    "speed": 60,
    "aggressive": false,
    "color": "#7cb342",
-   "size": 0.9,
+   "size": 1.0,
    "drops": [
     [
      "frog_skin",
@@ -735,7 +888,8 @@
      "basic_bass",
      0.03
     ]
-   ]
+   ],
+   "model": "Big_Frog"
   },
   "bat": {
    "name": "ค้างคาวโซนิค",
@@ -752,7 +906,7 @@
    "speed": 95,
    "aggressive": true,
    "color": "#5e35b1",
-   "size": 0.8,
+   "size": 0.9,
    "drops": [
     [
      "bat_wing",
@@ -766,10 +920,11 @@
      "pick_necklace",
      0.02
     ]
-   ]
+   ],
+   "model": "Flying_Ghost"
   },
   "rocky": {
-   "name": "หินร็อค",
+   "name": "เม่นหนามร็อค",
    "level": 12,
    "hp": 520,
    "atk": 38,
@@ -783,7 +938,7 @@
    "speed": 35,
    "aggressive": false,
    "color": "#8d8d8d",
-   "size": 1.05,
+   "size": 1.0,
    "drops": [
     [
      "rock_chip",
@@ -797,10 +952,11 @@
      "steel_sticks",
      0.015
     ]
-   ]
+   ],
+   "model": "Blob_GreenSpikyBlob"
   },
   "metronome": {
-   "name": "เมโทรนอมเกราะ",
+   "name": "กลับลูกตุ้มจังหวะ",
    "level": 14,
    "hp": 640,
    "atk": 46,
@@ -814,7 +970,7 @@
    "speed": 50,
    "aggressive": true,
    "color": "#8d6e63",
-   "size": 1.0,
+   "size": 0.95,
    "drops": [
     [
      "gear_spring",
@@ -828,10 +984,11 @@
      "rock_cap",
      0.02
     ]
-   ]
+   ],
+   "model": "Flying_Glub"
   },
   "king_jelly": {
-   "name": "ราชาเสียงเพี้ยน",
+   "name": "ราชาเห็ดเสียงเพี้ยน",
    "level": 20,
    "hp": 5000,
    "atk": 75,
@@ -872,10 +1029,11 @@
      0.15
     ]
    ],
-   "boss": true
+   "boss": true,
+   "model": "Blob_Mushnub_Evolved"
   },
   "owl": {
-   "name": "นกฮูกเบสทุ้ม",
+   "name": "นกฟ้าเบสทุ้ม",
    "level": 11,
    "hp": 510,
    "atk": 35,
@@ -900,10 +1058,11 @@
      "honey_lemon",
      0.06
     ]
-   ]
+   ],
+   "model": "Blob_Birb"
   },
   "mossy": {
-   "name": "เห็ดมอสคอรัส",
+   "name": "ภูตเถาวัลย์คอรัส",
    "level": 13,
    "hp": 620,
    "atk": 42,
@@ -928,10 +1087,11 @@
      "band_tshirt",
      0.04
     ]
-   ]
+   ],
+   "model": "Blob_Alien"
   },
   "elder_tree": {
-   "name": "พฤกษาเสียงก้องโบราณ",
+   "name": "ราชาเห็ดป่าโบราณ",
    "level": 24,
    "hp": 11520,
    "atk": 123,
@@ -965,10 +1125,11 @@
      "synth",
      0.12
     ]
-   ]
+   ],
+   "model": "Big_MushroomKing"
   },
   "tuba_toad": {
-   "name": "คางคกทูบา",
+   "name": "ปลาทูบาบึง",
    "level": 14,
    "hp": 680,
    "atk": 45,
@@ -982,7 +1143,7 @@
    "speed": 55,
    "aggressive": false,
    "color": "#556b2f",
-   "size": 1.05,
+   "size": 0.95,
    "shape": "frog",
    "drops": [
     [
@@ -993,10 +1154,11 @@
      "energy_drink",
      0.1
     ]
-   ]
+   ],
+   "model": "Blob_Fish"
   },
   "mosquito": {
-   "name": "ยุงไวโอลิน",
+   "name": "ผึ้งยักษ์ไวโอลิน",
    "level": 16,
    "hp": 790,
    "atk": 51,
@@ -1010,7 +1172,7 @@
    "speed": 95,
    "aggressive": true,
    "color": "#9575cd",
-   "size": 0.7,
+   "size": 0.9,
    "shape": "buzzer",
    "drops": [
     [
@@ -1021,10 +1183,11 @@
      "pick_necklace",
      0.02
     ]
-   ]
+   ],
+   "model": "Flying_Armabee_Evolved"
   },
   "marsh_queen": {
-   "name": "ราชินีบึงเสียงทุ้ม",
+   "name": "ราชาฉลามบึงทุ้ม",
    "level": 27,
    "hp": 13230,
    "atk": 138,
@@ -1058,10 +1221,11 @@
      "metronome_charm",
      0.08
     ]
-   ]
+   ],
+   "model": "Big_Fish"
   },
   "drum_golem": {
-   "name": "โกเลมกลองหิน",
+   "name": "กระบองเพชรมาเรียชี",
    "level": 17,
    "hp": 850,
    "atk": 54,
@@ -1075,7 +1239,7 @@
    "speed": 35,
    "aggressive": false,
    "color": "#a1887f",
-   "size": 1.15,
+   "size": 1.1,
    "shape": "rocky",
    "drops": [
     [
@@ -1086,10 +1250,11 @@
      "steel_sticks",
      0.02
     ]
-   ]
+   ],
+   "model": "Big_Cactoro"
   },
   "howler": {
-   "name": "หมาป่าหอนโซโล",
+   "name": "ไดโนหอนโซโล",
    "level": 18,
    "hp": 910,
    "atk": 58,
@@ -1103,7 +1268,7 @@
    "speed": 90,
    "aggressive": true,
    "color": "#9e9e9e",
-   "size": 1.05,
+   "size": 1.1,
    "shape": "rabbit",
    "drops": [
     [
@@ -1114,10 +1279,11 @@
      "carrot",
      0.2
     ]
-   ]
+   ],
+   "model": "Big_Dino"
   },
   "sand_drop": {
-   "name": "หยดพายุทราย",
+   "name": "กระบองเพชรจิ๋วหมวกปีก",
    "level": 19,
    "hp": 970,
    "atk": 61,
@@ -1131,7 +1297,7 @@
    "speed": 70,
    "aggressive": true,
    "color": "#ffb74d",
-   "size": 0.95,
+   "size": 0.9,
    "shape": "drop",
    "drops": [
     [
@@ -1142,7 +1308,8 @@
      "honey_lemon",
      0.08
     ]
-   ]
+   ],
+   "model": "Blob_Cactoro"
   },
   "rock_dragon": {
    "name": "มังกรร็อกแอนด์โรล",
@@ -1179,10 +1346,11 @@
      "steel_sticks",
      0.2
     ]
-   ]
+   ],
+   "model": "Flying_Dragon_Evolved"
   },
   "penguin": {
-   "name": "เพนกวินคอรัส",
+   "name": "เยติน้อยคอรัส",
    "level": 21,
    "hp": 1090,
    "atk": 67,
@@ -1207,10 +1375,11 @@
      "honey_lemon",
      0.1
     ]
-   ]
+   ],
+   "model": "Blob_Yeti"
   },
   "ice_jelly": {
-   "name": "เจลลี่น้ำแข็ง",
+   "name": "นกน้ำแข็งเสียงสูง",
    "level": 22,
    "hp": 1150,
    "atk": 70,
@@ -1224,7 +1393,7 @@
    "speed": 50,
    "aggressive": false,
    "color": "#81d4fa",
-   "size": 1.0,
+   "size": 1.05,
    "shape": "jelly",
    "drops": [
     [
@@ -1235,7 +1404,8 @@
      "water",
      0.2
     ]
-   ]
+   ],
+   "model": "Big_Birb"
   },
   "yeti": {
    "name": "เยติเบสหนัก",
@@ -1252,7 +1422,7 @@
    "speed": 70,
    "aggressive": true,
    "color": "#eceff1",
-   "size": 1.35,
+   "size": 1.25,
    "shape": "rabbit",
    "drops": [
     [
@@ -1263,7 +1433,8 @@
      "leather_jacket",
      0.03
     ]
-   ]
+   ],
+   "model": "Big_Yeti"
   },
   "snow_queen": {
    "name": "ราชินีหิมะโซปราโน",
@@ -1300,7 +1471,8 @@
      "headphones",
      0.3
     ]
-   ]
+   ],
+   "model": "Flying_Goleling_Evolved"
   },
   "fire_bat": {
    "name": "ค้างคาวเพลิงเมทัล",
@@ -1317,7 +1489,7 @@
    "speed": 100,
    "aggressive": true,
    "color": "#e53935",
-   "size": 0.9,
+   "size": 0.95,
    "shape": "bat",
    "drops": [
     [
@@ -1328,10 +1500,11 @@
      "energy_drink",
      0.12
     ]
-   ]
+   ],
+   "model": "Flying_Demon"
   },
   "magma_golem": {
-   "name": "โกเลมแมกมา",
+   "name": "ออร์คแมกมา",
    "level": 28,
    "hp": 1530,
    "atk": 90,
@@ -1345,7 +1518,7 @@
    "speed": 35,
    "aggressive": false,
    "color": "#ef6c00",
-   "size": 1.3,
+   "size": 1.2,
    "shape": "rocky",
    "drops": [
     [
@@ -1356,10 +1529,11 @@
      "rock_cap",
      0.02
     ]
-   ]
+   ],
+   "model": "Big_Orc"
   },
   "flame_metronome": {
-   "name": "เมโทรนอมเพลิง",
+   "name": "มังกรน้อยเปลวไฟ",
    "level": 29,
    "hp": 1590,
    "atk": 93,
@@ -1373,7 +1547,7 @@
    "speed": 55,
    "aggressive": true,
    "color": "#bf360c",
-   "size": 1.05,
+   "size": 1.0,
    "shape": "metronome",
    "drops": [
     [
@@ -1384,10 +1558,11 @@
      "metronome_charm",
      0.03
     ]
-   ]
+   ],
+   "model": "Flying_Dragon"
   },
   "metal_lord": {
-   "name": "จอมมารเมทัล",
+   "name": "จอมมารหน้ากากเมทัล",
    "level": 40,
    "hp": 20970,
    "atk": 205,
@@ -1428,6 +1603,595 @@
     [
      "steel_sticks",
      0.3
+    ]
+   ],
+   "model": "Flying_Tribal"
+  },
+  "cat": {
+   "name": "แมวส้มฮัมเพลง",
+   "level": 2,
+   "hp": 70,
+   "atk": 6,
+   "def": 2,
+   "exp": 2,
+   "jobExp": 2,
+   "zeny": [
+    4,
+    10
+   ],
+   "speed": 60,
+   "aggressive": false,
+   "color": "#9e9e9e",
+   "size": 0.75,
+   "model": "Blob_Cat",
+   "drops": [
+    [
+     "cat_whisker",
+     0.55
+    ],
+    [
+     "banana",
+     0.08
+    ]
+   ]
+  },
+  "dog": {
+   "name": "หมาน้อยบีทบ็อกซ์",
+   "level": 3,
+   "hp": 110,
+   "atk": 10,
+   "def": 2,
+   "exp": 6,
+   "jobExp": 4,
+   "zeny": [
+    6,
+    15
+   ],
+   "speed": 65,
+   "aggressive": false,
+   "color": "#9e9e9e",
+   "size": 0.8,
+   "model": "Blob_Dog",
+   "drops": [
+    [
+     "dog_bone",
+     0.55
+    ],
+    [
+     "banana",
+     0.08
+    ]
+   ]
+  },
+  "pigeon": {
+   "name": "นกพิราบป๊อป",
+   "level": 6,
+   "hp": 250,
+   "atk": 19,
+   "def": 4,
+   "exp": 22,
+   "jobExp": 16,
+   "zeny": [
+    12,
+    30
+   ],
+   "speed": 70,
+   "aggressive": false,
+   "color": "#9e9e9e",
+   "size": 0.8,
+   "model": "Blob_Pigeon",
+   "drops": [
+    [
+     "pigeon_feather",
+     0.55
+    ],
+    [
+     "banana",
+     0.08
+    ]
+   ]
+  },
+  "monkroose": {
+   "name": "ลิงกลองป่า",
+   "level": 12,
+   "hp": 560,
+   "atk": 38,
+   "def": 9,
+   "exp": 89,
+   "jobExp": 67,
+   "zeny": [
+    24,
+    60
+   ],
+   "speed": 75,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 1.05,
+   "model": "Big_Monkroose",
+   "drops": [
+    [
+     "monkey_drum",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "wizard": {
+   "name": "พ่อมดน้อยโน้ตม่วง",
+   "level": 13,
+   "hp": 620,
+   "atk": 42,
+   "def": 10,
+   "exp": 105,
+   "jobExp": 79,
+   "zeny": [
+    26,
+    65
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 0.85,
+   "model": "Blob_Wizard",
+   "drops": [
+    [
+     "wizard_hat",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "ninja": {
+   "name": "นินจาเงาไม้",
+   "level": 14,
+   "hp": 680,
+   "atk": 45,
+   "def": 10,
+   "exp": 122,
+   "jobExp": 92,
+   "zeny": [
+    28,
+    70
+   ],
+   "speed": 90,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 0.85,
+   "model": "Blob_Ninja",
+   "drops": [
+    [
+     "ninja_scroll",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "squidle": {
+   "name": "ปลาหมึกบินแจ๊ส",
+   "level": 15,
+   "hp": 730,
+   "atk": 48,
+   "def": 11,
+   "exp": 140,
+   "jobExp": 105,
+   "zeny": [
+    30,
+    75
+   ],
+   "speed": 70,
+   "aggressive": false,
+   "color": "#9e9e9e",
+   "size": 0.95,
+   "model": "Flying_Squidle",
+   "drops": [
+    [
+     "squid_ink",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "alien": {
+   "name": "เอเลี่ยนเถาวัลย์บึง",
+   "level": 15,
+   "hp": 730,
+   "atk": 48,
+   "def": 11,
+   "exp": 140,
+   "jobExp": 105,
+   "zeny": [
+    30,
+    75
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 1.05,
+   "model": "Big_Alien",
+   "drops": [
+    [
+     "alien_vine",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "orc": {
+   "name": "ออร์คโคลนบึง",
+   "level": 16,
+   "hp": 790,
+   "atk": 51,
+   "def": 12,
+   "exp": 159,
+   "jobExp": 119,
+   "zeny": [
+    32,
+    80
+   ],
+   "speed": 60,
+   "aggressive": false,
+   "color": "#9e9e9e",
+   "size": 0.95,
+   "model": "Blob_Orc",
+   "drops": [
+    [
+     "mud_tusk",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "glub_evo": {
+   "name": "กลับสามตาเสียงก้อง",
+   "level": 17,
+   "hp": 850,
+   "atk": 54,
+   "def": 13,
+   "exp": 179,
+   "jobExp": 134,
+   "zeny": [
+    34,
+    85
+   ],
+   "speed": 65,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 1.0,
+   "model": "Flying_Glub_Evolved",
+   "drops": [
+    [
+     "triple_eye",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "alpaking": {
+   "name": "อัลปาคิงทะเลทราย",
+   "level": 18,
+   "hp": 910,
+   "atk": 58,
+   "def": 14,
+   "exp": 201,
+   "jobExp": 151,
+   "zeny": [
+    36,
+    90
+   ],
+   "speed": 75,
+   "aggressive": false,
+   "color": "#9e9e9e",
+   "size": 0.95,
+   "model": "Flying_Alpaking",
+   "drops": [
+    [
+     "alpa_wool",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "goleling": {
+   "name": "โกเลลิงปีกหิน",
+   "level": 19,
+   "hp": 970,
+   "atk": 61,
+   "def": 14,
+   "exp": 224,
+   "jobExp": 168,
+   "zeny": [
+    38,
+    95
+   ],
+   "speed": 80,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 0.95,
+   "model": "Flying_Goleling",
+   "drops": [
+    [
+     "stone_wing",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "tribal": {
+   "name": "นักรบหน้ากากกลอง",
+   "level": 20,
+   "hp": 1030,
+   "atk": 64,
+   "def": 15,
+   "exp": 248,
+   "jobExp": 186,
+   "zeny": [
+    40,
+    100
+   ],
+   "speed": 70,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 1.15,
+   "model": "Big_Tribal",
+   "drops": [
+    [
+     "tribal_mask",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "big_ninja": {
+   "name": "ซามูไรดาบคอร์ด",
+   "level": 21,
+   "hp": 1090,
+   "atk": 67,
+   "def": 16,
+   "exp": 273,
+   "jobExp": 205,
+   "zeny": [
+    42,
+    105
+   ],
+   "speed": 85,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 1.15,
+   "model": "Big_Ninja",
+   "drops": [
+    [
+     "chord_blade",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "hywirl": {
+   "name": "ภูตหิมะหนวดม่วง",
+   "level": 22,
+   "hp": 1150,
+   "atk": 70,
+   "def": 16,
+   "exp": 300,
+   "jobExp": 225,
+   "zeny": [
+    44,
+    110
+   ],
+   "speed": 70,
+   "aggressive": false,
+   "color": "#9e9e9e",
+   "size": 0.95,
+   "model": "Flying_Hywirl",
+   "drops": [
+    [
+     "frost_tentacle",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "bluedemon": {
+   "name": "อสูรน้ำแข็งกระบอง",
+   "level": 23,
+   "hp": 1210,
+   "atk": 74,
+   "def": 17,
+   "exp": 328,
+   "jobExp": 246,
+   "zeny": [
+    46,
+    115
+   ],
+   "speed": 60,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 1.15,
+   "model": "Big_BlueDemon",
+   "drops": [
+    [
+     "ice_club",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "alpaking_evo": {
+   "name": "อัลปาคิงหิมะสามหัว",
+   "level": 24,
+   "hp": 1280,
+   "atk": 77,
+   "def": 18,
+   "exp": 357,
+   "jobExp": 268,
+   "zeny": [
+    48,
+    120
+   ],
+   "speed": 70,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 1.05,
+   "model": "Flying_Alpaking_Evolved",
+   "drops": [
+    [
+     "snow_wool",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "ghost_skull": {
+   "name": "วิญญาณกะโหลกร็อก",
+   "level": 27,
+   "hp": 1470,
+   "atk": 86,
+   "def": 20,
+   "exp": 452,
+   "jobExp": 339,
+   "zeny": [
+    54,
+    135
+   ],
+   "speed": 90,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 0.95,
+   "model": "Flying_Ghost_Skull",
+   "drops": [
+    [
+     "skull_flame",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "demon": {
+   "name": "ปีศาจตรีศูลเมทัล",
+   "level": 28,
+   "hp": 1530,
+   "atk": 90,
+   "def": 21,
+   "exp": 486,
+   "jobExp": 364,
+   "zeny": [
+    56,
+    140
+   ],
+   "speed": 70,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 1.15,
+   "model": "Big_Demon",
+   "drops": [
+    [
+     "trident_tip",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "orc_skull": {
+   "name": "ออร์คกะโหลกเมทัล",
+   "level": 30,
+   "hp": 1660,
+   "atk": 96,
+   "def": 22,
+   "exp": 558,
+   "jobExp": 418,
+   "zeny": [
+    60,
+    150
+   ],
+   "speed": 60,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 1.25,
+   "model": "Big_Orc_Skull",
+   "drops": [
+    [
+     "iron_skull",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "dove": {
+   "name": "นกพิราบป่าเสียงใส",
+   "level": 11,
+   "hp": 510,
+   "atk": 35,
+   "def": 8,
+   "exp": 75,
+   "jobExp": 56,
+   "zeny": [
+    22,
+    55
+   ],
+   "speed": 80,
+   "aggressive": false,
+   "color": "#9e9e9e",
+   "size": 0.85,
+   "model": "Flying_Pigeon",
+   "drops": [
+    [
+     "dove_feather",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
     ]
    ]
   }
@@ -1512,6 +2276,39 @@
   },
   {
    "map": "field",
+   "monster": "cat",
+   "count": 9,
+   "area": [
+    6,
+    44,
+    20,
+    56
+   ]
+  },
+  {
+   "map": "field",
+   "monster": "dog",
+   "count": 9,
+   "area": [
+    38,
+    40,
+    52,
+    54
+   ]
+  },
+  {
+   "map": "field",
+   "monster": "pigeon",
+   "count": 9,
+   "area": [
+    40,
+    6,
+    54,
+    22
+   ]
+  },
+  {
+   "map": "field",
    "monster": "king_jelly",
    "count": 1,
    "area": [
@@ -1525,45 +2322,89 @@
   {
    "map": "forest",
    "monster": "bat",
-   "count": 9,
+   "count": 8,
    "area": [
-    8,
-    6,
-    26,
-    22
+    9,
+    5,
+    21,
+    18
    ]
   },
   {
    "map": "forest",
    "monster": "owl",
-   "count": 10,
+   "count": 8,
    "area": [
-    28,
-    6,
-    50,
-    22
+    23,
+    5,
+    35,
+    18
+   ]
+  },
+  {
+   "map": "forest",
+   "monster": "dove",
+   "count": 8,
+   "area": [
+    37,
+    5,
+    49,
+    18
    ]
   },
   {
    "map": "forest",
    "monster": "rocky",
-   "count": 7,
+   "count": 8,
    "area": [
-    8,
-    34,
-    26,
-    50
+    9,
+    20,
+    21,
+    33
+   ]
+  },
+  {
+   "map": "forest",
+   "monster": "monkroose",
+   "count": 8,
+   "area": [
+    23,
+    20,
+    35,
+    33
    ]
   },
   {
    "map": "forest",
    "monster": "mossy",
-   "count": 9,
+   "count": 8,
    "area": [
-    28,
-    34,
-    48,
-    50
+    37,
+    20,
+    49,
+    33
+   ]
+  },
+  {
+   "map": "forest",
+   "monster": "wizard",
+   "count": 8,
+   "area": [
+    9,
+    35,
+    21,
+    49
+   ]
+  },
+  {
+   "map": "forest",
+   "monster": "ninja",
+   "count": 8,
+   "area": [
+    23,
+    35,
+    35,
+    49
    ]
   },
   {
@@ -1572,7 +2413,7 @@
    "count": 1,
    "area": [
     44,
-    42,
+    44,
     52,
     52
    ],
@@ -1581,12 +2422,12 @@
   {
    "map": "marsh",
    "monster": "tuba_toad",
-   "count": 12,
+   "count": 8,
    "area": [
-    8,
-    18,
-    30,
-    40
+    9,
+    5,
+    21,
+    18
    ]
   },
   {
@@ -1594,21 +2435,65 @@
    "monster": "metronome",
    "count": 8,
    "area": [
-    30,
-    14,
-    50,
-    24
+    23,
+    5,
+    35,
+    18
+   ]
+  },
+  {
+   "map": "marsh",
+   "monster": "squidle",
+   "count": 8,
+   "area": [
+    37,
+    5,
+    49,
+    18
+   ]
+  },
+  {
+   "map": "marsh",
+   "monster": "alien",
+   "count": 8,
+   "area": [
+    9,
+    20,
+    21,
+    33
    ]
   },
   {
    "map": "marsh",
    "monster": "mosquito",
-   "count": 9,
+   "count": 8,
    "area": [
-    28,
-    30,
-    50,
-    38
+    23,
+    20,
+    35,
+    33
+   ]
+  },
+  {
+   "map": "marsh",
+   "monster": "orc",
+   "count": 8,
+   "area": [
+    37,
+    20,
+    49,
+    33
+   ]
+  },
+  {
+   "map": "marsh",
+   "monster": "glub_evo",
+   "count": 8,
+   "area": [
+    9,
+    35,
+    21,
+    49
    ]
   },
   {
@@ -1617,7 +2502,7 @@
    "count": 1,
    "area": [
     44,
-    46,
+    44,
     52,
     52
    ],
@@ -1626,34 +2511,78 @@
   {
    "map": "canyon",
    "monster": "drum_golem",
-   "count": 10,
+   "count": 8,
    "area": [
-    8,
-    6,
-    28,
-    22
+    9,
+    5,
+    21,
+    18
    ]
   },
   {
    "map": "canyon",
    "monster": "howler",
-   "count": 10,
+   "count": 8,
    "area": [
-    28,
-    6,
-    50,
-    22
+    23,
+    5,
+    35,
+    18
+   ]
+  },
+  {
+   "map": "canyon",
+   "monster": "alpaking",
+   "count": 8,
+   "area": [
+    37,
+    5,
+    49,
+    18
    ]
   },
   {
    "map": "canyon",
    "monster": "sand_drop",
-   "count": 10,
+   "count": 8,
    "area": [
-    8,
-    34,
-    36,
-    50
+    9,
+    20,
+    21,
+    33
+   ]
+  },
+  {
+   "map": "canyon",
+   "monster": "goleling",
+   "count": 8,
+   "area": [
+    23,
+    20,
+    35,
+    33
+   ]
+  },
+  {
+   "map": "canyon",
+   "monster": "tribal",
+   "count": 8,
+   "area": [
+    37,
+    20,
+    49,
+    33
+   ]
+  },
+  {
+   "map": "canyon",
+   "monster": "big_ninja",
+   "count": 8,
+   "area": [
+    9,
+    35,
+    21,
+    49
    ]
   },
   {
@@ -1671,23 +2600,45 @@
   {
    "map": "snow",
    "monster": "penguin",
-   "count": 11,
+   "count": 8,
    "area": [
-    8,
-    20,
+    9,
+    5,
     28,
-    36
+    18
    ]
   },
   {
    "map": "snow",
    "monster": "ice_jelly",
-   "count": 10,
+   "count": 8,
    "area": [
+    30,
+    5,
+    49,
+    18
+   ]
+  },
+  {
+   "map": "snow",
+   "monster": "hywirl",
+   "count": 8,
+   "area": [
+    9,
+    20,
     28,
-    6,
-    50,
-    22
+    33
+   ]
+  },
+  {
+   "map": "snow",
+   "monster": "bluedemon",
+   "count": 8,
+   "area": [
+    30,
+    20,
+    49,
+    33
    ]
   },
   {
@@ -1695,10 +2646,21 @@
    "monster": "yeti",
    "count": 8,
    "area": [
-    24,
-    32,
-    48,
-    40
+    9,
+    35,
+    28,
+    49
+   ]
+  },
+  {
+   "map": "snow",
+   "monster": "alpaking_evo",
+   "count": 8,
+   "area": [
+    30,
+    35,
+    49,
+    49
    ]
   },
   {
@@ -1707,7 +2669,7 @@
    "count": 1,
    "area": [
     44,
-    46,
+    44,
     52,
     52
    ],
@@ -1716,12 +2678,23 @@
   {
    "map": "volcano",
    "monster": "fire_bat",
-   "count": 10,
+   "count": 8,
    "area": [
-    8,
-    18,
+    9,
+    5,
     28,
-    40
+    18
+   ]
+  },
+  {
+   "map": "volcano",
+   "monster": "ghost_skull",
+   "count": 8,
+   "area": [
+    30,
+    5,
+    49,
+    18
    ]
   },
   {
@@ -1729,10 +2702,21 @@
    "monster": "magma_golem",
    "count": 8,
    "area": [
-    28,
+    9,
     20,
-    50,
-    34
+    28,
+    33
+   ]
+  },
+  {
+   "map": "volcano",
+   "monster": "demon",
+   "count": 8,
+   "area": [
+    30,
+    20,
+    49,
+    33
    ]
   },
   {
@@ -1740,10 +2724,21 @@
    "monster": "flame_metronome",
    "count": 8,
    "area": [
-    8,
-    44,
-    40,
-    52
+    9,
+    35,
+    28,
+    49
+   ]
+  },
+  {
+   "map": "volcano",
+   "monster": "orc_skull",
+   "count": 8,
+   "area": [
+    30,
+    35,
+    49,
+    49
    ]
   },
   {

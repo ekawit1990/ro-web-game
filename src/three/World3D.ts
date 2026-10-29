@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, ClassKey, MONSTERS, SKILLS, skillSp } from '../data';
+import { CLASSES, ClassKey, MONSTERS, SKILLS, SPAWNS, skillSp } from '../data';
 import { findPath, GameMap, Npc, THEMES, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
+import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setHat } from './models';
 import { animateRig, buildVrmCharacter } from './vrm';
 import { sfx, sfxAttack, sfxSkill } from '../audio/sound';
@@ -68,6 +69,7 @@ interface MonsterActor {
   maxHp: number;
   phase: number;
   moving: boolean;
+  anim?: MonsterAnim;
   label: Label;
   hit: THREE.Mesh;
   fade: number;
@@ -203,6 +205,7 @@ export class World3D {
     this.sun.shadow.normalBias = 0.02;
     this.scene.add(this.sun, this.sun.target);
     this.scene.add(buildGround(this.map));
+    preloadMonsters(SPAWNS.filter((sp) => sp.map === this.map.id).map((sp) => sp.monster));
     const props = buildProps(this.map);
     this.scene.add(props);
     props.traverse((o) => {
@@ -339,6 +342,11 @@ export class World3D {
     };
     rig.root.visible = !rm.dead;
     this.monsters.set(id, m);
+    void upgradeMonster(rig, rm.key, () => !this.ac.signal.aborted && this.monsters.get(id) === m).then((anim) => {
+      if (!anim) return;
+      m.anim = anim;
+      if (m.dead) anim.die();
+    });
     return m;
   }
 
@@ -528,6 +536,7 @@ export class World3D {
         else {
           this.floatText(p, String(msg.dmg), msg.crit ? 'crit' : a === this.me ? 'deal' : 'other');
           this.flash(m.rig.root);
+          m.anim?.hit();
         }
       };
       if (a) {
@@ -540,7 +549,10 @@ export class World3D {
     on('mhit', (msg: { m: string; to: string; dmg: number }) => {
       const v = this.players.get(msg.to);
       const m = this.monsters.get(msg.m);
-      if (m && v) this.lunge(m.rig.root, v.x - m.x, v.y - m.y);
+      if (m && v) {
+        if (m.anim) m.anim.attack();
+        else this.lunge(m.rig.root, v.x - m.x, v.y - m.y);
+      }
       if (!v) return;
       if (v === this.me) sfx(msg.dmg === 0 ? 'miss' : 'hurt');
       const p = new THREE.Vector3(v.x, 1.7, v.y);
@@ -635,6 +647,7 @@ export class World3D {
       const m = this.monsters.get(id) ?? this.makeMonster(id, rm);
       if (rm.dead && !m.dead) {
         m.dead = true;
+        m.anim?.die();
         sfx('mdie', Math.min(1, this.vol(m.x, m.y, false) * 2));
         if (this.target?.kind === 'monster' && this.target.id === id) this.target = null;
       } else if (!rm.dead && m.dead) {
@@ -643,6 +656,7 @@ export class World3D {
         m.y = rm.y;
         m.fade = 0;
         m.rig.root.visible = true;
+        m.anim?.revive();
       }
       const dx = rm.x - m.x;
       const dy = rm.y - m.y;
@@ -652,11 +666,17 @@ export class World3D {
       m.y += dy * k;
       m.hp = rm.hp;
       m.maxHp = rm.maxHp;
-      m.fade = Math.max(0, Math.min(1, m.fade + (m.dead ? -dt * 2.5 : dt * 2.5)));
+      // a rigged monster plays its death clip before sinking away; a drawn one squashes flat
+      m.fade = Math.max(0, Math.min(1, m.fade + (m.dead ? -dt * (m.anim ? 0.7 : 2.5) : dt * 2.5)));
       m.rig.root.visible = m.fade > 0;
-      m.rig.root.scale.set(1, 0.2 + m.fade * 0.8, 1);
       m.rig.root.position.set(m.x, 0, m.y);
-      animateMonster(m.rig, m.key, t, m.phase, m.moving);
+      if (m.anim) {
+        m.rig.root.scale.setScalar(m.dead ? Math.min(1, m.fade * 2.5) : 0.2 + m.fade * 0.8);
+        m.anim.update(dt, m.moving && !m.dead);
+      } else {
+        m.rig.root.scale.set(1, 0.2 + m.fade * 0.8, 1);
+        animateMonster(m.rig, m.key, t, m.phase, m.moving);
+      }
     });
   }
 
