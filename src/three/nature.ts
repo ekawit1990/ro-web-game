@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { pondShore } from './pond';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { G, type GameMap, type Theme } from '../game/maps';
 
@@ -92,6 +93,8 @@ interface Spot {
   z: number;
   s: number;
   rot: number;
+  /** Height of the base (rocks sunk into a pond); 0 by default. */
+  y?: number;
 }
 
 const TOWN_TREES = ['NormalTree_2', 'BirchTree_1', 'NormalTree_3', 'MapleTree_1', 'BirchTree_3', 'NormalTree_4', 'MapleTree_2'];
@@ -162,6 +165,16 @@ function plan(map: GameMap): Spot[] {
       }
     }
   }
+  // boulders ring the ponds, reeds and flowers grow on the bank
+  const shore = pondShore(map);
+  for (const [i, r] of shore.rocks.entries()) out.push({ model: pick(ROCKS, hash(i, 1, 19)), x: r.x, z: r.z, y: r.y, s: r.s, rot: hash(i, 2, 19) * 6.3 });
+  if (look.grass > 0) {
+    for (const [i, b] of shore.bank.entries()) {
+      const r = hash(i, 3, 19);
+      const model = r < 0.55 ? 'Grass_Large' : r < 0.75 ? 'Plant_1' : r < 0.9 && look.flowers ? pick(FLOWERS, hash(i, 4, 19)) : 'Grass_Small';
+      out.push({ model, x: b.x, z: b.z, s: 0.9 + hash(i, 5, 19) * 0.5, rot: hash(i, 6, 19) * 6.3 });
+    }
+  }
   return out;
 }
 
@@ -179,7 +192,7 @@ function instance(spots: Spot[], meshes: Map<string, THREE.Mesh[]>, theme: Theme
   for (const [name, list] of byModel) {
     for (const part of meshes.get(name)!) {
       const im = new THREE.InstancedMesh(part.geometry, material(part.userData.mat, theme), list.length);
-      list.forEach((s, i) => im.setMatrixAt(i, m.compose(new THREE.Vector3(s.x, 0, s.z), q.setFromAxisAngle(up, s.rot), new THREE.Vector3(s.s, s.s, s.s))));
+      list.forEach((s, i) => im.setMatrixAt(i, m.compose(new THREE.Vector3(s.x, s.y ?? 0, s.z), q.setFromAxisAngle(up, s.rot), new THREE.Vector3(s.s, s.s, s.s))));
       const small = !/Tree|Rock|Bush/.test(name);
       im.castShadow = !small;
       im.receiveShadow = true;

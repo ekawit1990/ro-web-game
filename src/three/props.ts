@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { THEMES, type GameMap, type Obj } from '../game/maps';
+import { G, THEMES, type GameMap, type Obj } from '../game/maps';
+import { buildPonds, hasPonds, pondField } from './pond';
 import { canvasTexture, mesh, outline, shade, shadows, toon } from './toon';
 
 /** The static world: ground, buildings, market stalls, trees, lamps, fountain, portals. 1 unit = 1 tile. */
@@ -20,10 +21,12 @@ export function buildGround(m: GameMap): THREE.Group {
   const g = new THREE.Group();
   const r = rng(m.w * 31 + m.h);
   const BASE = THEMES[m.theme].ground;
+  const ponds = hasPonds(m);
   const tex = canvasTexture(m.w * TILE, m.h * TILE, (c) => {
     for (let y = 0; y < m.h; y++) {
       for (let x = 0; x < m.w; x++) {
-        const t = m.ground[y][x];
+        // a pond's water tiles are cut out below; what shows of them at the rounded rim is bank
+        const t = ponds && m.ground[y][x] === G.Water ? G.Grass : m.ground[y][x];
         const px = x * TILE;
         const py = y * TILE;
         const base = BASE[t];
@@ -78,8 +81,9 @@ export function buildGround(m: GameMap): THREE.Group {
       }
     }
   });
+  if (ponds) cutPonds(tex.image as HTMLCanvasElement, m);
   tex.magFilter = THREE.LinearFilter;
-  const plane = mesh(new THREE.PlaneGeometry(m.w, m.h), new THREE.MeshLambertMaterial({ map: tex }), m.w / 2, 0, m.h / 2);
+  const plane = mesh(new THREE.PlaneGeometry(m.w, m.h), new THREE.MeshLambertMaterial({ map: tex, alphaTest: ponds ? 0.5 : 0 }), m.w / 2, 0, m.h / 2);
   plane.rotation.x = -Math.PI / 2;
   plane.receiveShadow = true;
   plane.name = 'ground';
@@ -88,8 +92,42 @@ export function buildGround(m: GameMap): THREE.Group {
   const outside = mesh(new THREE.PlaneGeometry(m.w + 200, m.h + 200), new THREE.MeshLambertMaterial({ color: THEMES[m.theme].outside }), m.w / 2, -0.02, m.h / 2);
   outside.rotation.x = -Math.PI / 2;
   outside.receiveShadow = true;
+  // drawn first and without depth, so the sunken pond basins show through the holes in the ground
+  outside.renderOrder = -1;
+  (outside.material as THREE.Material).depthWrite = false;
   g.add(outside);
   return g;
+}
+
+/** Opens the ground where the ponds are and darkens the damp bank around them. */
+function cutPonds(cv: HTMLCanvasElement, m: GameMap) {
+  const c = cv.getContext('2d')!;
+  const p = pondField(m);
+  const snow = m.theme === 'snow';
+  for (let ty = 0; ty < m.h; ty++) {
+    for (let tx = 0; tx < m.w; tx++) {
+      let near = false;
+      for (let j = -2; j <= 2 && !near; j++) for (let i = -2; i <= 2 && !near; i++) near = m.ground[ty + j]?.[tx + i] === G.Water;
+      if (!near) continue;
+      const img = c.getImageData(tx * TILE, ty * TILE, TILE, TILE);
+      const d = img.data;
+      for (let y = 0; y < TILE; y++) {
+        for (let x = 0; x < TILE; x++) {
+          const f = p.f(tx + (x + 0.5) / TILE, ty + (y + 0.5) / TILE);
+          const k = (y * TILE + x) * 4;
+          if (f > 0.5) d[k + 3] = 0;
+          else if (f > 0.34) {
+            const dim = 1 - 0.35 * ((f - 0.34) / 0.16);
+            const wet = snow ? 1 : 0.86; // damp earth on grass and sand, just a shadow on snow
+            d[k] *= dim * (snow ? 1 : 0.92);
+            d[k + 1] *= dim;
+            d[k + 2] *= dim * wet;
+          }
+        }
+      }
+      c.putImageData(img, tx * TILE, ty * TILE);
+    }
+  }
 }
 
 // ---------------------------------------------------------------- buildings
@@ -404,6 +442,8 @@ export function buildProps(map: GameMap): THREE.Group {
     g.add(r);
   }
   g.userData.rocks = rocks;
+  const ponds = buildPonds(map);
+  if (ponds) g.add(ponds);
   return g;
 }
 

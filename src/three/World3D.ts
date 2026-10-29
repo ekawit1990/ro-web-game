@@ -209,7 +209,7 @@ export class World3D {
     const props = buildProps(this.map);
     this.scene.add(props);
     props.traverse((o) => {
-      if (o.name === 'flag' || o.name === 'water') this.animated.push(o);
+      if (o.name === 'flag' || o.name === 'water' || o.userData.tick) this.animated.push(o);
     });
     const alive = () => !this.ac.signal.aborted;
     const fountain = this.map.objects.find((o) => o.kind === 'fountain');
@@ -612,6 +612,7 @@ export class World3D {
     for (const o of this.animated) {
       if (o.name === 'flag') o.rotation.y = Math.sin(t * 2 + o.id) * 0.25;
       else if (o.name === 'water') o.position.y = 0.36 + Math.sin(t * 2) * 0.01;
+      else if (o.userData.tick) o.userData.tick(t);
       else if (o.userData.rig) animateRig(o.userData.rig, t + o.id, { moving: false, sitting: false, dead: false, attack: 0 });
       else {
         for (let i = 0; i < 3; i++) {
