@@ -104,7 +104,7 @@ const TREE_SCALE: Record<string, number> = { Normal: 0.6, Pine: 0.72, Birch: 0.6
 /** Trees and how much grass / flowers / bushes grow, per map theme. */
 const LOOK: Record<Theme, { trees: string[]; grass: number; flowers: number; bushes: number }> = {
   town: { trees: TOWN_TREES, grass: 0.2, flowers: 0.025, bushes: 0.06 },
-  meadow: { trees: FIELD_TREES, grass: 0.14, flowers: 0.025, bushes: 0.04 },
+  meadow: { trees: FIELD_TREES, grass: 0.3, flowers: 0.04, bushes: 0.05 },
   forest: { trees: ['NormalTree_1', 'PineTree_2', 'NormalTree_2', 'PineTree_1', 'BirchTree_2', 'NormalTree_3', 'PineTree_4', 'NormalTree_4', 'PineTree_5'], grass: 0.3, flowers: 0.02, bushes: 0.07 },
   marsh: { trees: ['DeadTree_1', 'DeadTree_2', 'DeadTree_3', 'BirchTree_1', 'NormalTree_3'], grass: 0.32, flowers: 0.01, bushes: 0.04 },
   canyon: { trees: ['PalmTree_1', 'PalmTree_2', 'PalmTree_3', 'DeadTree_2'], grass: 0.05, flowers: 0, bushes: 0.01 },

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { G, THEMES, type GameMap, type Obj } from '../game/maps';
+import { paintTerrain } from './ground';
 import { buildPonds, hasPonds, pondField } from './pond';
 import { canvasTexture, mesh, outline, shade, shadows, toon } from './toon';
 
@@ -15,7 +16,7 @@ function rng(seed: number) {
 
 // ---------------------------------------------------------------- ground
 
-const TILE = 32;
+const TILE = 40;
 
 export function buildGround(m: GameMap): THREE.Group {
   const g = new THREE.Group();
@@ -80,7 +81,14 @@ export function buildGround(m: GameMap): THREE.Group {
         }
       }
     }
+    const soft = (x: number, y: number) => {
+      const t = m.ground[y][x];
+      // outside town, cobble tiles are just stonier ground and blend in with the rest
+      return t === G.Grass || t === G.Grass2 || t === G.Dirt || t === G.Flower || (ponds && t === G.Water) || (!m.safe && t === G.Cobble);
+    };
+    paintTerrain(c, m, TILE, BASE, soft);
   });
+  tex.anisotropy = 8;
   if (ponds) cutPonds(tex.image as HTMLCanvasElement, m);
   tex.magFilter = THREE.LinearFilter;
   const plane = mesh(new THREE.PlaneGeometry(m.w, m.h), new THREE.MeshLambertMaterial({ map: tex, alphaTest: ponds ? 0.5 : 0 }), m.w / 2, 0, m.h / 2);
