@@ -50,7 +50,6 @@ function load(name: string) {
 const BUILDINGS = ['Stable', 'House_1', 'Blacksmith', 'Inn', 'House_2', 'Mill', 'Sawmill', 'House_3', 'House_2', 'Inn', 'Bell_Tower'];
 const STALLS = ['MarketStand_1', 'MarketStand_2'];
 const CRATES = ['Crate', 'Barrel', 'Bags', 'Package_1', 'Barrel', 'Crate'];
-const ROCKS = ['Rock_1', 'Rock_2', 'Rock_3'];
 
 interface Place {
   model: string;
@@ -122,20 +121,4 @@ export async function upgradeVillage(props: THREE.Group, objects: Obj[], center:
     props.add(fit(src, p));
     if (was) props.remove(was);
   }));
-}
-
-/** Field rocks: scatter the pack's rocks over the instanced placeholder rocks. */
-export async function villageRocks(props: THREE.Group, rocks: { x: number; z: number }[], alive: () => boolean) {
-  const srcs = await Promise.all(ROCKS.map(load));
-  if (!alive() || srcs.some((s) => !s)) return;
-  const placeholder = props.children.find((c) => c.name === 'rocks');
-  rocks.forEach((r, i) => {
-    const src = srcs[i % srcs.length]!;
-    const o = src.clone();
-    o.scale.setScalar(3 + ((i * 37) % 10) / 10);
-    o.rotation.y = i * 1.7;
-    o.position.set(r.x, 0, r.z);
-    props.add(o);
-  });
-  if (placeholder) props.remove(placeholder);
 }

@@ -392,7 +392,11 @@ export function buildProps(map: GameMap): THREE.Group {
     obj.userData.obj = o; // lets village.ts swap in the modelled version
     g.add(obj);
   }
-  if (trees.length) g.add(instanced(treeGeometry(), trees));
+  if (trees.length) {
+    const t = instanced(treeGeometry(), trees);
+    t.name = 'trees';
+    g.add(t);
+  }
   if (rocks.length) {
     const rock = mergeGeometries([colored(new THREE.DodecahedronGeometry(0.4, 0).scale(1.2, 0.7, 1).translate(0, 0.22, 0), '#8d8d8d')])!;
     const r = instanced(rock, rocks);
