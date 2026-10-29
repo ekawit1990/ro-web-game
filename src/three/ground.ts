@@ -220,3 +220,98 @@ export function paintTerrain(c: CanvasRenderingContext2D, m: GameMap, T: number,
     }
   }
 }
+
+/**
+ * Town paving, drawn stone by stone in world space so there are no tile seams: cobbles in
+ * running-bond rows on the streets, and big pale flagstones edged with a kerb on the plaza.
+ */
+export function paintPaving(c: CanvasRenderingContext2D, m: GameMap, T: number) {
+  const r = rng(m.w * 4099 + 11);
+  const at = (x: number, y: number) => m.ground[Math.floor(y)]?.[Math.floor(x)];
+  const stone = (x: number, y: number, w: number, h: number, rad: number, col: string, lift: number) => {
+    c.fillStyle = `rgba(30,26,20,${0.35 * lift})`;
+    c.beginPath();
+    c.roundRect(x + 1.1, y + 1.4, w, h, rad);
+    c.fill();
+    c.fillStyle = col;
+    c.beginPath();
+    c.roundRect(x, y, w, h, rad);
+    c.fill();
+    // light from the top left, a darker lower edge
+    c.strokeStyle = `rgba(255,252,240,${0.22 * lift})`;
+    c.lineWidth = 0.9;
+    c.beginPath();
+    c.moveTo(x + rad, y + 0.6);
+    c.lineTo(x + w - rad, y + 0.6);
+    c.moveTo(x + 0.6, y + rad);
+    c.lineTo(x + 0.6, y + h - rad);
+    c.stroke();
+    c.fillStyle = `rgba(0,0,0,${0.08 + r() * 0.06})`;
+    for (let i = 0; i < 3; i++) c.fillRect(x + r() * w, y + r() * h, 1, 1);
+  };
+  const tint = (hexes: string[], j: number) => {
+    const [cr, cg, cb] = hex(hexes[Math.floor(r() * hexes.length)]);
+    const k = 1 + (r() - 0.5) * j;
+    return `rgb(${cr * k | 0},${cg * k | 0},${cb * k | 0})`;
+  };
+
+  // mortar under everything paved
+  for (let y = 0; y < m.h; y++) {
+    for (let x = 0; x < m.w; x++) {
+      const g = m.ground[y][x];
+      if (g !== G.Cobble && g !== G.Plaza) continue;
+      c.fillStyle = g === G.Cobble ? '#66625a' : '#9a9284';
+      c.fillRect(x * T, y * T, T, T);
+    }
+  }
+  // street cobbles: rows about a third of a tile high, each row shifted
+  const COBBLE = ['#a8a296', '#b4ad9f', '#9c978b', '#bdb5a5', '#918c82', '#aaa08e'];
+  for (let ry = 0; ry < m.h; ) {
+    const rh = 0.19 + r() * 0.07;
+    let rx = -r() * 0.3;
+    while (rx < m.w) {
+      const sw = 0.17 + r() * 0.17;
+      const cx = rx + sw / 2, cy = ry + rh / 2;
+      if (at(cx, cy) === G.Cobble) {
+        const gap = 0.035 * T;
+        const w = sw * T - gap, h = rh * T - gap;
+        stone(rx * T + gap / 2 + (r() - 0.5) * 1.5, ry * T + gap / 2 + (r() - 0.5) * 1.5, w, h, Math.min(w, h) * 0.38, tint(COBBLE, 0.16), 1);
+      }
+      rx += sw;
+    }
+    ry += rh;
+  }
+  // plaza flagstones, half a tile square, in straight courses
+  const FLAG = ['#d8cfbb', '#cfc5af', '#ded5c3', '#c9bfa8', '#d3c9b3'];
+  const F = 0.5;
+  for (let y = 0; y < m.h; y += F) {
+    const off = (Math.round(y / F) % 2) * F * 0.5;
+    for (let x = -off; x < m.w; x += F) {
+      if (at(x + F / 2, y + F / 2) !== G.Plaza) continue;
+      const gap = 0.03 * T;
+      stone(x * T + gap / 2, y * T + gap / 2, F * T - gap, F * T - gap, 2.2, tint(FLAG, 0.08), 0.7);
+    }
+  }
+  // a kerb of long stones round the plaza, with a drop shadow onto the street
+  for (let y = 0; y < m.h; y++) {
+    for (let x = 0; x < m.w; x++) {
+      if (m.ground[y][x] !== G.Plaza) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        if (m.ground[y + dy]?.[x + dx] === G.Plaza) continue;
+        const k = 0.16 * T;
+        const horiz = dy !== 0;
+        const bx = dx > 0 ? (x + 1) * T - k : x * T;
+        const by = dy > 0 ? (y + 1) * T - k : y * T;
+        const ox = horiz ? x * T : bx, oy = horiz ? by : y * T;
+        const w = horiz ? T : k, h = horiz ? k : T;
+        // shadow cast onto the cobbles just outside
+        c.fillStyle = 'rgba(25,22,18,0.28)';
+        c.fillRect(ox + (dx > 0 ? k : dx < 0 ? -3 : 0), oy + (dy > 0 ? k : dy < 0 ? -3 : 0), horiz ? T : 3, horiz ? 3 : T);
+        for (let i = 0; i < 2; i++) {
+          const seg = (horiz ? w : h) / 2;
+          stone(ox + (horiz ? i * seg : 0) + 0.5, oy + (horiz ? 0 : i * seg) + 0.5, horiz ? seg - 1 : w - 1, horiz ? h - 1 : seg - 1, 1.5, tint(['#b9b09d', '#aea592', '#c2b9a6'], 0.06), 1);
+        }
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { Obj } from '../game/maps';
 import { toon } from './toon';
+import { buildGoods } from './townprops';
 
 /**
  * Low-poly medieval buildings and props by Quaternius (Medieval Village Pack, CC0),
@@ -118,7 +119,17 @@ export async function upgradeVillage(props: THREE.Group, objects: Obj[], center:
     const src = await load(p.model);
     if (!src || !alive()) return;
     const was = old.get(keyOf(targets[i]));
-    props.add(fit(src, p));
+    const placed = fit(src, p);
+    if (targets[i].kind === 'stall') {
+      // stock laid out in front of the counter, inside the stall's own footprint
+      for (const side of [-1, 1]) {
+        const g = buildGoods(targets[i].x * 2 + (side > 0 ? 1 : 0), targets[i].y * 2 + 7);
+        g.position.set(side * 0.5, 0, 0.72);
+        g.scale.setScalar(0.85);
+        placed.add(g);
+      }
+    }
+    props.add(placed);
     if (was) props.remove(was);
   }));
 }

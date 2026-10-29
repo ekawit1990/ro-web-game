@@ -136,6 +136,10 @@ function plan(map: GameMap): Spot[] {
       const s = TREE_SCALE[model.replace(/Tree.*/, '')] * (o.big ? 1.1 : 0.85) * (0.9 + hash(o.x, o.y, 2) * 0.25);
       out.push({ model, x: o.x + 0.5, z: o.y + 0.5, s, rot: hash(o.x, o.y, 3) * Math.PI * 2 });
       used.add(`${o.x},${o.y}`);
+    } else if (o.kind === 'planter') {
+      // a young tree growing out of the planter's soil
+      out.push({ model: pick(TOWN_TREES, hash(o.x, o.y, 1)), x: o.x + 0.5, z: o.y + 0.5, y: 0.36, s: 0.36, rot: hash(o.x, o.y, 3) * Math.PI * 2 });
+      used.add(`${o.x},${o.y}`);
     } else if (o.kind === 'rock') {
       out.push({ model: pick(ROCKS, hash(o.x, o.y, 4)), x: o.x + 0.5, z: o.y + 0.5, s: (map.theme === 'canyon' || map.theme === 'volcano' ? 0.8 : 0.6) + hash(o.x, o.y, 5) * 0.35, rot: hash(o.x, o.y, 6) * 6.3 });
       used.add(`${o.x},${o.y}`);
