@@ -1,12 +1,16 @@
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, ClassKey, MONSTERS, SKILLS, skillSp } from '../data';
-import { findPath, GameMap, Npc, walkable } from '../game/maps';
+import { CLASSES, ClassKey, MONSTERS, SKILLS, SPAWNS, skillSp } from '../data';
+import { findPath, GameMap, Npc, THEMES, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
+import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setHat } from './models';
 import { animateRig, buildVrmCharacter } from './vrm';
+import { sfx, sfxAttack, sfxSkill } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
+import { upgradeNature } from './nature';
+import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
 
 const TILE_PX = 32; // derived.moveSpeed is pixels/second at this tile size (same as the server)
@@ -65,6 +69,7 @@ interface MonsterActor {
   maxHp: number;
   phase: number;
   moving: boolean;
+  anim?: MonsterAnim;
   label: Label;
   hit: THREE.Mesh;
   fade: number;
@@ -185,10 +190,9 @@ export class World3D {
   // ------------------------------------------------------------ scene
 
   private buildScene() {
-    const town = this.map.safe;
-    this.scene.background = new THREE.Color(town ? '#9fc8e8' : '#a8d4ef');
-    this.scene.fog = new THREE.Fog(this.scene.background, 30, 70);
-    this.scene.add(new THREE.HemisphereLight(0xdfefff, 0x6a7a50, 1.3));
+    this.scene.background = new THREE.Color(THEMES[this.map.theme].sky);
+    this.scene.fog = new THREE.Fog(this.scene.background, 42, 105);
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7a50, 1.55));
     this.sun.position.set(-8, 14, 6);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -201,11 +205,17 @@ export class World3D {
     this.sun.shadow.normalBias = 0.02;
     this.scene.add(this.sun, this.sun.target);
     this.scene.add(buildGround(this.map));
+    preloadMonsters(SPAWNS.filter((sp) => sp.map === this.map.id).map((sp) => sp.monster));
     const props = buildProps(this.map);
     this.scene.add(props);
     props.traverse((o) => {
       if (o.name === 'flag' || o.name === 'water') this.animated.push(o);
     });
+    const alive = () => !this.ac.signal.aborted;
+    const fountain = this.map.objects.find((o) => o.kind === 'fountain');
+    const center = fountain ? { x: fountain.x + 2, y: fountain.y + 2 } : { x: this.map.w / 2, y: this.map.h / 2 };
+    void upgradeVillage(props, this.map.objects, center, alive);
+    void upgradeNature(props, this.map, alive);
 
     for (const n of this.map.npcs) {
       const rig = buildCharacter({ ...n.look });
@@ -332,6 +342,11 @@ export class World3D {
     };
     rig.root.visible = !rm.dead;
     this.monsters.set(id, m);
+    void upgradeMonster(rig, rm.key, () => !this.ac.signal.aborted && this.monsters.get(id) === m).then((anim) => {
+      if (!anim) return;
+      m.anim = anim;
+      if (m.dead) anim.die();
+    });
     return m;
   }
 
@@ -513,25 +528,33 @@ export class World3D {
       const m = this.monsters.get(msg.m);
       const a = this.players.get(msg.by);
       if (!m) return;
+      const vol = this.vol(m.x, m.y, a === this.me);
       const land = () => {
         const p = this.top(m);
+        sfx(msg.dmg === 0 ? 'miss' : msg.crit ? 'crit' : 'hit', vol);
         if (msg.dmg === 0) this.floatText(p, 'Miss', 'miss');
         else {
           this.floatText(p, String(msg.dmg), msg.crit ? 'crit' : a === this.me ? 'deal' : 'other');
           this.flash(m.rig.root);
+          m.anim?.hit();
         }
       };
       if (a) {
         this.face(a, m.x, m.y);
         a.attack = 1;
+        sfxAttack(a.cls, this.vol(a.x, a.y, a === this.me));
         this.attackFx(a, m, land);
       } else land();
     });
     on('mhit', (msg: { m: string; to: string; dmg: number }) => {
       const v = this.players.get(msg.to);
       const m = this.monsters.get(msg.m);
-      if (m && v) this.lunge(m.rig.root, v.x - m.x, v.y - m.y);
+      if (m && v) {
+        if (m.anim) m.anim.attack();
+        else this.lunge(m.rig.root, v.x - m.x, v.y - m.y);
+      }
       if (!v) return;
+      if (v === this.me) sfx(msg.dmg === 0 ? 'miss' : 'hurt');
       const p = new THREE.Vector3(v.x, 1.7, v.y);
       if (msg.dmg === 0) this.floatText(p, 'Miss', 'miss');
       else {
@@ -544,9 +567,19 @@ export class World3D {
     on('fx', (msg: { kind: string; to: string }) => {
       const a = this.players.get(msg.to);
       if (!a) return;
-      if (msg.kind === 'potion') this.sparkle(a, 0x7dff9a);
-      if (msg.kind === 'levelup') this.levelFx(a, 'LEVEL UP!', 0xfff27a);
-      if (msg.kind === 'joblevelup') this.levelFx(a, 'JOB LEVEL UP!', 0x9be0ff);
+      const vol = this.vol(a.x, a.y, a === this.me);
+      if (msg.kind === 'potion') {
+        this.sparkle(a, 0x7dff9a);
+        sfx('potion', vol);
+      }
+      if (msg.kind === 'levelup') {
+        this.levelFx(a, 'LEVEL UP!', 0xfff27a);
+        sfx('levelup', vol);
+      }
+      if (msg.kind === 'joblevelup') {
+        this.levelFx(a, 'JOB LEVEL UP!', 0x9be0ff);
+        sfx('joblevel', vol);
+      }
     });
     on('correct', (msg: { x: number; y: number }) => {
       this.me.x = msg.x;
@@ -558,6 +591,7 @@ export class World3D {
     on('healed', () => {
       this.hooks.toast('ครูเพลง: พักเสียงสักหน่อยนะ (ฟื้น HP/SP เต็ม)', 'good');
       this.sparkle(this.me, 0x9be0ff);
+      sfx('heal');
     });
     on('chat', (msg: { id: string; text: string }) => this.bubble(msg.id, msg.text));
   }
@@ -613,6 +647,8 @@ export class World3D {
       const m = this.monsters.get(id) ?? this.makeMonster(id, rm);
       if (rm.dead && !m.dead) {
         m.dead = true;
+        m.anim?.die();
+        sfx('mdie', Math.min(1, this.vol(m.x, m.y, false) * 2));
         if (this.target?.kind === 'monster' && this.target.id === id) this.target = null;
       } else if (!rm.dead && m.dead) {
         m.dead = false;
@@ -620,6 +656,7 @@ export class World3D {
         m.y = rm.y;
         m.fade = 0;
         m.rig.root.visible = true;
+        m.anim?.revive();
       }
       const dx = rm.x - m.x;
       const dy = rm.y - m.y;
@@ -629,11 +666,17 @@ export class World3D {
       m.y += dy * k;
       m.hp = rm.hp;
       m.maxHp = rm.maxHp;
-      m.fade = Math.max(0, Math.min(1, m.fade + (m.dead ? -dt * 2.5 : dt * 2.5)));
+      // a rigged monster plays its death clip before sinking away; a drawn one squashes flat
+      m.fade = Math.max(0, Math.min(1, m.fade + (m.dead ? -dt * (m.anim ? 0.7 : 2.5) : dt * 2.5)));
       m.rig.root.visible = m.fade > 0;
-      m.rig.root.scale.set(1, 0.2 + m.fade * 0.8, 1);
       m.rig.root.position.set(m.x, 0, m.y);
-      animateMonster(m.rig, m.key, t, m.phase, m.moving);
+      if (m.anim) {
+        m.rig.root.scale.setScalar(m.dead ? Math.min(1, m.fade * 2.5) : 0.2 + m.fade * 0.8);
+        m.anim.update(dt, m.moving && !m.dead);
+      } else {
+        m.rig.root.scale.set(1, 0.2 + m.fade * 0.8, 1);
+        animateMonster(m.rig, m.key, t, m.phase, m.moving);
+      }
     });
   }
 
@@ -654,6 +697,7 @@ export class World3D {
           this.path = [];
           this.target = null;
           this.hooks.death(rp.dead);
+          if (rp.dead) sfx('death');
         }
         if (a.label.sp) a.label.sp.style.width = `${(rp.sp / Math.max(1, rp.maxSp)) * 100}%`;
       } else {
@@ -825,6 +869,12 @@ export class World3D {
     });
   }
 
+  /** Effect volume: full for my own actions, quieter with distance for everyone else's. */
+  private vol(x: number, y: number, mine: boolean) {
+    if (mine) return 1;
+    return Math.max(0, 1 - Math.hypot(x - this.me.x, y - this.me.y) / 14) * 0.45;
+  }
+
   private top(m: MonsterActor) {
     return new THREE.Vector3(m.x, m.rig.height + 0.2, m.y);
   }
@@ -899,15 +949,19 @@ export class World3D {
     });
   }
 
+  /** Every normal attack sends black music notes flying at the monster; damage shows when the first one lands. */
   private attackFx(a: PlayerActor, m: MonsterActor, land: () => void) {
-    const cls = CLASSES[a.cls];
-    if (!cls.projectile) {
-      this.lunge(a.rig.root, m.x - a.x, m.y - a.y);
-      setTimeout(land, 90);
-      return;
+    const melee = !CLASSES[a.cls].projectile;
+    if (melee) this.lunge(a.rig.root, m.x - a.x, m.y - a.y);
+    const notes = ['♪', '♫', '♬'];
+    const first = Math.floor(Math.random() * notes.length);
+    for (let i = 0; i < 3; i++) {
+      const side = new THREE.Vector3(-(m.y - a.y), 0, m.x - a.x).normalize().multiplyScalar((i - 1) * 0.25);
+      const from = new THREE.Vector3(a.x, 1.0 + i * 0.12, a.y).add(side);
+      const to = new THREE.Vector3(m.x, m.rig.height * 0.6, m.y).addScaledVector(side, 0.3);
+      const tex = glyphTexture(notes[(first + i) % notes.length], '#111111', 'rgba(255,255,255,0.9)');
+      this.projectile(from, to, tex, i === 0 ? 0.55 : 0.42, melee ? 180 : 230, i === 0 ? land : undefined, i * 70);
     }
-    const glyph = { note: ['♪', '#ffd166'], chord: ['♫', '#7ff0e6'], wave: ['〰', '#ff8cc8'] }[cls.projectile];
-    this.projectile(new THREE.Vector3(a.x, 1.0, a.y), new THREE.Vector3(m.x, m.rig.height * 0.6, m.y), glyphTexture(glyph[0], glyph[1]), 0.5, 220, land);
   }
 
   private burst(pos: THREE.Vector3, color: number, n: number, speed = 3) {
@@ -964,6 +1018,7 @@ export class World3D {
     if (!skill) return;
     const color = new THREE.Color(CLASSES[skill.cls].color).getHex();
     if (a) {
+      sfxSkill(skill.cls, skill.type, this.vol(a.x, a.y, a === this.me));
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       this.face(a, msg.x, msg.y);
       a.attack = 1;

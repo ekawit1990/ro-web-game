@@ -84,7 +84,7 @@ interface Brain {
 }
 
 /** Where a character arrives after taking a portal (set by the room they left). */
-const arrivals = new Map<string, { map: string; x: number; y: number; at: number }>();
+const arrivals = new Map<string, { map: string; x: number; y: number; at: number; hp?: number; sp?: number }>();
 
 const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -144,7 +144,10 @@ export class MapRoom extends Room<{ state: MapState }> {
 
   async onAuth(_client: Client, options: JoinOptions) {
     if (!options?.charId) throw new Error('missing character');
-    return MapRoom.db.load(options);
+    const t0 = Date.now();
+    const loaded = await MapRoom.db.load(options);
+    console.log(`join ${this.map.id}: loaded character in ${Date.now() - t0} ms`);
+    return loaded;
   }
 
   onJoin(client: Client, _options: JoinOptions, auth: Loaded) {
@@ -157,9 +160,11 @@ export class MapRoom extends Room<{ state: MapState }> {
       cooldowns: new Map(), lastAttack: 0, lastMoveAt: this.now, lastChat: 0, busy: false,
     };
     let { x, y } = this.map.spawn;
+    let carry: { hp?: number; sp?: number } = {};
     const arrival = arrivals.get(c.id);
     if (arrival && arrival.map === this.map.id && Date.now() - arrival.at < 60000) {
       ({ x, y } = arrival);
+      carry = arrival;
       arrivals.delete(c.id);
     } else if (c.map === this.map.id && walkable(this.map, c.pos_x, c.pos_y)) {
       x = c.pos_x;
@@ -169,8 +174,8 @@ export class MapRoom extends Room<{ state: MapState }> {
     Object.assign(p, {
       name: c.name, cls: c.cls, level: c.level, gender: c.gender, hair: c.hair, hairColor: c.hair_color, face: c.face,
       head: '', x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
-      hp: c.hp > 0 ? Math.min(c.hp, seat.derived.maxHp) : seat.derived.maxHp,
-      sp: c.sp >= 0 ? Math.min(c.sp, seat.derived.maxSp) : seat.derived.maxSp,
+      hp: (carry.hp ?? c.hp) > 0 ? Math.min(carry.hp ?? c.hp, seat.derived.maxHp) : seat.derived.maxHp,
+      sp: (carry.sp ?? c.sp) >= 0 ? Math.min(carry.sp ?? c.sp, seat.derived.maxSp) : seat.derived.maxSp,
       dead: false, sitting: false,
     });
     this.state.players.set(client.sessionId, p);
@@ -236,11 +241,12 @@ export class MapRoom extends Room<{ state: MapState }> {
     const portal = p && this.map.portals.find((pt) => dist(p.x, p.y, pt.x + 0.5, pt.y + 0.5) < 1.6);
     if (!p || !seat || p.dead || !portal) return;
     this.cancelTrade(seat.trade, 'อีกฝ่ายออกจากแผนที่');
-    arrivals.set(seat.char.id, { map: portal.to, x: portal.toX, y: portal.toY, at: Date.now() });
-    await MapRoom.db
-      .saveState(seat.userId, seat.char.id, { hp: p.hp, sp: p.sp, map: portal.to, x: portal.toX, y: portal.toY })
-      .catch(() => {});
+    // the next room gets hp/sp from here, so the player doesn't wait for the database save
+    arrivals.set(seat.char.id, { map: portal.to, x: portal.toX, y: portal.toY, at: Date.now(), hp: p.hp, sp: p.sp });
     c.send('warp', { map: portal.to });
+    MapRoom.db
+      .saveState(seat.userId, seat.char.id, { hp: p.hp, sp: p.sp, map: portal.to, x: portal.toX, y: portal.toY })
+      .catch((e) => console.warn('warp save failed', e.message));
   }
 
   private async onUseItem(c: Client, msg: { invId: string }) {
@@ -276,7 +282,7 @@ export class MapRoom extends Room<{ state: MapState }> {
         c.send('correct', { x: p.x, y: p.y });
       } else {
         // revive in town: send the player there
-        arrivals.set(seat.char.id, { map: seat.char.map, x: seat.char.pos_x, y: seat.char.pos_y, at: Date.now() });
+        arrivals.set(seat.char.id, { map: seat.char.map, x: seat.char.pos_x, y: seat.char.pos_y, at: Date.now(), ...half });
         await MapRoom.db.saveState(seat.userId, seat.char.id, { ...half, map: seat.char.map, x: seat.char.pos_x, y: seat.char.pos_y });
         c.send('warp', { map: seat.char.map });
       }

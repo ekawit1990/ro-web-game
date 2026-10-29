@@ -133,6 +133,12 @@ form { display: flex; flex-direction: column; gap: 10px; }
 
 /* Basic Info */
 .rw.info { width: 236px; }
+.rw.info .bi-mini { display: none; position: relative; font-size: 12px; line-height: 1.5; padding-right: 18px; white-space: nowrap; }
+.rw.info.mini { width: auto; min-width: 220px; }
+.rw.info.mini .bi-mini { display: block; }
+.rw.info.mini .bi-full { display: none; }
+.rw.info.mini .rw-body { padding: 3px 8px 4px; }
+.bi-expand { position: absolute; right: -4px; bottom: -2px; background: none !important; border: 0 !important; color: #5d7fb8 !important; font-size: 14px; padding: 0 2px !important; cursor: pointer; }
 .bi-name { display: flex; justify-content: space-between; margin-bottom: 3px; }
 .bi-name span { color: #4f5f7f; }
 .bi-row { display: grid; grid-template-columns: 70px 1fr 74px; align-items: center; gap: 4px; margin: 2px 0; }
@@ -230,7 +236,7 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .hk img { width: 30px; height: 30px; }
 .hk img.gone { opacity: 0.3; }
 .hk i { position: absolute; right: 1px; bottom: -1px; font-style: normal; font-size: 10px; color: #000; text-shadow: 0 0 2px #fff; }
-.hk .em { font-size: 22px; }
+.hk .em { font-size: 22px; font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif; color: #2a3550; }
 .hk .cd { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(20, 30, 60, 0.55); }
 .minimap { position: absolute; top: 8px; right: 8px; background: #fff; border: 1px solid #5d6f8f; border-radius: 4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); }
 .mini-head { display: flex; justify-content: space-between; gap: 6px; padding: 1px 6px; font-size: 11px; color: #fff; background: linear-gradient(#b9cbe8, #7f9ccb); }
@@ -238,6 +244,10 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .chatbox { position: absolute; left: 8px; bottom: 8px; width: min(400px, calc(100% - 16px)); }
 .chat-tabs { display: flex; gap: 2px; }
 .chat-tabs button { font-size: 11px; padding: 1px 8px; border-radius: 4px 4px 0 0; background: rgba(30, 40, 60, 0.7); color: #c8d4e8; font-weight: 400; }
+.chat-sp { flex: 1; }
+.chat-tabs .chat-fold { padding: 1px 6px; }
+.chat-grip { width: 20px; display: grid; place-items: center; font-size: 12px; color: #c8d4e8; background: rgba(30, 40, 60, 0.7); border-radius: 4px 4px 0 0; cursor: nesw-resize; touch-action: none; user-select: none; }
+.chatbox.folded .chat-log { display: none; }
 .chat-tabs button.on { background: rgba(20, 28, 44, 0.85); color: #fff; }
 .chat-log { height: 120px; overflow-y: auto; background: rgba(10, 16, 28, 0.62); padding: 4px 6px; font-size: 12px; line-height: 1.45; -webkit-user-select: text; user-select: text; }
 .chat-log .ln { color: #fff; text-shadow: 0 1px 1px #000; }
@@ -300,8 +310,13 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 
 /* ---------- 3D world overlay: names, bars, damage numbers, bubbles ---------- */
 #game canvas { display: block; }
+.sound-opts { display: grid; gap: 6px; margin: 10px 0 4px; padding-top: 8px; border-top: 1px solid #c8d3e2; font-size: 12px; }
+.sound-opts label { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 8px; }
+.sound-opts label.chk { display: flex; gap: 6px; }
+.sound-opts input[type=range] { width: 100%; accent-color: #4a7fc0; }
 .world-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; font-family: 'Kanit', Tahoma, sans-serif; }
 .world-overlay > * { position: absolute; left: 0; top: 0; will-change: transform; }
+.world-overlay > [hidden] { display: none !important; } /* .wl sets display:flex, which would beat the hidden attribute */
 .wl { display: flex; flex-direction: column; align-items: center; transform-origin: 0 0; margin-top: 4px; }
 .wl > * { transform: translateX(-50%); position: relative; left: 0; }
 .wl .nm, .wl .npc, .wl .portal { font-size: 12px; color: #fff; white-space: nowrap; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
@@ -328,3 +343,45 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .wf.level { font-family: Georgia, serif; font-style: italic; font-size: 30px; color: #fff27a; width: 300px; margin-left: -150px; -webkit-text-stroke: 1px #7a4a00; }
 .wb { max-width: 200px; padding: 3px 9px; background: #fff; color: #222; border: 1px solid #7a8aa0; border-radius: 7px; font-size: 13px; text-align: center; translate: -50% -100%; }
 .wb::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -5px; border: 5px solid transparent; border-top-color: #fff; border-bottom: 0; }
+
+/* Music Land visual refresh: bright storybook fantasy palette */
+:root{--bg:#142b43;--panel:rgba(13,27,45,.91);--line:rgba(220,239,255,.28);--text:#f8fbff;--muted:#c1d9ed;--accent:#ffd16b;--hp:#ee5261;--sp:#5bb7ff;--exp:#ffe36d}
+
+#game canvas{filter:saturate(1.16) contrast(1.035) brightness(1.035)}
+
+.screen{background:linear-gradient(135deg,rgba(14,38,69,.58),rgba(20,47,73,.28)),url('/fantasy-town.webp') center 48%/cover no-repeat,radial-gradient(ellipse at top,#74b8e9,#1d2a3a 70%);backdrop-filter:blur(1px)}
+
+.card{background:linear-gradient(145deg,rgba(18,43,68,.94),rgba(20,30,48,.94));border:1px solid rgba(255,224,155,.58);border-radius:20px;box-shadow:0 18px 55px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.12);backdrop-filter:blur(10px)}
+
+.logo{color:#ffe08a;text-shadow:0 2px 0 #87511e,0 0 24px rgba(255,196,78,.36);letter-spacing:.3px}
+
+.card input{background:rgba(4,17,31,.72);border-color:rgba(181,218,248,.32);border-radius:10px}
+
+.card input:focus{outline:2px solid rgba(255,209,107,.65);border-color:#ffd16b}
+
+.card button{border-radius:10px;box-shadow:0 3px 0 rgba(108,65,12,.45);transition:transform .15s ease,filter .15s ease}
+
+.card button:hover{transform:translateY(-1px);filter:brightness(1.08)}
+
+.rw.static{border-radius:9px;overflow:hidden;box-shadow:0 12px 36px rgba(5,18,35,.4);border-color:#8ca8ca}
+
+.rw-title{height:28px;background:linear-gradient(90deg,#3973a8,#739fc9 55%,#3973a8);font-size:13px}
+
+.char-slots .slot{border-radius:9px;box-shadow:0 4px 12px rgba(30,50,75,.12);transition:transform .16s ease,box-shadow .16s ease}
+
+.char-slots .slot:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(30,50,75,.2)}
+
+.cr-preview{border-radius:10px;background:radial-gradient(ellipse,#fff8e3,#b9d5f0 75%)}
+
+.hotbar{box-shadow:0 5px 18px #0005;border-color:#8297b8}
+
+.minimap{box-shadow:0 5px 18px #0005;border-radius:7px;overflow:hidden}
+
+.chat-log{border:1px solid rgba(177,207,245,.18);border-radius:0 0 6px 6px}
+
+@media(max-width:640px){.screen{padding:10px;background-position:center;background-size:cover}
+.card{padding:20px}
+.char-slots{gap:5px}
+.slot{height:160px}}
+
+@media(prefers-reduced-motion:reduce){.card button,.char-slots .slot{transition:none}}

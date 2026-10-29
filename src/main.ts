@@ -10,6 +10,7 @@ import { supabase } from './services/supabase';
 import { SupabaseStore } from './services/supabaseStore';
 import { Hud } from './ui/hud';
 import { $, characterScreen, loginScreen, show } from './ui/screens';
+import { playMusic, sfx, unlockAudio } from './audio/sound';
 
 const container = document.getElementById('game')!;
 let world: World3D | undefined;
@@ -26,6 +27,14 @@ function loading(on: boolean, text = 'กำลังโหลด…') {
 }
 
 /** Wait until the server state contains our own player. */
+/** Rejects with `msg` if `p` takes longer than `ms`, so a stuck step shows an error instead of hanging. */
+function within<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(msg)), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 function myPlayer(room: Room): Promise<{ x: number; y: number }> {
   return new Promise((resolve, reject) => {
     const started = Date.now();
@@ -69,16 +78,22 @@ async function play(char: Character): Promise<void> {
 
     const enter = async (mapId: string) => {
       switching = true;
+      const t0 = performance.now();
+      hud.death(false); // reviving in town is a map change: the old death dialog is done
       loading(true, `กำลังเดินทางไป ${getMap(mapId).name}…`);
       const old = room;
       room = undefined;
       stopWorld();
-      if (old) await old.leave(true).catch(() => {});
+      // don't wait forever for the old map to say goodbye
+      if (old) await within(old.leave(true), 3000, 'leave').catch(() => {});
 
       session.char.map = mapId;
       const token = supabase ? (await supabase.auth.getSession()).data.session?.access_token : undefined;
       const dev = devStore ? { char: session.char, inv: session.inv } : undefined;
-      const r = await client.joinOrCreate(mapId, { token, charId: session.char.id, dev });
+      // a sleeping free server can take ~1 minute to wake up
+      const r = await within(client.joinOrCreate(mapId, { token, charId: session.char.id, dev }), 75000,
+        `เข้าแผนที่ ${getMap(mapId).name} ไม่สำเร็จ: เซิร์ฟเวอร์ไม่ตอบสนอง`);
+      const tJoin = performance.now();
       room = r;
       session.link = { send: (t, m) => r.send(t, m), devStore };
       wire(r);
@@ -87,7 +102,10 @@ async function play(char: Character): Promise<void> {
       hud.setMap(map);
       world = new World3D(container, { session, room: r, map, hooks: hud, x: pos.x, y: pos.y });
       loading(false);
+      sfx(old ? 'warp' : 'enter');
+      playMusic(mapId);
       switching = false;
+      console.info(`enter ${mapId}: server join ${Math.round(tJoin - t0)} ms, world ready ${Math.round(performance.now() - t0)} ms`);
     };
 
     const wire = (r: Room) => {
@@ -131,7 +149,9 @@ async function play(char: Character): Promise<void> {
 }
 
 async function main() {
+  unlockAudio();
   for (;;) {
+    playMusic('title');
     if (supabase) {
       const { data } = await supabase.auth.getSession();
       if (!data.session) await loginScreen(supabase);

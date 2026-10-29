@@ -52,6 +52,10 @@ export interface MonsterDef {
   color: string;
   size: number;
   boss?: boolean;
+  /** Which body to draw (another monster's id); defaults to the monster's own id. */
+  shape?: string;
+  /** Rigged model in public/models/monsters/ that replaces the drawn body once loaded. */
+  model?: string;
   drops: [string, number][];
 }
 

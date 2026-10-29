@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { GameMap, Obj } from '../game/maps';
+import { THEMES, type GameMap, type Obj } from '../game/maps';
 import { canvasTexture, mesh, outline, shade, shadows, toon } from './toon';
 
 /** The static world: ground, buildings, market stalls, trees, lamps, fountain, portals. 1 unit = 1 tile. */
@@ -15,11 +15,11 @@ function rng(seed: number) {
 // ---------------------------------------------------------------- ground
 
 const TILE = 32;
-const BASE = ['#6aa84f', '#74b356', '#b8925f', '#aaa499', '#cfc6b6', '#3f86c9', '#6aa84f'];
 
 export function buildGround(m: GameMap): THREE.Group {
   const g = new THREE.Group();
   const r = rng(m.w * 31 + m.h);
+  const BASE = THEMES[m.theme].ground;
   const tex = canvasTexture(m.w * TILE, m.h * TILE, (c) => {
     for (let y = 0; y < m.h; y++) {
       for (let x = 0; x < m.w; x++) {
@@ -64,9 +64,9 @@ export function buildGround(m: GameMap): THREE.Group {
             }
           }
         } else if (t === 5) {
-          c.fillStyle = '#3577b8';
+          c.fillStyle = shade(base, -12);
           c.fillRect(px, py, TILE, TILE);
-          c.strokeStyle = 'rgba(255,255,255,0.3)';
+          c.strokeStyle = m.theme === 'volcano' ? 'rgba(255,230,120,0.6)' : 'rgba(255,255,255,0.3)';
           c.lineWidth = 1.5;
           const wx = px + r() * 20;
           const wy = py + 6 + r() * 20;
@@ -85,7 +85,7 @@ export function buildGround(m: GameMap): THREE.Group {
   plane.name = 'ground';
   g.add(plane);
   // the world outside the map
-  const outside = mesh(new THREE.PlaneGeometry(m.w + 200, m.h + 200), new THREE.MeshLambertMaterial({ color: m.safe ? '#3d5a34' : '#3b6331' }), m.w / 2, -0.02, m.h / 2);
+  const outside = mesh(new THREE.PlaneGeometry(m.w + 200, m.h + 200), new THREE.MeshLambertMaterial({ color: THEMES[m.theme].outside }), m.w / 2, -0.02, m.h / 2);
   outside.rotation.x = -Math.PI / 2;
   outside.receiveShadow = true;
   g.add(outside);
@@ -389,13 +389,21 @@ export function buildProps(map: GameMap): THREE.Group {
     }
     if (!obj) continue;
     if (o.kind !== 'building' && o.kind !== 'stall' && o.kind !== 'fountain') obj.position.set(o.x + 0.5, 0, o.y + 0.5);
+    obj.userData.obj = o; // lets village.ts swap in the modelled version
     g.add(obj);
   }
-  if (trees.length) g.add(instanced(treeGeometry(), trees));
+  if (trees.length) {
+    const t = instanced(treeGeometry(), trees);
+    t.name = 'trees';
+    g.add(t);
+  }
   if (rocks.length) {
     const rock = mergeGeometries([colored(new THREE.DodecahedronGeometry(0.4, 0).scale(1.2, 0.7, 1).translate(0, 0.22, 0), '#8d8d8d')])!;
-    g.add(instanced(rock, rocks));
+    const r = instanced(rock, rocks);
+    r.name = 'rocks';
+    g.add(r);
   }
+  g.userData.rocks = rocks;
   return g;
 }
 

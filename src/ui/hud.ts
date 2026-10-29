@@ -2,9 +2,10 @@ import {
   CLASSES, EQUIP_TYPES, ITEMS, InvItem, MAX_JOB_LEVEL, MAX_LEVEL, SHOP, SKILLS, STAT_KEYS, StatKey, WEAPON_SHOP,
   expToNext, jobExpToNext, skillSp, skillsOf, statCost,
 } from '../data';
-import type { GameMap, Npc } from '../game/maps';
+import { THEMES, type GameMap, type Npc } from '../game/maps';
 import type { Session } from '../game/session';
 import type { World3D, WorldHooks } from '../three/World3D';
+import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
 
@@ -195,8 +196,18 @@ export class Hud implements WorldHooks {
 
   private buildInfo() {
     const w = this.win('info', 'Basic Info', 'info');
-    w.querySelector('.rw-x')!.remove();
+    const x = w.querySelector('.rw-x') as HTMLButtonElement;
+    x.textContent = '⊖';
+    x.title = 'ย่อหน้าต่าง';
+    x.replaceWith(x.cloneNode(true));
+    w.querySelector('.rw-x')!.addEventListener('click', () => this.setInfoMini(!w.classList.contains('mini')));
     this.body('info')!.innerHTML = `
+      <div class="bi-mini">
+        <div id="bi-m1"></div>
+        <div id="bi-m2"></div>
+        <button class="bi-expand" title="ขยายหน้าต่าง">︾</button>
+      </div>
+      <div class="bi-full">
       <div class="bi-name"><b id="bi-name"></b><span id="bi-class"></span></div>
       <div class="bi-row"><label>HP</label><div class="gauge hp"><i id="bi-hp"></i></div><span id="bi-hpt"></span></div>
       <div class="bi-row"><label>SP</label><div class="gauge sp"><i id="bi-sp"></i></div><span id="bi-spt"></span></div>
@@ -210,7 +221,14 @@ export class Hud implements WorldHooks {
         <button data-open="map" title="Tab">แผนที่</button>
         <button data-open="sit" title="Insert">นั่ง</button>
         <button data-open="option" title="Esc">ตั้งค่า</button>
+      </div>
       </div>`;
+    w.querySelector('.bi-expand')!.addEventListener('click', () => this.setInfoMini(false));
+    let mini = false;
+    try {
+      mini = localStorage.getItem('ml-info-mini') === '1';
+    } catch { /* storage may be blocked */ }
+    this.setInfoMini(mini);
     w.querySelectorAll<HTMLButtonElement>('[data-open]').forEach((b) =>
       b.addEventListener('click', () => {
         const k = b.dataset.open!;
@@ -221,12 +239,23 @@ export class Hud implements WorldHooks {
     );
   }
 
+  private setInfoMini(mini: boolean) {
+    const w = this.wins.get('info');
+    if (!w) return;
+    w.classList.toggle('mini', mini);
+    w.querySelector('.rw-title span')!.textContent = mini ? this.s.char.name : 'Basic Info';
+    try {
+      localStorage.setItem('ml-info-mini', mini ? '1' : '0');
+    } catch { /* storage may be blocked */ }
+  }
+
   private refreshInfo() {
     const { char: c, derived: d } = this.s;
     const set = (id: string, v: string) => {
       const el = this.root.querySelector(`#${id}`);
       if (el && el.textContent !== v) el.textContent = v;
     };
+    const set2 = (el: Element, v: string) => el.textContent !== v && (el.textContent = v);
     const bar = (id: string, f: number) => ((this.root.querySelector(`#${id}`) as HTMLElement).style.width = `${Math.max(0, Math.min(100, f * 100))}%`);
     set('bi-name', c.name);
     set('bi-class', CLASSES[c.cls].name);
@@ -242,6 +271,10 @@ export class Hud implements WorldHooks {
     bar('bi-jexp', jf);
     set('bi-expt', `${(ef * 100).toFixed(1)}%`);
     set('bi-jexpt', `${(jf * 100).toFixed(1)}%`);
+    set('bi-m1', `Lv. ${c.level} / ${CLASSES[c.cls].name} / Lv.${c.job_level} / Exp. ${(ef * 100).toFixed(1)} %`);
+    const wi = this.wins.get('info');
+    if (wi?.classList.contains('mini')) set2(wi.querySelector('.rw-title span')!, c.name);
+    set('bi-m2', `HP. ${this.s.hp} / ${d.maxHp} | SP. ${this.s.sp} / ${d.maxSp}`);
     const heavy = d.weight >= d.maxWeight * 0.9;
     set('bi-w', `${Math.floor(d.weight / 10)} / ${Math.floor(d.maxWeight / 10)}`);
     this.root.querySelector('#bi-w')!.classList.toggle('bad', heavy);
@@ -528,7 +561,7 @@ export class Hud implements WorldHooks {
     cv.height = 140;
     const c = cv.getContext('2d')!;
     const s = 140 / Math.max(m.w, m.h);
-    const colors = ['#5f9a47', '#6aa651', '#b08a58', '#a49f95', '#c8c0b0', '#3c7fc0', '#6a9f4f'];
+    const colors = THEMES[m.theme].ground;
     for (let y = 0; y < m.h; y++) {
       for (let x = 0; x < m.w; x++) {
         c.fillStyle = colors[m.ground[y][x]] ?? '#555';
@@ -589,10 +622,14 @@ export class Hud implements WorldHooks {
       <div class="chatbox">
         <div class="chat-tabs">
           <button data-ct="all" class="on">ทั้งหมด</button><button data-ct="chat">แชท</button><button data-ct="sys">ระบบ</button>
+          <span class="chat-sp"></span>
+          <button class="chat-fold" title="ย่อ/ขยายแชท">▾</button>
+          <div class="chat-grip" title="ลากเพื่อยืด/หดหน้าต่างแชท">⇱</div>
         </div>
         <div id="chat-log" class="chat-log"></div>
         <form id="chat-form"><input id="chat-input" placeholder="Enter เพื่อพิมพ์ · /sit = นั่ง" maxlength="120" autocomplete="off"/></form>
       </div>`);
+    this.chatResize();
     const input = this.root.querySelector('#chat-input') as HTMLInputElement;
     this.root.querySelector('#chat-form')!.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -610,6 +647,56 @@ export class Hud implements WorldHooks {
         this.root.querySelector('#chat-log')!.setAttribute('data-tab', this.chatTab);
       }),
     );
+  }
+
+  /** Chat window size: drag the corner grip (box is anchored bottom-left), or fold the log away. */
+  private chatResize() {
+    const box = this.root.querySelector('.chatbox') as HTMLElement;
+    const log = this.root.querySelector('#chat-log') as HTMLElement;
+    const grip = box.querySelector('.chat-grip') as HTMLElement;
+    const fold = box.querySelector('.chat-fold') as HTMLButtonElement;
+    let size = { w: 0, h: 0, fold: false };
+    try {
+      size = { ...size, ...JSON.parse(localStorage.getItem('ml-chat-size') ?? '{}') };
+    } catch { /* storage may be blocked */ }
+    const save = () => {
+      try {
+        localStorage.setItem('ml-chat-size', JSON.stringify(size));
+      } catch { /* storage may be blocked */ }
+    };
+    const apply = () => {
+      if (size.w) box.style.width = `${Math.min(size.w, window.innerWidth - 16)}px`;
+      if (size.h) log.style.height = `${Math.min(size.h, window.innerHeight * 0.7)}px`;
+      box.classList.toggle('folded', size.fold);
+      fold.textContent = size.fold ? '▴' : '▾';
+    };
+    apply();
+    fold.addEventListener('click', () => {
+      size.fold = !size.fold;
+      apply();
+      save();
+    });
+    grip.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const sx = e.clientX, sy = e.clientY, w0 = box.offsetWidth, h0 = log.offsetHeight;
+      grip.setPointerCapture(e.pointerId);
+      if (size.fold) {
+        size.fold = false;
+        apply();
+      }
+      const move = (ev: PointerEvent) => {
+        size.w = Math.max(240, Math.min(window.innerWidth - 16, w0 + ev.clientX - sx));
+        size.h = Math.max(50, Math.min(window.innerHeight * 0.7, h0 - (ev.clientY - sy)));
+        apply();
+      };
+      const up = () => {
+        grip.removeEventListener('pointermove', move);
+        grip.removeEventListener('pointerup', up);
+        save();
+      };
+      grip.addEventListener('pointermove', move);
+      grip.addEventListener('pointerup', up);
+    }, { signal: this.ac.signal });
   }
 
   private line(kind: 'chat' | 'sys' | 'good' | 'bad', html: string) {
@@ -647,6 +734,7 @@ export class Hud implements WorldHooks {
     for (const d of msg.drops) this.line('good', `ได้รับไอเท็ม <b>${escapeHtml(ITEMS[d]?.name ?? d)}</b>`);
     if (msg.leveledUp) this.toast(`Base Level Up! ได้ Status Point แล้ว (กด Alt+Q)`, 'good');
     if (msg.jobLeveledUp) this.toast(`Job Level Up! ได้ Skill Point แล้ว (กด Alt+S)`, 'good');
+    setTimeout(() => sfx(msg.drops.length ? 'item' : 'coin'), 180);
   }
 
   // ------------------------------------------------------------ npc + shop
@@ -852,8 +940,24 @@ export class Hud implements WorldHooks {
         <div><kbd>F1-F9</kbd> / <kbd>1-9</kbd> ปุ่มลัด</div><div><kbd>Insert</kbd> นั่งพัก (ฟื้นไวขึ้น)</div>
         <div><kbd>Tab</kbd> แผนที่ย่อ</div><div><kbd>Enter</kbd> แชท</div><div>คลิกขวา = ยกเลิกการเล็งสกิล</div>
       </div>
+      <div class="sound-opts">
+        <label>เพลง <input type="range" id="opt-music" min="0" max="100"></label>
+        <label>เสียงเอฟเฟกต์ <input type="range" id="opt-sfx" min="0" max="100"></label>
+        <label class="chk"><input type="checkbox" id="opt-mute"> ปิดเสียงทั้งหมด</label>
+      </div>
       <div class="npc-btns"><button class="close" id="opt-exit">กลับไปเลือกตัวละคร</button></div>`;
     b.querySelector('#opt-exit')!.addEventListener('click', () => this.actions.exit());
+    const p = audioPrefs();
+    const music = b.querySelector<HTMLInputElement>('#opt-music')!;
+    const fx = b.querySelector<HTMLInputElement>('#opt-sfx')!;
+    const mute = b.querySelector<HTMLInputElement>('#opt-mute')!;
+    music.value = String(Math.round(p.music * 100));
+    fx.value = String(Math.round(p.sfx * 100));
+    mute.checked = p.muted;
+    music.oninput = () => setAudioPrefs({ music: Number(music.value) / 100 });
+    fx.oninput = () => setAudioPrefs({ sfx: Number(fx.value) / 100 });
+    fx.onchange = () => sfx('hit'); // let them hear the new level
+    mute.onchange = () => setAudioPrefs({ muted: mute.checked });
   }
 
   death(dead: boolean) {
@@ -866,9 +970,16 @@ export class Hud implements WorldHooks {
       <div class="npc-btns"><button class="ok">กลับไปจุดเซฟ</button></div></div>`;
     this.root.appendChild(d);
     this.bringFront(d);
-    d.querySelector('.ok')!.addEventListener('click', () => {
-      (d.querySelector('.ok') as HTMLButtonElement).disabled = true;
+    const ok = d.querySelector<HTMLButtonElement>('.ok')!;
+    ok.addEventListener('click', () => {
+      ok.disabled = true;
       this.actions.send('respawn');
+      // if the server never answers, let the player try again instead of being stuck
+      setTimeout(() => {
+        if (!d.isConnected) return;
+        ok.disabled = false;
+        ok.textContent = 'ลองอีกครั้ง';
+      }, 8000);
     });
   }
 
