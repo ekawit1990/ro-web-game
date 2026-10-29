@@ -15,6 +15,7 @@ import { glyphTexture, sparkTexture } from './toon';
 
 const TILE_PX = 32; // derived.moveSpeed is pixels/second at this tile size (same as the server)
 const MOVE_SEND_MS = 100;
+const COMBAT_TIME = 5; // seconds the instrument stays in hand after an attack or skill
 
 export interface WorldHooks {
   system(text: string): void;
@@ -49,6 +50,8 @@ interface PlayerActor {
   cls: ClassKey;
   moving: number;
   attack: number;
+  /** Seconds left with the instrument in hand after the last attack; then it goes back over the shoulder. */
+  combat: number;
   dead: boolean;
   sitting: boolean;
   hp: number;
@@ -283,7 +286,7 @@ export class World3D {
     rig.root.add(hit);
     this.hits.push(hit);
     const a: PlayerActor = {
-      id, name: rp.name, rig, x: rp.x, y: rp.y, tx: rp.x, ty: rp.y, look: lookKey(rp), cls: rp.cls as ClassKey, moving: 0, attack: 0,
+      id, name: rp.name, rig, x: rp.x, y: rp.y, tx: rp.x, ty: rp.y, look: lookKey(rp), cls: rp.cls as ClassKey, moving: 0, attack: 0, combat: 0,
       dead: rp.dead, sitting: rp.sitting, hp: rp.hp, maxHp: rp.maxHp, label: this.makeLabel(escapeHtml(rp.name), true, id === this.room.sessionId), hit,
     };
     this.players.set(id, a);
@@ -542,6 +545,7 @@ export class World3D {
       if (a) {
         this.face(a, m.x, m.y);
         a.attack = 1;
+        a.combat = COMBAT_TIME;
         sfxAttack(a.cls, this.vol(a.x, a.y, a === this.me));
         this.attackFx(a, m, land);
       } else land();
@@ -725,8 +729,9 @@ export class World3D {
       setHat(a.rig, rp.head);
       a.moving = Math.max(0, a.moving - dt);
       a.attack = Math.max(0, a.attack - dt * 4);
+      a.combat = Math.max(0, a.combat - dt);
       a.rig.root.position.set(a.x, 0, a.y);
-      animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack });
+      animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0 });
     });
     for (const [id, a] of this.players) {
       if (!seen.has(id) && a !== this.me) this.destroyPlayer(a);
@@ -1023,6 +1028,7 @@ export class World3D {
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       this.face(a, msg.x, msg.y);
       a.attack = 1;
+      a.combat = COMBAT_TIME;
     }
     if (skill.type === 'aoe' || skill.type === 'aoe_self' || skill.type === 'heal') {
       this.ring(msg.x, msg.y, skill.radius ?? 1, color);

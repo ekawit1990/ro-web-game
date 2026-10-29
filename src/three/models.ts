@@ -228,6 +228,25 @@ function buildHair(head: THREE.Group, style: number, female: boolean, color: str
 
 // ---------------------------------------------------------------- instruments
 
+/** Remembers where `obj` is held and where it sits slung on the back (in body space). */
+function sling(rig: CharRig, obj: THREE.Object3D, pos: [number, number, number], rot: [number, number, number], order: THREE.EulerOrder = 'XYZ') {
+  obj.userData.held = { parent: obj.parent, pos: obj.position.clone(), rot: obj.rotation.clone() };
+  obj.userData.back = { pos: new THREE.Vector3(...pos), rot: new THREE.Euler(...rot, order) };
+  ((rig.root.userData.slung ??= []) as THREE.Object3D[]).push(obj);
+}
+
+/** Instrument in hand (true) or on the back (false). */
+function draw(rig: CharRig, drawn: boolean) {
+  if (rig.root.userData.drawn === drawn) return;
+  rig.root.userData.drawn = drawn;
+  for (const o of (rig.root.userData.slung ?? []) as THREE.Object3D[]) {
+    const at = drawn ? o.userData.held : o.userData.back;
+    (drawn ? o.userData.held.parent : rig.body).add(o);
+    o.position.copy(at.pos);
+    o.rotation.copy(at.rot);
+  }
+}
+
 function instrument(rig: CharRig, cls: ClassKey) {
   const handR = rig.armR.getObjectByName('hand')!;
   const handL = rig.armL.getObjectByName('hand')!;
@@ -237,6 +256,7 @@ function instrument(rig: CharRig, cls: ClassKey) {
     mic.add(mesh(S(0.05), toon('#b0b6bd'), 0, 0.18, 0));
     mic.rotation.x = -0.6;
     handR.add(mic);
+    sling(rig, mic, [-0.12, 0.8, -0.2], [-0.2, 0, 0.5]);
     rig.armR.rotation.x = -1.1; // holding the mic up
   } else if (cls === 'guitarist' || cls === 'bassist') {
     const bass = cls === 'bassist';
@@ -258,13 +278,15 @@ function instrument(rig: CharRig, cls: ClassKey) {
     g.position.set(0.02, 0.62, 0.2);
     g.rotation.set(0, 0, -1.05);
     rig.body.add(g);
+    sling(rig, g, [-0.05, 0.75, -0.24], [0, Math.PI, 0.45]);
     rig.armR.rotation.set(-0.5, 0, 0.3);
     rig.armL.rotation.set(-1.0, 0, -0.5);
   } else if (cls === 'drummer') {
-    for (const h of [handL, handR]) {
+    for (const [h, side] of [[handL, 1], [handR, -1]] as const) {
       const stick = mesh(CYL(0.014, 0.02, 0.36), toon('#e3c18f'), 0, 0.12, 0.06);
       stick.rotation.x = -1.1;
       h.add(stick);
+      sling(rig, stick, [0, 1.0, -0.21], [-0.15, 0, side * 0.5]);
     }
   } else if (cls === 'keyboardist') {
     const k = new THREE.Group();
@@ -285,6 +307,7 @@ function instrument(rig: CharRig, cls: ClassKey) {
     k.position.set(0, 0.62, 0.26);
     k.rotation.set(0.5, 0, 0.15);
     rig.body.add(k);
+    sling(rig, k, [0, 0.72, -0.22], [-Math.PI / 2, 0, 1.0], 'ZYX');
     rig.armR.rotation.set(-0.9, 0, 0.2);
     rig.armL.rotation.set(-0.9, 0, -0.2);
   }
@@ -402,6 +425,7 @@ export function buildCharacter(look: Look, hat = ''): CharRig {
 
   const rig: CharRig = { root, body, head, armL, armR, legL, legR, hatSlot, hat: '', height: 1.6 };
   if (look.cls) instrument(rig, look.cls);
+  rig.root.userData.drawn = true; // built in hand; the first frame slings it on the back
   outline(body, 0.014);
   shadows(root);
   setHat(rig, hat);
@@ -410,10 +434,16 @@ export function buildCharacter(look: Look, hat = ''): CharRig {
   return rig;
 }
 
+const SLACK = new THREE.Euler();
+
 /** Procedural animation: walking, idle breathing, sitting, attack swing, lying down. */
-export function animateCharacter(rig: CharRig, t: number, s: { moving: boolean; sitting: boolean; dead: boolean; attack: number }) {
-  const restL = rig.armL.userData.rest as THREE.Euler;
-  const restR = rig.armR.userData.rest as THREE.Euler;
+export function animateCharacter(rig: CharRig, t: number, s: { moving: boolean; sitting: boolean; dead: boolean; attack: number; drawn?: boolean }) {
+  const drawn = !!s.drawn && !s.dead;
+  draw(rig, drawn);
+  const restL = drawn ? (rig.armL.userData.rest as THREE.Euler) : SLACK;
+  const restR = drawn ? (rig.armR.userData.rest as THREE.Euler) : SLACK;
+  rig.armL.rotation.copy(restL);
+  rig.armR.rotation.copy(restR);
   rig.body.rotation.set(0, 0, 0);
   rig.body.position.set(0, 0, 0);
   if (s.dead) {
