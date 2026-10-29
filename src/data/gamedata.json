@@ -384,6 +384,132 @@
    "price": 14,
    "color": "#ff8f00",
    "weight": 2
+  },
+  "owl_feather": {
+   "name": "ขนนกฮูกเบสทุ้ม",
+   "type": "loot",
+   "price": 40,
+   "color": "#8d6e63",
+   "weight": 1
+  },
+  "moss_cap": {
+   "name": "หมวกเห็ดมอส",
+   "type": "loot",
+   "price": 55,
+   "color": "#689f38",
+   "weight": 1
+  },
+  "ancient_bark": {
+   "name": "เปลือกไม้ก้องกังวาน",
+   "type": "loot",
+   "price": 300,
+   "color": "#4e7a3a",
+   "weight": 5
+  },
+  "toad_horn": {
+   "name": "แตรคางคกทูบา",
+   "type": "loot",
+   "price": 60,
+   "color": "#556b2f",
+   "weight": 1
+  },
+  "violin_needle": {
+   "name": "เข็มยุงไวโอลิน",
+   "type": "loot",
+   "price": 70,
+   "color": "#9575cd",
+   "weight": 1
+  },
+  "marsh_pearl": {
+   "name": "ไข่มุกบึงจังหวะ",
+   "type": "loot",
+   "price": 450,
+   "color": "#a5d6a7",
+   "weight": 5
+  },
+  "drum_stone": {
+   "name": "หินกลองศิลา",
+   "type": "loot",
+   "price": 80,
+   "color": "#a1887f",
+   "weight": 1
+  },
+  "wolf_fang": {
+   "name": "เขี้ยวหมาป่าหอน",
+   "type": "loot",
+   "price": 90,
+   "color": "#bdbdbd",
+   "weight": 1
+  },
+  "sand_crystal": {
+   "name": "ผลึกทรายร้องเพลง",
+   "type": "loot",
+   "price": 95,
+   "color": "#ffb74d",
+   "weight": 1
+  },
+  "dragon_scale": {
+   "name": "เกล็ดมังกรร็อก",
+   "type": "loot",
+   "price": 600,
+   "color": "#c62828",
+   "weight": 5
+  },
+  "ice_feather": {
+   "name": "ขนเพนกวินเยือกแข็ง",
+   "type": "loot",
+   "price": 110,
+   "color": "#90caf9",
+   "weight": 1
+  },
+  "frost_gel": {
+   "name": "เจลน้ำแข็งใส",
+   "type": "loot",
+   "price": 120,
+   "color": "#81d4fa",
+   "weight": 1
+  },
+  "yeti_fur": {
+   "name": "ขนเยติปุกปุย",
+   "type": "loot",
+   "price": 150,
+   "color": "#eceff1",
+   "weight": 1
+  },
+  "snow_crown": {
+   "name": "มงกุฎเกล็ดหิมะ",
+   "type": "loot",
+   "price": 800,
+   "color": "#e1f5fe",
+   "weight": 5
+  },
+  "ember_wing": {
+   "name": "ปีกถ่านเพลิง",
+   "type": "loot",
+   "price": 170,
+   "color": "#e53935",
+   "weight": 1
+  },
+  "magma_core": {
+   "name": "แกนแมกมา",
+   "type": "loot",
+   "price": 200,
+   "color": "#ef6c00",
+   "weight": 1
+  },
+  "molten_spring": {
+   "name": "สปริงหลอมเหลว",
+   "type": "loot",
+   "price": 220,
+   "color": "#bf360c",
+   "weight": 1
+  },
+  "metal_soul": {
+   "name": "วิญญาณเมทัลนิรันดร์",
+   "type": "loot",
+   "price": 1500,
+   "color": "#ff1744",
+   "weight": 5
   }
  },
  "shop": [
@@ -747,6 +873,563 @@
     ]
    ],
    "boss": true
+  },
+  "owl": {
+   "name": "นกฮูกเบสทุ้ม",
+   "level": 11,
+   "hp": 510,
+   "atk": 35,
+   "def": 8,
+   "exp": 75,
+   "jobExp": 56,
+   "zeny": [
+    22,
+    55
+   ],
+   "speed": 75,
+   "aggressive": false,
+   "color": "#8d6e63",
+   "size": 0.85,
+   "shape": "chick",
+   "drops": [
+    [
+     "owl_feather",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.06
+    ]
+   ]
+  },
+  "mossy": {
+   "name": "เห็ดมอสคอรัส",
+   "level": 13,
+   "hp": 620,
+   "atk": 42,
+   "def": 10,
+   "exp": 105,
+   "jobExp": 79,
+   "zeny": [
+    26,
+    65
+   ],
+   "speed": 45,
+   "aggressive": false,
+   "color": "#689f38",
+   "size": 1.0,
+   "shape": "mushy",
+   "drops": [
+    [
+     "moss_cap",
+     0.55
+    ],
+    [
+     "band_tshirt",
+     0.04
+    ]
+   ]
+  },
+  "elder_tree": {
+   "name": "พฤกษาเสียงก้องโบราณ",
+   "level": 24,
+   "hp": 11520,
+   "atk": 123,
+   "def": 25,
+   "exp": 4284,
+   "jobExp": 3213,
+   "zeny": [
+    480,
+    1200
+   ],
+   "speed": 40,
+   "aggressive": true,
+   "color": "#4e7a3a",
+   "size": 1.9,
+   "shape": "rocky",
+   "boss": true,
+   "drops": [
+    [
+     "ancient_bark",
+     1.0
+    ],
+    [
+     "headphones",
+     0.2
+    ],
+    [
+     "electric_guitar",
+     0.12
+    ],
+    [
+     "synth",
+     0.12
+    ]
+   ]
+  },
+  "tuba_toad": {
+   "name": "คางคกทูบา",
+   "level": 14,
+   "hp": 680,
+   "atk": 45,
+   "def": 10,
+   "exp": 122,
+   "jobExp": 92,
+   "zeny": [
+    28,
+    70
+   ],
+   "speed": 55,
+   "aggressive": false,
+   "color": "#556b2f",
+   "size": 1.05,
+   "shape": "frog",
+   "drops": [
+    [
+     "toad_horn",
+     0.55
+    ],
+    [
+     "energy_drink",
+     0.1
+    ]
+   ]
+  },
+  "mosquito": {
+   "name": "ยุงไวโอลิน",
+   "level": 16,
+   "hp": 790,
+   "atk": 51,
+   "def": 12,
+   "exp": 159,
+   "jobExp": 119,
+   "zeny": [
+    32,
+    80
+   ],
+   "speed": 95,
+   "aggressive": true,
+   "color": "#9575cd",
+   "size": 0.7,
+   "shape": "buzzer",
+   "drops": [
+    [
+     "violin_needle",
+     0.55
+    ],
+    [
+     "pick_necklace",
+     0.02
+    ]
+   ]
+  },
+  "marsh_queen": {
+   "name": "ราชินีบึงเสียงทุ้ม",
+   "level": 27,
+   "hp": 13230,
+   "atk": 138,
+   "def": 28,
+   "exp": 5424,
+   "jobExp": 4068,
+   "zeny": [
+    540,
+    1350
+   ],
+   "speed": 45,
+   "aggressive": true,
+   "color": "#2e7d32",
+   "size": 2.0,
+   "shape": "frog",
+   "boss": true,
+   "drops": [
+    [
+     "marsh_pearl",
+     1.0
+    ],
+    [
+     "five_string_bass",
+     0.15
+    ],
+    [
+     "leather_jacket",
+     0.2
+    ],
+    [
+     "metronome_charm",
+     0.08
+    ]
+   ]
+  },
+  "drum_golem": {
+   "name": "โกเลมกลองหิน",
+   "level": 17,
+   "hp": 850,
+   "atk": 54,
+   "def": 13,
+   "exp": 179,
+   "jobExp": 134,
+   "zeny": [
+    34,
+    85
+   ],
+   "speed": 35,
+   "aggressive": false,
+   "color": "#a1887f",
+   "size": 1.15,
+   "shape": "rocky",
+   "drops": [
+    [
+     "drum_stone",
+     0.55
+    ],
+    [
+     "steel_sticks",
+     0.02
+    ]
+   ]
+  },
+  "howler": {
+   "name": "หมาป่าหอนโซโล",
+   "level": 18,
+   "hp": 910,
+   "atk": 58,
+   "def": 14,
+   "exp": 201,
+   "jobExp": 151,
+   "zeny": [
+    36,
+    90
+   ],
+   "speed": 90,
+   "aggressive": true,
+   "color": "#9e9e9e",
+   "size": 1.05,
+   "shape": "rabbit",
+   "drops": [
+    [
+     "wolf_fang",
+     0.55
+    ],
+    [
+     "carrot",
+     0.2
+    ]
+   ]
+  },
+  "sand_drop": {
+   "name": "หยดพายุทราย",
+   "level": 19,
+   "hp": 970,
+   "atk": 61,
+   "def": 14,
+   "exp": 224,
+   "jobExp": 168,
+   "zeny": [
+    38,
+    95
+   ],
+   "speed": 70,
+   "aggressive": true,
+   "color": "#ffb74d",
+   "size": 0.95,
+   "shape": "drop",
+   "drops": [
+    [
+     "sand_crystal",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.08
+    ]
+   ]
+  },
+  "rock_dragon": {
+   "name": "มังกรร็อกแอนด์โรล",
+   "level": 31,
+   "hp": 15570,
+   "atk": 158,
+   "def": 32,
+   "exp": 7152,
+   "jobExp": 5364,
+   "zeny": [
+    620,
+    1550
+   ],
+   "speed": 50,
+   "aggressive": true,
+   "color": "#c62828",
+   "size": 2.1,
+   "shape": "rocky",
+   "boss": true,
+   "drops": [
+    [
+     "dragon_scale",
+     1.0
+    ],
+    [
+     "rock_cap",
+     0.25
+    ],
+    [
+     "electric_guitar",
+     0.2
+    ],
+    [
+     "steel_sticks",
+     0.2
+    ]
+   ]
+  },
+  "penguin": {
+   "name": "เพนกวินคอรัส",
+   "level": 21,
+   "hp": 1090,
+   "atk": 67,
+   "def": 16,
+   "exp": 273,
+   "jobExp": 205,
+   "zeny": [
+    42,
+    105
+   ],
+   "speed": 60,
+   "aggressive": false,
+   "color": "#37474f",
+   "size": 0.9,
+   "shape": "chick",
+   "drops": [
+    [
+     "ice_feather",
+     0.55
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ]
+   ]
+  },
+  "ice_jelly": {
+   "name": "เจลลี่น้ำแข็ง",
+   "level": 22,
+   "hp": 1150,
+   "atk": 70,
+   "def": 16,
+   "exp": 300,
+   "jobExp": 225,
+   "zeny": [
+    44,
+    110
+   ],
+   "speed": 50,
+   "aggressive": false,
+   "color": "#81d4fa",
+   "size": 1.0,
+   "shape": "jelly",
+   "drops": [
+    [
+     "frost_gel",
+     0.55
+    ],
+    [
+     "water",
+     0.2
+    ]
+   ]
+  },
+  "yeti": {
+   "name": "เยติเบสหนัก",
+   "level": 24,
+   "hp": 1280,
+   "atk": 77,
+   "def": 18,
+   "exp": 357,
+   "jobExp": 268,
+   "zeny": [
+    48,
+    120
+   ],
+   "speed": 70,
+   "aggressive": true,
+   "color": "#eceff1",
+   "size": 1.35,
+   "shape": "rabbit",
+   "drops": [
+    [
+     "yeti_fur",
+     0.55
+    ],
+    [
+     "leather_jacket",
+     0.03
+    ]
+   ]
+  },
+  "snow_queen": {
+   "name": "ราชินีหิมะโซปราโน",
+   "level": 35,
+   "hp": 17910,
+   "atk": 179,
+   "def": 36,
+   "exp": 9120,
+   "jobExp": 6840,
+   "zeny": [
+    700,
+    1750
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#b3e5fc",
+   "size": 2.1,
+   "shape": "drop",
+   "boss": true,
+   "drops": [
+    [
+     "snow_crown",
+     1.0
+    ],
+    [
+     "golden_mic",
+     0.25
+    ],
+    [
+     "note_ribbon",
+     0.3
+    ],
+    [
+     "headphones",
+     0.3
+    ]
+   ]
+  },
+  "fire_bat": {
+   "name": "ค้างคาวเพลิงเมทัล",
+   "level": 26,
+   "hp": 1400,
+   "atk": 83,
+   "def": 20,
+   "exp": 419,
+   "jobExp": 314,
+   "zeny": [
+    52,
+    130
+   ],
+   "speed": 100,
+   "aggressive": true,
+   "color": "#e53935",
+   "size": 0.9,
+   "shape": "bat",
+   "drops": [
+    [
+     "ember_wing",
+     0.55
+    ],
+    [
+     "energy_drink",
+     0.12
+    ]
+   ]
+  },
+  "magma_golem": {
+   "name": "โกเลมแมกมา",
+   "level": 28,
+   "hp": 1530,
+   "atk": 90,
+   "def": 21,
+   "exp": 486,
+   "jobExp": 364,
+   "zeny": [
+    56,
+    140
+   ],
+   "speed": 35,
+   "aggressive": false,
+   "color": "#ef6c00",
+   "size": 1.3,
+   "shape": "rocky",
+   "drops": [
+    [
+     "magma_core",
+     0.55
+    ],
+    [
+     "rock_cap",
+     0.02
+    ]
+   ]
+  },
+  "flame_metronome": {
+   "name": "เมโทรนอมเพลิง",
+   "level": 29,
+   "hp": 1590,
+   "atk": 93,
+   "def": 22,
+   "exp": 521,
+   "jobExp": 391,
+   "zeny": [
+    58,
+    145
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#bf360c",
+   "size": 1.05,
+   "shape": "metronome",
+   "drops": [
+    [
+     "molten_spring",
+     0.55
+    ],
+    [
+     "metronome_charm",
+     0.03
+    ]
+   ]
+  },
+  "metal_lord": {
+   "name": "จอมมารเมทัล",
+   "level": 40,
+   "hp": 20970,
+   "atk": 205,
+   "def": 42,
+   "exp": 11904,
+   "jobExp": 8928,
+   "zeny": [
+    800,
+    2000
+   ],
+   "speed": 50,
+   "aggressive": true,
+   "color": "#212121",
+   "size": 2.3,
+   "shape": "jelly",
+   "boss": true,
+   "drops": [
+    [
+     "metal_soul",
+     1.0
+    ],
+    [
+     "golden_mic",
+     0.3
+    ],
+    [
+     "electric_guitar",
+     0.3
+    ],
+    [
+     "synth",
+     0.3
+    ],
+    [
+     "five_string_bass",
+     0.3
+    ],
+    [
+     "steel_sticks",
+     0.3
+    ]
+   ]
   }
  },
  "spawns": [
@@ -829,39 +1512,6 @@
   },
   {
    "map": "field",
-   "monster": "bat",
-   "count": 7,
-   "area": [
-    40,
-    24,
-    54,
-    38
-   ]
-  },
-  {
-   "map": "field",
-   "monster": "rocky",
-   "count": 6,
-   "area": [
-    40,
-    6,
-    54,
-    22
-   ]
-  },
-  {
-   "map": "field",
-   "monster": "metronome",
-   "count": 5,
-   "area": [
-    46,
-    30,
-    56,
-    40
-   ]
-  },
-  {
-   "map": "field",
    "monster": "king_jelly",
    "count": 1,
    "area": [
@@ -871,6 +1521,242 @@
     56
    ],
    "respawnSec": 300
+  },
+  {
+   "map": "forest",
+   "monster": "bat",
+   "count": 9,
+   "area": [
+    8,
+    6,
+    26,
+    22
+   ]
+  },
+  {
+   "map": "forest",
+   "monster": "owl",
+   "count": 10,
+   "area": [
+    28,
+    6,
+    50,
+    22
+   ]
+  },
+  {
+   "map": "forest",
+   "monster": "rocky",
+   "count": 7,
+   "area": [
+    8,
+    34,
+    26,
+    50
+   ]
+  },
+  {
+   "map": "forest",
+   "monster": "mossy",
+   "count": 9,
+   "area": [
+    28,
+    34,
+    48,
+    50
+   ]
+  },
+  {
+   "map": "forest",
+   "monster": "elder_tree",
+   "count": 1,
+   "area": [
+    44,
+    42,
+    52,
+    52
+   ],
+   "respawnSec": 300
+  },
+  {
+   "map": "marsh",
+   "monster": "tuba_toad",
+   "count": 12,
+   "area": [
+    8,
+    18,
+    30,
+    40
+   ]
+  },
+  {
+   "map": "marsh",
+   "monster": "metronome",
+   "count": 8,
+   "area": [
+    30,
+    14,
+    50,
+    24
+   ]
+  },
+  {
+   "map": "marsh",
+   "monster": "mosquito",
+   "count": 9,
+   "area": [
+    28,
+    30,
+    50,
+    38
+   ]
+  },
+  {
+   "map": "marsh",
+   "monster": "marsh_queen",
+   "count": 1,
+   "area": [
+    44,
+    46,
+    52,
+    52
+   ],
+   "respawnSec": 300
+  },
+  {
+   "map": "canyon",
+   "monster": "drum_golem",
+   "count": 10,
+   "area": [
+    8,
+    6,
+    28,
+    22
+   ]
+  },
+  {
+   "map": "canyon",
+   "monster": "howler",
+   "count": 10,
+   "area": [
+    28,
+    6,
+    50,
+    22
+   ]
+  },
+  {
+   "map": "canyon",
+   "monster": "sand_drop",
+   "count": 10,
+   "area": [
+    8,
+    34,
+    36,
+    50
+   ]
+  },
+  {
+   "map": "canyon",
+   "monster": "rock_dragon",
+   "count": 1,
+   "area": [
+    44,
+    44,
+    52,
+    52
+   ],
+   "respawnSec": 360
+  },
+  {
+   "map": "snow",
+   "monster": "penguin",
+   "count": 11,
+   "area": [
+    8,
+    20,
+    28,
+    36
+   ]
+  },
+  {
+   "map": "snow",
+   "monster": "ice_jelly",
+   "count": 10,
+   "area": [
+    28,
+    6,
+    50,
+    22
+   ]
+  },
+  {
+   "map": "snow",
+   "monster": "yeti",
+   "count": 8,
+   "area": [
+    24,
+    32,
+    48,
+    40
+   ]
+  },
+  {
+   "map": "snow",
+   "monster": "snow_queen",
+   "count": 1,
+   "area": [
+    44,
+    46,
+    52,
+    52
+   ],
+   "respawnSec": 360
+  },
+  {
+   "map": "volcano",
+   "monster": "fire_bat",
+   "count": 10,
+   "area": [
+    8,
+    18,
+    28,
+    40
+   ]
+  },
+  {
+   "map": "volcano",
+   "monster": "magma_golem",
+   "count": 8,
+   "area": [
+    28,
+    20,
+    50,
+    34
+   ]
+  },
+  {
+   "map": "volcano",
+   "monster": "flame_metronome",
+   "count": 8,
+   "area": [
+    8,
+    44,
+    40,
+    52
+   ]
+  },
+  {
+   "map": "volcano",
+   "monster": "metal_lord",
+   "count": 1,
+   "area": [
+    44,
+    44,
+    52,
+    52
+   ],
+   "respawnSec": 420
   }
  ],
  "levels": {

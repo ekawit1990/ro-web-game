@@ -2,7 +2,7 @@ import {
   CLASSES, EQUIP_TYPES, ITEMS, InvItem, MAX_JOB_LEVEL, MAX_LEVEL, SHOP, SKILLS, STAT_KEYS, StatKey, WEAPON_SHOP,
   expToNext, jobExpToNext, skillSp, skillsOf, statCost,
 } from '../data';
-import type { GameMap, Npc } from '../game/maps';
+import { THEMES, type GameMap, type Npc } from '../game/maps';
 import type { Session } from '../game/session';
 import type { World3D, WorldHooks } from '../three/World3D';
 import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
@@ -561,7 +561,7 @@ export class Hud implements WorldHooks {
     cv.height = 140;
     const c = cv.getContext('2d')!;
     const s = 140 / Math.max(m.w, m.h);
-    const colors = ['#5f9a47', '#6aa651', '#b08a58', '#a49f95', '#c8c0b0', '#3c7fc0', '#6a9f4f'];
+    const colors = THEMES[m.theme].ground;
     for (let y = 0; y < m.h; y++) {
       for (let x = 0; x < m.w; x++) {
         c.fillStyle = colors[m.ground[y][x]] ?? '#555';

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { G, type GameMap } from '../game/maps';
+import { G, type GameMap, type Theme } from '../game/maps';
 
 /**
  * Trees, bushes, flowers, grass and rocks from Quaternius' Ultimate Stylized Nature pack (CC0),
@@ -23,11 +23,20 @@ const gradient = (() => {
 })();
 
 /** Material by the pack's material name: bark, rock and grass are opaque; leaves and flowers are cut-out cards. */
-function material(name: string) {
-  if (mats.has(name)) return mats.get(name)!;
+/** Theme tints on top of the textures (frosted pines, dry grass, scorched bark...). */
+const TINTS: Partial<Record<Theme, Record<string, number>>> = {
+  snow: { PineTree_Leaves: 0xd6ece6, PineTree_Bark: 0xb8a8a0 },
+  canyon: { Grass: 0xd9c27a, None: 0xc9b46a, NormalTree_Bark: 0xc8a888 },
+  marsh: { Grass: 0x8fa868, None: 0x7f9a58, NormalTree_Bark: 0x8a8070, BirchTree_Leaves: 0xa8c070 },
+  volcano: { NormalTree_Bark: 0x5a4a45 },
+};
+
+function material(name: string, theme: Theme) {
+  const key = `${name}:${theme}`;
+  if (mats.has(key)) return mats.get(key)!;
   let m: THREE.Material;
   if (name === 'None') {
-    m = new THREE.MeshToonMaterial({ color: 0x6fb44a, gradientMap: gradient, side: THREE.DoubleSide });
+    m = new THREE.MeshToonMaterial({ color: TINTS[theme]?.None ?? 0x6fb44a, gradientMap: gradient, side: THREE.DoubleSide });
   } else {
     const cut = /Leaves|Flowers/.test(name);
     const file = name === 'Rock' ? 'Rocks.jpg' : `${name}.${cut ? 'png' : 'jpg'}`;
@@ -36,10 +45,11 @@ function material(name: string) {
     map.anisotropy = 4;
     m = new THREE.MeshToonMaterial({
       map, gradientMap: gradient, alphaTest: cut ? 0.5 : 0, side: cut || name === 'Grass' ? THREE.DoubleSide : THREE.FrontSide,
-      color: name === 'Grass' ? 0x9fd86a : name === 'PineTree_Leaves' ? 0x7fc27a : 0xffffff, // the pack's pine needles are olive; pull them greener
+      // the pack's pine needles are olive; pull them greener
+      color: TINTS[theme]?.[name] ?? (name === 'Grass' ? 0x9fd86a : name === 'PineTree_Leaves' ? 0x7fc27a : 0xffffff),
     });
   }
-  mats.set(name, m);
+  mats.set(key, m);
   return m;
 }
 
@@ -62,7 +72,8 @@ function load(name: string) {
           const m = o as THREE.Mesh;
           if (!m.isMesh) return;
           const geo = m.geometry.clone().applyMatrix4(m.matrixWorld);
-          const mesh = new THREE.Mesh(geo, material((m.material as THREE.Material).name || m.name));
+          const mesh = new THREE.Mesh(geo);
+          mesh.userData.mat = (m.material as THREE.Material).name || m.name; // the material is picked per map theme
           meshes.push(mesh);
         });
         return meshes;
@@ -85,7 +96,18 @@ interface Spot {
 
 const TOWN_TREES = ['NormalTree_2', 'BirchTree_1', 'NormalTree_3', 'MapleTree_1', 'BirchTree_3', 'NormalTree_4', 'MapleTree_2'];
 const FIELD_TREES = ['NormalTree_1', 'PineTree_2', 'BirchTree_2', 'MapleTree_3', 'PineTree_5', 'NormalTree_2', 'PineTree_1', 'BirchTree_1', 'MapleTree_1', 'NormalTree_3', 'PineTree_4'];
-const TREE_SCALE: Record<string, number> = { Normal: 0.6, Pine: 0.72, Birch: 0.6, Maple: 0.5 };
+const TREE_SCALE: Record<string, number> = { Normal: 0.6, Pine: 0.72, Birch: 0.6, Maple: 0.5, Dead: 0.5, Palm: 0.6 };
+
+/** Trees and how much grass / flowers / bushes grow, per map theme. */
+const LOOK: Record<Theme, { trees: string[]; grass: number; flowers: number; bushes: number }> = {
+  town: { trees: TOWN_TREES, grass: 0.2, flowers: 0.025, bushes: 0.06 },
+  meadow: { trees: FIELD_TREES, grass: 0.14, flowers: 0.025, bushes: 0.04 },
+  forest: { trees: ['NormalTree_1', 'PineTree_2', 'NormalTree_2', 'PineTree_1', 'BirchTree_2', 'NormalTree_3', 'PineTree_4', 'NormalTree_4', 'PineTree_5'], grass: 0.3, flowers: 0.02, bushes: 0.07 },
+  marsh: { trees: ['DeadTree_1', 'DeadTree_2', 'DeadTree_3', 'BirchTree_1', 'NormalTree_3'], grass: 0.32, flowers: 0.01, bushes: 0.04 },
+  canyon: { trees: ['PalmTree_1', 'PalmTree_2', 'PalmTree_3', 'DeadTree_2'], grass: 0.05, flowers: 0, bushes: 0.01 },
+  snow: { trees: ['PineTree_1', 'PineTree_2', 'PineTree_4', 'PineTree_5'], grass: 0, flowers: 0, bushes: 0 },
+  volcano: { trees: ['DeadTree_1', 'DeadTree_3', 'DeadTree_2'], grass: 0, flowers: 0, bushes: 0 },
+};
 const BUSHES = ['Bush', 'Bush_Flowers', 'Bush_Large', 'Bush_Small_Flowers'];
 const FLOWERS = ['Flower_1_Clump', 'Flower_2_Clump', 'Flower_3_Clump', 'Flower_4_Clump', 'Plant_1', 'Plant_Flowers'];
 const GRASS = ['Grass_Small', 'Grass_Large'];
@@ -102,16 +124,17 @@ const pick = <T,>(list: T[], r: number) => list[Math.floor(r * list.length) % li
 function plan(map: GameMap): Spot[] {
   const out: Spot[] = [];
   const town = map.safe;
+  const look = LOOK[map.theme];
   const used = new Set<string>();
   for (const o of map.objects) {
     if (o.kind === 'tree') {
       const r = hash(o.x, o.y, 1);
-      const model = pick(town ? TOWN_TREES : FIELD_TREES, r);
+      const model = pick(look.trees, r);
       const s = TREE_SCALE[model.replace(/Tree.*/, '')] * (o.big ? 1.1 : 0.85) * (0.9 + hash(o.x, o.y, 2) * 0.25);
       out.push({ model, x: o.x + 0.5, z: o.y + 0.5, s, rot: hash(o.x, o.y, 3) * Math.PI * 2 });
       used.add(`${o.x},${o.y}`);
     } else if (o.kind === 'rock') {
-      out.push({ model: pick(ROCKS, hash(o.x, o.y, 4)), x: o.x + 0.5, z: o.y + 0.5, s: 0.45 + hash(o.x, o.y, 5) * 0.3, rot: hash(o.x, o.y, 6) * 6.3 });
+      out.push({ model: pick(ROCKS, hash(o.x, o.y, 4)), x: o.x + 0.5, z: o.y + 0.5, s: (map.theme === 'canyon' || map.theme === 'volcano' ? 0.8 : 0.6) + hash(o.x, o.y, 5) * 0.35, rot: hash(o.x, o.y, 6) * 6.3 });
       used.add(`${o.x},${o.y}`);
     } else if ('x' in o) used.add(`${Math.floor(o.x)},${Math.floor(o.y)}`);
   }
@@ -124,9 +147,9 @@ function plan(map: GameMap): Spot[] {
       const r = hash(x, y, 7);
       const jx = x + 0.2 + hash(x, y, 8) * 0.6, jz = y + 0.2 + hash(x, y, 9) * 0.6, rot = hash(x, y, 10) * 6.3;
       if (grassy) {
-        if (g === G.Flower || r < 0.025) out.push({ model: pick(FLOWERS, hash(x, y, 11)), x: jx, z: jz, s: 0.8 + hash(x, y, 12) * 0.3, rot });
-        else if (r < (town ? 0.06 : 0.04) && map.blocked[y][x] === false) out.push({ model: pick(BUSHES, hash(x, y, 13)), x: jx, z: jz, s: 0.7 + hash(x, y, 14) * 0.25, rot });
-        else if (r < 0.2) out.push({ model: pick(GRASS, hash(x, y, 15)), x: jx, z: jz, s: 0.9 + hash(x, y, 16) * 0.4, rot });
+        if ((g === G.Flower && look.flowers) || r < look.flowers) out.push({ model: pick(FLOWERS, hash(x, y, 11)), x: jx, z: jz, s: 0.8 + hash(x, y, 12) * 0.3, rot });
+        else if (r < look.flowers + look.bushes && map.blocked[y][x] === false) out.push({ model: pick(BUSHES, hash(x, y, 13)), x: jx, z: jz, s: 0.7 + hash(x, y, 14) * 0.25, rot });
+        else if (r < look.flowers + look.bushes + look.grass) out.push({ model: pick(GRASS, hash(x, y, 15)), x: jx, z: jz, s: 0.9 + hash(x, y, 16) * 0.4, rot });
       } else if (town && g === G.Cobble && !map.blocked[y][x]) {
         // a few flower pots of colour along the streets, never on the plaza
         const nextToHouse = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => map.objects.some((o) => o.kind === 'building'
@@ -143,7 +166,7 @@ function plan(map: GameMap): Spot[] {
 }
 
 /** Instanced draw of every spot, one InstancedMesh per model part. */
-function instance(spots: Spot[], meshes: Map<string, THREE.Mesh[]>) {
+function instance(spots: Spot[], meshes: Map<string, THREE.Mesh[]>, theme: Theme) {
   const g = new THREE.Group();
   g.name = 'nature';
   const byModel = new Map<string, Spot[]>();
@@ -155,7 +178,7 @@ function instance(spots: Spot[], meshes: Map<string, THREE.Mesh[]>) {
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
   for (const [name, list] of byModel) {
     for (const part of meshes.get(name)!) {
-      const im = new THREE.InstancedMesh(part.geometry, part.material, list.length);
+      const im = new THREE.InstancedMesh(part.geometry, material(part.userData.mat, theme), list.length);
       list.forEach((s, i) => im.setMatrixAt(i, m.compose(new THREE.Vector3(s.x, 0, s.z), q.setFromAxisAngle(up, s.rot), new THREE.Vector3(s.s, s.s, s.s))));
       const small = !/Tree|Rock|Bush/.test(name);
       im.castShadow = !small;
@@ -178,7 +201,7 @@ export async function upgradeNature(props: THREE.Group, map: GameMap, alive: () 
   // only swap the trees out if they all arrived, so a flaky connection never leaves holes
   const trees = spots.filter((s) => /Tree|Rock/.test(s.model));
   if (trees.some((s) => !meshes.has(s.model))) return;
-  props.add(instance(spots, meshes));
+  props.add(instance(spots, meshes, map.theme));
   for (const n of ['trees', 'rocks']) {
     const old = props.children.find((c) => c.name === n);
     if (old) props.remove(old);

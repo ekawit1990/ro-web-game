@@ -471,7 +471,7 @@ export function buildMonster(id: string): MonsterRig {
   const sz = def.size * 0.62;
   let height = sz * 1.1;
 
-  switch (id) {
+  switch (def.shape ?? id) {
     case 'drop': {
       const b = mesh(S(0.36, 20, 16), toon(col, { transparent: true, opacity: 0.92 }), 0, 0.33, 0);
       b.scale.set(1, 0.9, 1);
@@ -630,9 +630,10 @@ export function buildMonster(id: string): MonsterRig {
       crown.add(mesh(new THREE.ConeGeometry(0.05, 0.16, 6), toon('#ffd700'), Math.sin(a) * 0.17, 0.12, Math.cos(a) * 0.17));
     }
     crown.add(mesh(S(0.04, 8, 6), toon('#e53935'), 0, 0.02, 0.2));
-    crown.position.y = 0.64;
+    const top = new THREE.Box3().setFromObject(body).max.y; // sits on top of whichever body the boss uses
+    crown.position.y = top - 0.06;
     body.add(crown);
-    height = 0.95;
+    height = Math.max(height, top + 0.25);
   }
   body.scale.setScalar(sz / 0.5);
   outline(body, 0.02);

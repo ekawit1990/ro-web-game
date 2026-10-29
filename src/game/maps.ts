@@ -53,7 +53,21 @@ export interface GameMap {
   portals: Portal[];
   spawn: { x: number; y: number };
   safe: boolean; // towns: no monsters, faster regen
+  theme: Theme;
 }
+
+export type Theme = 'town' | 'meadow' | 'forest' | 'marsh' | 'canyon' | 'snow' | 'volcano';
+
+/** Per-theme colours: one per ground type (G), then the sky and the land outside the map. */
+export const THEMES: Record<Theme, { ground: string[]; sky: string; outside: string }> = {
+  town: { ground: ['#6aa84f', '#74b356', '#b8925f', '#aaa499', '#cfc6b6', '#3f86c9', '#6aa84f'], sky: '#b9e2ff', outside: '#3d5a34' },
+  meadow: { ground: ['#6aa84f', '#74b356', '#b8925f', '#aaa499', '#cfc6b6', '#3f86c9', '#6aa84f'], sky: '#83c7ff', outside: '#3b6331' },
+  forest: { ground: ['#4f8f3c', '#5a9a43', '#8f6a43', '#8a8a7a', '#b0a890', '#2f6f8f', '#4f8f3c'], sky: '#9fd4c8', outside: '#24401f' },
+  marsh: { ground: ['#6f8a4a', '#7a9450', '#7a6640', '#7d8170', '#a59f88', '#4f7a5a', '#6f8a4a'], sky: '#b8c9b0', outside: '#3d4a2c' },
+  canyon: { ground: ['#c9a067', '#d1aa72', '#b07a48', '#a8825a', '#d8bf94', '#4a8fb0', '#c9a067'], sky: '#ffd9a8', outside: '#8a5a32' },
+  snow: { ground: ['#eef3f8', '#e3ebf3', '#b9c6d3', '#a9b4c0', '#dfe6ee', '#9fd3f0', '#eef3f8'], sky: '#d4e6f5', outside: '#c9d6e3' },
+  volcano: { ground: ['#4a3a35', '#56433c', '#3a2c28', '#5e5550', '#6e625b', '#ff6a1a', '#4a3a35'], sky: '#7a4a3e', outside: '#231816' },
+};
 
 function mulberry32(seed: number) {
   return () => {
@@ -65,9 +79,9 @@ function mulberry32(seed: number) {
   };
 }
 
-function blank(id: string, name: string, w: number, h: number, fill: number, safe: boolean): GameMap {
+function blank(id: string, name: string, w: number, h: number, fill: number, safe: boolean, theme: Theme = safe ? 'town' : 'meadow'): GameMap {
   return {
-    id, name, w, h, safe,
+    id, name, w, h, safe, theme,
     ground: Array.from({ length: h }, () => Array(w).fill(fill)),
     blocked: Array.from({ length: h }, () => Array(w).fill(false)),
     objects: [], npcs: [], portals: [], spawn: { x: w / 2, y: h / 2 },
@@ -222,15 +236,15 @@ function buildField(): GameMap {
   }
   for (let j = 0; j < m.h; j++) {
     if (j < 28 || j > 33) addTree(0, j, true);
-    addTree(m.w - 1, j, true);
+    if (j < 28 || j > 33) addTree(m.w - 1, j, true); // east gate to the forest
   }
   block(m, 0, 0, m.w, 1);
   block(m, 0, m.h - 1, m.w, 1);
-  block(m, m.w - 1, 0, 1, m.h);
   for (let j = 0; j < m.h; j++) if (j < 28 || j > 33) block(m, 0, j);
+  for (let j = 0; j < m.h; j++) if (j < 28 || j > 33) block(m, m.w - 1, j);
   for (let y = 2; y < m.h - 2; y++) {
     for (let x = 2; x < m.w - 2; x++) {
-      if (x < 7 && y > 25 && y < 36) continue; // keep the arrival area clear
+      if ((x < 7 || x > m.w - 8) && y > 25 && y < 36) continue; // keep the arrival areas clear
       const r = rnd();
       if (r < 0.04) addTree(x, y);
       else if (r < 0.05 && free(m, x, y)) {
@@ -239,13 +253,136 @@ function buildField(): GameMap {
       }
     }
   }
-  m.portals = [{ x: 1, y: 30, to: 'town', toX: 40.5, toY: 22.5, label: 'เมืองเมโลเดีย' }];
+  m.portals = [
+    { x: 1, y: 30, to: 'town', toX: 40.5, toY: 22.5, label: 'เมืองเมโลเดีย' },
+    { x: 58, y: 30, to: 'forest', toX: 3.5, toY: 28.5, label: 'ป่าเพลงกระซิบ' },
+  ];
   m.spawn = { x: 3.5, y: 30.5 };
   return m;
 }
 
+// ---------------------------------------------------------------- wild maps
+
+interface WildSpec {
+  id: string;
+  name: string;
+  theme: Theme;
+  seed: number;
+  size: number;
+  /** Ground mix: [type, share] picked per tile. */
+  ground: [G, number][];
+  trees: number; // chance per tile
+  rocks: number;
+  /** Ponds / ice / lava: [cx, cy, rx, ry]. */
+  pools: [number, number, number, number][];
+  prev: { to: string; toX: number; toY: number; label: string };
+  next?: { to: string; label: string };
+}
+
+/** The maps beyond the meadow, all built the same way: a winding path from the west gate to the east gate. */
+function buildWild(sp: WildSpec): GameMap {
+  const n = sp.size;
+  const m = blank(sp.id, sp.name, n, n, sp.ground[0][0], false, sp.theme);
+  const rnd = mulberry32(sp.seed);
+  const mid = Math.floor(n / 2);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      let r = rnd();
+      for (const [g, share] of sp.ground) {
+        if ((r -= share) < 0) {
+          m.ground[y][x] = g;
+          break;
+        }
+      }
+    }
+  }
+  // winding path between the gates
+  let py = mid;
+  for (let x = 0; x < n; x++) {
+    if (x > 3 && x < n - 4) py = Math.max(mid - 10, Math.min(mid + 10, py + Math.round((rnd() - 0.5) * 1.6)));
+    else py += Math.sign(mid - py);
+    m.ground[py][x] = G.Dirt;
+    m.ground[py + 1][x] = G.Dirt;
+  }
+  for (const [cx, cy, rx, ry] of sp.pools) {
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1 && m.ground[y][x] !== G.Dirt) {
+          m.ground[y][x] = G.Water;
+          m.blocked[y][x] = true;
+        }
+      }
+    }
+  }
+  const gate = (j: number) => j >= mid - 3 && j <= mid + 3;
+  const addTree = (x: number, y: number, big = rnd() < 0.3) => {
+    if (!free(m, x, y) || m.ground[y][x] === G.Dirt) return;
+    m.objects.push({ kind: 'tree', x, y, big });
+    block(m, x, y);
+  };
+  for (let i = 0; i < n; i++) {
+    addTree(i, 0, true);
+    addTree(i, n - 1, true);
+    if (!gate(i)) addTree(0, i, true);
+    if (!gate(i) || !sp.next) addTree(n - 1, i, true);
+  }
+  block(m, 0, 0, n, 1);
+  block(m, 0, n - 1, n, 1);
+  for (let j = 0; j < n; j++) {
+    if (!gate(j)) block(m, 0, j);
+    if (!gate(j) || !sp.next) block(m, n - 1, j);
+  }
+  for (let y = 2; y < n - 2; y++) {
+    for (let x = 2; x < n - 2; x++) {
+      if ((x < 7 || x > n - 8) && Math.abs(y - mid) < 6) continue; // keep the gates clear
+      const r = rnd();
+      if (r < sp.trees) addTree(x, y);
+      else if (r < sp.trees + sp.rocks && free(m, x, y) && m.ground[y][x] !== G.Dirt) {
+        m.objects.push({ kind: 'rock', x, y });
+        block(m, x, y);
+      }
+    }
+  }
+  m.portals = [{ x: 1, y: mid, ...sp.prev }];
+  if (sp.next) m.portals.push({ x: n - 2, y: mid, to: sp.next.to, toX: 3.5, toY: 28.5, label: sp.next.label });
+  m.spawn = { x: 3.5, y: mid + 0.5 };
+  return m;
+}
+
+// The chain: meadow -> forest -> marsh -> canyon -> snow -> volcano. Every wild map is 56 x 56 with its gates on row 28.
+const back = (to: string, label: string, fromSize = 56) => ({ to, toX: fromSize - 3.5, toY: to === 'field' ? 30.5 : 28.5, label });
+const buildForest = () => buildWild({
+  id: 'forest', name: 'ป่าเพลงกระซิบ', theme: 'forest', seed: 11, size: 56,
+  ground: [[G.Grass2, 0.55], [G.Grass, 0.42], [G.Flower, 0.03]], trees: 0.11, rocks: 0.015, pools: [[40, 12, 3, 2], [14, 44, 2.5, 2]],
+  prev: back('field', 'ทุ่งเมโลดี้', 60), next: { to: 'marsh', label: 'บึงจังหวะ' },
+});
+const buildMarsh = () => buildWild({
+  id: 'marsh', name: 'บึงจังหวะ', theme: 'marsh', seed: 23, size: 56,
+  ground: [[G.Grass, 0.6], [G.Grass2, 0.4]], trees: 0.035, rocks: 0.01,
+  pools: [[14, 12, 5, 3], [36, 10, 4, 3], [44, 42, 6, 4], [18, 42, 4, 5], [30, 26, 3, 2]],
+  prev: back('forest', 'ป่าเพลงกระซิบ'), next: { to: 'canyon', label: 'หุบผาร็อค' },
+});
+const buildCanyon = () => buildWild({
+  id: 'canyon', name: 'หุบผาร็อค', theme: 'canyon', seed: 37, size: 56,
+  ground: [[G.Grass, 0.55], [G.Grass2, 0.3], [G.Cobble, 0.15]], trees: 0.012, rocks: 0.07, pools: [[42, 40, 3, 2]],
+  prev: back('marsh', 'บึงจังหวะ'), next: { to: 'snow', label: 'ยอดเขาหิมะโซปราโน' },
+});
+const buildSnow = () => buildWild({
+  id: 'snow', name: 'ยอดเขาหิมะโซปราโน', theme: 'snow', seed: 41, size: 56,
+  ground: [[G.Grass, 0.65], [G.Grass2, 0.35]], trees: 0.06, rocks: 0.025, pools: [[16, 14, 4, 3], [40, 44, 5, 3]],
+  prev: back('canyon', 'หุบผาร็อค'), next: { to: 'volcano', label: 'ภูเขาไฟเมทัล' },
+});
+const buildVolcano = () => buildWild({
+  id: 'volcano', name: 'ภูเขาไฟเมทัล', theme: 'volcano', seed: 53, size: 56,
+  ground: [[G.Grass, 0.55], [G.Grass2, 0.3], [G.Cobble, 0.15]], trees: 0.02, rocks: 0.06,
+  pools: [[16, 12, 4, 3], [40, 14, 3, 4], [26, 44, 6, 3], [46, 40, 3, 3]],
+  prev: back('snow', 'ยอดเขาหิมะโซปราโน'),
+});
+
 const built = new Map<string, GameMap>();
-const BUILDERS: Record<string, () => GameMap> = { town: buildTown, field: buildField };
+const BUILDERS: Record<string, () => GameMap> = {
+  town: buildTown, field: buildField, forest: buildForest, marsh: buildMarsh, canyon: buildCanyon, snow: buildSnow, volcano: buildVolcano,
+};
 export const MAP_IDS = Object.keys(BUILDERS);
 export const START_MAP = 'town';
 

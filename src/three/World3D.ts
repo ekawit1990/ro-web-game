@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
 import { CLASSES, ClassKey, MONSTERS, SKILLS, skillSp } from '../data';
-import { findPath, GameMap, Npc, walkable } from '../game/maps';
+import { findPath, GameMap, Npc, THEMES, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setHat } from './models';
@@ -188,8 +188,7 @@ export class World3D {
   // ------------------------------------------------------------ scene
 
   private buildScene() {
-    const town = this.map.safe;
-    this.scene.background = new THREE.Color(town ? '#b9e2ff' : '#83c7ff');
+    this.scene.background = new THREE.Color(THEMES[this.map.theme].sky);
     this.scene.fog = new THREE.Fog(this.scene.background, 42, 105);
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7a50, 1.55));
     this.sun.position.set(-8, 14, 6);
