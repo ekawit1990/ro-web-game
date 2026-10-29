@@ -8,6 +8,7 @@ import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig
 import { animateRig, buildVrmCharacter } from './vrm';
 import { sfx, sfxAttack, sfxSkill } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
+import { upgradeVillage, villageRocks } from './village';
 import { glyphTexture, sparkTexture } from './toon';
 
 const TILE_PX = 32; // derived.moveSpeed is pixels/second at this tile size (same as the server)
@@ -207,6 +208,11 @@ export class World3D {
     props.traverse((o) => {
       if (o.name === 'flag' || o.name === 'water') this.animated.push(o);
     });
+    const alive = () => !this.ac.signal.aborted;
+    const fountain = this.map.objects.find((o) => o.kind === 'fountain');
+    const center = fountain ? { x: fountain.x + 2, y: fountain.y + 2 } : { x: this.map.w / 2, y: this.map.h / 2 };
+    void upgradeVillage(props, this.map.objects, center, alive);
+    if (props.userData.rocks?.length) void villageRocks(props, props.userData.rocks, alive);
 
     for (const n of this.map.npcs) {
       const rig = buildCharacter({ ...n.look });

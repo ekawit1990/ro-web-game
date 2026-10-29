@@ -389,13 +389,17 @@ export function buildProps(map: GameMap): THREE.Group {
     }
     if (!obj) continue;
     if (o.kind !== 'building' && o.kind !== 'stall' && o.kind !== 'fountain') obj.position.set(o.x + 0.5, 0, o.y + 0.5);
+    obj.userData.obj = o; // lets village.ts swap in the modelled version
     g.add(obj);
   }
   if (trees.length) g.add(instanced(treeGeometry(), trees));
   if (rocks.length) {
     const rock = mergeGeometries([colored(new THREE.DodecahedronGeometry(0.4, 0).scale(1.2, 0.7, 1).translate(0, 0.22, 0), '#8d8d8d')])!;
-    g.add(instanced(rock, rocks));
+    const r = instanced(rock, rocks);
+    r.name = 'rocks';
+    g.add(r);
   }
+  g.userData.rocks = rocks;
   return g;
 }
 
