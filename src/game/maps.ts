@@ -22,7 +22,12 @@ export type Obj =
   | { kind: 'fountain'; x: number; y: number }
   | { kind: 'crate'; x: number; y: number }
   | { kind: 'banner'; x: number; y: number; color: number }
-  | { kind: 'rock'; x: number; y: number };
+  | { kind: 'rock'; x: number; y: number }
+  | { kind: 'goods'; x: number; y: number }
+  | { kind: 'cart'; x: number; y: number }
+  | { kind: 'hedge'; x: number; y: number; w: number; h: number }
+  | { kind: 'planter'; x: number; y: number }
+  | { kind: 'sign'; x: number; y: number };
 
 export interface Npc {
   id: 'shop' | 'weapons' | 'healer' | 'guide';
@@ -105,10 +110,10 @@ function buildTown(): GameMap {
   const cx = 22;
   const cy = 22;
 
-  // round plaza in the middle
+  // square plaza in the middle
   for (let y = 0; y < m.h; y++) {
     for (let x = 0; x < m.w; x++) {
-      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < 8) m.ground[y][x] = G.Plaza;
+      if (Math.abs(x + 0.5 - cx) < 7 && Math.abs(y + 0.5 - cy) < 7) m.ground[y][x] = G.Plaza;
     }
   }
   // grass and trees around the edge (the town border)
@@ -175,6 +180,25 @@ function buildTown(): GameMap {
     m.objects.push({ kind: 'banner', x, y, color });
     block(m, x, y);
   }
+  // market dressing: stock piled beside each stall, hand carts, hedges, trees in planters, a signpost
+  for (const [x, y] of [[12, 13], [18, 12], [26, 12], [32, 13], [11, 29], [17, 32], [27, 32], [33, 29]]) {
+    m.objects.push({ kind: 'goods', x, y });
+    block(m, x, y);
+  }
+  for (const [x, y] of [[10, 19], [30, 34]]) {
+    m.objects.push({ kind: 'cart', x, y });
+    block(m, x, y, 2, 1);
+  }
+  for (const [x, y, w, h] of [[32, 4, 1, 3], [3, 32, 3, 1], [12, 37, 1, 3], [32, 37, 1, 3]]) {
+    m.objects.push({ kind: 'hedge', x, y, w, h });
+    block(m, x, y, w, h);
+  }
+  for (const [x, y] of [[12, 18], [31, 18], [12, 26], [31, 26]]) {
+    m.objects.push({ kind: 'planter', x, y });
+    block(m, x, y);
+  }
+  m.objects.push({ kind: 'sign', x: 40, y: 20 });
+  block(m, 40, 20);
   for (const [x, y] of [[19, 6], [9, 21], [33, 19], [30, 7], [11, 39], [33, 39], [20, 40], [42, 8], [42, 36]]) {
     if (free(m, x, y)) {
       m.objects.push({ kind: 'tree', x, y, big: true });

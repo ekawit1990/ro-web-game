@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { G, THEMES, type GameMap, type Obj } from '../game/maps';
-import { paintTerrain } from './ground';
+import { paintPaving, paintTerrain } from './ground';
+import { buildCart, buildFountain, buildGoods, buildHedge, buildPlanter, buildSign } from './townprops';
 import { buildPonds, hasPonds, pondField } from './pond';
 import { canvasTexture, mesh, outline, shade, shadows, toon } from './toon';
 
@@ -87,6 +88,7 @@ export function buildGround(m: GameMap): THREE.Group {
       return t === G.Grass || t === G.Grass2 || t === G.Dirt || t === G.Flower || (ponds && t === G.Water) || (!m.safe && t === G.Cobble);
     };
     paintTerrain(c, m, TILE, BASE, soft);
+    if (m.safe) paintPaving(c, m, TILE);
   });
   tex.anisotropy = 8;
   if (ponds) cutPonds(tex.image as HTMLCanvasElement, m);
@@ -289,23 +291,6 @@ function stall(o: Extract<Obj, { kind: 'stall' }>): THREE.Group {
   return g;
 }
 
-function fountain(): THREE.Group {
-  const g = new THREE.Group();
-  const stone = toon('#c7c2b6');
-  const water = new THREE.MeshLambertMaterial({ color: '#4a90d9', transparent: true, opacity: 0.85, emissive: '#10325a' });
-  g.add(mesh(new THREE.CylinderGeometry(1.8, 1.9, 0.4, 32), stone, 0, 0.2, 0));
-  const pool = mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.05, 32), water, 0, 0.36, 0);
-  pool.name = 'water';
-  g.add(pool);
-  g.add(mesh(new THREE.CylinderGeometry(0.22, 0.3, 1.3, 16), stone, 0, 0.9, 0));
-  g.add(mesh(new THREE.CylinderGeometry(0.6, 0.35, 0.22, 24), stone, 0, 1.55, 0));
-  g.add(mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.04, 24), water, 0, 1.65, 0));
-  g.add(mesh(new THREE.SphereGeometry(0.14, 12, 10), toon('#e3f2fd'), 0, 1.85, 0));
-  outline(g, 0.02);
-  shadows(g, true, true);
-  return g;
-}
-
 function lamp(): THREE.Group {
   const g = new THREE.Group();
   g.add(mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.9, 8), toon('#37474f'), 0, 0.95, 0));
@@ -427,7 +412,12 @@ export function buildProps(map: GameMap): THREE.Group {
       case 'stall': obj = stall(o); break;
       case 'tree': trees.push({ x: o.x + 0.5, z: o.y + 0.5, s: o.big ? 1.3 : 0.95 }); break;
       case 'rock': rocks.push({ x: o.x + 0.5, z: o.y + 0.5, s: 0.9 }); break;
-      case 'fountain': obj = fountain(); obj.position.set(Math.floor(o.x) + 2, 0, Math.floor(o.y) + 2); break;
+      case 'fountain': obj = buildFountain(); obj.position.set(Math.floor(o.x) + 2, 0, Math.floor(o.y) + 2); break;
+      case 'goods': obj = buildGoods(o.x, o.y); break;
+      case 'cart': obj = buildCart(o.x, o.y); break;
+      case 'hedge': obj = buildHedge(o.x, o.y, o.w, o.h); break;
+      case 'planter': obj = buildPlanter(); break;
+      case 'sign': obj = buildSign(); break;
       case 'lamp': obj = lamp(); break;
       case 'bench': obj = bench(); break;
       case 'crate': obj = crate(); break;
