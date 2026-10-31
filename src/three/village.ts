@@ -47,8 +47,9 @@ function load(name: string) {
   return cache.get(name)!;
 }
 
-/** Which model stands on each building footprint, in map order. */
-const BUILDINGS = ['Stable', 'House_1', 'Blacksmith', 'Inn', 'House_2', 'Mill', 'Sawmill', 'House_3', 'House_2', 'Inn', 'Bell_Tower'];
+/** Which model stands on each building footprint: small lots get houses, big ones the trades. */
+const HOUSES = ['House_1', 'House_2', 'House_3'];
+const BIG = ['Inn', 'Blacksmith', 'Stable', 'Mill', 'Sawmill', 'Inn', 'Bell_Tower'];
 const STALLS = ['MarketStand_1', 'MarketStand_2'];
 const CRATES = ['Crate', 'Barrel', 'Bags', 'Package_1', 'Barrel', 'Crate'];
 
@@ -70,9 +71,11 @@ function plan(objects: Obj[], cx: number, cy: number): Place[] {
     if (o.kind === 'building') {
       const x = o.x + o.w / 2, z = o.y + o.h / 2;
       const dx = cx - x, dz = cy - z;
-      // door towards the plaza
-      const face = Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 1 : 3) : dz > 0 ? 0 : 2;
-      out.push({ model: BUILDINGS[b++ % BUILDINGS.length], x, z, fw: o.w, fh: o.h, face, maxScale: 2.1, fill: 0.96 });
+      // door towards the street the map put it on, else towards the plaza
+      const face = o.face ?? (Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 1 : 3) : dz > 0 ? 0 : 2);
+      const big = o.w * o.h >= 30;
+      const list = big ? BIG : HOUSES;
+      out.push({ model: list[(b++ * 7 + o.x + o.y) % list.length], x, z, fw: o.w, fh: o.h, face, maxScale: 2.1, fill: 0.96 });
     } else if (o.kind === 'stall') {
       const x = o.x + 1, z = o.y + 1;
       out.push({ model: STALLS[st++ % 2], x, z, fw: 2, fh: 2, face: Math.abs(cx - x) > Math.abs(cy - z) ? (cx > x ? 1 : 3) : cy > z ? 0 : 2, maxScale: 1.9, fill: 0.95 });

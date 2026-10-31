@@ -145,6 +145,12 @@ function plan(map: GameMap): Spot[] {
       used.add(`${o.x},${o.y}`);
     } else if ('x' in o) used.add(`${Math.floor(o.x)},${Math.floor(o.y)}`);
   }
+  const houses = new Set<number>();
+  for (const o of map.objects) {
+    if (o.kind === 'building') for (let j = o.y; j < o.y + o.h; j++) for (let i = o.x; i < o.x + o.w; i++) houses.add(j * map.w + i);
+  }
+  const f = map.objects.find((o) => o.kind === 'fountain');
+  const centre = f ? { x: f.x + 2, y: f.y + 2 } : { x: map.w / 2, y: map.h / 2 };
   const portal = (x: number, y: number) => map.portals.some((p) => Math.abs(p.x - x) < 3 && Math.abs(p.y - y) < 3);
   for (let y = 0; y < map.h; y++) {
     for (let x = 0; x < map.w; x++) {
@@ -159,12 +165,12 @@ function plan(map: GameMap): Spot[] {
         else if (r < look.flowers + look.bushes + look.grass) out.push({ model: pick(GRASS, hash(x, y, 15)), x: jx, z: jz, s: 0.9 + hash(x, y, 16) * 0.4, rot });
       } else if (town && g === G.Cobble && !map.blocked[y][x]) {
         // a few flower pots of colour along the streets, never on the plaza
-        const nextToHouse = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => map.objects.some((o) => o.kind === 'building'
-          && x + dx >= o.x && x + dx < o.x + o.w && y + dy >= o.y && y + dy < o.y + o.h));
+        const nextToHouse = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => houses.has((y + dy) * map.w + x + dx));
         if (nextToHouse && r < 0.3) out.push({ model: pick(r < 0.12 ? BUSHES : FLOWERS, hash(x, y, 17)), x: jx, z: jz, s: 0.85, rot });
       } else if (town && g === G.Plaza && !map.blocked[y][x]) {
-        // flower beds ring the edge of the plaza
-        const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => map.ground[y + dy]?.[x + dx] !== G.Plaza);
+        // flower beds ring the edge of the plaza (not every street paved like it)
+        const edge = Math.hypot(x + 0.5 - centre.x, y + 0.5 - centre.y) < 14
+          && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => map.ground[y + dy]?.[x + dx] !== G.Plaza);
         if (edge && r < 0.45) out.push({ model: pick(FLOWERS, hash(x, y, 18)), x: jx, z: jz, s: 0.9, rot });
       }
     }

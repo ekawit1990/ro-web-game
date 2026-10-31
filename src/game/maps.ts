@@ -14,7 +14,7 @@ export const enum G {
 }
 
 export type Obj =
-  | { kind: 'building'; x: number; y: number; w: number; h: number; wall: number; roof: number; floors: number }
+  | { kind: 'building'; x: number; y: number; w: number; h: number; wall: number; roof: number; floors: number; face?: number }
   | { kind: 'stall'; x: number; y: number; color: number }
   | { kind: 'tree'; x: number; y: number; big?: boolean }
   | { kind: 'bench'; x: number; y: number }
@@ -27,7 +27,11 @@ export type Obj =
   | { kind: 'cart'; x: number; y: number }
   | { kind: 'hedge'; x: number; y: number; w: number; h: number }
   | { kind: 'planter'; x: number; y: number }
-  | { kind: 'sign'; x: number; y: number };
+  | { kind: 'sign'; x: number; y: number }
+  | { kind: 'wall'; x: number; y: number; w: number; h: number }
+  | { kind: 'tower'; x: number; y: number; s: number }
+  /** Two wings either side of a `door`-wide passage down the middle, joined by an arch over it. */
+  | { kind: 'castle'; x: number; y: number; w: number; h: number; door: number };
 
 export interface Npc {
   id: 'shop' | 'weapons' | 'healer' | 'guide';
@@ -104,120 +108,183 @@ function free(m: GameMap, x: number, y: number, w = 1, h = 1) {
 
 // ---------------------------------------------------------------- town
 
+/** The town is walled, with a gate in the middle of every side; the wild maps hang off those gates. */
+export const TOWN_SIZE = 96;
+const TC = TOWN_SIZE / 2; // centre line: avenues, gates and the fountain all sit on it
+
+/** What a town tile is for. */
+const enum Z { Block, Street, Wall, Castle }
+
 function buildTown(): GameMap {
-  const m = blank('town', 'เมืองเมโลเดีย', 44, 44, G.Cobble, true);
+  const N = TOWN_SIZE;
+  const C = TC;
+  const m = blank('town', 'เมืองเมโลเดีย', N, N, G.Cobble, true);
   const rnd = mulberry32(7);
-  const cx = 22;
-  const cy = 22;
-
-  // square plaza in the middle
-  for (let y = 0; y < m.h; y++) {
-    for (let x = 0; x < m.w; x++) {
-      if (Math.abs(x + 0.5 - cx) < 7 && Math.abs(y + 0.5 - cy) < 7) m.ground[y][x] = G.Plaza;
-    }
-  }
-  // grass and trees around the edge (the town border)
-  for (let y = 0; y < m.h; y++) {
-    for (let x = 0; x < m.w; x++) {
-      if (x < 2 || y < 2 || x > m.w - 3 || y > m.h - 3) m.ground[y][x] = rnd() < 0.3 ? G.Grass2 : G.Grass;
-    }
-  }
-  const edgeTree = (x: number, y: number) => {
-    m.objects.push({ kind: 'tree', x, y, big: rnd() < 0.4 });
-    block(m, x, y);
+  const put = (o: Obj, w = 1, h = 1) => {
+    m.objects.push(o);
+    block(m, Math.floor(o.x), Math.floor(o.y), w, h);
   };
-  for (let i = 0; i < m.w; i += 2) {
-    edgeTree(i, 0);
-    edgeTree(i, m.h - 1);
-  }
-  for (let j = 2; j < m.h - 1; j += 2) {
-    edgeTree(0, j);
-    if (j < 19 || j > 25) edgeTree(m.w - 1, j); // east gate opening
-  }
-  block(m, 0, 0, m.w, 1);
-  block(m, 0, m.h - 1, m.w, 1);
-  block(m, 0, 0, 1, m.h);
-  for (let j = 0; j < m.h; j++) if (j < 19 || j > 25) block(m, m.w - 1, j);
+  const gate = (i: number) => i >= C - 2 && i < C + 2; // the 4-tile opening in each wall
+  const castle = { x: 30, y: 2, w: 36, h: 13, door: 6 }; // two wings either side of the north avenue
 
-  // fountain
-  m.objects.push({ kind: 'fountain', x: cx - 1.5, y: cy - 1.5 });
-  block(m, cx - 2, cy - 2, 4, 4);
-
-  // buildings (x, y, w, h)
-  const buildings: [number, number, number, number, number, number, number][] = [
-    [3, 3, 7, 5, 0, 0, 2], [12, 3, 6, 4, 1, 1, 1], [26, 3, 6, 5, 0, 2, 2], [34, 3, 6, 6, 2, 0, 1],
-    [3, 11, 5, 7, 1, 2, 1], [3, 26, 6, 6, 2, 1, 2], [3, 35, 7, 5, 0, 0, 1], [13, 36, 6, 5, 1, 2, 1],
-    [26, 36, 6, 5, 2, 0, 2], [34, 31, 7, 6, 0, 1, 1], [35, 10, 6, 5, 1, 0, 1],
-  ];
-  for (const [x, y, w, h, wall, roof, floors] of buildings) {
-    m.objects.push({ kind: 'building', x, y, w, h, wall, roof, floors });
-    block(m, x, y, w, h);
-  }
-
-  // market stalls around the plaza
-  const stalls: [number, number, number][] = [
-    [13, 13, 0], [16, 12, 1], [27, 12, 2], [30, 13, 3], [12, 29, 2], [15, 31, 0], [28, 31, 1], [31, 29, 3],
-  ];
-  for (const [x, y, color] of stalls) {
-    m.objects.push({ kind: 'stall', x, y, color });
-    block(m, x, y, 2, 2);
-  }
-
-  // benches, lamps, crates, banners
-  for (const [x, y] of [[17, 18], [26, 18], [17, 26], [26, 26]]) {
-    m.objects.push({ kind: 'bench', x, y });
-    block(m, x, y);
-  }
-  for (const [x, y] of [[14, 22], [30, 22], [22, 14], [22, 30], [36, 20], [36, 26]]) {
-    m.objects.push({ kind: 'lamp', x, y });
-    block(m, x, y);
-  }
-  for (const [x, y] of [[10, 9], [11, 9], [25, 9], [10, 33], [33, 27], [20, 9]]) {
-    m.objects.push({ kind: 'crate', x, y });
-    block(m, x, y);
-  }
-  for (const [x, y, color] of [[39, 18, 0], [39, 27, 1], [20, 35, 0], [24, 35, 1]]) {
-    m.objects.push({ kind: 'banner', x, y, color });
-    block(m, x, y);
-  }
-  // market dressing: stock piled beside each stall, hand carts, hedges, trees in planters, a signpost
-  for (const [x, y] of [[12, 13], [18, 12], [26, 12], [32, 13], [11, 29], [17, 32], [27, 32], [33, 29]]) {
-    m.objects.push({ kind: 'goods', x, y });
-    block(m, x, y);
-  }
-  for (const [x, y] of [[10, 19], [30, 34]]) {
-    m.objects.push({ kind: 'cart', x, y });
-    block(m, x, y, 2, 1);
-  }
-  for (const [x, y, w, h] of [[32, 4, 1, 3], [3, 32, 3, 1], [12, 37, 1, 3], [32, 37, 1, 3]]) {
-    m.objects.push({ kind: 'hedge', x, y, w, h });
-    block(m, x, y, w, h);
-  }
-  for (const [x, y] of [[12, 18], [31, 18], [12, 26], [31, 26]]) {
-    m.objects.push({ kind: 'planter', x, y });
-    block(m, x, y);
-  }
-  m.objects.push({ kind: 'sign', x: 40, y: 20 });
-  block(m, 40, 20);
-  for (const [x, y] of [[19, 6], [9, 21], [33, 19], [30, 7], [11, 39], [33, 39], [20, 40], [42, 8], [42, 36]]) {
-    if (free(m, x, y)) {
-      m.objects.push({ kind: 'tree', x, y, big: true });
-      block(m, x, y);
+  // ---- zones, after the reference: walls, a castle on the north wall, a round plaza in the middle,
+  // a cross of wide avenues, diagonals out to the corners, a lane ringing the inner blocks
+  const zone: Z[][] = Array.from({ length: N }, () => Array(N).fill(Z.Block));
+  const oct = (a: number, b: number) => Math.max(a, b, (a + b) / Math.SQRT2);
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const a = Math.abs(x + 0.5 - C), b = Math.abs(y + 0.5 - C), o = oct(a, b);
+      let z = Z.Block;
+      if (x < 2 || y < 2 || x >= N - 2 || y >= N - 2) z = (x < 2 || x >= N - 2) && gate(y) || (y < 2 || y >= N - 2) && gate(x) ? Z.Street : Z.Wall;
+      else if (y < castle.y + castle.h && x >= castle.x && x < castle.x + castle.w && a >= castle.door / 2) z = Z.Castle;
+      else if (x < 5 || y < 5 || x >= N - 5 || y >= N - 5) z = Z.Street; // ring road inside the walls
+      else if (y < 23 && x >= castle.x && x < castle.x + castle.w) z = Z.Street; // castle forecourt
+      else if (a < 3 || b < 3) z = Z.Street; // avenues
+      else if (o <= 10.5) z = Z.Street; // the plaza
+      else if (o >= 23 && o < 26) z = Z.Street; // lane round the inner blocks
+      else if (Math.abs(a - b) < 2.9) z = Z.Street; // diagonals to the corners
+      zone[y][x] = z;
+      if (z === Z.Street) m.ground[y][x] = G.Plaza;
     }
   }
 
+  // distance (in steps) from each block tile to the nearest non-block tile: deep inside a block is a garden
+  const dist: number[][] = zone.map((row) => row.map((z) => (z === Z.Block ? Infinity : 0)));
+  const q: [number, number][] = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!dist[y][x]) q.push([x, y]);
+  for (let i = 0; i < q.length; i++) {
+    const [x, y] = q[i];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (dist[ny]?.[nx] === Infinity) {
+        dist[ny][nx] = dist[y][x] + 1;
+        q.push([nx, ny]);
+      }
+    }
+  }
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) if (dist[y][x] >= 7) m.ground[y][x] = rnd() < 0.3 ? G.Grass2 : G.Grass;
+  }
+
+  // ---- walls, towers and the castle
+  for (const [x, y, w, h] of [
+    [0, 0, C - 2, 2], [C + 2, 0, C - 2, 2], [0, N - 2, C - 2, 2], [C + 2, N - 2, C - 2, 2],
+    [0, 2, 2, C - 4], [0, C + 2, 2, C - 4], [N - 2, 2, 2, C - 4], [N - 2, C + 2, 2, C - 4],
+  ]) put({ kind: 'wall', x, y, w, h }, w, h);
+  const tower = (x: number, y: number, s: number) => put({ kind: 'tower', x, y, s }, s, s);
+  for (const [x, y] of [[0, 0], [N - 4, 0], [0, N - 4], [N - 4, N - 4]]) tower(x, y, 4);
+  for (const t of [21, N - 24]) {
+    if (t + 3 <= castle.x || t >= castle.x + castle.w) tower(t, 0, 3);
+    tower(t, N - 3, 3);
+    tower(0, t, 3);
+    tower(N - 3, t, 3);
+  }
+  // gatehouses either side of the east, south and west gates (the castle itself guards the north one)
+  for (const s of [-1, 1]) {
+    const g = s < 0 ? C - 5 : C + 2;
+    tower(g, N - 3, 3);
+    tower(0, g, 3);
+    tower(N - 3, g, 3);
+  }
+  m.objects.push({ kind: 'castle', ...castle });
+  block(m, castle.x, castle.y, castle.w / 2 - castle.door / 2, castle.h);
+  block(m, C + castle.door / 2, castle.y, castle.w / 2 - castle.door / 2, castle.h);
+
+  // ---- fountain, NPCs and the market on the plaza
+  m.objects.push({ kind: 'fountain', x: C - 1.5, y: C - 1.5 });
+  block(m, C - 2, C - 2, 4, 4);
   m.npcs = [
-    { id: 'shop', name: 'ร้านของใช้ ป้ามะลิ', x: 14, y: 15, look: { gender: 'f', hair: 3, hair_color: 0, face: 1, body: '#e7a33e' } },
-    { id: 'weapons', name: 'ร้านเครื่องดนตรี ลุงบุญ', x: 29, y: 15, look: { gender: 'm', hair: 1, hair_color: 7, face: 2, body: '#795548' } },
-    { id: 'healer', name: 'ครูเพลงใจดี', x: 21, y: 18, look: { gender: 'f', hair: 4, hair_color: 7, face: 0, body: '#ffffff' } },
-    { id: 'guide', name: 'ไกด์ประจำเมือง', x: 38, y: 23, look: { gender: 'm', hair: 0, hair_color: 3, face: 3, body: '#3949ab' } },
+    { id: 'shop', name: 'ร้านของใช้ ป้ามะลิ', x: C - 6, y: C - 6, look: { gender: 'f', hair: 3, hair_color: 0, face: 1, body: '#e7a33e' } },
+    { id: 'weapons', name: 'ร้านเครื่องดนตรี ลุงบุญ', x: C + 5, y: C - 6, look: { gender: 'm', hair: 1, hair_color: 7, face: 2, body: '#795548' } },
+    { id: 'healer', name: 'ครูเพลงใจดี', x: C - 1, y: C - 4, look: { gender: 'f', hair: 4, hair_color: 7, face: 0, body: '#ffffff' } },
+    { id: 'guide', name: 'ไกด์ประจำเมือง', x: C + 3, y: C + 6, look: { gender: 'm', hair: 0, hair_color: 3, face: 3, body: '#3949ab' } },
   ];
   for (const n of m.npcs) block(m, n.x, n.y);
+  let color = 0;
+  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    for (const [a, b] of [[8, 4], [4, 8]]) {
+      const x = C + sx * a - 1, y = C + sy * b - 1;
+      if (!free(m, x - 1, y - 1, 4, 4)) continue;
+      put({ kind: 'stall', x, y, color: color++ % 4 }, 2, 2);
+      const gx = x + (sx < 0 ? -1 : 2), gy = y + (b > a ? 0 : sy < 0 ? -1 : 2);
+      if (free(m, gx, gy)) put({ kind: 'goods', x: gx, y: gy });
+    }
+  }
+  for (const [x, y] of [[C - 4, C - 4], [C + 3, C - 4], [C - 4, C + 3], [C + 3, C + 3]]) if (free(m, x, y)) put({ kind: 'bench', x, y });
+  for (const [x, y] of [[C - 10, C - 4], [C + 9, C - 4], [C - 10, C + 3], [C + 9, C + 3], [C - 4, C - 10], [C + 3, C - 10], [C - 4, C + 9], [C + 3, C + 9]]) {
+    if (free(m, x, y)) put({ kind: 'planter', x, y });
+  }
 
-  m.portals = [{ x: 42, y: 22, to: 'field', toX: 3.5, toY: 30.5, label: 'ทุ่งเมโลดี้' }];
-  m.spawn = { x: 22.5, y: 26.5 };
+  // ---- street furniture: lamps and banners down the avenues, a tree-lined approach to the castle
+  for (let t = 6; t < N - 6; t += 7) {
+    for (const side of [C - 4, C + 3]) {
+      for (const [x, y] of [[side, t], [t, side]]) {
+        if (oct(Math.abs(x + 0.5 - C), Math.abs(y + 0.5 - C)) < 12 || y < 23 && x >= castle.x && x < castle.x + castle.w) continue;
+        if (free(m, x, y) && zone[y][x] === Z.Block) put({ kind: 'lamp', x, y });
+      }
+    }
+  }
+  for (let y = 24; y < C - 12; y += 3) for (const x of [C - 4, C + 3]) if (free(m, x, y) && zone[y][x] === Z.Block) put({ kind: 'planter', x, y });
+  for (const [x, y, w, h] of [[castle.x + 2, 17, 8, 1], [castle.x + 2, 20, 8, 1], [C + 7, 17, 8, 1], [C + 7, 20, 8, 1]]) put({ kind: 'hedge', x, y, w, h }, w, h);
+  for (const [x, y, c] of [[C - 4, 16, 0], [C + 3, 16, 1], [C - 3, 6, 1], [C + 2, 6, 0], [C - 3, N - 6, 0], [C + 2, N - 6, 1], [5, C - 3, 0], [5, C + 2, 1], [N - 6, C - 3, 1], [N - 6, C + 2, 0]]) {
+    if (free(m, x, y)) put({ kind: 'banner', x, y, color: c });
+  }
+  for (const [x, y] of [[C + 4, C + 13], [N - 7, C + 4], [C - 5, C + 13]]) if (free(m, x, y)) put({ kind: 'sign', x, y });
+
+  // ---- houses: fronts on the street, a one-tile alley between neighbours, gardens behind
+  const house = new Set<number>();
+  const fits = (x: number, y: number, w: number, h: number) => {
+    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (zone[j]?.[i] !== Z.Block || !free(m, i, j)) return false;
+    for (let j = y - 1; j <= y + h; j++) for (let i = x - 1; i <= x + w; i++) if (house.has(j * N + i)) return false;
+    return true;
+  };
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      if (dist[y][x] !== 1 || house.has(y * N + x)) continue;
+      // face: 0 = street to the south (+y), 1 = east, 2 = north, 3 = west
+      const face = [[0, 1], [1, 0], [0, -1], [-1, 0]].findIndex(([dx, dy]) => zone[y + dy]?.[x + dx] === Z.Street);
+      if (face < 0) continue;
+      const far = Math.max(Math.abs(x - C), Math.abs(y - C)) > 26; // outer blocks get the bigger houses
+      for (let k = 0; k < 4; k++) {
+        const len = 4 + Math.floor(rnd() * (far ? 4 : 3)) - k; // along the street
+        const dep = 4 + Math.floor(rnd() * 3) - (k >> 1); // back from it
+        if (len < 3 || dep < 3) break;
+        const [bx, by, bw, bh] = face === 0 ? [x, y - dep + 1, len, dep] : face === 2 ? [x, y, len, dep] : face === 1 ? [x - dep + 1, y, dep, len] : [x, y, dep, len];
+        if (!fits(bx, by, bw, bh)) continue;
+        put({ kind: 'building', x: bx, y: by, w: bw, h: bh, wall: Math.floor(rnd() * 3), roof: Math.floor(rnd() * 3), floors: 1 + Math.floor(rnd() * 2), face }, bw, bh);
+        for (let j = by; j < by + bh; j++) for (let i = bx; i < bx + bw; i++) house.add(j * N + i);
+        break;
+      }
+    }
+  }
+  // gardens: trees and the odd bench or crate stack in the middle of each block
+  for (let y = 2; y < N - 2; y++) {
+    for (let x = 2; x < N - 2; x++) {
+      if (zone[y][x] !== Z.Block || !free(m, x - 1, y - 1, 3, 3)) continue;
+      const r = rnd();
+      if (dist[y][x] >= 7 && r < 0.16) put({ kind: 'tree', x, y, big: rnd() < 0.5 });
+      else if (dist[y][x] >= 3 && r < 0.012) put({ kind: 'crate', x, y });
+      else if (dist[y][x] >= 7 && r < 0.2) put({ kind: 'bench', x, y });
+    }
+  }
+
+  m.portals = [
+    { x: N - 2, y: C - 1, to: 'field', toX: 3.5, toY: 30.5, label: 'ทุ่งเมโลดี้ (Lv 1+)' },
+    { x: 1, y: C - 1, to: 'forest', toX: WILD - 3.5, toY: WILD / 2 + 0.5, label: 'ป่าเพลงกระซิบ (Lv 10+)' },
+    { x: C - 1, y: N - 2, to: 'canyon', toX: WILD / 2 + 0.5, toY: 3.5, label: 'หุบผาร็อค (Lv 17+)' },
+    { x: C - 1, y: 1, to: 'snow', toX: WILD / 2 + 0.5, toY: WILD - 3.5, label: 'ยอดเขาหิมะโซปราโน (Lv 21+)' },
+  ];
+  m.spawn = { x: C + 0.5, y: C + 7.5 };
   return m;
 }
+
+/** Where you arrive in town coming back through each gate. */
+const TOWN_GATE = {
+  e: { to: 'town', toX: TOWN_SIZE - 3.5, toY: TC - 0.5 },
+  w: { to: 'town', toX: 3.5, toY: TC - 0.5 },
+  s: { to: 'town', toX: TC - 0.5, toY: TOWN_SIZE - 3.5 },
+  n: { to: 'town', toX: TC - 0.5, toY: 3.5 },
+};
 
 // ---------------------------------------------------------------- field
 
@@ -260,15 +327,15 @@ function buildField(): GameMap {
   }
   for (let j = 0; j < m.h; j++) {
     if (j < 28 || j > 33) addTree(0, j, true);
-    if (j < 28 || j > 33) addTree(m.w - 1, j, true); // east gate to the forest
+    addTree(m.w - 1, j, true);
   }
   block(m, 0, 0, m.w, 1);
   block(m, 0, m.h - 1, m.w, 1);
   for (let j = 0; j < m.h; j++) if (j < 28 || j > 33) block(m, 0, j);
-  for (let j = 0; j < m.h; j++) if (j < 28 || j > 33) block(m, m.w - 1, j);
+  block(m, m.w - 1, 0, 1, m.h);
   for (let y = 2; y < m.h - 2; y++) {
     for (let x = 2; x < m.w - 2; x++) {
-      if ((x < 7 || x > m.w - 8) && y > 25 && y < 36) continue; // keep the arrival areas clear
+      if (x < 7 && y > 25 && y < 36) continue; // keep the arrival area clear
       const r = rnd();
       if (r < 0.04) addTree(x, y);
       else if (r < 0.05 && free(m, x, y)) {
@@ -277,35 +344,51 @@ function buildField(): GameMap {
       }
     }
   }
-  m.portals = [
-    { x: 1, y: 30, to: 'town', toX: 40.5, toY: 22.5, label: 'เมืองเมโลเดีย' },
-    { x: 58, y: 30, to: 'forest', toX: 3.5, toY: 28.5, label: 'ป่าเพลงกระซิบ' },
-  ];
+  m.portals = [{ x: 1, y: 30, ...TOWN_GATE.e, label: 'เมืองเมโลเดีย' }];
   m.spawn = { x: 3.5, y: 30.5 };
   return m;
 }
 
 // ---------------------------------------------------------------- wild maps
 
+/** Every wild map is WILD x WILD with its gates in the middle of a side. */
+const WILD = 56;
+
+type Side = 'n' | 'e' | 's' | 'w';
+
+interface Gate {
+  side: Side;
+  to: string;
+  toX: number;
+  toY: number;
+  label: string;
+}
+
 interface WildSpec {
   id: string;
   name: string;
   theme: Theme;
   seed: number;
-  size: number;
   /** Ground mix: [type, share] picked per tile. */
   ground: [G, number][];
   trees: number; // chance per tile
   rocks: number;
   /** Ponds / ice / lava: [cx, cy, rx, ry]. */
   pools: [number, number, number, number][];
-  prev: { to: string; toX: number; toY: number; label: string };
-  next?: { to: string; label: string };
+  /** The first gate leads back towards town; you arrive there. */
+  gates: Gate[];
 }
 
-/** The maps beyond the meadow, all built the same way: a winding path from the west gate to the east gate. */
+/** Arriving in a wild map through its gate on `side`. */
+const arrive = (to: string, side: Side) => {
+  const mid = WILD / 2 + 0.5;
+  const at = { n: [mid, 3.5], s: [mid, WILD - 3.5], w: [3.5, mid], e: [WILD - 3.5, mid] }[side];
+  return { to, toX: at[0], toY: at[1] };
+};
+
+/** The maps beyond the town, all built the same way: winding paths from each gate into the middle. */
 function buildWild(sp: WildSpec): GameMap {
-  const n = sp.size;
+  const n = WILD;
   const m = blank(sp.id, sp.name, n, n, sp.ground[0][0], false, sp.theme);
   const rnd = mulberry32(sp.seed);
   const mid = Math.floor(n / 2);
@@ -320,13 +403,19 @@ function buildWild(sp: WildSpec): GameMap {
       }
     }
   }
-  // winding path between the gates
-  let py = mid;
-  for (let x = 0; x < n; x++) {
-    if (x > 3 && x < n - 4) py = Math.max(mid - 10, Math.min(mid + 10, py + Math.round((rnd() - 0.5) * 1.6)));
-    else py += Math.sign(mid - py);
-    m.ground[py][x] = G.Dirt;
-    m.ground[py + 1][x] = G.Dirt;
+  // a winding two-wide path from each gate to the middle; `u` runs from the gate inwards, `v` across
+  const sides = new Set(sp.gates.map((g) => g.side));
+  for (const side of sides) {
+    const tile = (u: number, v: number) => (side === 'w' ? [u, v] : side === 'e' ? [n - 1 - u, v] : side === 'n' ? [v, u] : [v, n - 1 - u]);
+    let v = mid;
+    for (let u = 0; u <= mid; u++) {
+      if (u > 3 && u < mid - 6) v = Math.max(mid - 10, Math.min(mid + 10, v + Math.round((rnd() - 0.5) * 1.6)));
+      else if (u >= mid - 6) v += Math.sign(mid - v);
+      for (const [dx, dy] of [[0, 0], side === 'w' || side === 'e' ? [0, 1] : [1, 0]]) {
+        const [x, y] = tile(u, v);
+        m.ground[y + dy][x + dx] = G.Dirt;
+      }
+    }
   }
   for (const [cx, cy, rx, ry] of sp.pools) {
     for (let y = 0; y < n; y++) {
@@ -338,27 +427,30 @@ function buildWild(sp: WildSpec): GameMap {
       }
     }
   }
-  const gate = (j: number) => j >= mid - 3 && j <= mid + 3;
+  const opening = (side: Side, i: number) => sides.has(side) && i >= mid - 3 && i <= mid + 3;
   const addTree = (x: number, y: number, big = rnd() < 0.3) => {
     if (!free(m, x, y) || m.ground[y][x] === G.Dirt) return;
     m.objects.push({ kind: 'tree', x, y, big });
     block(m, x, y);
   };
   for (let i = 0; i < n; i++) {
-    addTree(i, 0, true);
-    addTree(i, n - 1, true);
-    if (!gate(i)) addTree(0, i, true);
-    if (!gate(i) || !sp.next) addTree(n - 1, i, true);
+    if (!opening('n', i)) addTree(i, 0, true);
+    if (!opening('s', i)) addTree(i, n - 1, true);
+    if (!opening('w', i)) addTree(0, i, true);
+    if (!opening('e', i)) addTree(n - 1, i, true);
   }
-  block(m, 0, 0, n, 1);
-  block(m, 0, n - 1, n, 1);
-  for (let j = 0; j < n; j++) {
-    if (!gate(j)) block(m, 0, j);
-    if (!gate(j) || !sp.next) block(m, n - 1, j);
+  for (let i = 0; i < n; i++) {
+    if (!opening('n', i)) block(m, i, 0);
+    if (!opening('s', i)) block(m, i, n - 1);
+    if (!opening('w', i)) block(m, 0, i);
+    if (!opening('e', i)) block(m, n - 1, i);
   }
+  const nearGate = (x: number, y: number) =>
+    (sides.has('w') && x < 7 || sides.has('e') && x > n - 8) && Math.abs(y - mid) < 6
+    || (sides.has('n') && y < 7 || sides.has('s') && y > n - 8) && Math.abs(x - mid) < 6;
   for (let y = 2; y < n - 2; y++) {
     for (let x = 2; x < n - 2; x++) {
-      if ((x < 7 || x > n - 8) && Math.abs(y - mid) < 6) continue; // keep the gates clear
+      if (nearGate(x, y)) continue; // keep the gates clear
       const r = rnd();
       if (r < sp.trees) addTree(x, y);
       else if (r < sp.trees + sp.rocks && free(m, x, y) && m.ground[y][x] !== G.Dirt) {
@@ -367,40 +459,47 @@ function buildWild(sp: WildSpec): GameMap {
       }
     }
   }
-  m.portals = [{ x: 1, y: mid, ...sp.prev }];
-  if (sp.next) m.portals.push({ x: n - 2, y: mid, to: sp.next.to, toX: 3.5, toY: 28.5, label: sp.next.label });
-  m.spawn = { x: 3.5, y: mid + 0.5 };
+  const at = { n: [mid, 1], s: [mid, n - 2], w: [1, mid], e: [n - 2, mid] };
+  m.portals = sp.gates.map(({ side, ...g }) => ({ x: at[side][0], y: at[side][1], ...g }));
+  const first = arrive(sp.id, sp.gates[0].side);
+  m.spawn = { x: first.toX, y: first.toY };
   return m;
 }
 
-// The chain: meadow -> forest -> marsh -> canyon -> snow -> volcano. Every wild map is 56 x 56 with its gates on row 28.
-const back = (to: string, label: string, fromSize = 56) => ({ to, toX: fromSize - 3.5, toY: to === 'field' ? 30.5 : 28.5, label });
+// The town is the hub: east to the meadow, west to the forest and on to the marsh,
+// south to the canyon, north (through the castle) up the snow peak and on to the volcano.
 const buildForest = () => buildWild({
-  id: 'forest', name: 'ป่าเพลงกระซิบ', theme: 'forest', seed: 11, size: 56,
+  id: 'forest', name: 'ป่าเพลงกระซิบ', theme: 'forest', seed: 11,
   ground: [[G.Grass2, 0.55], [G.Grass, 0.42], [G.Flower, 0.03]], trees: 0.11, rocks: 0.015, pools: [[40, 12, 3, 2], [14, 44, 2.5, 2]],
-  prev: back('field', 'ทุ่งเมโลดี้', 60), next: { to: 'marsh', label: 'บึงจังหวะ' },
+  gates: [
+    { side: 'e', ...TOWN_GATE.w, label: 'เมืองเมโลเดีย' },
+    { side: 'w', ...arrive('marsh', 'e'), label: 'บึงจังหวะ (Lv 14+)' },
+  ],
 });
 const buildMarsh = () => buildWild({
-  id: 'marsh', name: 'บึงจังหวะ', theme: 'marsh', seed: 23, size: 56,
+  id: 'marsh', name: 'บึงจังหวะ', theme: 'marsh', seed: 23,
   ground: [[G.Grass, 0.6], [G.Grass2, 0.4]], trees: 0.035, rocks: 0.01,
   pools: [[14, 12, 5, 3], [36, 10, 4, 3], [44, 42, 6, 4], [18, 42, 4, 5], [30, 26, 3, 2]],
-  prev: back('forest', 'ป่าเพลงกระซิบ'), next: { to: 'canyon', label: 'หุบผาร็อค' },
+  gates: [{ side: 'e', ...arrive('forest', 'w'), label: 'ป่าเพลงกระซิบ' }],
 });
 const buildCanyon = () => buildWild({
-  id: 'canyon', name: 'หุบผาร็อค', theme: 'canyon', seed: 37, size: 56,
+  id: 'canyon', name: 'หุบผาร็อค', theme: 'canyon', seed: 37,
   ground: [[G.Grass, 0.55], [G.Grass2, 0.3], [G.Cobble, 0.15]], trees: 0.012, rocks: 0.07, pools: [[42, 40, 3, 2]],
-  prev: back('marsh', 'บึงจังหวะ'), next: { to: 'snow', label: 'ยอดเขาหิมะโซปราโน' },
+  gates: [{ side: 'n', ...TOWN_GATE.s, label: 'เมืองเมโลเดีย' }],
 });
 const buildSnow = () => buildWild({
-  id: 'snow', name: 'ยอดเขาหิมะโซปราโน', theme: 'snow', seed: 41, size: 56,
+  id: 'snow', name: 'ยอดเขาหิมะโซปราโน', theme: 'snow', seed: 41,
   ground: [[G.Grass, 0.65], [G.Grass2, 0.35]], trees: 0.06, rocks: 0.025, pools: [[16, 14, 4, 3], [40, 44, 5, 3]],
-  prev: back('canyon', 'หุบผาร็อค'), next: { to: 'volcano', label: 'ภูเขาไฟเมทัล' },
+  gates: [
+    { side: 's', ...TOWN_GATE.n, label: 'เมืองเมโลเดีย' },
+    { side: 'n', ...arrive('volcano', 's'), label: 'ภูเขาไฟเมทัล (Lv 26+)' },
+  ],
 });
 const buildVolcano = () => buildWild({
-  id: 'volcano', name: 'ภูเขาไฟเมทัล', theme: 'volcano', seed: 53, size: 56,
+  id: 'volcano', name: 'ภูเขาไฟเมทัล', theme: 'volcano', seed: 53,
   ground: [[G.Grass, 0.55], [G.Grass2, 0.3], [G.Cobble, 0.15]], trees: 0.02, rocks: 0.06,
-  pools: [[16, 12, 4, 3], [40, 14, 3, 4], [26, 44, 6, 3], [46, 40, 3, 3]],
-  prev: back('snow', 'ยอดเขาหิมะโซปราโน'),
+  pools: [[16, 12, 4, 3], [40, 14, 3, 4], [12, 44, 5, 3], [46, 40, 3, 3]],
+  gates: [{ side: 's', ...arrive('snow', 'n'), label: 'ยอดเขาหิมะโซปราโน' }],
 });
 
 const built = new Map<string, GameMap>();

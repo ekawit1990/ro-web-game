@@ -575,6 +575,14 @@ export class Hud implements WorldHooks {
       } else if (o.kind === 'tree') {
         c.fillStyle = '#2f5d2a';
         c.fillRect(o.x * s, o.y * s, s, s);
+      } else if (o.kind === 'wall' || o.kind === 'tower' || o.kind === 'castle') {
+        c.fillStyle = o.kind === 'castle' ? '#5b6b8c' : '#8a8478';
+        const [w, h] = o.kind === 'tower' ? [o.s, o.s] : [o.w, o.h];
+        if (o.kind === 'castle') {
+          const wing = o.w / 2 - o.door / 2; // the north avenue runs between the wings
+          c.fillRect(o.x * s, o.y * s, wing * s, h * s);
+          c.fillRect((o.x + o.w - wing) * s, o.y * s, wing * s, h * s);
+        } else c.fillRect(o.x * s, o.y * s, w * s, h * s);
       } else if (o.kind === 'stall') {
         c.fillStyle = '#d9c28a';
         c.fillRect(o.x * s, o.y * s, 2 * s, 2 * s);
