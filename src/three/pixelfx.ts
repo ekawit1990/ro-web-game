@@ -24,6 +24,7 @@ const SCALE: Record<string, number> = {
   solo_star: 0.03,
   shield: 0.032,
   block: 0.022,
+  stab_hit: 0.012,
 };
 
 let index: Promise<Record<string, Sheet>> | null = null;

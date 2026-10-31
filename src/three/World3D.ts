@@ -993,6 +993,18 @@ export class World3D {
 
   /** Every normal attack sends black music notes flying at the monster; damage shows when the first one lands. */
   private attackFx(a: PlayerActor, m: MonsterActor, land: () => void) {
+    if (a.cls === 'teen') {
+      // dagger stab: no notes, the blade lands as the arm reaches full stretch
+      this.lunge(a.rig.root, m.x - a.x, m.y - a.y);
+      setTimeout(() => {
+        const d = Math.hypot(m.x - a.x, m.y - a.y) || 1;
+        const r = Math.min(0.5, MONSTERS[m.key].size * 0.3);
+        const at = new THREE.Vector3(m.x - ((m.x - a.x) / d) * r, m.rig.height * 0.45, m.y - ((m.y - a.y) / d) * r);
+        this.pixelFx('stab_hit', { at: () => at });
+        land();
+      }, 90);
+      return;
+    }
     const melee = !CLASSES[a.cls].projectile;
     if (melee) this.lunge(a.rig.root, m.x - a.x, m.y - a.y);
     const notes = ['♪', '♫', '♬'];

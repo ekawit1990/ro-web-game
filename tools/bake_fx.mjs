@@ -23,6 +23,7 @@ const BAKES = {
   solo_star: { id: 'pickups/power-star', opts: {}, fps: 15, from: 0, to: 1.6, add: false },
   shield: { id: 'holy/divine-shield', opts: { palette: PAL.water, actor: null }, fps: 15, from: 0, to: 2.4, add: false },
   block: { id: 'impacts/shield-block', opts: {}, fps: 15, from: 0, to: 1.0, add: false },
+  stab_hit: { id: 'impacts/hit-spark', opts: {}, fps: 20, from: 0, to: 0.5, add: false },
 };
 
 const outDir = new URL('../public/fx/', import.meta.url);

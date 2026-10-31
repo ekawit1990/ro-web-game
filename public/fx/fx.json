@@ -82,5 +82,17 @@
    61
   ],
   "add": false
+ },
+ "stab_hit": {
+  "w": 111,
+  "h": 67,
+  "cols": 3,
+  "n": 11,
+  "fps": 20,
+  "pivot": [
+   27,
+   55
+  ],
+  "add": false
  }
 }

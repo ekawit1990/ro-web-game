@@ -274,7 +274,7 @@ function instrument(rig: CharRig, cls: ClassKey) {
     knife.rotation.x = Math.PI / 2 + 0.3;
     knife.position.set(0, -0.02, 0.03);
     handR.add(knife);
-    sling(rig, knife, [0.2, 0.5, 0.05], [Math.PI - 0.25, 0, -0.15]); // sheathed at the left hip
+    // the Teen keeps the dagger in hand all the time (not slung)
   } else if (cls === 'singer') {
     const mic = new THREE.Group();
     mic.add(mesh(CYL(0.025, 0.02, 0.2), toon('#222222'), 0, 0.06, 0));
