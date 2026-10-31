@@ -6,7 +6,7 @@ import { animateRig, buildVrmCharacter } from '../three/vrm';
 const cache = new Map<string, string>();
 
 const EMOJI: Record<string, string> = {
-  basic_mic: '🎤', golden_mic: '🎤', acoustic_guitar: '🎸', electric_guitar: '🎸', wood_sticks: '🥢', steel_sticks: '🥢',
+  dagger: '🗡️', steel_dagger: '🗡️', basic_mic: '🎤', golden_mic: '🎤', acoustic_guitar: '🎸', electric_guitar: '🎸', wood_sticks: '🥢', steel_sticks: '🥢',
   basic_bass: '🎸', five_string_bass: '🎸', mini_keyboard: '🎹', synth: '🎹', band_tshirt: '👕', leather_jacket: '🧥',
   note_ribbon: '🎀', headphones: '🎧', rock_cap: '🧢', pick_necklace: '📿', metronome_charm: '⏱️', banana: '🍌', carrot: '🥕',
   note_shard: '🎵', silent_spore: '🍄', buzz_stinger: '📌', rock_chip: '🪨', golden_clef: '🗝️', drop_crystal: '💎',
@@ -53,7 +53,7 @@ export function itemIcon(id: string): string {
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText(EMOJI[id] ?? '❔', 16, 18);
-    if (item && (id.includes('bass') || id === 'golden_mic' || id === 'electric_guitar' || id === 'steel_sticks' || id === 'synth')) {
+    if (item && (id.includes('bass') || id === 'golden_mic' || id === 'steel_dagger' || id === 'electric_guitar' || id === 'steel_sticks' || id === 'synth')) {
       // tint upgraded variants so they read differently
       c.globalCompositeOperation = 'source-atop';
       c.fillStyle = item.color + '66';

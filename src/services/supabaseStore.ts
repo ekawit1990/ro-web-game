@@ -3,7 +3,7 @@ import type { Appearance, Character, ClassKey, InvItem, StatKey } from '../data'
 import type { GameStore } from './store';
 
 export const CHAR_COLUMNS =
-  'id,name,cls,level,exp,job_level,job_exp,zeny,stat_points,skill_points,skills,str,agi,vit,int,dex,luk,gender,hair,hair_color,face,hp,sp,map,pos_x,pos_y';
+  'id,name,cls,level,exp,job_level,job_exp,zeny,stat_points,skill_points,skills,job_quest,str,agi,vit,int,dex,luk,gender,hair,hair_color,face,hp,sp,map,pos_x,pos_y';
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
@@ -28,11 +28,11 @@ export class SupabaseStore implements GameStore {
     return check(await this.sb.from('characters').select(CHAR_COLUMNS).order('created_at')) as unknown as Character[];
   }
 
-  async createCharacter(name: string, cls: ClassKey, look: Appearance) {
+  async createCharacter(name: string, look: Appearance) {
     return clean(
       check(
         await this.sb.rpc('create_character', {
-          p_name: name, p_cls: cls, p_gender: look.gender, p_hair: look.hair, p_hair_color: look.hair_color, p_face: look.face,
+          p_name: name, p_gender: look.gender, p_hair: look.hair, p_hair_color: look.hair_color, p_face: look.face,
         }),
       ),
     );
@@ -58,6 +58,14 @@ export class SupabaseStore implements GameStore {
 
   async learnSkill(charId: string, skill: string) {
     return clean(check(await this.sb.rpc('learn_skill', { p_char: charId, p_skill: skill })));
+  }
+
+  async startJobQuest(charId: string) {
+    return clean(check(await this.sb.rpc('start_job_quest', { p_char: charId })));
+  }
+
+  async changeJob(charId: string, cls: ClassKey) {
+    return clean(check(await this.sb.rpc('change_job', { p_char: charId, p_cls: cls })));
   }
 
   async buyItem(charId: string, itemId: string, qty: number) {

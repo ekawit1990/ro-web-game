@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Appearance, CLASSES, ClassKey, HAIR_COLORS, MONSTERS } from '../data';
+import { Appearance, ClassKey, HAIR_COLORS, MONSTERS } from '../data';
 import { canvasTexture, mesh, outline, shade, shadows, toon } from './toon';
 
 /**
@@ -228,6 +228,25 @@ function buildHair(head: THREE.Group, style: number, female: boolean, color: str
 
 // ---------------------------------------------------------------- instruments
 
+/** The Teen's dagger: steel blade with a brass guard and pommel, grip at the origin, blade along +Y. */
+export function buildDagger(): THREE.Group {
+  const g = new THREE.Group();
+  const blade = new THREE.Shape();
+  blade.moveTo(-0.022, 0);
+  blade.lineTo(-0.02, 0.17);
+  blade.lineTo(0, 0.23);
+  blade.lineTo(0.02, 0.17);
+  blade.lineTo(0.022, 0);
+  blade.closePath();
+  const bladeGeo = new THREE.ExtrudeGeometry(blade, { depth: 0.008, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 1 });
+  bladeGeo.translate(0, 0.05, -0.004);
+  g.add(mesh(bladeGeo, toon('#dfe3e8', { emissive: 0x1a1d22 })));
+  g.add(mesh(new THREE.BoxGeometry(0.1, 0.018, 0.026), toon(ARMOUR.trim), 0, 0.045, 0));
+  g.add(mesh(CYL(0.014, 0.016, 0.085, 8), toon('#4a2f22'), 0, -0.005, 0));
+  g.add(mesh(S(0.02, 10, 8), toon(ARMOUR.trim), 0, -0.055, 0));
+  return g;
+}
+
 /** Remembers where `obj` is held and where it sits slung on the back (in body space). */
 function sling(rig: CharRig, obj: THREE.Object3D, pos: [number, number, number], rot: [number, number, number], order: THREE.EulerOrder = 'XYZ') {
   obj.userData.held = { parent: obj.parent, pos: obj.position.clone(), rot: obj.rotation.clone() };
@@ -250,7 +269,13 @@ function draw(rig: CharRig, drawn: boolean) {
 function instrument(rig: CharRig, cls: ClassKey) {
   const handR = rig.armR.getObjectByName('hand')!;
   const handL = rig.armL.getObjectByName('hand')!;
-  if (cls === 'singer') {
+  if (cls === 'teen') {
+    const knife = buildDagger();
+    knife.rotation.x = Math.PI / 2 + 0.3;
+    knife.position.set(0, -0.02, 0.03);
+    handR.add(knife);
+    sling(rig, knife, [0.2, 0.5, 0.05], [Math.PI - 0.25, 0, -0.15]); // sheathed at the left hip
+  } else if (cls === 'singer') {
     const mic = new THREE.Group();
     mic.add(mesh(CYL(0.025, 0.02, 0.2), toon('#222222'), 0, 0.06, 0));
     mic.add(mesh(S(0.05), toon('#b0b6bd'), 0, 0.18, 0));
@@ -356,16 +381,95 @@ export function setHat(rig: CharRig, item: string) {
 
 // ---------------------------------------------------------------- characters
 
+/** The one outfit every player wears: quilted leather under bronze/steel plates and a chevron tabard. */
+export const ARMOUR = {
+  leather: '#8a6a48', quilt: '#a07c55', trousers: '#7d5c3c', boot: '#6e5a48',
+  bronze: '#a8834e', steel: '#a19d95', tabard: '#d9c79f', chevron: '#5a4632', trim: '#c9a25a',
+};
+
+/** Chevron tabard texture (cream cloth, dark-and-gold V stripes, gold edge). */
+let tabardTex: THREE.Texture | null = null;
+export function tabardTexture() {
+  tabardTex ??= canvasTexture(64, 128, (c) => {
+    c.fillStyle = ARMOUR.tabard;
+    c.fillRect(0, 0, 64, 128);
+    for (const [y, col] of [[58, ARMOUR.trim], [64, ARMOUR.chevron], [86, ARMOUR.trim], [92, ARMOUR.chevron]] as const) {
+      c.fillStyle = col;
+      c.beginPath();
+      c.moveTo(4, y - 22);
+      c.lineTo(32, y + (col === ARMOUR.trim ? 4 : 0));
+      c.lineTo(60, y - 22);
+      c.lineTo(60, y - 12);
+      c.lineTo(32, y + 12);
+      c.lineTo(4, y - 12);
+      c.closePath();
+      c.fill();
+    }
+    c.strokeStyle = ARMOUR.trim;
+    c.lineWidth = 5;
+    c.strokeRect(2, -4, 60, 130);
+  });
+  return tabardTex;
+}
+
+/** Quilted (diamond-stitched) leather texture. */
+let quiltTex: THREE.Texture | null = null;
+export function quiltTexture() {
+  quiltTex ??= (() => {
+    const t = canvasTexture(64, 64, (c) => {
+      c.fillStyle = ARMOUR.quilt;
+      c.fillRect(0, 0, 64, 64);
+      c.strokeStyle = 'rgba(60,40,20,0.55)';
+      c.lineWidth = 2;
+      for (let i = -64; i < 128; i += 16) {
+        c.beginPath();
+        c.moveTo(i, 0);
+        c.lineTo(i + 64, 64);
+        c.moveTo(i + 64, 0);
+        c.lineTo(i, 64);
+        c.stroke();
+      }
+    });
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(3, 2);
+    return t;
+  })();
+  return quiltTex;
+}
+
+function chibiArmour(body: THREE.Group, legs: THREE.Group[], female: boolean) {
+  const quilt = toon('#ffffff', { map: quiltTexture() });
+  body.add(mesh(CYL(female ? 0.16 : 0.17, 0.19, 0.38), quilt, 0, 0.66, 0));
+  // breastplate and belt with a triangle buckle
+  const plate = mesh(new THREE.SphereGeometry(0.19, 18, 10, Math.PI / 2 - 1.1, 2.2, 0.55, 1.0), toon(ARMOUR.steel), 0, 0.68, 0.0);
+  plate.scale.set(1, 1.15, 0.98);
+  body.add(plate);
+  body.add(mesh(CYL(0.195, 0.195, 0.05), toon('#5c4128'), 0, 0.5, 0));
+  body.add(mesh(new THREE.ConeGeometry(0.035, 0.05, 3), toon(ARMOUR.trim), 0, 0.5, 0.2));
+  // chevron tabard hanging from the belt, front and back
+  const tabMat = toon('#ffffff', { map: tabardTexture() });
+  tabMat.side = THREE.DoubleSide;
+  for (const z of [0.2, -0.2]) {
+    const tab = mesh(new THREE.PlaneGeometry(0.17, 0.26), tabMat, 0, 0.36, z);
+    tab.rotation.x = z > 0 ? 0.08 : -0.08;
+    tab.userData.noOutline = true;
+    body.add(tab);
+  }
+  // knee-high steel greaves
+  for (const leg of legs) leg.add(mesh(CYL(0.075, 0.07, 0.14, 12), toon(ARMOUR.steel), 0, -0.24, 0));
+}
+
 export function buildCharacter(look: Look, hat = ''): CharRig {
   const female = look.gender === 'f';
-  const cls = look.cls ? CLASSES[look.cls] : null;
-  const outfit = look.body ?? cls?.color ?? '#888888';
+  // players all wear the same adventurer armour; NPCs keep their own outfit colour
+  const armour = !look.body;
+  const outfit = look.body ?? ARMOUR.leather;
   const hairColor = HAIR_COLORS[look.hair_color] ?? HAIR_COLORS[0];
   const skin = toon(SKIN, { emissive: 0x3a2a20 }); // softer shadow band on faces
   const cloth = toon(outfit);
   const clothDark = toon(shade(outfit, -45));
-  const pants = toon('#3d3550');
-  const shoe = toon('#4a2f22');
+  const pants = toon(armour ? ARMOUR.trousers : '#3d3550');
+  const shoe = toon(armour ? ARMOUR.boot : '#4a2f22');
 
   const root = new THREE.Group();
   const body = new THREE.Group();
@@ -381,12 +485,14 @@ export function buildCharacter(look: Look, hat = ''): CharRig {
     body.add(pivot);
     return pivot;
   };
-  const legL = limb(-0.09, 0.42, 0.26, 0.065, female ? skin : pants, shoe, 0.08);
-  const legR = limb(0.09, 0.42, 0.26, 0.065, female ? skin : pants, shoe, 0.08);
+  const legL = limb(-0.09, 0.42, 0.26, 0.065, female && !armour ? skin : pants, shoe, 0.08);
+  const legR = limb(0.09, 0.42, 0.26, 0.065, female && !armour ? skin : pants, shoe, 0.08);
   for (const l of [legL, legR]) l.getObjectByName('hand')!.scale.set(1, 0.7, 1.4);
 
   // torso
-  if (female) {
+  if (armour) {
+    chibiArmour(body, [legL, legR], female);
+  } else if (female) {
     body.add(mesh(CYL(0.15, 0.17, 0.3), cloth, 0, 0.72, 0));
     const skirtMat = cloth.clone();
     skirtMat.side = THREE.DoubleSide;
@@ -397,13 +503,22 @@ export function buildCharacter(look: Look, hat = ''): CharRig {
     body.add(mesh(CYL(0.17, 0.19, 0.38), cloth, 0, 0.66, 0));
     body.add(mesh(CYL(0.19, 0.19, 0.06), clothDark, 0, 0.48, 0));
   }
-  body.add(mesh(new THREE.BoxGeometry(0.08, 0.22, 0.02), toon(shade(outfit, 60)), 0, 0.72, 0.17));
+  if (!armour) body.add(mesh(new THREE.BoxGeometry(0.08, 0.22, 0.02), toon(shade(outfit, 60)), 0, 0.72, 0.17));
   body.add(mesh(CYL(0.06, 0.07, 0.08), skin, 0, 0.89, 0));
 
   const armL = limb(-0.23, 0.84, 0.24, 0.05, cloth, skin, 0.06);
   const armR = limb(0.23, 0.84, 0.24, 0.05, cloth, skin, 0.06);
   armL.rotation.z = -0.15;
   armR.rotation.z = 0.15;
+  if (armour) {
+    for (const [arm, side] of [[armL, -1], [armR, 1]] as const) {
+      // bronze pauldron over the shoulder and a steel bracer on the forearm
+      const pad = mesh(new THREE.SphereGeometry(0.1, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), toon(ARMOUR.bronze), side * 0.02, 0.0, 0);
+      pad.scale.set(1.05, 0.75, 1.1);
+      arm.add(pad);
+      arm.add(mesh(CYL(0.058, 0.055, 0.12, 12), toon(ARMOUR.steel), 0, -0.24, 0));
+    }
+  }
 
   // head
   const head = new THREE.Group();

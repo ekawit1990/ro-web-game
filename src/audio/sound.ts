@@ -202,6 +202,11 @@ const pentaNote = (base: number) => base + pick(PENTA) + 12 * pick([0, 0, 1]);
 type Inst = (note: number, at: number, dur: number, vel: number, dest?: AudioNode) => void;
 
 const INSTRUMENTS: Record<ClassKey, Inst> = {
+  // a dagger swish: airy noise sweep with a small metallic ring on the note
+  teen: (n, at, dur, v, dest) => {
+    noise(at, 0.12, { gain: 0.3 * v, type: 'bandpass', freq: 2600, release: 0.06, dest });
+    tone(midi(n + 12), at + 0.03, dur * 0.5, { type: 'triangle', gain: 0.07 * v, release: dur / 4, wet: 0.3, dest });
+  },
   // a short sung "aah": sawtooth through a vowel-ish filter with vibrato
   singer: (n, at, dur, v, dest) => {
     tone(midi(n), at, dur, { type: 'sawtooth', gain: 0.22 * v, attack: 0.03, filter: 1100, q: 4, vibrato: 0.012, wet: 0.5, dest });

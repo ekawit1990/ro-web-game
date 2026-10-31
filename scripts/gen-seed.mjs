@@ -24,8 +24,8 @@ for (const [id, c] of Object.entries(data.classes)) {
 lines.push('');
 for (const [id, m] of Object.entries(data.monsters)) {
   lines.push(
-    `insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values (${q(id)}, ${m.exp}, ${m.jobExp}, ${m.zeny[0]}, ${m.zeny[1]}, ${q(JSON.stringify(m.drops))})` +
-      ` on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;`,
+    `insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values (${q(id)}, ${m.level}, ${m.exp}, ${m.jobExp}, ${m.zeny[0]}, ${m.zeny[1]}, ${q(JSON.stringify(m.drops))})` +
+      ` on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;`,
   );
 }
 lines.push('');

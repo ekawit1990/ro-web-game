@@ -1,6 +1,6 @@
 import {
-  CLASSES, EQUIP_TYPES, ITEMS, InvItem, MAX_JOB_LEVEL, MAX_LEVEL, SHOP, SKILLS, STAT_KEYS, StatKey, WEAPON_SHOP,
-  expToNext, jobExpToNext, skillSp, skillsOf, statCost,
+  CLASSES, CLASS_KEYS, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, SHOP, SKILLS, START_CLASS,
+  STAT_KEYS, StatKey, WEAPON_SHOP, expToNext, jobExpToNext, skillSp, skillsOf, statCost,
 } from '../data';
 import { THEMES, type GameMap, type Npc } from '../game/maps';
 import type { Session } from '../game/session';
@@ -421,14 +421,16 @@ export class Hud implements WorldHooks {
     const sig = JSON.stringify([c.skills, c.skill_points, c.cls]);
     if (this.lastSig.skill === sig) return;
     this.lastSig.skill = sig;
-    const rows = skillsOf(c.cls).map(([id, sk]) => {
+    // Teen skills stay on the list after the job change (usable, no longer trainable)
+    const list = c.cls === START_CLASS ? skillsOf(c.cls) : [...skillsOf(c.cls), ...skillsOf(START_CLASS).filter(([id]) => c.skills?.[id])];
+    const rows = list.map(([id, sk]) => {
       const lv = c.skills?.[id] ?? 0;
       const passive = sk.type === 'passive';
       return `<div class="sk-row ${lv ? '' : 'locked'}">
         <div class="sk-icon" data-skill="${id}" draggable="${!passive && lv > 0}" title="${passive ? 'สกิลติดตัว' : 'ลากไปช่องปุ่มลัด / ดับเบิลคลิกเพื่อใช้'}">${sk.icon}</div>
         <div class="sk-info"><b>${escapeHtml(sk.name)}</b><small>${passive ? 'ติดตัว' : `Sp : ${skillSp(sk, Math.max(1, lv))}`}</small></div>
         <div class="sk-lv">Lv : ${lv} / ${sk.maxLevel}</div>
-        <button class="up" data-learn="${id}" ${c.skill_points > 0 && lv < sk.maxLevel ? '' : 'disabled'}>Lv Up</button>
+        <button class="up" data-learn="${id}" ${c.skill_points > 0 && lv < sk.maxLevel && sk.cls === c.cls ? '' : 'disabled'}>Lv Up</button>
       </div>`;
     });
     b.innerHTML = `<div class="sk-list">${rows.join('')}</div>
@@ -740,10 +742,12 @@ export class Hud implements WorldHooks {
   // ------------------------------------------------------------ npc + shop
 
   talk(n: Npc) {
+    if (n.id === 'jobs') return this.talkJobs(n);
     const text: Record<Npc['id'], string> = {
       shop: 'ยินดีต้อนรับจ้า~ มีน้ำดื่ม ยาฟื้นเสียง และเสื้อผ้าเท่ ๆ ให้เลือกเพียบ',
       weapons: 'เครื่องดนตรีดี ๆ ทั้งนั้น! เลือกให้เหมาะกับอาชีพของเจ้านะ',
       healer: 'เหนื่อยไหมจ๊ะ? ให้ครูช่วยพักเสียงให้ไหม (ฟื้น HP/SP เต็มฟรี)',
+      jobs: '',
       guide: 'ยินดีต้อนรับสู่เมืองเมโลเดีย! เดินออกประตูทิศตะวันออกไปทุ่งเมโลดี้เพื่อล่ามอนสเตอร์\n'
         + '• คลิกพื้นเพื่อเดิน คลิกมอนสเตอร์เพื่อตี\n• Alt+Q สถานะ, Alt+E ไอเท็ม, Alt+S สกิล\n• F1-F9 หรือ 1-9 ใช้ปุ่มลัด\n'
         + '• คลิกผู้เล่นอื่นเพื่อแลกเปลี่ยนไอเท็มหรือเงิน',
@@ -760,6 +764,50 @@ export class Hud implements WorldHooks {
       else this.openShop(n.id as 'shop' | 'weapons', n.name);
     });
     void w;
+  }
+
+  /** Job-change teacher: Base Lv 10 Teen -> quest (30 kills of Lv 10+ monsters) -> pick a class 2. */
+  private talkJobs(n: Npc) {
+    this.win('npc', escapeHtml(n.name), 'npc');
+    const b = this.body('npc')!;
+    const c = this.s.char;
+    const q = c.job_quest ?? -1;
+    const { level, monsterLevel, kills } = JOB_CHANGE;
+    let text: string;
+    let buttons = '';
+    if (c.cls !== START_CLASS) {
+      text = `เธอเป็น${CLASSES[c.cls].name}เต็มตัวแล้ว! ฝึกฝนต่อไปนะ วงดนตรีของเมืองเรารอเธออยู่`;
+    } else if (c.level < level) {
+      text = `ตอนนี้เธอยังเป็นวัยรุ่นอยู่ เก็บเลเวลให้ถึง Base Lv ${level} ก่อน แล้วกลับมาหาครู\n`
+        + `ครูจะให้เธอเลือกเป็น นักร้อง มือกีตาร์ มือเบส มือกลอง หรือมือคีย์บอร์ด (ตอนนี้ Base Lv ${c.level})`;
+    } else if (q < 0) {
+      text = `ถึง Base Lv ${level} แล้ว เก่งมาก! ก่อนจะเลือกเส้นทางดนตรี ครูขอดูฝีมือหน่อย\n`
+        + `ไปกำจัดมอนสเตอร์ Lv ${monsterLevel} ขึ้นไป ${kills} ตัว (เช่น ค้างคาวและนกฮูกในป่า) แล้วกลับมาหาครู`;
+      buttons = '<button class="ok" data-job="quest">รับเควส</button>';
+    } else if (q < kills) {
+      text = `ยังไม่ครบนะ! กำจัดมอนสเตอร์ Lv ${monsterLevel} ขึ้นไปแล้ว ${q} / ${kills} ตัว`;
+    } else {
+      text = 'ผ่านบททดสอบแล้ว! เลือกเส้นทางดนตรีของเธอได้เลย (เลือกแล้วเปลี่ยนไม่ได้นะ)';
+      buttons = CLASS_KEYS.map((k) => `<button class="ok" data-job="${k}" title="${escapeHtml(CLASSES[k].desc)}">${CLASSES[k].name}</button>`).join('');
+    }
+    b.innerHTML = `<div class="npc-text">${escapeHtml(text).replace(/\n/g, '<br>')}</div>
+      <div class="npc-btns job-btns">${buttons}<button class="close">ปิด</button></div>`;
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
+    b.querySelectorAll<HTMLButtonElement>('[data-job]').forEach((btn) =>
+      btn.addEventListener('click', () => this.run(async () => {
+        const job = btn.dataset.job!;
+        if (job === 'quest') {
+          await this.s.startJobQuest();
+          this.toast(`รับเควสแล้ว: กำจัดมอนสเตอร์ Lv ${monsterLevel}+ ${kills} ตัว`, 'good');
+          return this.talkJobs(n);
+        }
+        if (!confirm(`เปลี่ยนเป็น${CLASSES[job as ClassKey].name}เลยนะ? เปลี่ยนกลับไม่ได้`)) return;
+        await this.s.changeJob(job as ClassKey);
+        sfx('levelup');
+        this.toast(`เปลี่ยนอาชีพเป็น${CLASSES[job as ClassKey].name}แล้ว! ได้อาวุธใหม่ติดตัว`, 'good');
+        this.talkJobs(n);
+      })),
+    );
   }
 
   private openShop(kind: 'shop' | 'weapons', name: string) {

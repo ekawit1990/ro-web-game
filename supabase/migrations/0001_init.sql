@@ -32,6 +32,7 @@ create table if not exists public.monster_defs (
   drops jsonb not null default '[]'
 );
 alter table public.monster_defs add column if not exists job_exp int not null default 0;
+alter table public.monster_defs add column if not exists level int not null default 1;
 
 create table if not exists public.skill_defs (
   id text primary key,
@@ -66,6 +67,8 @@ alter table public.characters add column if not exists job_exp int not null defa
 alter table public.characters add column if not exists skill_points int not null default 0;
 alter table public.characters add column if not exists skills jsonb not null default '{}';
 alter table public.characters add column if not exists map text not null default 'town';
+-- job-change quest: -1 = not taken, else kills so far (see change_job)
+alter table public.characters add column if not exists job_quest int not null default -1;
 create index if not exists characters_user_idx on public.characters (user_id);
 
 create table if not exists public.inventory (
@@ -106,6 +109,7 @@ revoke insert, update on public.characters, public.inventory from anon, authenti
 
 -- older versions of these functions had other parameters
 drop function if exists public.create_character(text, text);
+drop function if exists public.create_character(text, text, text, int, int, int);
 drop function if exists public.report_kill(uuid, text);
 drop function if exists public.use_item(uuid, uuid);
 drop function if exists public.save_state(uuid, int, int, real, real);
@@ -160,8 +164,9 @@ revoke execute on function public._add_item(uuid, text, int) from public, anon, 
 
 -- ---------------------------------------------------------------- menu actions (browser)
 
+-- every new character starts as a Teen (class 1); class 2 comes from change_job()
 create or replace function public.create_character(
-  p_name text, p_cls text, p_gender text, p_hair int, p_hair_color int, p_face int
+  p_name text, p_gender text, p_hair int, p_hair_color int, p_face int
 ) returns public.characters
 language plpgsql security definer set search_path = public as $$
 declare d public.class_defs; c public.characters;
@@ -173,14 +178,14 @@ begin
     raise exception 'สร้างได้สูงสุด 3 ตัวละคร';
   end if;
   if exists (select 1 from public.characters where name = p_name) then raise exception 'ชื่อนี้ถูกใช้แล้ว'; end if;
-  if p_gender not in ('m', 'f') or p_hair not between 0 and 5 or p_hair_color not between 0 and 7 or p_face not between 0 and 3 then
+  if p_gender not in ('m', 'f') or p_hair not between 0 and 63 or p_hair_color not between 0 and 7 or p_face not between 0 and 3 then
     raise exception 'หน้าตาไม่ถูกต้อง';
   end if;
-  select * into d from public.class_defs where id = p_cls;
+  select * into d from public.class_defs where id = 'teen';
   if not found then raise exception 'ไม่มีอาชีพนี้'; end if;
 
   insert into public.characters (user_id, name, cls, str, agi, vit, "int", dex, luk, gender, hair, hair_color, face)
-  values (auth.uid(), p_name, p_cls,
+  values (auth.uid(), p_name, 'teen',
     (d.base_stats->>'str')::int, (d.base_stats->>'agi')::int, (d.base_stats->>'vit')::int,
     (d.base_stats->>'int')::int, (d.base_stats->>'dex')::int, (d.base_stats->>'luk')::int,
     p_gender, p_hair, p_hair_color, p_face)
@@ -219,6 +224,37 @@ begin
   if c.skill_points < 1 then raise exception 'แต้มสกิลไม่พอ'; end if;
   update public.characters
     set skills = skills || jsonb_build_object(p_skill, cur + 1), skill_points = skill_points - 1
+    where id = p_char returning * into c;
+  return c;
+end $$;
+
+-- job change (numbers match JOB_CHANGE in src/data/index.ts): a Teen at Base Lv 10 takes the quest,
+-- kills 30 monsters of Lv 10+ (counted in report_kill), then picks a class 2
+create or replace function public.start_job_quest(p_char uuid) returns public.characters
+language plpgsql security definer set search_path = public as $$
+declare c public.characters;
+begin
+  c := public._own_char(p_char);
+  if c.cls <> 'teen' then raise exception 'เปลี่ยนอาชีพไปแล้ว'; end if;
+  if c.level < 10 then raise exception 'ต้องมี Base Lv 10 ก่อน'; end if;
+  update public.characters set job_quest = greatest(job_quest, 0) where id = p_char returning * into c;
+  return c;
+end $$;
+
+create or replace function public.change_job(p_char uuid, p_cls text) returns public.characters
+language plpgsql security definer set search_path = public as $$
+declare c public.characters; d public.class_defs;
+begin
+  c := public._own_char(p_char);
+  if c.cls <> 'teen' then raise exception 'เปลี่ยนอาชีพไปแล้ว'; end if;
+  if p_cls not in ('singer', 'guitarist', 'drummer', 'bassist', 'keyboardist') then raise exception 'ไม่มีอาชีพนี้'; end if;
+  if c.level < 10 or c.job_quest < 30 then raise exception 'ยังทำเควสไม่สำเร็จ'; end if;
+  select * into d from public.class_defs where id = p_cls;
+  update public.inventory inv set equipped = false
+    from public.item_defs i
+    where inv.character_id = p_char and inv.equipped and i.id = inv.item_id and i.type = 'weapon';
+  insert into public.inventory (character_id, item_id, qty, equipped) values (p_char, d.start_weapon, 1, true);
+  update public.characters set cls = p_cls, job_level = 1, job_exp = 0, job_quest = -1
     where id = p_char returning * into c;
   return c;
 end $$;
@@ -308,10 +344,12 @@ begin
     c.skill_points := c.skill_points + 1;
   end loop;
   if c.job_level >= max_job then c.job_exp := 0; end if;
+  if c.job_quest >= 0 and c.job_quest < 30 and m.level >= 10 then c.job_quest := c.job_quest + 1; end if;
 
   update public.characters
     set zeny = c.zeny, exp = c.exp, level = c.level, stat_points = c.stat_points,
-        job_exp = c.job_exp, job_level = c.job_level, skill_points = c.skill_points, last_kill_at = now()
+        job_exp = c.job_exp, job_level = c.job_level, skill_points = c.skill_points, job_quest = c.job_quest,
+        last_kill_at = now()
     where id = p_char returning * into c;
 
   return jsonb_build_object(
@@ -399,13 +437,17 @@ end $$;
 
 -- ---------------------------------------------------------------- permissions
 
-revoke execute on function public.create_character(text, text, text, int, int, int) from public, anon;
+revoke execute on function public.create_character(text, text, int, int, int) from public, anon;
+revoke execute on function public.start_job_quest(uuid) from public, anon;
+revoke execute on function public.change_job(uuid, text) from public, anon;
 revoke execute on function public.allocate_stat(uuid, text) from public, anon;
 revoke execute on function public.learn_skill(uuid, text) from public, anon;
 revoke execute on function public.buy_item(uuid, text, int) from public, anon;
 revoke execute on function public.sell_item(uuid, uuid, int) from public, anon;
 revoke execute on function public.set_equipped(uuid, uuid, boolean) from public, anon;
-grant execute on function public.create_character(text, text, text, int, int, int) to authenticated;
+grant execute on function public.create_character(text, text, int, int, int) to authenticated;
+grant execute on function public.start_job_quest(uuid) to authenticated;
+grant execute on function public.change_job(uuid, text) to authenticated;
 grant execute on function public.allocate_stat(uuid, text) to authenticated;
 grant execute on function public.learn_skill(uuid, text) to authenticated;
 grant execute on function public.buy_item(uuid, text, int) to authenticated;

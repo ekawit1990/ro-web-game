@@ -1,5 +1,24 @@
 {
  "classes": {
+  "teen": {
+   "name": "วัยรุ่น",
+   "desc": "อาชีพเริ่มต้น ใช้มีดสั้นฟันประชิด ถึง Base Lv 10 แล้วไปเปลี่ยนอาชีพได้",
+   "color": "#b08a5a",
+   "hpMod": 1.1,
+   "spMod": 0.9,
+   "range": 1.3,
+   "attackType": "melee",
+   "projectile": null,
+   "startWeapon": "dagger",
+   "baseStats": {
+    "str": 5,
+    "agi": 5,
+    "vit": 5,
+    "int": 4,
+    "dex": 5,
+    "luk": 4
+   }
+  },
   "singer": {
    "name": "นักร้อง",
    "desc": "ยิงคลื่นเสียง ใช้ SP แรงสุด",
@@ -657,6 +676,28 @@
    "price": 45,
    "color": "#9e9e9e",
    "weight": 1
+  },
+  "dagger": {
+   "name": "มีดสั้น",
+   "type": "weapon",
+   "atk": 12,
+   "price": 50,
+   "classes": [
+    "teen"
+   ],
+   "color": "#c9ccd1",
+   "weight": 40
+  },
+  "steel_dagger": {
+   "name": "มีดสั้นเหล็กกล้า",
+   "type": "weapon",
+   "atk": 24,
+   "price": 400,
+   "classes": [
+    "teen"
+   ],
+   "color": "#e3e6ea",
+   "weight": 50
   }
  },
  "shop": [
@@ -2759,6 +2800,8 @@
   "maxJobLevel": 50
  },
  "weaponShop": [
+  "dagger",
+  "steel_dagger",
   "basic_mic",
   "golden_mic",
   "acoustic_guitar",
@@ -2772,6 +2815,91 @@
   "rock_cap"
  ],
  "skills": {
+  "quick_slash": {
+   "cls": "teen",
+   "name": "ฟันฉับไว",
+   "icon": "🗡️",
+   "desc": "ฟันมีดสั้นใส่ศัตรู 1 ตัว 2 ครั้งติด",
+   "type": "single",
+   "maxLevel": 5,
+   "sp": [
+    6,
+    1
+   ],
+   "range": 1.5,
+   "cooldown": 800,
+   "power": [
+    75,
+    15
+   ],
+   "hits": 2
+  },
+  "stone_throw": {
+   "cls": "teen",
+   "name": "ปาก้อนหิน",
+   "icon": "🪨",
+   "desc": "ปาก้อนหินใส่ศัตรูไกล 6 ช่อง",
+   "type": "single",
+   "maxLevel": 5,
+   "sp": [
+    4,
+    1
+   ],
+   "range": 6,
+   "cooldown": 1000,
+   "power": [
+    110,
+    20
+   ]
+  },
+  "first_aid": {
+   "cls": "teen",
+   "name": "ปฐมพยาบาล",
+   "icon": "🩹",
+   "desc": "ทำแผลฟื้น HP ให้ตัวเอง",
+   "type": "heal",
+   "maxLevel": 5,
+   "sp": [
+    5,
+    2
+   ],
+   "radius": 0.5,
+   "cooldown": 3000,
+   "heal": [
+    20,
+    15
+   ]
+  },
+  "pump_up": {
+   "cls": "teen",
+   "name": "ฮึดสู้",
+   "icon": "🔥",
+   "desc": "ตีเร็วขึ้น 4% และป้องกัน +2 ต่อเลเวล นาน 60 วินาที",
+   "type": "buff",
+   "maxLevel": 5,
+   "sp": [
+    10,
+    2
+   ],
+   "cooldown": 1000,
+   "buff": {
+    "aspdPct": 4,
+    "def": 2,
+    "durationSec": 60
+   }
+  },
+  "tough_body": {
+   "cls": "teen",
+   "name": "ร่างกายแข็งแรง",
+   "icon": "💪",
+   "desc": "(ติดตัว) HP สูงสุด +4% และพลังโจมตี +2% ต่อเลเวล",
+   "type": "passive",
+   "maxLevel": 5,
+   "passive": {
+    "maxHpPct": 4,
+    "atkPct": 2
+   }
+  },
   "high_note": {
    "cls": "singer",
    "name": "ไฮโน้ต",

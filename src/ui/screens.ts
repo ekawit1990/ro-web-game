@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Appearance, CLASSES, CLASS_KEYS, Character, ClassKey, FACES, HAIR_COLORS, HAIR_STYLES } from '../data';
+import { Appearance, CLASSES, Character, ClassKey, FACES, HAIR_COLORS, HAIR_STYLES, JOB_CHANGE, START_CLASS } from '../data';
 import type { GameStore } from '../services/store';
 import { drawLook } from './icons';
 import { vrmModelCount } from '../three/vrm';
@@ -129,10 +129,13 @@ export function characterScreen(store: GameStore): Promise<Character | null> {
   });
 }
 
-/** Character creator with gender, hair style, hair colour, face and class. Resolves true if a character was made. */
+/**
+ * Character creator: players only pick their hair and face (plus gender). Everyone starts as a Teen in the
+ * same armour; the class 2 job comes later from the job-change teacher. Resolves true if a character was made.
+ */
 function createScreen(store: GameStore): Promise<boolean> {
   show('screen-create');
-  const look: Appearance & { cls: ClassKey } = { gender: 'm', hair: 0, hair_color: 0, face: 0, cls: 'singer' };
+  const look: Appearance & { cls: ClassKey } = { gender: 'm', hair: 0, hair_color: 0, face: 0, cls: START_CLASS };
   let dir: 'f' | 'b' = 'f';
   const cv = $<HTMLCanvasElement>('create-preview');
   const msg = $('create-msg');
@@ -147,7 +150,7 @@ function createScreen(store: GameStore): Promise<boolean> {
       models = count > 0;
       styles = models ? count : HAIR_STYLES;
       look.hair %= styles;
-      $('lbl-hair').textContent = models ? 'แบบตัวละคร' : 'ทรงผม';
+      $('lbl-hair').textContent = models ? 'ทรงผม+หน้า' : 'ทรงผม';
       $('row-color').classList.toggle('hidden', models && !tintHair);
       $('val-hair').textContent = `${look.hair + 1} / ${styles}`;
     });
@@ -157,16 +160,12 @@ function createScreen(store: GameStore): Promise<boolean> {
     $('val-face').textContent = `${look.face + 1} / ${FACES}`;
     document.querySelectorAll('[data-gender]').forEach((b) => b.classList.toggle('on', (b as HTMLElement).dataset.gender === look.gender));
     document.querySelectorAll('[data-color]').forEach((b) => b.classList.toggle('on', Number((b as HTMLElement).dataset.color) === look.hair_color));
-    document.querySelectorAll('[data-cls]').forEach((b) => b.classList.toggle('on', (b as HTMLElement).dataset.cls === look.cls));
-    const c = CLASSES[look.cls];
-    $('cls-desc').innerHTML = `<b style="color:${c.color}">${c.name}</b> ${escapeHtml(c.desc)}`;
   };
+  const c = CLASSES[START_CLASS];
+  $('cls-desc').innerHTML = `<b style="color:${c.color}">${c.name}</b> (มีดสั้น) ทุกคนเริ่มที่อาชีพนี้ในชุดเกราะเดียวกัน<br>`
+    + `ถึง Base Lv ${JOB_CHANGE.level} ไปหาครูแนะแนวอาชีพในเมือง เพื่อเป็น นักร้อง กีตาร์ เบส กลอง หรือคีย์บอร์ด`;
 
   $('hair-colors').innerHTML = HAIR_COLORS.map((h, i) => `<button type="button" data-color="${i}" style="background:${h}"></button>`).join('');
-  $('cls-pick').innerHTML = CLASS_KEYS.map((k) => `<button type="button" data-cls="${k}"><canvas width="44" height="62"></canvas>${CLASSES[k].name}</button>`).join('');
-  document.querySelectorAll<HTMLElement>('[data-cls]').forEach((b) => {
-    drawLook(b.querySelector('canvas')!, { ...look, cls: b.dataset.cls as ClassKey }, 'f', undefined, false); // tiny icons: skip the heavy VRM
-  });
 
   const wrap = (v: number, n: number) => (v + n) % n;
   const bind = (sel: string, fn: (el: HTMLElement) => void) =>
@@ -179,7 +178,6 @@ function createScreen(store: GameStore): Promise<boolean> {
     countStyles().then(draw);
   });
   bind('[data-color]', (el) => (look.hair_color = Number(el.dataset.color)));
-  bind('[data-cls]', (el) => (look.cls = el.dataset.cls as ClassKey));
   bind('#hair-prev', () => (look.hair = wrap(look.hair - 1, styles)));
   bind('#hair-next', () => (look.hair = wrap(look.hair + 1, styles)));
   bind('#face-prev', () => (look.face = wrap(look.face - 1, FACES)));
@@ -202,8 +200,8 @@ function createScreen(store: GameStore): Promise<boolean> {
       e.preventDefault();
       msg.textContent = '';
       try {
-        const { cls, ...appearance } = look;
-        await store.createCharacter($<HTMLInputElement>('create-name').value, cls, appearance);
+        const { cls: _cls, ...appearance } = look;
+        await store.createCharacter($<HTMLInputElement>('create-name').value, appearance);
         resolve(true);
       } catch (err) {
         msg.textContent = (err as Error).message;

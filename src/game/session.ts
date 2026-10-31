@@ -1,4 +1,4 @@
-import { Character, Derived, ITEMS, InvItem, StatKey, derive } from '../data';
+import { Character, ClassKey, Derived, ITEMS, InvItem, StatKey, derive } from '../data';
 import type { LocalStore } from '../services/localStore';
 import type { GameStore } from '../services/store';
 
@@ -85,6 +85,14 @@ export class Session {
 
   async learn(skill: string) {
     await this.after(await this.store.learnSkill(this.char.id, skill), false);
+  }
+
+  async startJobQuest() {
+    await this.after(await this.store.startJobQuest(this.char.id), false);
+  }
+
+  async changeJob(cls: ClassKey) {
+    await this.after(await this.store.changeJob(this.char.id, cls), true);
   }
 
   async buy(itemId: string, qty: number) {

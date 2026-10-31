@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRM, VRMLoaderPlugin, VRMUtils, type VRMHumanBoneName } from '@pixiv/three-vrm';
 import { HAIR_COLORS, type ClassKey } from '../data';
-import { animateCharacter, setHat, type CharRig, type Look } from './models';
+import { animateCharacter, buildDagger, setHat, type CharRig, type Look } from './models';
+import { dressArmour } from './armour';
 import { buildStringed } from './bass';
 import { buildKeyboard } from './keyboard';
 import { mesh, toon } from './toon';
@@ -119,6 +120,15 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
     });
   }
 
+  // players all wear the same armour (NPCs keep their own clothes)
+  if (!look.body) {
+    try {
+      dressArmour(vrm, root);
+    } catch (e) {
+      console.warn('could not fit the armour', e);
+    }
+  }
+
   const bone = (n: VRMHumanBoneName) => vrm.humanoid.getNormalizedBoneNode(n);
   const g = (o: THREE.Object3D | null) => (o ?? new THREE.Group()) as THREE.Group;
   const head = g(bone('head'));
@@ -215,7 +225,18 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean): Gear
   const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z).multiplyScalar(fit);
   const prop = new THREE.Group();
   prop.scale.setScalar(s * 0.9);
-  if (cls === 'singer' && handR) {
+  if (cls === 'teen' && handR) {
+    const knife = buildDagger();
+    knife.scale.setScalar(s * 0.75);
+    knife.rotation.x = Math.PI / 2 - 0.35; // blade forward out of the fist
+    knife.position.set(-0.07 * s, -0.01 * s, 0.02 * s);
+    prop.add(knife);
+    prop.scale.setScalar(1);
+    handR.add(prop);
+    // sheathed point-down at the left hip
+    const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.15, 0, Math.PI - 0.25));
+    return { pieces: [piece(chest, prop, { pos: V(0.15, -0.36, 0.03), quat })], heldOnly: [], backOnly: [] };
+  } else if (cls === 'singer' && handR) {
     prop.add(mesh(new THREE.CylinderGeometry(0.025, 0.02, 0.2, 10), toon('#222222'), 0, 0.06, 0));
     prop.add(mesh(new THREE.SphereGeometry(0.05, 12, 10), toon('#b0b6bd'), 0, 0.18, 0));
     prop.position.set(-0.08 * s, 0, 0.03 * s);
@@ -418,6 +439,7 @@ function curl(vrm: VRM, side: 'left' | 'right', amount: number[], v0: boolean) {
 /** Per-class arm poses (normalized VRM bones, T-pose = all zero, model faces +Z). */
 const POSES: Record<string, { rU: [number, number]; rL: number; lU: [number, number]; lL: number; locked: boolean }> = {
   idle: { rU: [0, 1.25], rL: 0.25, lU: [0, -1.25], lL: -0.25, locked: false },
+  teen: { rU: [-0.5, 1.15], rL: 1.1, lU: [-0.2, -1.2], lL: -0.6, locked: false },
   singer: { rU: [-0.9, 1.1], rL: 1.9, lU: [0, -1.25], lL: -0.25, locked: true },
   guitarist: { rU: [-0.3, 1.1], rL: 1.3, lU: [-0.7, -0.9], lL: -1.7, locked: true },
   bassist: { rU: [-0.3, 1.1], rL: 1.3, lU: [-0.7, -0.9], lL: -1.7, locked: true },
