@@ -12,6 +12,22 @@ export const CLASS_KEYS: ClassKey[] = ['singer', 'guitarist', 'drummer', 'bassis
 
 /** Job change: Base Lv needed, then this many kills of monsters at or above this level. Must match change_job() in SQL. */
 export const JOB_CHANGE = { level: 10, monsterLevel: 10, kills: 30 };
+/**
+ * Which town's job-change NPC hands out each class 2 (map id). Drummers change in the desert town,
+ * everyone else in Melodia. Must match change_job() in SQL.
+ */
+export const JOB_TOWN: Partial<Record<ClassKey, string>> = { drummer: 'desert' };
+export const jobTown = (cls: ClassKey) => JOB_TOWN[cls] ?? 'town';
+
+/** บูรพา's account-wide storage: most rows (one per stack, one per piece of equipment). Must match storage_put() in SQL. */
+export const STORAGE_SLOTS = 300;
+
+/** A row in the account-wide storage, shared by every character of the same ID. */
+export interface StorageItem {
+  id: string;
+  item_id: string;
+  qty: number;
+}
 
 export interface ClassDef {
   name: string;

@@ -30,6 +30,7 @@ const TINTS: Partial<Record<Theme, Record<string, number>>> = {
   canyon: { Grass: 0xd9c27a, None: 0xc9b46a, NormalTree_Bark: 0xc8a888 },
   marsh: { Grass: 0x8fa868, None: 0x7f9a58, NormalTree_Bark: 0x8a8070, BirchTree_Leaves: 0xa8c070 },
   volcano: { NormalTree_Bark: 0x5a4a45 },
+  desert: { Grass: 0xd9c27a, None: 0xc9b46a },
 };
 
 function material(name: string, theme: Theme) {
@@ -110,6 +111,7 @@ const LOOK: Record<Theme, { trees: string[]; grass: number; flowers: number; bus
   canyon: { trees: ['PalmTree_1', 'PalmTree_2', 'PalmTree_3', 'DeadTree_2'], grass: 0.05, flowers: 0, bushes: 0.01 },
   snow: { trees: ['PineTree_1', 'PineTree_2', 'PineTree_4', 'PineTree_5'], grass: 0, flowers: 0, bushes: 0 },
   volcano: { trees: ['DeadTree_1', 'DeadTree_3', 'DeadTree_2'], grass: 0, flowers: 0, bushes: 0 },
+  desert: { trees: ['PalmTree_1', 'PalmTree_2', 'PalmTree_3'], grass: 0.012, flowers: 0, bushes: 0.006 },
 };
 const BUSHES = ['Bush', 'Bush_Flowers', 'Bush_Large', 'Bush_Small_Flowers'];
 const FLOWERS = ['Flower_1_Clump', 'Flower_2_Clump', 'Flower_3_Clump', 'Flower_4_Clump', 'Plant_1', 'Plant_Flowers'];

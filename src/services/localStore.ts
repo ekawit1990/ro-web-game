@@ -1,6 +1,7 @@
 import {
   Appearance, CLASSES, CLASS_KEYS, Character, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL,
-  MONSTERS, SHOP, SKILLS, START_CLASS, StatKey, WEAPON_SHOP, expToNext, jobExpToNext, questCounts, statCost, statPointsAt,
+  MONSTERS, SHOP, SKILLS, START_CLASS, STORAGE_SLOTS, StatKey, StorageItem, WEAPON_SHOP, expToNext, jobExpToNext, questCounts,
+  statCost, statPointsAt,
 } from '../data';
 import type { GameStore, KillResult, TradeOffer } from './store';
 
@@ -10,6 +11,8 @@ export const TOWN_SPAWN = { map: 'town', x: 48.5, y: 55.5 };
 interface SaveFile {
   characters: Character[];
   inventory: Record<string, InvItem[]>;
+  /** บูรพา's storage: one per account, i.e. per browser here. */
+  storage?: StorageItem[];
 }
 
 function uid(): string {
@@ -181,6 +184,8 @@ export class LocalStore implements GameStore {
     if (c.cls !== START_CLASS) throw new Error('เปลี่ยนอาชีพไปแล้ว');
     if (!CLASS_KEYS.includes(cls)) throw new Error('ไม่มีอาชีพนี้');
     if (c.level < JOB_CHANGE.level || (c.job_quest ?? -1) < JOB_CHANGE.kills) throw new Error('ยังทำเควสไม่สำเร็จ');
+    // which town hands out which class (JOB_TOWN) is checked by the NPC and by change_job() in SQL;
+    // the browser's copy of `map` can lag behind in dev mode, so it isn't checked here
     Object.assign(c, { cls, job_level: 1, job_exp: 0, job_quest: -1 });
     // the old weapon only fits a Teen: put it in the bag and hand over the new class's first instrument
     const inv = this.inv(charId);
@@ -236,6 +241,48 @@ export class LocalStore implements GameStore {
     if (equipped) inv.forEach((i) => { if (i.equipped && ITEMS[i.item_id].type === item.type) i.equipped = false; });
     row.equipped = equipped;
     this.persist();
+  }
+
+  async loadStorage() {
+    return (this.data.storage ?? []).map((r) => ({ ...r }));
+  }
+
+  /** Same rules as storage_put() in SQL. */
+  async storagePut(charId: string, invId: string, qty: number) {
+    this.char(charId);
+    const inv = this.inv(charId);
+    const row = inv.find((i) => i.id === invId);
+    if (!row || row.equipped || qty < 1 || qty > row.qty) throw new Error('ฝากไม่ได้');
+    const st = (this.data.storage ??= []);
+    const stack = isEquipment(row.item_id) ? undefined : st.find((r) => r.item_id === row.item_id);
+    if (!stack && st.length >= STORAGE_SLOTS) throw new Error(`คลังเต็ม (${STORAGE_SLOTS} ช่อง)`);
+    row.qty -= qty;
+    if (row.qty === 0) inv.splice(inv.indexOf(row), 1);
+    if (stack) stack.qty += qty;
+    else st.push({ id: uid(), item_id: row.item_id, qty });
+    this.persist();
+  }
+
+  /** Same rules as storage_take() in SQL. */
+  async storageTake(charId: string, rowId: string, qty: number) {
+    this.char(charId);
+    const st = (this.data.storage ??= []);
+    const row = st.find((r) => r.id === rowId);
+    if (!row || qty < 1 || qty > row.qty) throw new Error('ถอนไม่ได้');
+    row.qty -= qty;
+    if (row.qty === 0) st.splice(st.indexOf(row), 1);
+    this.addItem(charId, row.item_id, qty);
+    this.persist();
+  }
+
+  /** บูรพา's warp: pay and move, same as pay_warp() in SQL. */
+  async payWarp(charId: string, cost: number, s: { hp: number; sp: number; map: string; pos_x: number; pos_y: number }) {
+    const c = this.char(charId);
+    if (c.zeny < cost) throw new Error(`Zeny ไม่พอ (ค่าวาร์ป ${cost.toLocaleString()} z)`);
+    c.zeny -= cost;
+    Object.assign(c, s);
+    this.persist();
+    return this.getCharacter(charId);
   }
 
   async saveState(charId: string, s: { hp: number; sp: number; map: string; pos_x: number; pos_y: number }) {

@@ -51,7 +51,7 @@ function rng(seed: number) {
 export function paintTerrain(c: CanvasRenderingContext2D, m: GameMap, T: number, base: string[], soft: (x: number, y: number) => boolean) {
   const W = m.w * T, H = m.h * T;
   const fbm = noise(m.w * 7919 + m.h * 31 + m.id.length);
-  const lush = m.theme !== 'snow' && m.theme !== 'canyon' && m.theme !== 'volcano';
+  const lush = m.theme !== 'snow' && m.theme !== 'canyon' && m.theme !== 'volcano' && m.theme !== 'desert';
   const g1 = hex(base[G.Grass]), g2 = hex(base[G.Grass2]), dirt = hex(base[G.Dirt]);
   // a sunlit, yellower green and a deep shade green around the theme's own grass
   const sun: [number, number, number] = lush ? [Math.min(255, g2[0] * 1.18 + 14), Math.min(255, g2[1] * 1.15 + 8), g2[2] * 0.72] : [g2[0] * 1.06, g2[1] * 1.06, g2[2] * 1.06];
@@ -225,7 +225,8 @@ export function paintTerrain(c: CanvasRenderingContext2D, m: GameMap, T: number,
  * Town paving, drawn stone by stone in world space so there are no tile seams: cobbles in
  * running-bond rows on the streets, and big pale flagstones edged with a kerb on the plaza.
  */
-export function paintPaving(c: CanvasRenderingContext2D, m: GameMap, T: number) {
+/** `sand`: warm sandstone instead of grey granite (the desert town). */
+export function paintPaving(c: CanvasRenderingContext2D, m: GameMap, T: number, sand = false) {
   const r = rng(m.w * 4099 + 11);
   const at = (x: number, y: number) => m.ground[Math.floor(y)]?.[Math.floor(x)];
   const stone = (x: number, y: number, w: number, h: number, rad: number, col: string, lift: number) => {
@@ -260,7 +261,7 @@ export function paintPaving(c: CanvasRenderingContext2D, m: GameMap, T: number) 
     for (let x = 0; x < m.w; x++) {
       const g = m.ground[y][x];
       if (g !== G.Cobble && g !== G.Plaza) continue;
-      c.fillStyle = g === G.Cobble ? '#66625a' : '#9a9284';
+      c.fillStyle = g === G.Cobble ? '#66625a' : sand ? '#a88a5e' : '#9a9284';
       c.fillRect(x * T, y * T, T, T);
     }
   }
@@ -282,7 +283,7 @@ export function paintPaving(c: CanvasRenderingContext2D, m: GameMap, T: number) 
     ry += rh;
   }
   // plaza flagstones, half a tile square, in straight courses
-  const FLAG = ['#d8cfbb', '#cfc5af', '#ded5c3', '#c9bfa8', '#d3c9b3'];
+  const FLAG = sand ? ['#e8d2a6', '#dfc596', '#ecd9b2', '#d8bc8a', '#e3cb9e'] : ['#d8cfbb', '#cfc5af', '#ded5c3', '#c9bfa8', '#d3c9b3'];
   const F = 0.5;
   for (let y = 0; y < m.h; y += F) {
     const off = (Math.round(y / F) % 2) * F * 0.5;
@@ -309,7 +310,7 @@ export function paintPaving(c: CanvasRenderingContext2D, m: GameMap, T: number) 
         c.fillRect(ox + (dx > 0 ? k : dx < 0 ? -3 : 0), oy + (dy > 0 ? k : dy < 0 ? -3 : 0), horiz ? T : 3, horiz ? 3 : T);
         for (let i = 0; i < 2; i++) {
           const seg = (horiz ? w : h) / 2;
-          stone(ox + (horiz ? i * seg : 0) + 0.5, oy + (horiz ? 0 : i * seg) + 0.5, horiz ? seg - 1 : w - 1, horiz ? h - 1 : seg - 1, 1.5, tint(['#b9b09d', '#aea592', '#c2b9a6'], 0.06), 1);
+          stone(ox + (horiz ? i * seg : 0) + 0.5, oy + (horiz ? 0 : i * seg) + 0.5, horiz ? seg - 1 : w - 1, horiz ? h - 1 : seg - 1, 1.5, tint(sand ? ['#cfae78', '#c4a26c', '#d8b884'] : ['#b9b09d', '#aea592', '#c2b9a6'], 0.06), 1);
         }
       }
     }

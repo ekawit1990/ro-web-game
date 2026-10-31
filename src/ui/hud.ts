@@ -1,15 +1,15 @@
 import {
   CLASSES, CLASS_KEYS, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, SHOP, SKILLS, START_CLASS,
-  STAT_KEYS, StatKey, WEAPON_SHOP, expToNext, jobExpToNext, skillSp, skillsOf, statCost,
+  STAT_KEYS, STORAGE_SLOTS, StatKey, WEAPON_SHOP, expToNext, jobExpToNext, jobTown, skillSp, skillsOf, statCost,
 } from '../data';
-import { THEMES, type GameMap, type Npc } from '../game/maps';
+import { THEMES, WARP_TOWNS, getMap, type GameMap, type Npc } from '../game/maps';
 import type { Session } from '../game/session';
 import type { World3D, WorldHooks } from '../three/World3D';
 import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
 
-type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc';
+type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage';
 type Slot = { t: 's' | 'i'; id: string } | null;
 type InvTab = 'item' | 'equip' | 'etc';
 type ChatTab = 'all' | 'chat' | 'sys';
@@ -35,7 +35,7 @@ const STAT_HELP: Record<StatKey, string> = {
 const SLOT_LABEL: Record<string, string> = { head: 'หมวก', weapon: 'อาวุธ', armor: 'ชุด', accessory: 'เครื่องประดับ' };
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
-  option: [-260, 170], npc: [-1, -1],
+  option: [-260, 170], npc: [-1, -1], storage: [300, 80],
 };
 
 /** The RO-style windows over the game: Basic Info, Equipment+Status, Inventory, Skill Tree, hotkeys, minimap, chat. */
@@ -49,6 +49,7 @@ export class Hud implements WorldHooks {
   private trade: TradeView | null = null;
   private shopKind: 'shop' | 'weapons' = 'shop';
   private shopTab: 'buy' | 'sell' = 'buy';
+  private storageTab: 'put' | 'take' = 'put';
   private map!: GameMap;
   private miniBase?: HTMLCanvasElement;
   private raf = 0;
@@ -94,6 +95,7 @@ export class Hud implements WorldHooks {
     this.miniBase = undefined;
     this.closeWin('shop');
     this.closeWin('npc');
+    this.closeWin('storage');
     this.closeTrade();
     const name = this.root.querySelector('#mini-name');
     if (name) name.textContent = map.name;
@@ -649,8 +651,8 @@ export class Hud implements WorldHooks {
       }
     }
     for (const o of m.objects) {
-      if (o.kind === 'building') {
-        c.fillStyle = '#7b4a36';
+      if (o.kind === 'building' || o.kind === 'palace') {
+        c.fillStyle = o.kind === 'palace' ? '#3f7fb8' : o.style === 'desert' ? '#a8865a' : '#7b4a36';
         c.fillRect(o.x * s, o.y * s, o.w * s, o.h * s);
       } else if (o.kind === 'tree') {
         c.fillStyle = '#2f5d2a';
@@ -829,14 +831,17 @@ export class Hud implements WorldHooks {
 
   talk(n: Npc) {
     if (n.id === 'jobs') return this.talkJobs(n);
+    if (n.id === 'warper') return this.talkBurapa(n);
     const text: Record<Npc['id'], string> = {
       shop: 'ยินดีต้อนรับจ้า~ มีน้ำดื่ม ยาฟื้นเสียง และเสื้อผ้าเท่ ๆ ให้เลือกเพียบ',
       weapons: 'เครื่องดนตรีดี ๆ ทั้งนั้น! เลือกให้เหมาะกับอาชีพของเจ้านะ',
       healer: 'เหนื่อยไหมจ๊ะ? ให้ครูช่วยพักเสียงให้ไหม (ฟื้น HP/SP เต็มฟรี)',
       jobs: '',
+      warper: '',
       guide: 'ยินดีต้อนรับสู่เมืองเมโลเดีย! เดินออกประตูทิศตะวันออกไปทุ่งเมโลดี้เพื่อล่ามอนสเตอร์\n'
         + '• คลิกพื้นเพื่อเดิน คลิกมอนสเตอร์เพื่อตี\n• Alt+Q สถานะ, Alt+E ไอเท็ม, Alt+S สกิล\n• F1-F9 หรือ 1-9 ใช้ปุ่มลัด\n'
-        + '• คลิกผู้เล่นอื่นเพื่อแลกเปลี่ยนไอเท็มหรือเงิน',
+        + '• คลิกผู้เล่นอื่นเพื่อแลกเปลี่ยนไอเท็มหรือเงิน\n'
+        + '• บูรพาข้างน้ำพุกลางเมือง: วาร์ปไปเมืองทะเลทรายตะโพน (เมืองมือกลอง) และฝากของในคลังกลางที่ทุกตัวละครใน ID ใช้ร่วมกัน',
     };
     const w = this.win('npc', escapeHtml(n.name), 'npc');
     const b = this.body('npc')!;
@@ -852,20 +857,96 @@ export class Hud implements WorldHooks {
     void w;
   }
 
-  /** Job-change teacher: Base Lv 10 Teen -> quest (30 kills of Lv 10+ monsters) -> pick a class 2. */
+  /** บูรพา: paid warps to the other towns, and the storage every character of the account shares. */
+  private talkBurapa(n: Npc) {
+    this.win('npc', escapeHtml(n.name), 'npc');
+    const b = this.body('npc')!;
+    const zeny = this.s.char.zeny;
+    const towns = WARP_TOWNS.filter((t) => t.map !== this.map.id);
+    const warps = towns.map((t) => `<button class="ok" data-warp="${t.map}" ${zeny < t.cost ? 'disabled' : ''}>วาร์ปไป${escapeHtml(getMap(t.map).name)} (${t.cost.toLocaleString()} z)</button>`).join('');
+    b.innerHTML = `<div class="npc-text">ข้าคือบูรพา ผู้ดูแลการเดินทางและคลังกลางของทุกเมือง<br>
+      • วาร์ปไปเมืองอื่นได้ทันที เสียค่าเดินทางเป็น Zeny (ตอนนี้มี ${zeny.toLocaleString()} z)<br>
+      • คลังกลาง: ฝากของไว้ ตัวละครทุกตัวใน ID เดียวกันเปิดใช้ร่วมกันได้จากบูรพาทุกเมือง</div>
+      <div class="npc-btns job-btns">${warps}<button class="ok" data-storage>เปิดคลังกลาง</button><button class="close">ปิด</button></div>`;
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
+    b.querySelectorAll<HTMLButtonElement>('[data-warp]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        this.closeWin('npc');
+        this.actions.send('npcWarp', { to: btn.dataset.warp });
+      }));
+    b.querySelector('[data-storage]')!.addEventListener('click', () => {
+      this.closeWin('npc');
+      this.openStorage();
+    });
+  }
+
+  private openStorage() {
+    this.storageTab = 'put';
+    this.win('storage', 'คลังกลาง (ใช้ร่วมทั้ง ID)', 'shop');
+    this.lastSig.storage = '';
+    const b = this.body('storage');
+    if (b) b.innerHTML = '<p class="hint">กำลังเปิดคลัง…</p>';
+    void this.run(() => this.s.loadStorage()).then(() => this.renderStorage());
+  }
+
+  private renderStorage() {
+    const b = this.body('storage');
+    if (!b || !this.isOpen('storage')) return;
+    const sig = JSON.stringify([this.storageTab, this.s.inv, this.s.storage]);
+    if (this.lastSig.storage === sig) return;
+    this.lastSig.storage = sig;
+    const row = (key: string, id: string, item: string, qty: number, btn: string) => {
+      const it = ITEMS[item];
+      return `<div class="shop-row" ${key}="${id}" data-item="${item}"><img src="${itemIcon(item)}"/>
+        <span>${escapeHtml(it?.name ?? item)} x${qty}</span><b></b>
+        <input type="number" min="1" max="${qty}" value="${qty}"/><button class="${key === 'data-put' ? 'buy' : 'sell'}">${btn}</button></div>`;
+    };
+    const rows = this.storageTab === 'put'
+      ? this.s.inv.filter((r) => !r.equipped).map((r) => row('data-put', r.id, r.item_id, r.qty, 'ฝาก'))
+      : this.s.storage.map((r) => row('data-take', r.id, r.item_id, r.qty, 'ถอน'));
+    b.innerHTML = `<div class="tabs"><button data-sg="put" class="${this.storageTab === 'put' ? 'on' : ''}">ฝากของ</button>
+      <button data-sg="take" class="${this.storageTab === 'take' ? 'on' : ''}">ถอนของ</button></div>
+      <div class="shop-list">${rows.join('') || `<p class="hint">${this.storageTab === 'put' ? 'ไม่มีของในกระเป๋าที่ฝากได้ (ของที่สวมอยู่ต้องถอดก่อน)' : 'คลังยังว่างอยู่'}</p>`}</div>
+      <div class="inv-foot"><span>ใช้ไป <b>${this.s.storage.length} / ${STORAGE_SLOTS}</b> ช่อง · ตัวละครทุกตัวใน ID นี้ใช้คลังเดียวกัน</span></div>`;
+    b.querySelectorAll<HTMLButtonElement>('[data-sg]').forEach((t) =>
+      t.addEventListener('click', () => {
+        this.storageTab = t.dataset.sg as 'put' | 'take';
+        this.renderStorage();
+      }));
+    b.querySelectorAll<HTMLElement>('.shop-row').forEach((el) => {
+      const qty = () => Math.max(1, Math.floor(Number((el.querySelector('input') as HTMLInputElement).value) || 1));
+      this.tooltip(el.querySelector('img')!, () => this.itemTip(el.dataset.item!));
+      el.querySelector('button')!.addEventListener('click', () => this.run(async () => {
+        if (el.dataset.put) await this.s.deposit(el.dataset.put, qty());
+        else await this.s.withdraw(el.dataset.take!, qty());
+        sfx('item');
+      }));
+    });
+  }
+
+  /**
+   * Job-change teacher: Base Lv 10 Teen -> quest (30 kills of Lv 10+ monsters) -> pick a class 2.
+   * Each town's teacher only hands out its own classes (JOB_TOWN): drummers change in the desert town.
+   */
   private talkJobs(n: Npc) {
     this.win('npc', escapeHtml(n.name), 'npc');
     const b = this.body('npc')!;
     const c = this.s.char;
     const q = c.job_quest ?? -1;
     const { level, monsterLevel, kills } = JOB_CHANGE;
+    const here = CLASS_KEYS.filter((k) => jobTown(k) === this.map.id);
+    const elsewhere = CLASS_KEYS.filter((k) => jobTown(k) !== this.map.id);
+    const names = (ks: ClassKey[]) => ks.map((k) => CLASSES[k].name).join(' ');
+    const away = elsewhere.length
+      ? `\nถ้าอยากเป็น${names(elsewhere)} ต้องไปหาครูที่${[...new Set(elsewhere.map((k) => getMap(jobTown(k)).name))].join(' / ')} (ให้บูรพากลางเมืองวาร์ปไปได้)`
+      : '';
     let text: string;
     let buttons = '';
     if (c.cls !== START_CLASS) {
       text = `เธอเป็น${CLASSES[c.cls].name}เต็มตัวแล้ว! ฝึกฝนต่อไปนะ วงดนตรีของเมืองเรารอเธออยู่`;
     } else if (c.level < level) {
       text = `ตอนนี้เธอยังเป็นวัยรุ่นอยู่ เก็บเลเวลให้ถึง Base Lv ${level} ก่อน แล้วกลับมาหาครู\n`
-        + `ครูจะให้เธอเลือกเป็น นักร้อง มือกีตาร์ มือเบส มือกลอง หรือมือคีย์บอร์ด (ตอนนี้ Base Lv ${c.level})`;
+        + `ครูที่นี่เปลี่ยนให้เป็น ${names(here)} ได้ (ตอนนี้ Base Lv ${c.level})${away}`;
     } else if (q < 0) {
       text = `ถึง Base Lv ${level} แล้ว เก่งมาก! ก่อนจะเลือกเส้นทางดนตรี ครูขอดูฝีมือหน่อย\n`
         + `ไปกำจัดมอนสเตอร์ Lv ${monsterLevel} ขึ้นไป ${kills} ตัว (เช่น ค้างคาวและนกฮูกในป่า) แล้วกลับมาหาครู`;
@@ -873,8 +954,8 @@ export class Hud implements WorldHooks {
     } else if (q < kills) {
       text = `ยังไม่ครบนะ! กำจัดมอนสเตอร์ Lv ${monsterLevel} ขึ้นไปแล้ว ${q} / ${kills} ตัว`;
     } else {
-      text = 'ผ่านบททดสอบแล้ว! เลือกเส้นทางดนตรีของเธอได้เลย (เลือกแล้วเปลี่ยนไม่ได้นะ)';
-      buttons = CLASS_KEYS.map((k) => `<button class="ok" data-job="${k}" title="${escapeHtml(CLASSES[k].desc)}">${CLASSES[k].name}</button>`).join('');
+      text = `ผ่านบททดสอบแล้ว! เลือกเส้นทางดนตรีของเธอได้เลย (เลือกแล้วเปลี่ยนไม่ได้นะ)${away}`;
+      buttons = here.map((k) => `<button class="ok" data-job="${k}" title="${escapeHtml(CLASSES[k].desc)}">${CLASSES[k].name}</button>`).join('');
     }
     b.innerHTML = `<div class="npc-text">${escapeHtml(text).replace(/\n/g, '<br>')}</div>
       <div class="npc-btns job-btns">${buttons}<button class="close">ปิด</button></div>`;
@@ -1195,6 +1276,7 @@ export class Hud implements WorldHooks {
     this.renderInv();
     this.renderSkills();
     this.renderShop();
+    this.renderStorage();
     this.autoSlotSkills();
     this.renderHotbar();
   }

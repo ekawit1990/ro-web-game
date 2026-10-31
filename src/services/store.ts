@@ -1,4 +1,4 @@
-import type { Appearance, Character, ClassKey, InvItem, StatKey } from '../data';
+import type { Appearance, Character, ClassKey, InvItem, StatKey, StorageItem } from '../data';
 
 export interface KillResult {
   character: Character;
@@ -34,5 +34,11 @@ export interface GameStore {
   buyItem(charId: string, itemId: string, qty: number): Promise<Character>;
   sellItem(charId: string, invId: string, qty: number): Promise<Character>;
   setEquipped(charId: string, invId: string, equipped: boolean): Promise<void>;
+  /** บูรพา's storage, shared by every character of this account. */
+  loadStorage(): Promise<StorageItem[]>;
+  /** Bag -> storage (not equipped items). */
+  storagePut(charId: string, invId: string, qty: number): Promise<void>;
+  /** Storage -> this character's bag. */
+  storageTake(charId: string, rowId: string, qty: number): Promise<void>;
   signOut(): Promise<void>;
 }

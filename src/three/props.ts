@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { G, THEMES, type GameMap, type Obj } from '../game/maps';
 import { paintPaving, paintTerrain } from './ground';
 import { buildFortress } from './castle';
+import { buildDesertHouses, buildPalace } from './desert';
 import { buildCart, buildFountain, buildGoods, buildHedge, buildPlanter, buildSign } from './townprops';
 import { buildPonds, hasPonds, pondField } from './pond';
 import { canvasTexture, mesh, outline, shade, shadows, toon } from './toon';
@@ -89,7 +90,7 @@ export function buildGround(m: GameMap): THREE.Group {
       return t === G.Grass || t === G.Grass2 || t === G.Dirt || t === G.Flower || (ponds && t === G.Water) || (!m.safe && t === G.Cobble);
     };
     paintTerrain(c, m, TILE, BASE, soft);
-    if (m.safe) paintPaving(c, m, TILE);
+    if (m.safe) paintPaving(c, m, TILE, m.theme === 'desert');
   });
   tex.anisotropy = 8;
   if (ponds) cutPonds(tex.image as HTMLCanvasElement, m);
@@ -409,7 +410,8 @@ export function buildProps(map: GameMap): THREE.Group {
   for (const o of map.objects) {
     let obj: THREE.Object3D | null = null;
     switch (o.kind) {
-      case 'building': obj = building(o); break;
+      case 'building': if (o.style !== 'desert') obj = building(o); break; // desert houses are merged below
+      case 'palace': obj = buildPalace(o); break;
       case 'stall': obj = stall(o); break;
       case 'tree': trees.push({ x: o.x + 0.5, z: o.y + 0.5, s: o.big ? 1.3 : 0.95 }); break;
       case 'rock': rocks.push({ x: o.x + 0.5, z: o.y + 0.5, s: 0.9 }); break;
@@ -425,7 +427,7 @@ export function buildProps(map: GameMap): THREE.Group {
       case 'banner': obj = banner(o.color); break;
     }
     if (!obj) continue;
-    if (o.kind !== 'building' && o.kind !== 'stall' && o.kind !== 'fountain') obj.position.set(o.x + 0.5, 0, o.y + 0.5);
+    if (o.kind !== 'building' && o.kind !== 'stall' && o.kind !== 'fountain' && o.kind !== 'palace') obj.position.set(o.x + 0.5, 0, o.y + 0.5);
     obj.userData.obj = o; // lets village.ts swap in the modelled version
     g.add(obj);
   }
@@ -441,7 +443,9 @@ export function buildProps(map: GameMap): THREE.Group {
     g.add(r);
   }
   g.userData.rocks = rocks;
-  const fortress = buildFortress(map.objects);
+  const houses = buildDesertHouses(map.objects);
+  if (houses) g.add(houses);
+  const fortress = buildFortress(map.objects, map.theme === 'desert');
   if (fortress) g.add(fortress);
   const ponds = buildPonds(map);
   if (ponds) g.add(ponds);
