@@ -52,8 +52,8 @@ create table if not exists public.characters (
   str int not null, agi int not null, vit int not null, "int" int not null, dex int not null,
   hp int not null default -1,
   sp int not null default -1,
-  pos_x real not null default 22.5,
-  pos_y real not null default 26.5,
+  pos_x real not null default 48.5,
+  pos_y real not null default 55.5,
   last_kill_at timestamptz,
   created_at timestamptz not null default now()
 );
@@ -388,7 +388,7 @@ declare c public.characters;
 begin
   c := public._own_char(p_char, p_user);
   update public.characters
-    set exp = greatest(0, exp - floor(public.exp_to_next(level) * 0.05)::int), map = 'town', pos_x = 22.5, pos_y = 26.5
+    set exp = greatest(0, exp - floor(public.exp_to_next(level) * 0.05)::int), map = 'town', pos_x = 48.5, pos_y = 55.5
     where id = p_char returning * into c;
   return c;
 end $$;
