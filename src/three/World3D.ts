@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, ClassKey, MONSTERS, SKILLS, SPAWNS, skillSp } from '../data';
+import { CLASSES, ClassKey, MONSTERS, SKILLS, SPAWNS, skillSp, skillsOf, targetsPlayer } from '../data';
 import { findPath, GameMap, Npc, THEMES, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
@@ -13,6 +13,7 @@ import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
+import { FxOptions, playFx, preloadFx } from './pixelfx';
 
 const TILE_PX = 32; // derived.moveSpeed is pixels/second at this tile size (same as the server)
 const MOVE_SEND_MS = 100;
@@ -138,6 +139,8 @@ export class World3D {
     this.hooks = data.hooks;
     this.sentX = data.x;
     this.sentY = data.y;
+    // phones load skill effect sheets only when one is first seen; desktops warm up their own class's
+    if (!PHONE) preloadFx(skillsOf(this.session.char.cls).map(([, s]) => s.fx ?? '').filter(Boolean));
 
     if (!renderer) {
       renderer = new THREE.WebGLRenderer({ antialias: !PHONE });
@@ -428,7 +431,7 @@ export class World3D {
     const npc = hit ? this.npcHits.get(hit) : undefined;
     if (this.targetingSkill) {
       const type = SKILLS[this.targetingSkill].type;
-      if (type === 'heal_target') return this.castAt(this.targetingSkill, pid ?? this.room.sessionId);
+      if (targetsPlayer(SKILLS[this.targetingSkill])) return this.castAt(this.targetingSkill, pid ?? this.room.sessionId);
       if (mid && !this.monsters.get(mid)?.dead) return this.castAt(this.targetingSkill, mid);
       return this.cancelTargeting();
     }
@@ -502,7 +505,7 @@ export class World3D {
       const t = this.target?.kind === 'monster' ? this.monsters.get(this.target.id) : undefined;
       if (t && !t.dead) return this.castAt(id, t.id);
       this.startTargeting(id);
-    } else if (skill.type === 'heal_target') {
+    } else if (targetsPlayer(skill)) {
       if (this.targetingSkill === id) return this.castAt(id, this.room.sessionId); // press twice = self
       this.startTargeting(id);
     } else {
@@ -519,7 +522,7 @@ export class World3D {
   private castAt(id: string, target: string) {
     this.cancelTargeting();
     this.pendingSkill = { id, target };
-    if (SKILLS[id].type !== 'heal_target') this.target = { kind: 'monster', id: target };
+    if (!targetsPlayer(SKILLS[id])) this.target = { kind: 'monster', id: target };
   }
 
   cancelTargeting() {
@@ -564,7 +567,7 @@ export class World3D {
         this.attackFx(a, m, land);
       } else land();
     });
-    on('mhit', (msg: { m: string; to: string; dmg: number }) => {
+    on('mhit', (msg: { m: string; to: string; dmg: number; block?: boolean }) => {
       const v = this.players.get(msg.to);
       const m = this.monsters.get(msg.m);
       if (m && v) {
@@ -574,7 +577,11 @@ export class World3D {
       if (!v) return;
       if (v === this.me) sfx(msg.dmg === 0 ? 'miss' : 'hurt');
       const p = new THREE.Vector3(v.x, 1.7, v.y);
-      if (msg.dmg === 0) this.floatText(p, 'Miss', 'miss');
+      if (msg.block) {
+        this.floatText(p, 'Block', 'miss');
+        const dir = m ? Math.atan2(m.y - v.y, m.x - v.x) : 0;
+        this.pixelFx('block', { at: () => new THREE.Vector3(v.x + Math.cos(dir) * 0.35, 0, v.y + Math.sin(dir) * 0.35) });
+      } else if (msg.dmg === 0) this.floatText(p, 'Miss', 'miss');
       else {
         this.floatText(p, String(msg.dmg), 'take');
         this.flash(v.rig.root, 0xff3333);
@@ -1064,12 +1071,24 @@ export class World3D {
       this.burst(new THREE.Vector3(msg.x, 0.3, msg.y), color, 22, 4);
     } else if (skill.type === 'buff' && a) {
       this.levelFx(a, '', color);
+    } else if (targetsPlayer(skill)) {
+      // keyboardist support skills: a pixelfx effect that follows the player it landed on
+      const t = this.players.get(msg.target ?? '') ?? a;
+      if (t && skill.fx) {
+        const lift = ({ shield: 0.15, tempo: 0.45 } as Record<string, number>)[skill.fx] ?? 0.02;
+        this.pixelFx(skill.fx, { at: () => new THREE.Vector3(t.x, lift, t.y) });
+        if (t !== a) this.burst(new THREE.Vector3(t.x, 1, t.y), color, 10);
+      } else if (t && skill.type === 'heal_target') this.sparkle(t, 0x7dff9a);
+      else if (t) this.levelFx(t, '', color);
     } else if (skill.type === 'single' && a) {
       const glyph = CLASSES[skill.cls].projectile ? { note: '♪', chord: '♫', wave: '〰' }[CLASSES[skill.cls].projectile!] : '✦';
       for (let i = 0; i < Math.min(3, skill.hits ?? 1); i++) {
         this.projectile(new THREE.Vector3(a.x, 1.0, a.y), new THREE.Vector3(msg.x, 0.6, msg.y), glyphTexture(glyph, '#ffffff'), 0.7, 200, undefined, i * 90);
       }
-      setTimeout(() => this.burst(new THREE.Vector3(msg.x, 0.6, msg.y), color, 12), 220);
+      setTimeout(() => {
+        if (skill.fx) this.pixelFx(skill.fx, { at: () => new THREE.Vector3(msg.x, 0.6, msg.y) });
+        else this.burst(new THREE.Vector3(msg.x, 0.6, msg.y), color, 12);
+      }, 220);
     }
     msg.hits.forEach((h, i) => {
       setTimeout(() => {
@@ -1084,6 +1103,11 @@ export class World3D {
         }
       }, 240 + i * 110);
     });
+  }
+
+  /** A baked pixelfx skill effect (src/three/pixelfx.ts), added to the effect list once its sheet is known. */
+  private pixelFx(name: string, o: FxOptions) {
+    void playFx(this.scene, name, o).then((fx) => fx && this.effects.push(fx));
   }
 
   private sparkle(a: PlayerActor, color: number) {

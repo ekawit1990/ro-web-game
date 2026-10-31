@@ -167,7 +167,7 @@ async function play(char: Character): Promise<void> {
       r.onMessage('system', (m) => hud.system(m.text));
       r.onMessage('chat', (m) => hud.chat(m.name, m.text));
       r.onMessage('error', (m) => hud.toast(m.text, 'bad'));
-      r.onMessage('buff', (m) => hud.buff(m.skill, m.seconds));
+      r.onMessage('buff', (m) => hud.buff(m.skill, m.seconds, m.blocks));
       r.onMessage('skill', (m) => m.by === r.sessionId && hud.skillCast(m.skill));
       r.onMessage('tradeInvite', (m) => hud.tradeInvite(m));
       r.onMessage('tradeState', (m) => hud.tradeState(m));

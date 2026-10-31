@@ -89,7 +89,9 @@ export interface SpawnDef {
   respawnSec?: number;
 }
 
-export type SkillType = 'single' | 'aoe' | 'aoe_self' | 'heal' | 'heal_target' | 'buff' | 'passive';
+/** heal_target and buff_target pick yourself or one other player. */
+export type SkillType = 'single' | 'aoe' | 'aoe_self' | 'heal' | 'heal_target' | 'buff' | 'buff_target' | 'passive';
+export const targetsPlayer = (s: SkillDef) => s.type === 'heal_target' || s.type === 'buff_target';
 
 export interface SkillDef {
   cls: ClassKey;
@@ -107,8 +109,14 @@ export interface SkillDef {
   hits?: number;
   heal?: [number, number];
   provoke?: boolean;
-  buff?: { aspdPct?: number; def?: number; durationSec: number };
+  /**
+   * aspdPct/def are per skill level. stats and blocks are [at Lv 1, extra per level]:
+   * stats raise STR/AGI/... while the buff lasts; blocks = physical hits the buff stops before it breaks.
+   */
+  buff?: { aspdPct?: number; def?: number; stats?: Partial<Record<StatKey, [number, number]>>; blocks?: [number, number]; durationSec: number };
   passive?: { maxHpPct?: number; maxSpPct?: number; atkPct?: number; matkPct?: number; hit?: number };
+  /** Baked pixelfx sheet (public/fx/<fx>.png) played when the skill lands. */
+  fx?: string;
 }
 
 export const CLASSES = raw.classes as Record<ClassKey, ClassDef>;
@@ -127,6 +135,15 @@ export const canUseSkill = (s: SkillDef, cls: ClassKey) => s.cls === cls || s.cl
 export const skillSp = (s: SkillDef, lv: number) => (s.sp ? s.sp[0] + s.sp[1] * (lv - 1) : 0);
 export const skillPower = (s: SkillDef, lv: number) => (s.power ? s.power[0] + s.power[1] * (lv - 1) : 0);
 export const skillHeal = (s: SkillDef, lv: number) => (s.heal ? s.heal[0] + s.heal[1] * (lv - 1) : 0);
+const perLevel = (v: [number, number] | undefined, lv: number) => (v ? v[0] + v[1] * (lv - 1) : 0);
+/** Stat bonuses a buff skill gives at `lv`. */
+export function buffStats(s: SkillDef, lv: number): Partial<Stats> {
+  const out: Partial<Stats> = {};
+  for (const [k, v] of Object.entries(s.buff?.stats ?? {}) as [StatKey, [number, number]][]) out[k] = perLevel(v, lv);
+  return out;
+}
+/** Physical hits a shield buff stops at `lv`. */
+export const buffBlocks = (s: SkillDef, lv: number) => perLevel(s.buff?.blocks, lv);
 
 /** EXP needed to go from `level` to `level + 1`. Must match exp_to_next() in SQL. */
 export function expToNext(level: number): number {
@@ -193,6 +210,8 @@ export interface InvItem {
 export interface Buffs {
   aspdPct?: number;
   def?: number;
+  /** Extra STR/AGI/... from buffs (shown as +N in the status window). */
+  stats?: Partial<Stats>;
 }
 
 export interface Derived {
@@ -210,9 +229,13 @@ export interface Derived {
   moveSpeed: number;
   weight: number;
   maxWeight: number;
+  /** Stat bonuses from buffs, already counted in the numbers above. */
+  bonus?: Partial<Stats>;
 }
 
-export function derive(c: Character, inv: InvItem[], buffs: Buffs = {}): Derived {
+export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Derived {
+  const c = { ...base };
+  for (const k of STAT_KEYS) c[k] += buffs.stats?.[k] ?? 0;
   const cls = CLASSES[c.cls];
   const equipped = inv.filter((i) => i.equipped).map((i) => ITEMS[i.item_id]).filter(Boolean);
   const sum = (k: 'atk' | 'matk' | 'def' | 'aspd') => equipped.reduce((s, i) => s + (i[k] ?? 0), 0);
@@ -244,6 +267,7 @@ export function derive(c: Character, inv: InvItem[], buffs: Buffs = {}): Derived
     moveSpeed: 150 + Math.min(60, c.agi * 2),
     weight: inv.reduce((s, i) => s + (ITEMS[i.item_id]?.weight ?? 0) * i.qty, 0),
     maxWeight: 2000 + c.str * 30,
+    bonus: buffs.stats,
   };
 }
 
