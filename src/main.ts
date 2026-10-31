@@ -11,6 +11,7 @@ import { SupabaseStore } from './services/supabaseStore';
 import { Hud } from './ui/hud';
 import { $, characterScreen, loginScreen, show } from './ui/screens';
 import { playMusic, sfx, unlockAudio } from './audio/sound';
+import { assetShare, assetsIdle, reset as resetAssets } from './ui/loadProgress';
 
 const container = document.getElementById('game')!;
 let world: World3D | undefined;
@@ -21,9 +22,48 @@ const SERVER_URL = (import.meta.env.VITE_COLYSEUS_URL as string | undefined) || 
 const store: GameStore = supabase ? new SupabaseStore(supabase) : new LocalStore();
 const devStore = store instanceof LocalStore ? store : undefined;
 
+const LOADING_ART = ['band1', 'band2', 'band3'].map((n) => `${import.meta.env.BASE_URL ?? '/'}loading/${n}.webp`);
+let shown = 0; // percent on the bar
+let goal = 0; // percent the current step has earned
+let creep = 0; // a slow step may creep up to here while we wait on it
+let ticker = 0;
+
+/** Full-screen band art with a percent bar; `progress()` moves the bar between steps. */
 function loading(on: boolean, text = 'กำลังโหลด…') {
-  $('loading').classList.toggle('hidden', !on);
-  $('loading').querySelector('p')!.textContent = text;
+  const el = $('loading');
+  el.querySelector('p')!.textContent = text;
+  if (!on) {
+    el.classList.add('hidden');
+    cancelAnimationFrame(ticker);
+    ticker = 0;
+    return;
+  }
+  el.classList.remove('hidden');
+  if (ticker) return; // already up: keep the art and the bar where they are
+  const art = el.querySelector<HTMLImageElement>('.ld-art')!;
+  const src = LOADING_ART[Math.floor(Math.random() * LOADING_ART.length)];
+  art.classList.remove('on');
+  art.onload = () => art.classList.add('on');
+  art.src = src;
+  el.querySelector<HTMLElement>('.ld-bg')!.style.backgroundImage = `url(${src})`;
+  shown = goal = creep = 0;
+  const bar = el.querySelector<HTMLElement>('.ld-bar i')!;
+  const label = el.querySelector<HTMLElement>('.ld-bar b')!;
+  const tick = () => {
+    if (shown < goal) shown += Math.max(0.6, (goal - shown) * 0.15);
+    else if (shown < creep) shown += (creep - shown) * 0.008;
+    shown = Math.min(shown, 100);
+    bar.style.width = `${shown}%`;
+    label.textContent = `${Math.floor(shown)}%`;
+    ticker = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+/** The bar has earned `at` percent; while the next step runs it may creep towards `upTo`. */
+function progress(at: number, upTo = at) {
+  goal = Math.max(goal, at);
+  creep = Math.max(goal, upTo);
 }
 
 /** Wait until the server state contains our own player. */
@@ -55,6 +95,8 @@ function stopWorld() {
 
 async function play(char: Character): Promise<void> {
   show('loading');
+  loading(true);
+  progress(0, 15);
   const fresh = await store.getCharacter(char.id);
   const inv = await store.loadInventory(char.id);
   const session = new Session(store, fresh, inv);
@@ -81,6 +123,7 @@ async function play(char: Character): Promise<void> {
       const t0 = performance.now();
       hud.death(false); // reviving in town is a map change: the old death dialog is done
       loading(true, `กำลังเดินทางไป ${getMap(mapId).name}…`);
+      progress(5, 20);
       const old = room;
       room = undefined;
       stopWorld();
@@ -88,6 +131,7 @@ async function play(char: Character): Promise<void> {
       if (old) await within(old.leave(true), 3000, 'leave').catch(() => {});
 
       session.char.map = mapId;
+      progress(20, 55); // a sleeping free server can sit here for a while
       const token = supabase ? (await supabase.auth.getSession()).data.session?.access_token : undefined;
       const dev = devStore ? { char: session.char, inv: session.inv } : undefined;
       // a sleeping free server can take ~1 minute to wake up
@@ -100,7 +144,14 @@ async function play(char: Character): Promise<void> {
       const pos = await myPlayer(r);
       const map = getMap(mapId);
       hud.setMap(map);
+      progress(60, 70);
+      resetAssets();
       world = new World3D(container, { session, room: r, map, hooks: hud, x: pos.x, y: pos.y });
+      const assets = setInterval(() => progress(70 + 30 * assetShare()), 100);
+      await assetsIdle(15000);
+      clearInterval(assets);
+      progress(100);
+      await new Promise((ok) => setTimeout(ok, 350)); // let the bar reach 100%
       loading(false);
       sfx(old ? 'warp' : 'enter');
       playMusic(mapId);

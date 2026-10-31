@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { Obj } from '../game/maps';
 import { toon } from './toon';
 import { buildGoods } from './townprops';
+import { track } from '../ui/loadProgress';
 
 /**
  * Low-poly medieval buildings and props by Quaternius (Medieval Village Pack, CC0),
@@ -24,7 +25,7 @@ async function gunzip(buf: ArrayBuffer) {
 
 function load(name: string) {
   if (!cache.has(name)) {
-    cache.set(name, (async () => {
+    cache.set(name, track((async () => {
       try {
         const res = await fetch(`${BASE}${name}.glb.gz`);
         if (!res.ok) return null;
@@ -42,7 +43,7 @@ function load(name: string) {
         console.warn('village model failed', name, e);
         return null;
       }
-    })());
+    })()));
   }
   return cache.get(name)!;
 }
