@@ -34,7 +34,7 @@ export type Obj =
   | { kind: 'castle'; x: number; y: number; w: number; h: number; door: number };
 
 export interface Npc {
-  id: 'shop' | 'weapons' | 'healer' | 'guide';
+  id: 'shop' | 'weapons' | 'healer' | 'guide' | 'jobs';
   name: string;
   x: number;
   y: number;
@@ -502,6 +502,28 @@ const buildVolcano = () => buildWild({
   gates: [{ side: 's', ...arrive('snow', 'n'), label: 'ยอดเขาหิมะโซปราโน' }],
 });
 
+/**
+ * The job-change teacher stands a few steps from where new players appear in town, on the first free
+ * tile with room to walk up to it (so it fits whatever the town layout is).
+ */
+function addJobNpc(m: GameMap) {
+  const sx = Math.floor(m.spawn.x) - 3;
+  const sy = Math.floor(m.spawn.y) - 1;
+  for (let r = 0; r < 12; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = sx + dx;
+        const y = sy + dy;
+        if (!free(m, x - 1, y - 1, 3, 3) || m.npcs.some((n) => Math.abs(n.x - x) < 2 && Math.abs(n.y - y) < 2)) continue;
+        m.npcs.push({ id: 'jobs', name: 'ครูแนะแนวอาชีพ', x, y, look: { gender: 'm', hair: 2, hair_color: 1, face: 0, body: '#6d4c41' } });
+        block(m, x, y);
+        return;
+      }
+    }
+  }
+}
+
 const built = new Map<string, GameMap>();
 const BUILDERS: Record<string, () => GameMap> = {
   town: buildTown, field: buildField, forest: buildForest, marsh: buildMarsh, canyon: buildCanyon, snow: buildSnow, volcano: buildVolcano,
@@ -512,7 +534,11 @@ export const START_MAP = 'town';
 /** A fresh copy each call for callers that mutate `blocked`; cached otherwise. */
 export function getMap(id: string): GameMap {
   if (!BUILDERS[id]) id = START_MAP;
-  if (!built.has(id)) built.set(id, BUILDERS[id]());
+  if (!built.has(id)) {
+    const m = BUILDERS[id]();
+    if (id === START_MAP) addJobNpc(m);
+    built.set(id, m);
+  }
   return built.get(id)!;
 }
 

@@ -35,6 +35,7 @@ create table if not exists public.monster_defs (
   drops jsonb not null default '[]'
 );
 alter table public.monster_defs add column if not exists job_exp int not null default 0;
+alter table public.monster_defs add column if not exists level int not null default 1;
 
 create table if not exists public.skill_defs (
   id text primary key,
@@ -69,6 +70,8 @@ alter table public.characters add column if not exists job_exp int not null defa
 alter table public.characters add column if not exists skill_points int not null default 0;
 alter table public.characters add column if not exists skills jsonb not null default '{}';
 alter table public.characters add column if not exists map text not null default 'town';
+-- job-change quest: -1 = not taken, else kills so far (see change_job)
+alter table public.characters add column if not exists job_quest int not null default -1;
 create index if not exists characters_user_idx on public.characters (user_id);
 
 create table if not exists public.inventory (
@@ -109,6 +112,7 @@ revoke insert, update on public.characters, public.inventory from anon, authenti
 
 -- older versions of these functions had other parameters
 drop function if exists public.create_character(text, text);
+drop function if exists public.create_character(text, text, text, int, int, int);
 drop function if exists public.report_kill(uuid, text);
 drop function if exists public.use_item(uuid, uuid);
 drop function if exists public.save_state(uuid, int, int, real, real);
@@ -163,8 +167,9 @@ revoke execute on function public._add_item(uuid, text, int) from public, anon, 
 
 -- ---------------------------------------------------------------- menu actions (browser)
 
+-- every new character starts as a Teen (class 1); class 2 comes from change_job()
 create or replace function public.create_character(
-  p_name text, p_cls text, p_gender text, p_hair int, p_hair_color int, p_face int
+  p_name text, p_gender text, p_hair int, p_hair_color int, p_face int
 ) returns public.characters
 language plpgsql security definer set search_path = public as $$
 declare d public.class_defs; c public.characters;
@@ -176,14 +181,14 @@ begin
     raise exception 'สร้างได้สูงสุด 3 ตัวละคร';
   end if;
   if exists (select 1 from public.characters where name = p_name) then raise exception 'ชื่อนี้ถูกใช้แล้ว'; end if;
-  if p_gender not in ('m', 'f') or p_hair not between 0 and 5 or p_hair_color not between 0 and 7 or p_face not between 0 and 3 then
+  if p_gender not in ('m', 'f') or p_hair not between 0 and 63 or p_hair_color not between 0 and 7 or p_face not between 0 and 3 then
     raise exception 'หน้าตาไม่ถูกต้อง';
   end if;
-  select * into d from public.class_defs where id = p_cls;
+  select * into d from public.class_defs where id = 'teen';
   if not found then raise exception 'ไม่มีอาชีพนี้'; end if;
 
   insert into public.characters (user_id, name, cls, str, agi, vit, "int", dex, luk, gender, hair, hair_color, face)
-  values (auth.uid(), p_name, p_cls,
+  values (auth.uid(), p_name, 'teen',
     (d.base_stats->>'str')::int, (d.base_stats->>'agi')::int, (d.base_stats->>'vit')::int,
     (d.base_stats->>'int')::int, (d.base_stats->>'dex')::int, (d.base_stats->>'luk')::int,
     p_gender, p_hair, p_hair_color, p_face)
@@ -222,6 +227,37 @@ begin
   if c.skill_points < 1 then raise exception 'แต้มสกิลไม่พอ'; end if;
   update public.characters
     set skills = skills || jsonb_build_object(p_skill, cur + 1), skill_points = skill_points - 1
+    where id = p_char returning * into c;
+  return c;
+end $$;
+
+-- job change (numbers match JOB_CHANGE in src/data/index.ts): a Teen at Base Lv 10 takes the quest,
+-- kills 30 monsters of Lv 10+ (counted in report_kill), then picks a class 2
+create or replace function public.start_job_quest(p_char uuid) returns public.characters
+language plpgsql security definer set search_path = public as $$
+declare c public.characters;
+begin
+  c := public._own_char(p_char);
+  if c.cls <> 'teen' then raise exception 'เปลี่ยนอาชีพไปแล้ว'; end if;
+  if c.level < 10 then raise exception 'ต้องมี Base Lv 10 ก่อน'; end if;
+  update public.characters set job_quest = greatest(job_quest, 0) where id = p_char returning * into c;
+  return c;
+end $$;
+
+create or replace function public.change_job(p_char uuid, p_cls text) returns public.characters
+language plpgsql security definer set search_path = public as $$
+declare c public.characters; d public.class_defs;
+begin
+  c := public._own_char(p_char);
+  if c.cls <> 'teen' then raise exception 'เปลี่ยนอาชีพไปแล้ว'; end if;
+  if p_cls not in ('singer', 'guitarist', 'drummer', 'bassist', 'keyboardist') then raise exception 'ไม่มีอาชีพนี้'; end if;
+  if c.level < 10 or c.job_quest < 30 then raise exception 'ยังทำเควสไม่สำเร็จ'; end if;
+  select * into d from public.class_defs where id = p_cls;
+  update public.inventory inv set equipped = false
+    from public.item_defs i
+    where inv.character_id = p_char and inv.equipped and i.id = inv.item_id and i.type = 'weapon';
+  insert into public.inventory (character_id, item_id, qty, equipped) values (p_char, d.start_weapon, 1, true);
+  update public.characters set cls = p_cls, job_level = 1, job_exp = 0, job_quest = -1
     where id = p_char returning * into c;
   return c;
 end $$;
@@ -311,10 +347,12 @@ begin
     c.skill_points := c.skill_points + 1;
   end loop;
   if c.job_level >= max_job then c.job_exp := 0; end if;
+  if c.job_quest >= 0 and c.job_quest < 30 and m.level >= 10 then c.job_quest := c.job_quest + 1; end if;
 
   update public.characters
     set zeny = c.zeny, exp = c.exp, level = c.level, stat_points = c.stat_points,
-        job_exp = c.job_exp, job_level = c.job_level, skill_points = c.skill_points, last_kill_at = now()
+        job_exp = c.job_exp, job_level = c.job_level, skill_points = c.skill_points, job_quest = c.job_quest,
+        last_kill_at = now()
     where id = p_char returning * into c;
 
   return jsonb_build_object(
@@ -402,13 +440,17 @@ end $$;
 
 -- ---------------------------------------------------------------- permissions
 
-revoke execute on function public.create_character(text, text, text, int, int, int) from public, anon;
+revoke execute on function public.create_character(text, text, int, int, int) from public, anon;
+revoke execute on function public.start_job_quest(uuid) from public, anon;
+revoke execute on function public.change_job(uuid, text) from public, anon;
 revoke execute on function public.allocate_stat(uuid, text) from public, anon;
 revoke execute on function public.learn_skill(uuid, text) from public, anon;
 revoke execute on function public.buy_item(uuid, text, int) from public, anon;
 revoke execute on function public.sell_item(uuid, uuid, int) from public, anon;
 revoke execute on function public.set_equipped(uuid, uuid, boolean) from public, anon;
-grant execute on function public.create_character(text, text, text, int, int, int) to authenticated;
+grant execute on function public.create_character(text, text, int, int, int) to authenticated;
+grant execute on function public.start_job_quest(uuid) to authenticated;
+grant execute on function public.change_job(uuid, text) to authenticated;
 grant execute on function public.allocate_stat(uuid, text) to authenticated;
 grant execute on function public.learn_skill(uuid, text) to authenticated;
 grant execute on function public.buy_item(uuid, text, int) to authenticated;
@@ -500,64 +542,72 @@ insert into public.item_defs (id, type, price, classes, in_shop, weight) values 
 insert into public.item_defs (id, type, price, classes, in_shop, weight) values ('trident_tip', 'loot', 195, null, false, 1) on conflict (id) do update set type = excluded.type, price = excluded.price, classes = excluded.classes, in_shop = excluded.in_shop, weight = excluded.weight;
 insert into public.item_defs (id, type, price, classes, in_shop, weight) values ('iron_skull', 'loot', 230, null, false, 1) on conflict (id) do update set type = excluded.type, price = excluded.price, classes = excluded.classes, in_shop = excluded.in_shop, weight = excluded.weight;
 insert into public.item_defs (id, type, price, classes, in_shop, weight) values ('dove_feather', 'loot', 45, null, false, 1) on conflict (id) do update set type = excluded.type, price = excluded.price, classes = excluded.classes, in_shop = excluded.in_shop, weight = excluded.weight;
+insert into public.item_defs (id, type, price, classes, in_shop, weight) values ('dagger', 'weapon', 50, array['teen'], true, 40) on conflict (id) do update set type = excluded.type, price = excluded.price, classes = excluded.classes, in_shop = excluded.in_shop, weight = excluded.weight;
+insert into public.item_defs (id, type, price, classes, in_shop, weight) values ('steel_dagger', 'weapon', 400, array['teen'], true, 50) on conflict (id) do update set type = excluded.type, price = excluded.price, classes = excluded.classes, in_shop = excluded.in_shop, weight = excluded.weight;
 
+insert into public.class_defs (id, base_stats, start_weapon) values ('teen', '{"str":5,"agi":5,"vit":5,"int":4,"dex":5,"luk":4}', 'dagger') on conflict (id) do update set base_stats = excluded.base_stats, start_weapon = excluded.start_weapon;
 insert into public.class_defs (id, base_stats, start_weapon) values ('singer', '{"str":1,"agi":4,"vit":4,"int":10,"dex":6,"luk":3}', 'basic_mic') on conflict (id) do update set base_stats = excluded.base_stats, start_weapon = excluded.start_weapon;
 insert into public.class_defs (id, base_stats, start_weapon) values ('guitarist', '{"str":3,"agi":7,"vit":4,"int":2,"dex":9,"luk":3}', 'acoustic_guitar') on conflict (id) do update set base_stats = excluded.base_stats, start_weapon = excluded.start_weapon;
 insert into public.class_defs (id, base_stats, start_weapon) values ('drummer', '{"str":9,"agi":6,"vit":6,"int":1,"dex":3,"luk":3}', 'wood_sticks') on conflict (id) do update set base_stats = excluded.base_stats, start_weapon = excluded.start_weapon;
 insert into public.class_defs (id, base_stats, start_weapon) values ('bassist', '{"str":7,"agi":3,"vit":9,"int":1,"dex":5,"luk":3}', 'basic_bass') on conflict (id) do update set base_stats = excluded.base_stats, start_weapon = excluded.start_weapon;
 insert into public.class_defs (id, base_stats, start_weapon) values ('keyboardist', '{"str":1,"agi":5,"vit":4,"int":9,"dex":6,"luk":3}', 'mini_keyboard') on conflict (id) do update set base_stats = excluded.base_stats, start_weapon = excluded.start_weapon;
 
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('jelly', 6, 4, 2, 8, '[["note_shard",0.7],["banana",0.3],["water",0.05]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('drop', 9, 7, 3, 10, '[["drop_crystal",0.6],["water",0.1]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('chick', 12, 9, 4, 12, '[["chick_feather",0.6],["banana",0.2],["note_ribbon",0.01]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('mushy', 18, 14, 5, 15, '[["silent_spore",0.6],["water",0.1],["band_tshirt",0.03]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('rabbit', 24, 18, 6, 18, '[["rabbit_ear",0.55],["carrot",0.35],["headphones",0.01]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('buzzer', 36, 27, 10, 30, '[["buzz_stinger",0.55],["energy_drink",0.08],["acoustic_guitar",0.03]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('frog', 46, 34, 12, 34, '[["frog_skin",0.55],["energy_drink",0.1],["basic_bass",0.03]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('bat', 62, 46, 15, 40, '[["bat_wing",0.5],["honey_lemon",0.08],["pick_necklace",0.02]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('rocky', 90, 68, 25, 60, '[["rock_chip",0.6],["leather_jacket",0.03],["steel_sticks",0.015]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('metronome', 120, 90, 30, 80, '[["gear_spring",0.5],["metronome_charm",0.02],["rock_cap",0.02]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('king_jelly', 1500, 1125, 400, 900, '[["golden_clef",1],["golden_mic",0.15],["electric_guitar",0.15],["synth",0.15],["five_string_bass",0.15],["steel_sticks",0.15]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('owl', 75, 56, 22, 55, '[["owl_feather",0.55],["honey_lemon",0.06]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('mossy', 105, 79, 26, 65, '[["moss_cap",0.55],["band_tshirt",0.04]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('elder_tree', 4284, 3213, 480, 1200, '[["ancient_bark",1],["headphones",0.2],["electric_guitar",0.12],["synth",0.12]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('tuba_toad', 122, 92, 28, 70, '[["toad_horn",0.55],["energy_drink",0.1]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('mosquito', 159, 119, 32, 80, '[["violin_needle",0.55],["pick_necklace",0.02]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('marsh_queen', 5424, 4068, 540, 1350, '[["marsh_pearl",1],["five_string_bass",0.15],["leather_jacket",0.2],["metronome_charm",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('drum_golem', 179, 134, 34, 85, '[["drum_stone",0.55],["steel_sticks",0.02]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('howler', 201, 151, 36, 90, '[["wolf_fang",0.55],["carrot",0.2]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('sand_drop', 224, 168, 38, 95, '[["sand_crystal",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('rock_dragon', 7152, 5364, 620, 1550, '[["dragon_scale",1],["rock_cap",0.25],["electric_guitar",0.2],["steel_sticks",0.2]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('penguin', 273, 205, 42, 105, '[["ice_feather",0.55],["honey_lemon",0.1]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('ice_jelly', 300, 225, 44, 110, '[["frost_gel",0.55],["water",0.2]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('yeti', 357, 268, 48, 120, '[["yeti_fur",0.55],["leather_jacket",0.03]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('snow_queen', 9120, 6840, 700, 1750, '[["snow_crown",1],["golden_mic",0.25],["note_ribbon",0.3],["headphones",0.3]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('fire_bat', 419, 314, 52, 130, '[["ember_wing",0.55],["energy_drink",0.12]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('magma_golem', 486, 364, 56, 140, '[["magma_core",0.55],["rock_cap",0.02]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('flame_metronome', 521, 391, 58, 145, '[["molten_spring",0.55],["metronome_charm",0.03]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('metal_lord', 11904, 8928, 800, 2000, '[["metal_soul",1],["golden_mic",0.3],["electric_guitar",0.3],["synth",0.3],["five_string_bass",0.3],["steel_sticks",0.3]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('cat', 2, 2, 4, 10, '[["cat_whisker",0.55],["banana",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('dog', 6, 4, 6, 15, '[["dog_bone",0.55],["banana",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('pigeon', 22, 16, 12, 30, '[["pigeon_feather",0.55],["banana",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('monkroose', 89, 67, 24, 60, '[["monkey_drum",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('wizard', 105, 79, 26, 65, '[["wizard_hat",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('ninja', 122, 92, 28, 70, '[["ninja_scroll",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('squidle', 140, 105, 30, 75, '[["squid_ink",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('alien', 140, 105, 30, 75, '[["alien_vine",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('orc', 159, 119, 32, 80, '[["mud_tusk",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('glub_evo', 179, 134, 34, 85, '[["triple_eye",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('alpaking', 201, 151, 36, 90, '[["alpa_wool",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('goleling', 224, 168, 38, 95, '[["stone_wing",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('tribal', 248, 186, 40, 100, '[["tribal_mask",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('big_ninja', 273, 205, 42, 105, '[["chord_blade",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('hywirl', 300, 225, 44, 110, '[["frost_tentacle",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('bluedemon', 328, 246, 46, 115, '[["ice_club",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('alpaking_evo', 357, 268, 48, 120, '[["snow_wool",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('ghost_skull', 452, 339, 54, 135, '[["skull_flame",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('demon', 486, 364, 56, 140, '[["trident_tip",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('orc_skull', 558, 418, 60, 150, '[["iron_skull",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
-insert into public.monster_defs (id, exp, job_exp, zeny_min, zeny_max, drops) values ('dove', 75, 56, 22, 55, '[["dove_feather",0.55],["honey_lemon",0.08]]') on conflict (id) do update set exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('jelly', 1, 6, 4, 2, 8, '[["note_shard",0.7],["banana",0.3],["water",0.05]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('drop', 2, 9, 7, 3, 10, '[["drop_crystal",0.6],["water",0.1]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('chick', 3, 12, 9, 4, 12, '[["chick_feather",0.6],["banana",0.2],["note_ribbon",0.01]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('mushy', 4, 18, 14, 5, 15, '[["silent_spore",0.6],["water",0.1],["band_tshirt",0.03]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('rabbit', 5, 24, 18, 6, 18, '[["rabbit_ear",0.55],["carrot",0.35],["headphones",0.01]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('buzzer', 7, 36, 27, 10, 30, '[["buzz_stinger",0.55],["energy_drink",0.08],["acoustic_guitar",0.03]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('frog', 8, 46, 34, 12, 34, '[["frog_skin",0.55],["energy_drink",0.1],["basic_bass",0.03]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('bat', 10, 62, 46, 15, 40, '[["bat_wing",0.5],["honey_lemon",0.08],["pick_necklace",0.02]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('rocky', 12, 90, 68, 25, 60, '[["rock_chip",0.6],["leather_jacket",0.03],["steel_sticks",0.015]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('metronome', 14, 120, 90, 30, 80, '[["gear_spring",0.5],["metronome_charm",0.02],["rock_cap",0.02]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('king_jelly', 20, 1500, 1125, 400, 900, '[["golden_clef",1],["golden_mic",0.15],["electric_guitar",0.15],["synth",0.15],["five_string_bass",0.15],["steel_sticks",0.15]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('owl', 11, 75, 56, 22, 55, '[["owl_feather",0.55],["honey_lemon",0.06]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('mossy', 13, 105, 79, 26, 65, '[["moss_cap",0.55],["band_tshirt",0.04]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('elder_tree', 24, 4284, 3213, 480, 1200, '[["ancient_bark",1],["headphones",0.2],["electric_guitar",0.12],["synth",0.12]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('tuba_toad', 14, 122, 92, 28, 70, '[["toad_horn",0.55],["energy_drink",0.1]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('mosquito', 16, 159, 119, 32, 80, '[["violin_needle",0.55],["pick_necklace",0.02]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('marsh_queen', 27, 5424, 4068, 540, 1350, '[["marsh_pearl",1],["five_string_bass",0.15],["leather_jacket",0.2],["metronome_charm",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('drum_golem', 17, 179, 134, 34, 85, '[["drum_stone",0.55],["steel_sticks",0.02]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('howler', 18, 201, 151, 36, 90, '[["wolf_fang",0.55],["carrot",0.2]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('sand_drop', 19, 224, 168, 38, 95, '[["sand_crystal",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('rock_dragon', 31, 7152, 5364, 620, 1550, '[["dragon_scale",1],["rock_cap",0.25],["electric_guitar",0.2],["steel_sticks",0.2]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('penguin', 21, 273, 205, 42, 105, '[["ice_feather",0.55],["honey_lemon",0.1]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('ice_jelly', 22, 300, 225, 44, 110, '[["frost_gel",0.55],["water",0.2]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('yeti', 24, 357, 268, 48, 120, '[["yeti_fur",0.55],["leather_jacket",0.03]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('snow_queen', 35, 9120, 6840, 700, 1750, '[["snow_crown",1],["golden_mic",0.25],["note_ribbon",0.3],["headphones",0.3]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('fire_bat', 26, 419, 314, 52, 130, '[["ember_wing",0.55],["energy_drink",0.12]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('magma_golem', 28, 486, 364, 56, 140, '[["magma_core",0.55],["rock_cap",0.02]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('flame_metronome', 29, 521, 391, 58, 145, '[["molten_spring",0.55],["metronome_charm",0.03]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('metal_lord', 40, 11904, 8928, 800, 2000, '[["metal_soul",1],["golden_mic",0.3],["electric_guitar",0.3],["synth",0.3],["five_string_bass",0.3],["steel_sticks",0.3]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('cat', 2, 2, 2, 4, 10, '[["cat_whisker",0.55],["banana",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('dog', 3, 6, 4, 6, 15, '[["dog_bone",0.55],["banana",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('pigeon', 6, 22, 16, 12, 30, '[["pigeon_feather",0.55],["banana",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('monkroose', 12, 89, 67, 24, 60, '[["monkey_drum",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('wizard', 13, 105, 79, 26, 65, '[["wizard_hat",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('ninja', 14, 122, 92, 28, 70, '[["ninja_scroll",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('squidle', 15, 140, 105, 30, 75, '[["squid_ink",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('alien', 15, 140, 105, 30, 75, '[["alien_vine",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('orc', 16, 159, 119, 32, 80, '[["mud_tusk",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('glub_evo', 17, 179, 134, 34, 85, '[["triple_eye",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('alpaking', 18, 201, 151, 36, 90, '[["alpa_wool",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('goleling', 19, 224, 168, 38, 95, '[["stone_wing",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('tribal', 20, 248, 186, 40, 100, '[["tribal_mask",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('big_ninja', 21, 273, 205, 42, 105, '[["chord_blade",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('hywirl', 22, 300, 225, 44, 110, '[["frost_tentacle",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('bluedemon', 23, 328, 246, 46, 115, '[["ice_club",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('alpaking_evo', 24, 357, 268, 48, 120, '[["snow_wool",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('ghost_skull', 27, 452, 339, 54, 135, '[["skull_flame",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('demon', 28, 486, 364, 56, 140, '[["trident_tip",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('orc_skull', 30, 558, 418, 60, 150, '[["iron_skull",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
+insert into public.monster_defs (id, level, exp, job_exp, zeny_min, zeny_max, drops) values ('dove', 11, 75, 56, 22, 55, '[["dove_feather",0.55],["honey_lemon",0.08]]') on conflict (id) do update set level = excluded.level, exp = excluded.exp, job_exp = excluded.job_exp, zeny_min = excluded.zeny_min, zeny_max = excluded.zeny_max, drops = excluded.drops;
 
+insert into public.skill_defs (id, cls, max_level) values ('quick_slash', 'teen', 5) on conflict (id) do update set cls = excluded.cls, max_level = excluded.max_level;
+insert into public.skill_defs (id, cls, max_level) values ('stone_throw', 'teen', 5) on conflict (id) do update set cls = excluded.cls, max_level = excluded.max_level;
+insert into public.skill_defs (id, cls, max_level) values ('first_aid', 'teen', 5) on conflict (id) do update set cls = excluded.cls, max_level = excluded.max_level;
+insert into public.skill_defs (id, cls, max_level) values ('pump_up', 'teen', 5) on conflict (id) do update set cls = excluded.cls, max_level = excluded.max_level;
+insert into public.skill_defs (id, cls, max_level) values ('tough_body', 'teen', 5) on conflict (id) do update set cls = excluded.cls, max_level = excluded.max_level;
 insert into public.skill_defs (id, cls, max_level) values ('high_note', 'singer', 5) on conflict (id) do update set cls = excluded.cls, max_level = excluded.max_level;
 insert into public.skill_defs (id, cls, max_level) values ('lullaby', 'singer', 5) on conflict (id) do update set cls = excluded.cls, max_level = excluded.max_level;
 insert into public.skill_defs (id, cls, max_level) values ('chorus_storm', 'singer', 5) on conflict (id) do update set cls = excluded.cls, max_level = excluded.max_level;

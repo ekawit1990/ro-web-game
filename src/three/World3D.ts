@@ -695,6 +695,21 @@ export class World3D {
         a = undefined;
       }
       if (!a) a = this.makePlayer(id, rp);
+      if (a === this.me && a.look !== lookKey(rp)) {
+        // our own job change: swap the model in place (keeps the camera and our label)
+        a.look = lookKey(rp);
+        a.cls = rp.cls as ClassKey;
+        const look = { cls: a.cls, gender: rp.gender as 'm' | 'f', hair: rp.hair, hair_color: rp.hairColor, face: rp.face };
+        const old = a.rig;
+        const rig = buildCharacter(look, rp.head);
+        rig.root.position.copy(old.root.position);
+        rig.root.rotation.y = old.root.rotation.y;
+        rig.root.add(a.hit);
+        this.scene.remove(old.root);
+        this.scene.add(rig.root);
+        a.rig = rig;
+        this.upgradePlayer(a, look, rp.head);
+      }
       if (a === this.me) {
         this.session.setVitals(rp.hp, rp.sp);
         if (rp.dead !== this.dead) {

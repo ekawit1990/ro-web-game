@@ -1,6 +1,6 @@
 import {
-  Appearance, CLASSES, Character, ClassKey, EQUIP_TYPES, ITEMS, InvItem, MAX_JOB_LEVEL, MAX_LEVEL, MONSTERS, SHOP,
-  SKILLS, StatKey, WEAPON_SHOP, expToNext, jobExpToNext, statCost, statPointsAt,
+  Appearance, CLASSES, CLASS_KEYS, Character, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL,
+  MONSTERS, SHOP, SKILLS, START_CLASS, StatKey, WEAPON_SHOP, expToNext, jobExpToNext, questCounts, statCost, statPointsAt,
 } from '../data';
 import type { GameStore, KillResult, TradeOffer } from './store';
 
@@ -78,15 +78,16 @@ export class LocalStore implements GameStore {
     return this.data.characters.map((c) => ({ ...c }));
   }
 
-  async createCharacter(name: string, cls: ClassKey, look: Appearance) {
+  async createCharacter(name: string, look: Appearance) {
     name = name.trim();
     if (name.length < 2 || name.length > 16) throw new Error('ชื่อต้องยาว 2-16 ตัวอักษร');
     if (this.data.characters.length >= 3) throw new Error('สร้างได้สูงสุด 3 ตัวละคร');
     if (this.data.characters.some((c) => c.name === name)) throw new Error('ชื่อนี้ถูกใช้แล้ว');
+    const cls = START_CLASS;
     const def = CLASSES[cls];
     const c: Character = {
       id: uid(), name, cls, level: 1, exp: 0, job_level: 1, job_exp: 0, zeny: 100, stat_points: 0, skill_points: 0,
-      skills: {}, ...def.baseStats, ...look, hp: -1, sp: -1, map: TOWN_SPAWN.map, pos_x: TOWN_SPAWN.x, pos_y: TOWN_SPAWN.y,
+      skills: {}, job_quest: -1, ...def.baseStats, ...look, hp: -1, sp: -1, map: TOWN_SPAWN.map, pos_x: TOWN_SPAWN.x, pos_y: TOWN_SPAWN.y,
     };
     this.data.characters.push(c);
     this.addItem(c.id, def.startWeapon, 1);
@@ -134,6 +135,7 @@ export class LocalStore implements GameStore {
       c.skill_points++;
     }
     if (c.job_level >= MAX_JOB_LEVEL) c.job_exp = 0;
+    if (questCounts(m) && (c.job_quest ?? -1) >= 0 && c.job_quest < JOB_CHANGE.kills) c.job_quest++;
     this.persist();
     return {
       character: await this.getCharacter(charId), drops, zeny, exp: m.exp, jobExp: m.jobExp,
@@ -161,6 +163,29 @@ export class LocalStore implements GameStore {
     if (c.skill_points < 1) throw new Error('แต้มสกิลไม่พอ');
     c.skills = { ...c.skills, [skill]: cur + 1 };
     c.skill_points--;
+    this.persist();
+    return this.getCharacter(charId);
+  }
+
+  async startJobQuest(charId: string) {
+    const c = this.char(charId);
+    if (c.cls !== START_CLASS) throw new Error('เปลี่ยนอาชีพไปแล้ว');
+    if (c.level < JOB_CHANGE.level) throw new Error(`ต้องมี Base Lv ${JOB_CHANGE.level} ก่อน`);
+    if ((c.job_quest ?? -1) < 0) c.job_quest = 0;
+    this.persist();
+    return this.getCharacter(charId);
+  }
+
+  async changeJob(charId: string, cls: ClassKey) {
+    const c = this.char(charId);
+    if (c.cls !== START_CLASS) throw new Error('เปลี่ยนอาชีพไปแล้ว');
+    if (!CLASS_KEYS.includes(cls)) throw new Error('ไม่มีอาชีพนี้');
+    if (c.level < JOB_CHANGE.level || (c.job_quest ?? -1) < JOB_CHANGE.kills) throw new Error('ยังทำเควสไม่สำเร็จ');
+    Object.assign(c, { cls, job_level: 1, job_exp: 0, job_quest: -1 });
+    // the old weapon only fits a Teen: put it in the bag and hand over the new class's first instrument
+    const inv = this.inv(charId);
+    inv.forEach((i) => { if (i.equipped && ITEMS[i.item_id].type === 'weapon') i.equipped = false; });
+    inv.push({ id: uid(), item_id: CLASSES[cls].startWeapon, qty: 1, equipped: true });
     this.persist();
     return this.getCharacter(charId);
   }

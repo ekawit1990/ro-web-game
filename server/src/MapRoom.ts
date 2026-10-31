@@ -1,8 +1,8 @@
 import { Room, type Client } from 'colyseus';
 import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
-  Buffs, CLASSES, Character, Derived, ITEMS, InvItem, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
-  hitChance, monsterFlee, monsterHit, skillHeal, skillPower, skillSp,
+  Buffs, CLASSES, Character, Derived, ITEMS, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
+  canUseSkill, hitChance, monsterFlee, monsterHit, skillHeal, skillPower, skillSp,
 } from '../../src/data/index.ts';
 import { GameMap, getMap, walkable } from '../../src/game/maps.ts';
 import type { TradeOffer } from '../../src/services/store.ts';
@@ -357,7 +357,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const skill = SKILLS[msg?.id];
     if (!p || !seat || !skill || p.dead) return;
     const lv = seat.char.skills?.[msg.id] ?? 0;
-    if (skill.cls !== seat.char.cls || lv < 1 || skill.type === 'passive') return;
+    if (!canUseSkill(skill, seat.char.cls) || lv < 1 || skill.type === 'passive') return;
     if ((seat.cooldowns.get(msg.id) ?? 0) > this.now) return;
     const sp = skillSp(skill, lv);
     if (p.sp < sp) return c.send('error', { text: 'SP ไม่พอ' });
@@ -672,6 +672,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const p = this.state.players.get(sid);
     if (!seat || !p) return;
     try {
+      const before = seat.char.job_quest ?? -1;
       const r = await MapRoom.db.reportKill(seat.userId, seat.char.id, monster);
       seat.char = { ...r.character };
       if (r.drops.length) seat.inv = (await MapRoom.db.reload(seat.userId, seat.char.id)).inv;
@@ -683,6 +684,12 @@ export class MapRoom extends Room<{ state: MapState }> {
         this.broadcast('system', { text: `${seat.char.name} เลเวลอัปเป็น Base Lv ${seat.char.level}!` });
       }
       if (r.jobLeveledUp) this.broadcast('fx', { kind: 'joblevelup', to: sid });
+      const q = seat.char.job_quest ?? -1;
+      if (q >= 0 && q !== before) {
+        seat.client.send('system', {
+          text: q >= JOB_CHANGE.kills ? 'เควสเปลี่ยนอาชีพสำเร็จ! กลับไปคุยกับครูแนะแนวอาชีพในเมือง' : `เควสเปลี่ยนอาชีพ: ${q} / ${JOB_CHANGE.kills}`,
+        });
+      }
       seat.client.send('reward', {
         monster, exp: r.exp, jobExp: r.jobExp, zeny: r.zeny, drops: r.drops, leveledUp: r.leveledUp, jobLeveledUp: r.jobLeveledUp,
       });
@@ -716,6 +723,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     }
     seat.derived = derive(seat.char, seat.inv, buffs);
     p.level = seat.char.level;
+    p.cls = seat.char.cls;
     p.maxHp = seat.derived.maxHp;
     p.maxSp = seat.derived.maxSp;
     p.hp = Math.min(p.hp, p.maxHp);

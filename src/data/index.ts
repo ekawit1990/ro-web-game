@@ -4,8 +4,14 @@ export type StatKey = 'str' | 'agi' | 'vit' | 'int' | 'dex' | 'luk';
 export const STAT_KEYS: StatKey[] = ['str', 'agi', 'vit', 'int', 'dex', 'luk'];
 export type Stats = Record<StatKey, number>;
 
-export type ClassKey = 'singer' | 'guitarist' | 'drummer' | 'bassist' | 'keyboardist';
+export type ClassKey = 'teen' | 'singer' | 'guitarist' | 'drummer' | 'bassist' | 'keyboardist';
+/** Every new character starts as a Teen (class 1). */
+export const START_CLASS: ClassKey = 'teen';
+/** Class 2 jobs a Teen can change into at the job-change NPC. */
 export const CLASS_KEYS: ClassKey[] = ['singer', 'guitarist', 'drummer', 'bassist', 'keyboardist'];
+
+/** Job change: Base Lv needed, then this many kills of monsters at or above this level. Must match change_job() in SQL. */
+export const JOB_CHANGE = { level: 10, monsterLevel: 10, kills: 30 };
 
 export interface ClassDef {
   name: string;
@@ -100,6 +106,8 @@ export const MAX_LEVEL = raw.levels.maxLevel;
 export const MAX_JOB_LEVEL = raw.levels.maxJobLevel;
 
 export const skillsOf = (cls: ClassKey) => Object.entries(SKILLS).filter(([, s]) => s.cls === cls);
+/** Teen skills stay usable after the job change (like RO's basic skills). */
+export const canUseSkill = (s: SkillDef, cls: ClassKey) => s.cls === cls || s.cls === START_CLASS;
 export const skillSp = (s: SkillDef, lv: number) => (s.sp ? s.sp[0] + s.sp[1] * (lv - 1) : 0);
 export const skillPower = (s: SkillDef, lv: number) => (s.power ? s.power[0] + s.power[1] * (lv - 1) : 0);
 export const skillHeal = (s: SkillDef, lv: number) => (s.heal ? s.heal[0] + s.heal[1] * (lv - 1) : 0);
@@ -128,6 +136,8 @@ export type Gender = 'm' | 'f';
 export const HAIR_STYLES = 6;
 export const HAIR_COLORS = ['#3b2410', '#1f1f1f', '#d9a13b', '#c0392b', '#ec5fa8', '#5b8def', '#2fb3a8', '#e8e8e8'];
 export const FACES = 4;
+/** Monster kills counted towards the job-change quest (-1 = quest not taken). */
+export const questCounts = (m: MonsterDef) => m.level >= JOB_CHANGE.monsterLevel;
 
 export interface Appearance {
   gender: Gender;
@@ -148,6 +158,8 @@ export interface Character extends Stats, Appearance {
   stat_points: number;
   skill_points: number;
   skills: Record<string, number>;
+  /** Job-change quest progress: -1 = not taken, else monsters killed so far. */
+  job_quest: number;
   hp: number;
   sp: number;
   map: string;
