@@ -577,7 +577,10 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
     gear.draw = gear.draw === undefined ? want : THREE.MathUtils.clamp(gear.draw + Math.sign(want - gear.draw) * (dt / DRAW_TIME), 0, 1);
     k = THREE.MathUtils.smoothstep(gear.draw, 0, 1);
   }
-  const cls = POSES[rig.root.userData.cls as string] ?? POSES.idle;
+  const clsKey = rig.root.userData.cls as string;
+  // the Teen keeps the dagger in hand all the time; only the guard stance waits for a fight
+  const knife = clsKey === 'teen';
+  const cls = POSES[clsKey] ?? POSES.idle;
   const idle = POSES.idle;
   const mix = (x: number, y: number) => x + (y - x) * k;
   const pose = {
@@ -603,7 +606,22 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
   set('head', gear?.ik ? 0.14 * k : 0, 0, s.moving ? 0 : Math.sin(t * 1.3) * 0.04);
   rig.body.position.y = s.moving ? Math.abs(Math.sin(t * 11)) * 0.04 : 0;
 
-  if (s.attack > 0) {
+  if (knife) b('rightHand')?.rotation.set(0, 0, 0);
+  if (s.attack > 0 && knife) {
+    // a dagger stab: the arm drives straight forward fast, then pulls back
+    const p = 1 - s.attack; // 0 -> 1 over the attack
+    const a = p < 0.35 ? THREE.MathUtils.smoothstep(p, 0, 0.35) : 1 - THREE.MathUtils.smoothstep(p, 0.35, 1);
+    const ru = b('rightUpperArm')!.rotation;
+    ru.x += (-1.45 - ru.x) * a;
+    ru.z += (1.5 - ru.z) * a;
+    const rl = b('rightLowerArm')!.rotation;
+    rl.y += (0.05 - rl.y) * a;
+    b('leftUpperArm')!.rotation.x += a * 0.35;
+    b('spine')!.rotation.x += a * 0.18;
+    b('spine')!.rotation.y += a * 0.25;
+    rig.body.position.z += a * 0.12;
+    b('rightHand')?.rotation.set(0, -1.2 * a, 0); // turn the blade to point at the target
+  } else if (s.attack > 0) {
     const a = Math.sin(s.attack * Math.PI);
     b('rightUpperArm')!.rotation.x -= a * 1.2;
     b('leftUpperArm')!.rotation.x -= a * 0.6;
@@ -632,7 +650,7 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
 
   if (gear) {
     rig.root.updateMatrixWorld(true);
-    for (const p of gear.pieces) place(p, k);
+    for (const p of gear.pieces) place(p, knife && !s.dead ? 1 : k);
     for (const o of gear.heldOnly) o.visible = k > 0.98;
     for (const o of gear.backOnly) o.visible = k < 0.02;
   }
@@ -667,6 +685,8 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
   } else if (ik) {
     curl(vrm, 'left', [0, 0, 0, 0], v0);
     curl(vrm, 'right', [0, 0, 0, 0], v0);
+  } else if (knife) {
+    curl(vrm, 'right', s.dead ? [0, 0, 0, 0] : [1.1, 1.2, 1.25, 1.3], v0); // a fist round the grip
   }
 
   // facial expression + blinking
