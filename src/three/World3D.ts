@@ -85,6 +85,8 @@ type Effect = (dt: number) => boolean; // false = finished
 
 // one WebGL renderer for the whole session (map switches only swap the scene)
 let renderer: THREE.WebGLRenderer | null = null;
+// phones get a lighter renderer: iOS Safari reloads the page when the GPU memory runs out
+const PHONE = matchMedia('(pointer: coarse)').matches || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 export class World3D {
   private session: Session;
@@ -139,10 +141,10 @@ export class World3D {
     this.sentY = data.y;
 
     if (!renderer) {
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+      renderer = new THREE.WebGLRenderer({ antialias: !PHONE });
+      renderer.setPixelRatio(Math.min(PHONE ? 1.5 : 2, window.devicePixelRatio));
       renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.shadowMap.type = PHONE ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
       renderer.outputColorSpace = THREE.SRGBColorSpace;
     }
     container.appendChild(renderer.domElement);
@@ -183,10 +185,23 @@ export class World3D {
     this.unsubs.forEach((u) => u());
     this.overlay.remove();
     renderer?.domElement.remove();
+    // free the GPU side of everything on this map (cached models re-upload if the next map uses them):
+    // phones reload the page once enough old maps pile up in GPU memory
+    const mats = new Set<THREE.Material>();
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh;
-      if (m.isMesh) m.geometry?.dispose();
+      if (!m.isMesh && !(o as THREE.Points).isPoints && !(o as THREE.Line).isLine) return;
+      m.geometry?.dispose();
+      for (const mat of ([] as THREE.Material[]).concat(m.material ?? [])) mats.add(mat);
     });
+    const disposeTex = (t: unknown) => (t as THREE.Texture)?.isTexture && (t as THREE.Texture).dispose();
+    for (const mat of mats) {
+      const u = (mat as THREE.ShaderMaterial).uniforms;
+      if (u) for (const k in u) disposeTex(u[k].value);
+      for (const v of Object.values(mat)) disposeTex(v);
+      mat.dispose();
+    }
+    this.sun.dispose(); // its shadow map
     renderer?.renderLists.dispose();
   }
 
@@ -198,7 +213,7 @@ export class World3D {
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7a50, 1.55));
     this.sun.position.set(-8, 14, 6);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.setScalar(PHONE ? 1024 : 2048);
     const sc = this.sun.shadow.camera;
     sc.left = sc.bottom = -18;
     sc.right = sc.top = 18;

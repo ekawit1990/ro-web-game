@@ -55,6 +55,8 @@ export class Hud implements WorldHooks {
   private lastSig: Record<string, string> = {};
   private buffEnds = new Map<string, number>();
   private cooldownEnds = new Map<string, number>();
+  /** Touch screens can't drag: tap a skill/item, then tap the hotkey slot to put it there. */
+  private picked: Slot = null;
 
   constructor(private s: Session, private actions: HudActions) {
     this.root = document.getElementById('hud')!;
@@ -333,7 +335,9 @@ export class Hud implements WorldHooks {
     );
     b.querySelectorAll<HTMLElement>('[data-unequip]').forEach((el) => {
       if (!el.dataset.unequip) return;
-      el.addEventListener('dblclick', () => this.run(() => this.s.setEquipped(el.dataset.unequip!, false)));
+      const off = () => this.run(() => this.s.setEquipped(el.dataset.unequip!, false));
+      el.addEventListener('dblclick', () => !lastTouch && off());
+      onTouchTap(el, () => {}, off);
     });
   }
 
@@ -378,9 +382,14 @@ export class Hud implements WorldHooks {
     );
     b.querySelectorAll<HTMLElement>('[data-inv]').forEach((el) => {
       const row = this.s.inv.find((i) => i.id === el.dataset.inv)!;
-      el.addEventListener('dblclick', () => this.activateItem(row));
+      el.addEventListener('dblclick', () => !lastTouch && this.activateItem(row));
       this.tooltip(el, () => this.itemTip(row.item_id, row));
       el.addEventListener('dragstart', (e) => e.dataTransfer!.setData('text/plain', `i:${row.item_id}`));
+      const pickable = ITEMS[row.item_id]?.type === 'consumable' && !this.trade;
+      onTouchTap(el, () => pickable && this.pick({ t: 'i', id: row.item_id }), () => {
+        this.pick(null);
+        this.activateItem(row);
+      });
     });
   }
 
@@ -442,7 +451,12 @@ export class Hud implements WorldHooks {
       const id = el.dataset.skill!;
       this.tooltip(el, () => this.skillTip(id));
       el.addEventListener('dragstart', (e) => e.dataTransfer!.setData('text/plain', `s:${id}`));
-      el.addEventListener('dblclick', () => this.actions.scene()?.useSkill(id));
+      el.addEventListener('dblclick', () => !lastTouch && this.actions.scene()?.useSkill(id));
+      const usable = SKILLS[id].type !== 'passive' && (this.s.char.skills?.[id] ?? 0) > 0;
+      if (usable) onTouchTap(el, () => this.pick({ t: 's', id }), () => {
+        this.pick(null);
+        this.actions.scene()?.useSkill(id);
+      });
     });
   }
 
@@ -513,17 +527,81 @@ export class Hud implements WorldHooks {
       .join('');
     bar.querySelectorAll<HTMLElement>('[data-hk]').forEach((el) => {
       const i = Number(el.dataset.hk);
-      el.addEventListener('click', () => this.useHotkey(i));
-      el.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
+      let held = false;
+      el.addEventListener('click', () => {
+        if (held) return void (held = false);
+        if (this.picked) return this.place(i);
+        this.useHotkey(i);
+      });
+      const clear = () => {
         this.hotkeys[i] = null;
         this.saveHotkeys();
         this.renderHotbar();
+      };
+      el.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        clear();
+      });
+      // iOS has no right click: hold a slot to empty it
+      el.addEventListener('pointerdown', (e) => {
+        if (e.pointerType !== 'touch' || !this.hotkeys[i]) return;
+        const t = setTimeout(() => {
+          held = true;
+          clear();
+          this.toast(`ล้างช่อง F${i + 1} แล้ว`);
+        }, 600);
+        const stop = () => clearTimeout(t);
+        el.addEventListener('pointerup', stop, { once: true });
+        el.addEventListener('pointercancel', stop, { once: true });
+        el.addEventListener('pointerleave', stop, { once: true });
       });
       el.addEventListener('dragstart', (e) => e.dataTransfer!.setData('text/plain', `h:${i}`));
       const h = this.hotkeys[i];
-      if (h) this.tooltip(el, () => (h.t === 's' ? this.skillTip(h.id) : this.itemTip(h.id)) + '<div class="muted">คลิกขวาเพื่อลบ</div>');
+      if (h) this.tooltip(el, () => (h.t === 's' ? this.skillTip(h.id) : this.itemTip(h.id)) + '<div class="muted">คลิกขวา (มือถือ: กดค้าง) เพื่อลบ</div>');
     });
+  }
+
+  private pick(slot: Slot) {
+    this.picked = slot;
+    this.root.querySelector('#hotbar')!.classList.toggle('picking', !!slot);
+    if (!slot) return;
+    const name = slot.t === 's' ? SKILLS[slot.id]?.name : ITEMS[slot.id]?.name;
+    this.toast(`แตะช่อง F1-F9 เพื่อวาง ${name ?? ''} (แตะสองครั้ง = ใช้)`);
+  }
+
+  private place(i: number) {
+    const slot = this.picked;
+    this.picked = null;
+    this.root.querySelector('#hotbar')!.classList.remove('picking');
+    if (!slot) return;
+    const was = this.hotkeys.findIndex((h) => h?.t === slot.t && h.id === slot.id);
+    if (was >= 0) this.hotkeys[was] = null; // one slot per skill/item: placing it again moves it
+    this.hotkeys[i] = slot;
+    this.saveHotkeys();
+    this.renderHotbar();
+  }
+
+  /** A skill the character has just learned goes into the first empty slot (once: a slot the player clears stays clear). */
+  private autoSlotSkills() {
+    const key = `ml-hk-seen-${this.s.char.id}`;
+    let seen: string[] = [];
+    try {
+      seen = JSON.parse(localStorage.getItem(key) ?? '[]');
+    } catch { /* ignore */ }
+    const fresh = Object.entries(this.s.char.skills ?? {})
+      .filter(([id, lv]) => lv > 0 && SKILLS[id] && SKILLS[id].type !== 'passive' && !seen.includes(id))
+      .map(([id]) => id);
+    if (!fresh.length) return;
+    for (const id of fresh) {
+      seen.push(id);
+      if (this.hotkeys.some((h) => h?.t === 's' && h.id === id)) continue;
+      const free = this.hotkeys.findIndex((h, i) => !h && i < 8); // F9 is the potion's
+      if (free >= 0) this.hotkeys[free] = { t: 's', id };
+    }
+    this.saveHotkeys();
+    try {
+      localStorage.setItem(key, JSON.stringify(seen));
+    } catch { /* ignore */ }
   }
 
   private useHotkey(i: number) {
@@ -1042,7 +1120,7 @@ export class Hud implements WorldHooks {
   targeting(name: string | null) {
     const el = this.root.querySelector('#targeting')!;
     el.classList.toggle('hidden', !name);
-    if (name) el.textContent = `เลือกเป้าหมายสำหรับ "${name}" · คลิกขวาเพื่อยกเลิก`;
+    if (name) el.textContent = `เลือกเป้าหมายสำหรับ "${name}" · ${lastTouch ? 'แตะพื้นเพื่อยกเลิก' : 'คลิกขวาเพื่อยกเลิก'}`;
   }
 
   buff(skill: string, seconds: number) {
@@ -1117,6 +1195,7 @@ export class Hud implements WorldHooks {
     this.renderInv();
     this.renderSkills();
     this.renderShop();
+    this.autoSlotSkills();
     this.renderHotbar();
   }
 
@@ -1145,4 +1224,24 @@ export class Hud implements WorldHooks {
     }
     if (box.innerHTML !== html) box.innerHTML = html;
   }
+}
+
+// whether the last press was a finger (some phones also send dblclick after two taps: don't act twice)
+let lastTouch = false;
+window.addEventListener('pointerdown', (e) => (lastTouch = e.pointerType === 'touch'), true);
+
+/** Touch only: a tap, or two taps in a row (not every phone sends dblclick). Mouse users keep drag and double-click. */
+function onTouchTap(el: HTMLElement, tap: () => void, doubleTap: () => void) {
+  let last = 0;
+  el.addEventListener('pointerup', (e) => {
+    if (e.pointerType !== 'touch') return;
+    const now = performance.now();
+    if (now - last < 350) {
+      last = 0;
+      doubleTap();
+    } else {
+      last = now;
+      tap();
+    }
+  });
 }

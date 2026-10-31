@@ -299,7 +299,23 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .cls-pick button { display: flex; flex-direction: column; align-items: center; padding: 2px; font-size: 11px; }
 .cls-desc { margin: 4px 0 0; font-size: 12px; min-height: 34px; }
 
+/* tap a skill/item, then a slot (touch screens) */
+.hotbar.picking .hk { border-color: #e09a2d; box-shadow: inset 0 0 0 2px #f4c06a; animation: hk-pick 0.9s ease-in-out infinite alternate; }
+@keyframes hk-pick { to { background: #fff3d6; } }
+
+/* phones (landscape): hotbar to the right so the chat doesn't cover it, smaller minimap and info */
+@media (pointer: coarse), (max-height: 520px) {
+  .hotbar { left: auto; right: 8px; transform: none; }
+  .hk { width: 40px; height: 40px; }
+  .chatbox { max-width: calc(100% - 410px); min-width: 220px; }
+  .chat-log { height: 72px; }
+  .minimap canvas { width: 92px; height: 92px; }
+  .mini-head { font-size: 10px; }
+  .rw.info { transform: scale(0.82); transform-origin: top left; }
+}
+
 @media (max-width: 640px) {
+  .chatbox { max-width: none; min-width: 0; }
   .rw.info { width: 200px; transform: scale(0.9); transform-origin: top left; }
   .minimap canvas { width: 100px; height: 100px; }
   .chat-log { height: 80px; }
