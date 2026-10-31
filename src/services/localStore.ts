@@ -5,7 +5,7 @@ import {
 import type { GameStore, KillResult, TradeOffer } from './store';
 
 const KEY = 'music-land-save-v2';
-export const TOWN_SPAWN = { map: 'town', x: 22.5, y: 26.5 };
+export const TOWN_SPAWN = { map: 'town', x: 48.5, y: 55.5 };
 
 interface SaveFile {
   characters: Character[];

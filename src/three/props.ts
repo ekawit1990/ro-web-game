@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { G, THEMES, type GameMap, type Obj } from '../game/maps';
 import { paintPaving, paintTerrain } from './ground';
+import { buildFortress } from './castle';
 import { buildCart, buildFountain, buildGoods, buildHedge, buildPlanter, buildSign } from './townprops';
 import { buildPonds, hasPonds, pondField } from './pond';
 import { canvasTexture, mesh, outline, shade, shadows, toon } from './toon';
@@ -440,6 +441,8 @@ export function buildProps(map: GameMap): THREE.Group {
     g.add(r);
   }
   g.userData.rocks = rocks;
+  const fortress = buildFortress(map.objects);
+  if (fortress) g.add(fortress);
   const ponds = buildPonds(map);
   if (ponds) g.add(ponds);
   return g;
