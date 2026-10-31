@@ -326,6 +326,7 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .wl.mon .nm { display: none; color: #ffdede; }
 .wl.mon.named .nm { display: block; }
 .wl.boss .nm { color: #ffd54a; }
+.wl .nm .lv { color: #ffe08a; font-size: 11px; }
 .wl-bar { width: 42px; height: 5px; background: #10141a; border: 1px solid #10141a; margin-bottom: 2px; }
 .wl-bar i { display: block; height: 3px; background: #4cd964; }
 .wl-bar b { display: block; height: 2px; background: #3f7fe8; }
