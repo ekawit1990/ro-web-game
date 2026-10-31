@@ -4,7 +4,7 @@ import {
   Buffs, CLASSES, Character, Derived, ITEMS, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
   canUseSkill, hitChance, monsterFlee, monsterHit, skillHeal, skillPower, skillSp,
 } from '../../src/data/index.ts';
-import { GameMap, getMap, walkable } from '../../src/game/maps.ts';
+import { GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
 import type { TradeOffer } from '../../src/services/store.ts';
 import type { JoinOptions, Loaded, ServerDb } from './db.ts';
 
@@ -126,6 +126,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.onMessage('sit', (c) => this.onSit(c));
     this.onMessage('heal', (c) => this.onHeal(c));
     this.onMessage('warp', (c) => this.onWarp(c));
+    this.onMessage('npcWarp', (c, msg: { to: string }) => this.onNpcWarp(c, msg));
     this.onMessage('useItem', (c, msg: { invId: string }) => this.onUseItem(c, msg));
     this.onMessage('respawn', (c) => this.onRespawn(c));
     this.onMessage('refresh', (c, msg: JoinOptions) => this.onRefresh(c, msg));
@@ -247,6 +248,30 @@ export class MapRoom extends Room<{ state: MapState }> {
     MapRoom.db
       .saveState(seat.userId, seat.char.id, { hp: p.hp, sp: p.sp, map: portal.to, x: portal.toX, y: portal.toY })
       .catch((e) => console.warn('warp save failed', e.message));
+  }
+
+  /** บูรพา's paid warp to another town: the fare comes off in the same database call that moves the character. */
+  private async onNpcWarp(c: Client, msg: { to: string }) {
+    const p = this.state.players.get(c.sessionId);
+    const seat = this.seats.get(c.sessionId);
+    const npc = this.map.npcs.find((n) => n.id === 'warper');
+    const dest = WARP_TOWNS.find((t) => t.map === msg?.to);
+    if (!p || !seat || p.dead || seat.busy || !npc || !dest || dest.map === this.map.id) return;
+    if (dist(p.x, p.y, npc.x + 0.5, npc.y + 0.5) > 3) return c.send('error', { text: 'เดินเข้าไปใกล้บูรพาก่อน' });
+    if (seat.char.zeny < dest.cost) return c.send('error', { text: `Zeny ไม่พอ (ค่าวาร์ป ${dest.cost.toLocaleString()} z)` });
+    seat.busy = true;
+    this.cancelTrade(seat.trade, 'อีกฝ่ายวาร์ปออกไปแล้ว');
+    try {
+      const to = getMap(dest.map).spawn;
+      seat.char = await MapRoom.db.payWarp(seat.userId, seat.char.id, dest.cost, { hp: p.hp, sp: p.sp, map: dest.map, x: to.x, y: to.y });
+      arrivals.set(seat.char.id, { map: dest.map, x: to.x, y: to.y, at: Date.now(), hp: p.hp, sp: p.sp });
+      c.send('sync', { character: seat.char, inventory: seat.inv });
+      c.send('warp', { map: dest.map });
+    } catch (e) {
+      c.send('error', { text: (e as Error).message });
+    } finally {
+      seat.busy = false;
+    }
   }
 
   private async onUseItem(c: Client, msg: { invId: string }) {
@@ -687,7 +712,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       const q = seat.char.job_quest ?? -1;
       if (q >= 0 && q !== before) {
         seat.client.send('system', {
-          text: q >= JOB_CHANGE.kills ? 'เควสเปลี่ยนอาชีพสำเร็จ! กลับไปคุยกับครูแนะแนวอาชีพในเมือง' : `เควสเปลี่ยนอาชีพ: ${q} / ${JOB_CHANGE.kills}`,
+          text: q >= JOB_CHANGE.kills ? 'เควสเปลี่ยนอาชีพสำเร็จ! กลับไปหาครูแนะแนวอาชีพที่เมืองเมโลเดีย (มือกลองไปหาครูกลองที่เมืองทะเลทรายตะโพน)' : `เควสเปลี่ยนอาชีพ: ${q} / ${JOB_CHANGE.kills}`,
         });
       }
       seat.client.send('reward', {

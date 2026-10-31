@@ -80,12 +80,23 @@ create table if not exists public.inventory (
 );
 create index if not exists inventory_char_idx on public.inventory (character_id);
 
+-- บูรพา's storage: one per account (auth user), shared by all of that account's characters.
+-- Stackable items keep one row per item; each piece of equipment is its own row (qty 1).
+create table if not exists public.account_storage (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  item_id text not null references public.item_defs (id),
+  qty int not null check (qty > 0)
+);
+create index if not exists account_storage_user_idx on public.account_storage (user_id);
+
 alter table public.class_defs enable row level security;
 alter table public.item_defs enable row level security;
 alter table public.monster_defs enable row level security;
 alter table public.skill_defs enable row level security;
 alter table public.characters enable row level security;
 alter table public.inventory enable row level security;
+alter table public.account_storage enable row level security;
 
 drop policy if exists "defs readable" on public.class_defs;
 create policy "defs readable" on public.class_defs for select using (true);
@@ -105,7 +116,11 @@ drop policy if exists "own inventory" on public.inventory;
 create policy "own inventory" on public.inventory for select to authenticated
   using (exists (select 1 from public.characters c where c.id = character_id and c.user_id = auth.uid()));
 
+drop policy if exists "own storage" on public.account_storage;
+create policy "own storage" on public.account_storage for select to authenticated using (user_id = auth.uid());
+
 revoke insert, update on public.characters, public.inventory from anon, authenticated;
+revoke insert, update, delete on public.account_storage from anon, authenticated;
 
 -- older versions of these functions had other parameters
 drop function if exists public.create_character(text, text);
@@ -249,6 +264,10 @@ begin
   if c.cls <> 'teen' then raise exception 'เปลี่ยนอาชีพไปแล้ว'; end if;
   if p_cls not in ('singer', 'guitarist', 'drummer', 'bassist', 'keyboardist') then raise exception 'ไม่มีอาชีพนี้'; end if;
   if c.level < 10 or c.job_quest < 30 then raise exception 'ยังทำเควสไม่สำเร็จ'; end if;
+  -- each class is handed out in its own town (JOB_TOWN in src/data/index.ts): drummers in the desert
+  if (p_cls = 'drummer') <> (c.map = 'desert') then
+    raise exception 'ต้องเปลี่ยนอาชีพนี้ที่%', case when p_cls = 'drummer' then 'เมืองทะเลทรายตะโพน' else 'เมืองเมโลเดีย' end;
+  end if;
   select * into d from public.class_defs where id = p_cls;
   update public.inventory inv set equipped = false
     from public.item_defs i
@@ -393,6 +412,59 @@ begin
   return c;
 end $$;
 
+-- บูรพา's storage (browser). The account is the character's owner; one lock per account so two
+-- of its characters can't race each other. Numbers match STORAGE_SLOTS in src/data/index.ts.
+create or replace function public.storage_put(p_char uuid, p_inv uuid, p_qty int) returns void
+language plpgsql security definer set search_path = public as $$
+declare c public.characters; r public.inventory; t text; s_id uuid;
+begin
+  c := public._own_char(p_char);
+  perform pg_advisory_xact_lock(hashtext('storage:' || c.user_id::text));
+  select * into r from public.inventory where id = p_inv and character_id = p_char for update;
+  if not found or r.equipped or p_qty < 1 or p_qty > r.qty then raise exception 'ฝากไม่ได้'; end if;
+  select type into t from public.item_defs where id = r.item_id;
+  if t not in ('weapon', 'armor', 'head', 'accessory') then
+    select id into s_id from public.account_storage where user_id = c.user_id and item_id = r.item_id limit 1;
+  end if;
+  if s_id is null and (select count(*) from public.account_storage where user_id = c.user_id) >= 300 then
+    raise exception 'คลังเต็ม (300 ช่อง)';
+  end if;
+  if r.qty = p_qty then delete from public.inventory where id = p_inv;
+  else update public.inventory set qty = qty - p_qty where id = p_inv; end if;
+  if s_id is null then insert into public.account_storage (user_id, item_id, qty) values (c.user_id, r.item_id, p_qty);
+  else update public.account_storage set qty = qty + p_qty where id = s_id; end if;
+end $$;
+
+create or replace function public.storage_take(p_char uuid, p_row uuid, p_qty int) returns void
+language plpgsql security definer set search_path = public as $$
+declare c public.characters; s public.account_storage;
+begin
+  c := public._own_char(p_char);
+  perform pg_advisory_xact_lock(hashtext('storage:' || c.user_id::text));
+  select * into s from public.account_storage where id = p_row and user_id = c.user_id for update;
+  if not found or p_qty < 1 or p_qty > s.qty then raise exception 'ถอนไม่ได้'; end if;
+  if s.qty = p_qty then delete from public.account_storage where id = p_row;
+  else update public.account_storage set qty = qty - p_qty where id = p_row; end if;
+  perform public._add_item(p_char, s.item_id, p_qty);
+end $$;
+
+-- บูรพา's warp (game server only): pay the fare and move in one step.
+create or replace function public.pay_warp(
+  p_user uuid, p_char uuid, p_cost int, p_hp int, p_sp int, p_map text, p_x real, p_y real
+) returns public.characters
+language plpgsql security definer set search_path = public as $$
+declare c public.characters;
+begin
+  c := public._own_char(p_char, p_user);
+  if p_cost < 0 then raise exception 'bad fare'; end if;
+  if c.zeny < p_cost then raise exception 'Zeny ไม่พอ (ค่าวาร์ป % z)', p_cost; end if;
+  update public.characters
+    set zeny = zeny - p_cost, hp = greatest(p_hp, 1), sp = greatest(p_sp, 0), map = p_map,
+        pos_x = least(greatest(p_x, 0), 200), pos_y = least(greatest(p_y, 0), 200)
+    where id = p_char returning * into c;
+  return c;
+end $$;
+
 -- Swap items and zeny between two characters in one transaction.
 -- p_items_*: [{"inv": "<inventory id>", "qty": n}, ...] offered by that side.
 create or replace function public.trade_execute(
@@ -445,6 +517,8 @@ revoke execute on function public.learn_skill(uuid, text) from public, anon;
 revoke execute on function public.buy_item(uuid, text, int) from public, anon;
 revoke execute on function public.sell_item(uuid, uuid, int) from public, anon;
 revoke execute on function public.set_equipped(uuid, uuid, boolean) from public, anon;
+revoke execute on function public.storage_put(uuid, uuid, int) from public, anon;
+revoke execute on function public.storage_take(uuid, uuid, int) from public, anon;
 grant execute on function public.create_character(text, text, int, int, int) to authenticated;
 grant execute on function public.start_job_quest(uuid) to authenticated;
 grant execute on function public.change_job(uuid, text) to authenticated;
@@ -453,14 +527,18 @@ grant execute on function public.learn_skill(uuid, text) to authenticated;
 grant execute on function public.buy_item(uuid, text, int) to authenticated;
 grant execute on function public.sell_item(uuid, uuid, int) to authenticated;
 grant execute on function public.set_equipped(uuid, uuid, boolean) to authenticated;
+grant execute on function public.storage_put(uuid, uuid, int) to authenticated;
+grant execute on function public.storage_take(uuid, uuid, int) to authenticated;
 
 revoke execute on function public.report_kill(uuid, uuid, text) from public, anon, authenticated;
 revoke execute on function public.use_item(uuid, uuid, uuid) from public, anon, authenticated;
 revoke execute on function public.save_state(uuid, uuid, int, int, text, real, real) from public, anon, authenticated;
 revoke execute on function public.on_death(uuid, uuid) from public, anon, authenticated;
 revoke execute on function public.trade_execute(uuid, uuid, jsonb, int, uuid, uuid, jsonb, int) from public, anon, authenticated;
+revoke execute on function public.pay_warp(uuid, uuid, int, int, int, text, real, real) from public, anon, authenticated;
 grant execute on function public.report_kill(uuid, uuid, text) to service_role;
 grant execute on function public.use_item(uuid, uuid, uuid) to service_role;
 grant execute on function public.save_state(uuid, uuid, int, int, text, real, real) to service_role;
 grant execute on function public.on_death(uuid, uuid) to service_role;
 grant execute on function public.trade_execute(uuid, uuid, jsonb, int, uuid, uuid, jsonb, int) to service_role;
+grant execute on function public.pay_warp(uuid, uuid, int, int, int, text, real, real) to service_role;

@@ -268,6 +268,7 @@ const PALETTE: Partial<Record<GameMap['theme'], { shallow: number; deep: number;
   marsh: { shallow: 0x5fae8e, deep: 0x1f5a52, floor: 0x9aa07a },
   snow: { shallow: 0x8fdcef, deep: 0x2a6fa8, floor: 0xdde6ea },
   canyon: { shallow: 0x58d2c8, deep: 0x1a7896, floor: 0xd8c29a },
+  desert: { shallow: 0x55d8d2, deep: 0x136f9a, floor: 0xe2cb9c },
 };
 
 function rand(seed: number) {
@@ -430,7 +431,10 @@ export function buildPonds(m: GameMap): THREE.Group | null {
     const d = p.deep(cx, cz), f = p.f(cx, cz);
     const roll = r();
     const cold = m.theme === 'snow'; // no lilies or reeds in an icy pond, just weeds and fish
-    if (cold && roll < 0.3) {
+    // the desert moat is big: only a sprinkling of pond life, so it stays cheap to draw
+    if (m.theme === 'desert' && roll > 0.06) {
+      // skip
+    } else if (cold && roll < 0.3) {
       // skip
     } else if (d > 0.1 && d < 0.8 && roll < 0.2) {
       // a cluster of lily pads, one of them flowering
@@ -452,7 +456,7 @@ export function buildPonds(m: GameMap): THREE.Group | null {
       w.position.set(wx, 0, wz);
       g.add(w);
     }
-    if (d > 0.35 && r() < 0.16) {
+    if (d > 0.35 && r() < (m.theme === 'desert' ? 0.04 : 0.16)) {
       // a koi circling a deep spot, on a loop that stays in the water
       let rad = 0.5 + r() * 0.7;
       while (rad > 0.25 && [0, 1, 2, 3].some((k) => p.f(cx + Math.cos(k * 1.57) * (rad + 0.15), cz + Math.sin(k * 1.57) * (rad + 0.15)) < 0.65)) rad -= 0.1;

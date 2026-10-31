@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Appearance, Character, ClassKey, InvItem, StatKey } from '../data';
+import type { Appearance, Character, ClassKey, InvItem, StatKey, StorageItem } from '../data';
 import type { GameStore } from './store';
 
 export const CHAR_COLUMNS =
@@ -78,6 +78,18 @@ export class SupabaseStore implements GameStore {
 
   async setEquipped(charId: string, invId: string, equipped: boolean) {
     check(await this.sb.rpc('set_equipped', { p_char: charId, p_inv: invId, p_equipped: equipped }));
+  }
+
+  async loadStorage() {
+    return check(await this.sb.from('account_storage').select('id,item_id,qty').order('item_id')) as StorageItem[];
+  }
+
+  async storagePut(charId: string, invId: string, qty: number) {
+    check(await this.sb.rpc('storage_put', { p_char: charId, p_inv: invId, p_qty: qty }));
+  }
+
+  async storageTake(charId: string, rowId: string, qty: number) {
+    check(await this.sb.rpc('storage_take', { p_char: charId, p_row: rowId, p_qty: qty }));
   }
 
   async signOut() {

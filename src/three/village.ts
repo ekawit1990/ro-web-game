@@ -110,6 +110,7 @@ function fit(src: THREE.Object3D, p: Place) {
  * as they arrive. Objects built by props.ts carry `userData.obj` (their map object).
  */
 export async function upgradeVillage(props: THREE.Group, objects: Obj[], center: { x: number; y: number }, alive: () => boolean) {
+  objects = objects.filter((o) => !(o.kind === 'building' && o.style === 'desert')); // adobe houses stay as drawn
   const places = plan(objects, center.x, center.y);
   const old = new Map<string, THREE.Object3D>();
   for (const c of props.children) {

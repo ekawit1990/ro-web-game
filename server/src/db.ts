@@ -20,6 +20,8 @@ export interface ServerDb {
   useItem(userId: string, charId: string, invId: string): Promise<string>;
   onDeath(userId: string, charId: string): Promise<Character>;
   saveState(userId: string, charId: string, s: SavedState): Promise<void>;
+  /** Takes `cost` zeny and moves the character to `s` in one go (บูรพา's warp). Throws if they can't pay. */
+  payWarp(userId: string, charId: string, cost: number, s: SavedState): Promise<Character>;
   trade(a: TradeSide, b: TradeSide): Promise<void>;
 }
 
@@ -93,6 +95,16 @@ export class SupabaseDb implements ServerDb {
     );
   }
 
+  async payWarp(userId: string, charId: string, cost: number, s: SavedState) {
+    const c = check(
+      await this.sb.rpc('pay_warp', {
+        p_user: userId, p_char: charId, p_cost: cost, p_hp: Math.round(s.hp), p_sp: Math.round(s.sp), p_map: s.map, p_x: s.x, p_y: s.y,
+      }),
+    ) as Record<string, unknown>;
+    const { user_id, last_kill_at, created_at, ...rest } = c;
+    return rest as unknown as Character;
+  }
+
   async trade(a: TradeSide, b: TradeSide) {
     check(
       await this.sb.rpc('trade_execute', {
@@ -137,6 +149,10 @@ export class DevDb implements ServerDb {
 
   saveState(_u: string, charId: string, s: SavedState) {
     return this.store.saveState(charId, { hp: s.hp, sp: s.sp, map: s.map, pos_x: s.x, pos_y: s.y });
+  }
+
+  payWarp(_u: string, charId: string, cost: number, s: SavedState) {
+    return this.store.payWarp(charId, cost, { hp: s.hp, sp: s.sp, map: s.map, pos_x: s.x, pos_y: s.y });
   }
 
   trade(a: TradeSide, b: TradeSide) {

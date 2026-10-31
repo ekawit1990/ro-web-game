@@ -1,4 +1,4 @@
-import { Character, ClassKey, Derived, ITEMS, InvItem, StatKey, derive } from '../data';
+import { Character, ClassKey, Derived, ITEMS, InvItem, StatKey, StorageItem, derive } from '../data';
 import type { LocalStore } from '../services/localStore';
 import type { GameStore } from '../services/store';
 
@@ -22,6 +22,8 @@ export class Session {
   /** Active buffs: skill id -> end time (ms, performance.now()). */
   buffs = new Map<string, number>();
   link?: ServerLink;
+  /** บูรพา's account-wide storage, loaded when it's opened. */
+  storage: StorageItem[] = [];
   private listeners: Listener[] = [];
 
   constructor(public store: GameStore, public char: Character, public inv: InvItem[]) {
@@ -105,6 +107,23 @@ export class Session {
 
   async setEquipped(invId: string, equipped: boolean) {
     await this.store.setEquipped(this.char.id, invId, equipped);
+    await this.after(this.char, true);
+  }
+
+  async loadStorage() {
+    this.storage = await this.store.loadStorage();
+    this.emit();
+  }
+
+  async deposit(invId: string, qty: number) {
+    await this.store.storagePut(this.char.id, invId, qty);
+    this.storage = await this.store.loadStorage();
+    await this.after(this.char, true);
+  }
+
+  async withdraw(rowId: string, qty: number) {
+    await this.store.storageTake(this.char.id, rowId, qty);
+    this.storage = await this.store.loadStorage();
     await this.after(this.char, true);
   }
 

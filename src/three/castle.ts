@@ -12,6 +12,13 @@ import { canvasTexture, outline, shadows, toon } from './toon';
 
 const WALL_H = 2.6;
 const ROOF = '#4f6fa8';
+/** Set by buildFortress: the desert town's walls are warm sandstone with domed towers. */
+let sandy = false;
+const stoneMat = () => {
+  const m = toon('#ffffff', { map: stone() });
+  if (sandy) m.color.set('#f0cf98');
+  return m;
+};
 
 function rng(seed: number) {
   let s = seed % 2147483647 || 1;
@@ -120,7 +127,7 @@ function block(stoneParts: THREE.BufferGeometry[], x: number, z: number, w: numb
 /** A round tower with a corbelled parapet and a pointed slate roof, as a group at its centre. */
 function tower(r: number, h: number, roofH = r * 1.9 + 0.6): THREE.Group {
   const g = new THREE.Group();
-  const s = toon('#ffffff', { map: stone() });
+  const s = stoneMat();
   const parts: THREE.BufferGeometry[] = [
     boxUV(new THREE.CylinderGeometry(r, r * 1.06, h, 18).translate(0, h / 2, 0)),
     boxUV(new THREE.CylinderGeometry(r + 0.16, r, 0.35, 18).translate(0, h + 0.17, 0)),
@@ -128,7 +135,9 @@ function tower(r: number, h: number, roofH = r * 1.9 + 0.6): THREE.Group {
   ];
   const body = new THREE.Mesh(mergeGeometries(parts)!, s);
   g.add(body);
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(r + 0.32, roofH, 18).translate(0, h + 0.65 + roofH / 2, 0), toon(ROOF));
+  const roof = sandy
+    ? new THREE.Mesh(new THREE.SphereGeometry(r + 0.05, 18, 8, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, h + 0.65, 0), toon('#e8dcc0'))
+    : new THREE.Mesh(new THREE.ConeGeometry(r + 0.32, roofH, 18).translate(0, h + 0.65 + roofH / 2, 0), toon(ROOF));
   g.add(roof);
   // arrow slits facing out every way
   const slit = toon('#2a2622');
@@ -236,7 +245,8 @@ function castle(o: Extract<Obj, { kind: 'castle' }>, group: THREE.Group) {
 }
 
 /** Everything fortified in `objects`, or null if there is none. */
-export function buildFortress(objects: Obj[]): THREE.Group | null {
+export function buildFortress(objects: Obj[], sand = false): THREE.Group | null {
+  sandy = sand;
   const group = new THREE.Group();
   group.name = 'fortress';
   const walls: THREE.BufferGeometry[] = [];
@@ -251,7 +261,7 @@ export function buildFortress(objects: Obj[]): THREE.Group | null {
   }
   if (!group.children.length && !walls.length) return null;
   if (walls.length) {
-    const w = new THREE.Mesh(mergeGeometries(walls.map((p) => boxUV(p)))!, toon('#ffffff', { map: stone() }));
+    const w = new THREE.Mesh(mergeGeometries(walls.map((p) => boxUV(p)))!, stoneMat());
     shadows(w, true, true);
     group.add(w);
   }

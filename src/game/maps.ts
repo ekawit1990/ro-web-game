@@ -14,7 +14,8 @@ export const enum G {
 }
 
 export type Obj =
-  | { kind: 'building'; x: number; y: number; w: number; h: number; wall: number; roof: number; floors: number; face?: number }
+  /** `style: 'desert'` = flat-roofed adobe (roof picks flat / dome / roof terrace). */
+  | { kind: 'building'; x: number; y: number; w: number; h: number; wall: number; roof: number; floors: number; face?: number; style?: 'desert' }
   | { kind: 'stall'; x: number; y: number; color: number }
   | { kind: 'tree'; x: number; y: number; big?: boolean }
   | { kind: 'bench'; x: number; y: number }
@@ -31,10 +32,13 @@ export type Obj =
   | { kind: 'wall'; x: number; y: number; w: number; h: number }
   | { kind: 'tower'; x: number; y: number; s: number }
   /** Two wings either side of a `door`-wide passage down the middle, joined by an arch over it. */
-  | { kind: 'castle'; x: number; y: number; w: number; h: number; door: number };
+  | { kind: 'castle'; x: number; y: number; w: number; h: number; door: number }
+  /** The desert palace: domed sandstone hall, door on the south (+y) side. */
+  | { kind: 'palace'; x: number; y: number; w: number; h: number };
 
 export interface Npc {
-  id: 'shop' | 'weapons' | 'healer' | 'guide' | 'jobs';
+  /** 'warper' = บูรพา: paid warps between towns and the account-wide storage. */
+  id: 'shop' | 'weapons' | 'healer' | 'guide' | 'jobs' | 'warper';
   name: string;
   x: number;
   y: number;
@@ -65,7 +69,7 @@ export interface GameMap {
   theme: Theme;
 }
 
-export type Theme = 'town' | 'meadow' | 'forest' | 'marsh' | 'canyon' | 'snow' | 'volcano';
+export type Theme = 'town' | 'meadow' | 'forest' | 'marsh' | 'canyon' | 'snow' | 'volcano' | 'desert';
 
 /** Per-theme colours: one per ground type (G), then the sky and the land outside the map. */
 export const THEMES: Record<Theme, { ground: string[]; sky: string; outside: string }> = {
@@ -76,6 +80,7 @@ export const THEMES: Record<Theme, { ground: string[]; sky: string; outside: str
   canyon: { ground: ['#c9a067', '#d1aa72', '#b07a48', '#a8825a', '#d8bf94', '#4a8fb0', '#c9a067'], sky: '#ffd9a8', outside: '#8a5a32' },
   snow: { ground: ['#eef3f8', '#e3ebf3', '#b9c6d3', '#a9b4c0', '#dfe6ee', '#9fd3f0', '#eef3f8'], sky: '#d4e6f5', outside: '#c9d6e3' },
   volcano: { ground: ['#4a3a35', '#56433c', '#3a2c28', '#5e5550', '#6e625b', '#ff6a1a', '#4a3a35'], sky: '#7a4a3e', outside: '#231816' },
+  desert: { ground: ['#e3c58b', '#dbbb7c', '#cfae7a', '#c9ad84', '#e6d2a8', '#3aa6c4', '#e3c58b'], sky: '#ffe6b8', outside: '#d9b677' },
 };
 
 function mulberry32(seed: number) {
@@ -198,6 +203,7 @@ function buildTown(): GameMap {
     { id: 'weapons', name: 'ร้านเครื่องดนตรี ลุงบุญ', x: C + 5, y: C - 6, look: { gender: 'm', hair: 1, hair_color: 7, face: 2, body: '#795548' } },
     { id: 'healer', name: 'ครูเพลงใจดี', x: C - 1, y: C - 4, look: { gender: 'f', hair: 4, hair_color: 7, face: 0, body: '#ffffff' } },
     { id: 'guide', name: 'ไกด์ประจำเมือง', x: C + 3, y: C + 6, look: { gender: 'm', hair: 0, hair_color: 3, face: 3, body: '#3949ab' } },
+    { ...BURAPA, x: C + 1, y: C + 3 },
   ];
   for (const n of m.npcs) block(m, n.x, n.y);
   let color = 0;
@@ -278,6 +284,9 @@ function buildTown(): GameMap {
   return m;
 }
 
+/** บูรพา stands in the middle of every town: paid warps to the other towns, and the account-wide storage. */
+const BURAPA: Omit<Npc, 'x' | 'y'> = { id: 'warper', name: 'บูรพา', look: { gender: 'm', hair: 5, hair_color: 1, face: 2, body: '#1e5aa8' } };
+
 /** Where you arrive in town coming back through each gate. */
 const TOWN_GATE = {
   e: { to: 'town', toX: TOWN_SIZE - 3.5, toY: TC - 0.5 },
@@ -285,6 +294,141 @@ const TOWN_GATE = {
   s: { to: 'town', toX: TC - 0.5, toY: TOWN_SIZE - 3.5 },
   n: { to: 'town', toX: TC - 0.5, toY: 3.5 },
 };
+
+// ---------------------------------------------------------------- desert town
+
+/**
+ * เมืองทะเลทรายตะโพน, the drummers' town: walled, a palace on an island in a square moat in the
+ * middle (one causeway, from the south), a promenade round the moat, sand streets and flat-roofed
+ * houses. The only gate is in the north wall, out to the canyon.
+ */
+export const DESERT_SIZE = 80;
+const DC = DESERT_SIZE / 2;
+
+function buildDesert(): GameMap {
+  const N = DESERT_SIZE;
+  const C = DC;
+  const m = blank('desert', 'เมืองทะเลทรายตะโพน', N, N, G.Grass, true, 'desert');
+  const rnd = mulberry32(83);
+  const put = (o: Obj, w = 1, h = 1) => {
+    m.objects.push(o);
+    block(m, Math.floor(o.x), Math.floor(o.y), w, h);
+  };
+  const ISLAND = 9, MOAT = 15, PROM = 18; // half-widths from the centre
+  const zone: Z[][] = Array.from({ length: N }, () => Array(N).fill(Z.Block));
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const a = Math.abs(x + 0.5 - C), b = Math.abs(y + 0.5 - C), o = Math.max(a, b);
+      const round = Math.pow(a ** 4 + b ** 4, 0.25); // a rounded square, for the lane between the blocks
+      let z = Z.Block;
+      let g: G = rnd() < 0.3 ? G.Grass2 : G.Grass;
+      if (x < 2 || y < 2 || x >= N - 2 || y >= N - 2) z = y < 2 && a < 2 ? Z.Street : Z.Wall;
+      else if (o < ISLAND) { z = Z.Street; g = G.Plaza; }
+      else if (o < MOAT) {
+        if (y > C && a < 2) { z = Z.Street; g = G.Plaza; } // the causeway
+        else { z = Z.Wall; g = G.Water; }
+      } else if (o < PROM) { z = Z.Street; g = G.Plaza; }
+      else if (x < 5 || y < 5 || x >= N - 5 || y >= N - 5) { z = Z.Street; g = G.Dirt; }
+      else if (a < 2.5 || b < 2.5) { z = Z.Street; g = G.Dirt; }
+      else if (round >= 26 && round < 28.6) { z = Z.Street; g = G.Dirt; }
+      zone[y][x] = z;
+      m.ground[y][x] = g;
+      if (g === G.Water) m.blocked[y][x] = true;
+    }
+  }
+
+  // ---- walls and towers (sandstone, see castle.ts)
+  for (const [x, y, w, h] of [[0, 0, C - 2, 2], [C + 2, 0, C - 2, 2], [0, N - 2, N, 2], [0, 2, 2, N - 4], [N - 2, 2, 2, N - 4]]) {
+    put({ kind: 'wall', x, y, w, h }, w, h);
+  }
+  const tower = (x: number, y: number, s: number) => put({ kind: 'tower', x, y, s }, s, s);
+  for (const [x, y] of [[0, 0], [N - 4, 0], [0, N - 4], [N - 4, N - 4]]) tower(x, y, 4);
+  tower(C - 5, 0, 3);
+  tower(C + 2, 0, 3);
+  for (const t of [18, C - 1, N - 21]) {
+    tower(0, t, 3);
+    tower(N - 3, t, 3);
+    tower(t, N - 3, 3);
+  }
+
+  // ---- the palace island: palace at the back, a fountain court in front with the NPCs
+  put({ kind: 'palace', x: C - 7, y: C - 8, w: 14, h: 7 }, 14, 7);
+  m.objects.push({ kind: 'fountain', x: C - 1.5, y: C + 1.5 });
+  block(m, C - 2, C + 1, 4, 4);
+  m.npcs = [
+    { id: 'jobs', name: 'ครูกลองแห่งทะเลทราย', x: C - 5, y: C + 2, look: { gender: 'm', hair: 1, hair_color: 3, face: 3, body: '#a0522d' } },
+    { ...BURAPA, x: C + 4, y: C + 2 },
+    { id: 'healer', name: 'หมอผีทรายใจดี', x: C - 5, y: C - 1, look: { gender: 'f', hair: 2, hair_color: 0, face: 0, body: '#f3e5c0' } },
+    { id: 'shop', name: 'ร้านของใช้ พ่อค้าอูฐ', x: C + 9, y: C + 16, look: { gender: 'm', hair: 0, hair_color: 1, face: 1, body: '#c58b3a' } },
+  ];
+  for (const n of m.npcs) block(m, n.x, n.y);
+  for (const [x, y] of [[C - 8, C - 1], [C + 7, C - 1], [C - 8, C + 7], [C + 7, C + 7]]) put({ kind: 'tree', x, y, big: true });
+  for (const [x, y] of [[C - 3, C + 6], [C + 2, C + 6]]) put({ kind: 'lamp', x, y });
+
+  // ---- promenade round the moat: palms along the water, a market on the south side
+  for (let i = -PROM + 1; i < PROM - 1; i += 4) {
+    for (const [x, y] of [[C + i, C - PROM], [C + i, C + PROM - 1], [C - PROM, C + i], [C + PROM - 1, C + i]]) {
+      if (Math.abs(x + 0.5 - C) < 4 || Math.abs(y + 0.5 - C) < 4) continue; // keep the avenues open
+      if (free(m, x, y)) put({ kind: 'tree', x, y, big: rnd() < 0.5 });
+    }
+  }
+  let color = 0;
+  for (const x of [C - 13, C - 9, C + 5]) put({ kind: 'stall', x, y: C + 15, color: color++ % 4 }, 2, 2);
+  for (const [x, y] of [[C - 11, C + 17], [C + 7, C + 17]]) if (free(m, x, y)) put({ kind: 'goods', x, y });
+  for (const [x, y, c] of [[C - 4, 6, 0], [C + 3, 6, 1], [C - 4, C - PROM - 1, 1], [C + 3, C - PROM - 1, 0]]) if (free(m, x, y)) put({ kind: 'banner', x, y, color: c });
+
+  // ---- flat-roofed houses, fronts on the street, yards behind
+  const dist: number[][] = zone.map((row) => row.map((z) => (z === Z.Block ? Infinity : 0)));
+  const q: [number, number][] = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!dist[y][x]) q.push([x, y]);
+  for (let i = 0; i < q.length; i++) {
+    const [x, y] = q[i];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (dist[ny]?.[nx] === Infinity) {
+        dist[ny][nx] = dist[y][x] + 1;
+        q.push([nx, ny]);
+      }
+    }
+  }
+  const house = new Set<number>();
+  const fits = (x: number, y: number, w: number, h: number) => {
+    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (zone[j]?.[i] !== Z.Block || !free(m, i, j)) return false;
+    for (let j = y - 1; j <= y + h; j++) for (let i = x - 1; i <= x + w; i++) if (house.has(j * N + i)) return false;
+    return true;
+  };
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      if (dist[y][x] !== 1 || house.has(y * N + x) || rnd() < 0.18) continue; // the odd gap: a yard on the street
+      const face = [[0, 1], [1, 0], [0, -1], [-1, 0]].findIndex(([dx, dy]) => zone[y + dy]?.[x + dx] === Z.Street);
+      if (face < 0) continue;
+      for (let k = 0; k < 3; k++) {
+        const len = 3 + Math.floor(rnd() * 3) - k;
+        const dep = 3 + Math.floor(rnd() * 2) - (k >> 1);
+        if (len < 2 || dep < 2) break;
+        const [bx, by, bw, bh] = face === 0 ? [x, y - dep + 1, len, dep] : face === 2 ? [x, y, len, dep] : face === 1 ? [x - dep + 1, y, dep, len] : [x, y, dep, len];
+        if (!fits(bx, by, bw, bh)) continue;
+        put({ kind: 'building', x: bx, y: by, w: bw, h: bh, wall: Math.floor(rnd() * 3), roof: Math.floor(rnd() * 3), floors: 1 + (rnd() < 0.3 ? 1 : 0), face, style: 'desert' }, bw, bh);
+        for (let j = by; j < by + bh; j++) for (let i = bx; i < bx + bw; i++) house.add(j * N + i);
+        break;
+      }
+    }
+  }
+  // yards: palms, and crates or a cart now and then
+  for (let y = 3; y < N - 3; y++) {
+    for (let x = 3; x < N - 3; x++) {
+      if (zone[y][x] !== Z.Block || !free(m, x - 1, y - 1, 3, 3)) continue;
+      const r = rnd();
+      if (dist[y][x] >= 2 && r < 0.12) put({ kind: 'tree', x, y, big: rnd() < 0.5 });
+      else if (dist[y][x] >= 2 && r < 0.14) put({ kind: 'crate', x, y });
+      else if (dist[y][x] >= 2 && r < 0.15) put({ kind: 'goods', x, y });
+    }
+  }
+
+  m.portals = [{ x: C - 1, y: 1, to: 'canyon', toX: WILD / 2 + 0.5, toY: WILD - 3.5, label: 'หุบผาร็อค (Lv 17+)' }];
+  m.spawn = { x: C + 0.5, y: C + 6.5 };
+  return m;
+}
 
 // ---------------------------------------------------------------- field
 
@@ -485,7 +629,10 @@ const buildMarsh = () => buildWild({
 const buildCanyon = () => buildWild({
   id: 'canyon', name: 'หุบผาร็อค', theme: 'canyon', seed: 37,
   ground: [[G.Grass, 0.55], [G.Grass2, 0.3], [G.Cobble, 0.15]], trees: 0.012, rocks: 0.07, pools: [[42, 40, 3, 2]],
-  gates: [{ side: 'n', ...TOWN_GATE.s, label: 'เมืองเมโลเดีย' }],
+  gates: [
+    { side: 'n', ...TOWN_GATE.s, label: 'เมืองเมโลเดีย' },
+    { side: 's', to: 'desert', toX: DC - 0.5, toY: 3.5, label: 'เมืองทะเลทรายตะโพน' },
+  ],
 });
 const buildSnow = () => buildWild({
   id: 'snow', name: 'ยอดเขาหิมะโซปราโน', theme: 'snow', seed: 41,
@@ -527,9 +674,19 @@ function addJobNpc(m: GameMap) {
 const built = new Map<string, GameMap>();
 const BUILDERS: Record<string, () => GameMap> = {
   town: buildTown, field: buildField, forest: buildForest, marsh: buildMarsh, canyon: buildCanyon, snow: buildSnow, volcano: buildVolcano,
+  desert: buildDesert,
 };
 export const MAP_IDS = Object.keys(BUILDERS);
 export const START_MAP = 'town';
+
+/**
+ * Towns บูรพา warps to, and the fare in Zeny (paid on the server, see pay_warp() in SQL).
+ * You arrive at the town's spawn, next to บูรพา.
+ */
+export const WARP_TOWNS: { map: string; cost: number }[] = [
+  { map: 'town', cost: 300 },
+  { map: 'desert', cost: 300 },
+];
 
 /** A fresh copy each call for callers that mutate `blocked`; cached otherwise. */
 export function getMap(id: string): GameMap {
