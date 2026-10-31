@@ -65,7 +65,55 @@ async function parse(file: string): Promise<VRM> {
   const vrm = gltf.userData.vrm as VRM | undefined;
   if (!vrm) throw new Error(`${file} is not a VRM model`);
   VRMUtils.rotateVRM0(vrm); // VRM 0.x faces -Z
+  shareResources(file, vrm.scene);
   return vrm;
+}
+
+/**
+ * Every character parses its model again (each needs its own bones and materials), but the images and meshes
+ * are the same: point them at the first copy's so a town full of the same model holds them in memory once.
+ * Phones (iOS Safari above all) kill the page when it runs out of memory.
+ */
+const shared = new Map<string, { sources: THREE.Source[]; geos: THREE.BufferGeometry[] }>();
+function shareResources(file: string, scene: THREE.Object3D) {
+  const sources: THREE.Source[] = [];
+  const seen = new Set<THREE.Source>();
+  const textures = new Set<THREE.Texture>();
+  const geos: THREE.BufferGeometry[] = [];
+  const meshes: THREE.Mesh[] = [];
+  const addTex = (t: unknown) => {
+    if (!(t as THREE.Texture)?.isTexture) return;
+    const tex = t as THREE.Texture;
+    textures.add(tex);
+    if (!seen.has(tex.source)) {
+      seen.add(tex.source);
+      sources.push(tex.source);
+    }
+  };
+  scene.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    meshes.push(m);
+    geos.push(m.geometry);
+    for (const mat of ([] as THREE.Material[]).concat(m.material)) {
+      const u = (mat as THREE.ShaderMaterial).uniforms;
+      if (u) for (const k of Object.keys(u).sort()) addTex(u[k].value);
+      for (const k of Object.keys(mat).sort()) addTex((mat as unknown as Record<string, unknown>)[k]);
+    }
+  });
+  const first = shared.get(file);
+  if (!first) {
+    shared.set(file, { sources, geos });
+    return;
+  }
+  // same file, same parse order: swap only when the shapes line up exactly
+  if (first.sources.length === sources.length) {
+    const map = new Map(sources.map((s, i) => [s, first.sources[i]]));
+    for (const t of textures) t.source = map.get(t.source)!;
+  }
+  if (first.geos.length === geos.length && geos.every((g, i) => g.getAttribute('position')?.count === first.geos[i].getAttribute('position')?.count)) {
+    meshes.forEach((m, i) => (m.geometry = first.geos[i]));
+  }
 }
 
 /** `.vrm.gz` files are gzipped (a VRoid model shrinks ~4x); a host may already have decoded them, so check the magic bytes. */
