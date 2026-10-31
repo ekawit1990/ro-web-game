@@ -351,7 +351,7 @@ export class World3D {
     hit.userData.monster = id;
     rig.root.add(hit);
     this.hits.push(hit);
-    const label = this.makeLabel(def.boss ? `★ ${escapeHtml(def.name)} Lv${def.level}` : escapeHtml(def.name), true);
+    const label = this.makeLabel(`${def.boss ? '★ ' : ''}${escapeHtml(def.name)} <span class="lv">Lv.${def.level}</span>`, true);
     label.el.classList.add('mon');
     if (def.boss) label.el.classList.add('boss');
     const m: MonsterActor = {

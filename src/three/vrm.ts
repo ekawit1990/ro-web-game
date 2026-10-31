@@ -7,6 +7,7 @@ import { dressArmour } from './armour';
 import { buildStringed } from './bass';
 import { buildKeyboard } from './keyboard';
 import { mesh, toon } from './toon';
+import { track } from '../ui/loadProgress';
 
 /**
  * Anime characters made in VRoid Studio (or any VRM 0.x / 1.0 model).
@@ -135,7 +136,7 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
   if (!file) return null;
   let vrm: VRM;
   try {
-    vrm = await parse(file);
+    vrm = await track(parse(file));
   } catch (e) {
     console.warn('VRM load failed, using the built-in character', e);
     return null;

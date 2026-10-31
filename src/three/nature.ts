@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { pondShore } from './pond';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { G, type GameMap, type Theme } from '../game/maps';
+import { track } from '../ui/loadProgress';
 
 /**
  * Trees, bushes, flowers, grass and rocks from Quaternius' Ultimate Stylized Nature pack (CC0),
@@ -63,7 +64,7 @@ async function gunzip(buf: ArrayBuffer) {
 
 function load(name: string) {
   if (!models.has(name)) {
-    models.set(name, (async () => {
+    models.set(name, track((async () => {
       try {
         const res = await fetch(`${BASE}${name}.glb.gz`);
         if (!res.ok) return null;
@@ -83,7 +84,7 @@ function load(name: string) {
         console.warn('nature model failed', name, e);
         return null;
       }
-    })());
+    })()));
   }
   return models.get(name)!;
 }
