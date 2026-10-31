@@ -1,0 +1,86 @@
+{
+ "note_burst": {
+  "w": 158,
+  "h": 141,
+  "cols": 5,
+  "n": 21,
+  "fps": 15,
+  "pivot": [
+   83,
+   118
+  ],
+  "add": false
+ },
+ "heal_ring": {
+  "w": 146,
+  "h": 109,
+  "cols": 5,
+  "n": 28,
+  "fps": 15,
+  "pivot": [
+   73,
+   80
+  ],
+  "add": false
+ },
+ "tempo": {
+  "w": 218,
+  "h": 152,
+  "cols": 5,
+  "n": 28,
+  "fps": 15,
+  "pivot": [
+   112,
+   118
+  ],
+  "add": false
+ },
+ "control": {
+  "w": 45,
+  "h": 122,
+  "cols": 8,
+  "n": 20,
+  "fps": 12,
+  "pivot": [
+   22,
+   108
+  ],
+  "add": false
+ },
+ "solo_star": {
+  "w": 72,
+  "h": 65,
+  "cols": 5,
+  "n": 24,
+  "fps": 15,
+  "pivot": [
+   36,
+   58
+  ],
+  "add": false
+ },
+ "shield": {
+  "w": 70,
+  "h": 72,
+  "cols": 7,
+  "n": 36,
+  "fps": 15,
+  "pivot": [
+   35,
+   60
+  ],
+  "add": false
+ },
+ "block": {
+  "w": 100,
+  "h": 72,
+  "cols": 4,
+  "n": 16,
+  "fps": 15,
+  "pivot": [
+   13,
+   61
+  ],
+  "add": false
+ }
+}

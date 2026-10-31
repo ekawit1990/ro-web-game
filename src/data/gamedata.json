@@ -97,7 +97,7 @@
   },
   "keyboardist": {
    "name": "มือคีย์บอร์ด",
-   "desc": "ยิงคอร์ดเวทย์ ระยะไกลสุด",
+   "desc": "สายเวทย์ซัพพอร์ต: ยิงโน้ตเวทย์ ฮีล บัฟสเตตัส และโล่ให้เพื่อน",
    "color": "#2fb3a8",
    "hpMod": 0.9,
    "spMod": 1.4,
@@ -3166,52 +3166,33 @@
     "maxHpPct": 5
    }
   },
-  "thunder_chord": {
+  "note_blast": {
    "cls": "keyboardist",
-   "name": "คอร์ดสายฟ้า",
-   "icon": "⚡",
-   "desc": "ฟ้าผ่าด้วยคอร์ดใส่ศัตรู 1 ตัว (เวทย์)",
+   "name": "ตัวโน้ตทำลาย",
+   "icon": "🎹",
+   "desc": "ยิงตัวโน้ตเวทย์ใส่ศัตรู 1 ตัว ความแรงคิดจาก M.Atk (เวทย์)",
    "type": "single",
    "magic": true,
-   "maxLevel": 5,
+   "maxLevel": 10,
    "sp": [
-    12,
-    3
+    10,
+    2
    ],
    "range": 7,
    "cooldown": 1000,
    "power": [
-    160,
-    40
-   ]
-  },
-  "arpeggio": {
-   "cls": "keyboardist",
-   "name": "อาร์เพจจิโอ",
-   "icon": "🎹",
-   "desc": "โน้ตไล่ระดับโจมตีศัตรูรอบเป้าหมาย 2.5 ช่อง",
-   "type": "aoe",
-   "magic": true,
-   "maxLevel": 5,
-   "sp": [
-    35,
-    6
+    120,
+    20
    ],
-   "range": 7,
-   "radius": 2.5,
-   "cooldown": 3500,
-   "power": [
-    110,
-    30
-   ]
+   "fx": "note_burst"
   },
-  "harmony": {
+  "restore": {
    "cls": "keyboardist",
-   "name": "ฮาร์โมนี",
-   "icon": "✨",
-   "desc": "ฟื้น HP ให้ตัวเองหรือเพื่อน 1 คน",
+   "name": "ฟื้นฟู",
+   "icon": "💚",
+   "desc": "ฟื้น HP ให้ตัวเองหรือเพื่อน 1 คน (ใช้ซ้ำ 2 ครั้ง = ใส่ตัวเอง)",
    "type": "heal_target",
-   "maxLevel": 5,
+   "maxLevel": 10,
    "sp": [
     12,
     3
@@ -3219,20 +3200,112 @@
    "range": 7,
    "cooldown": 1500,
    "heal": [
-    60,
-    40
-   ]
+    50,
+    30
+   ],
+   "fx": "heal_ring"
   },
-  "focus": {
+  "tempo_up": {
    "cls": "keyboardist",
-   "name": "สมาธิ",
-   "icon": "🧠",
-   "desc": "(ติดตัว) พลังเวทย์ +4% ต่อเลเวล",
-   "type": "passive",
-   "maxLevel": 5,
-   "passive": {
-    "matkPct": 4
-   }
+   "name": "เร่งจังหวะ",
+   "icon": "⏩",
+   "desc": "AGI +3 และ +1 ต่อเลเวล ให้ตัวเองหรือเพื่อน 1 คน นาน 30 วินาที",
+   "type": "buff_target",
+   "maxLevel": 10,
+   "sp": [
+    14,
+    2
+   ],
+   "range": 7,
+   "cooldown": 1000,
+   "buff": {
+    "stats": {
+     "agi": [
+      3,
+      1
+     ]
+    },
+    "durationSec": 30
+   },
+   "fx": "tempo"
+  },
+  "tempo_control": {
+   "cls": "keyboardist",
+   "name": "คุมจังหวะ",
+   "icon": "🎼",
+   "desc": "DEX STR INT +2 และ +1 ต่อเลเวล ให้ตัวเองหรือเพื่อน 1 คน นาน 30 วินาที",
+   "type": "buff_target",
+   "maxLevel": 10,
+   "sp": [
+    20,
+    3
+   ],
+   "range": 7,
+   "cooldown": 1000,
+   "buff": {
+    "stats": {
+     "dex": [
+      2,
+      1
+     ],
+     "str": [
+      2,
+      1
+     ],
+     "int": [
+      2,
+      1
+     ]
+    },
+    "durationSec": 30
+   },
+   "fx": "control"
+  },
+  "solo": {
+   "cls": "keyboardist",
+   "name": "โซโล่",
+   "icon": "⭐",
+   "desc": "LUK +3 และ +2 ต่อเลเวล ให้ตัวเองหรือเพื่อน 1 คน นาน 30 วินาที",
+   "type": "buff_target",
+   "maxLevel": 10,
+   "sp": [
+    12,
+    2
+   ],
+   "range": 7,
+   "cooldown": 1000,
+   "buff": {
+    "stats": {
+     "luk": [
+      3,
+      2
+     ]
+    },
+    "durationSec": 30
+   },
+   "fx": "solo_star"
+  },
+  "chorus_ward": {
+   "cls": "keyboardist",
+   "name": "ประสานเสียง",
+   "icon": "🛡️",
+   "desc": "โล่เสียงกันการโจมตีกายภาพได้ 1 ครั้งต่อเลเวล (Lv 10 = 10 ครั้ง) ให้ตัวเองหรือเพื่อน 1 คน นาน 2 นาทีหรือจนโล่แตก",
+   "type": "buff_target",
+   "maxLevel": 10,
+   "sp": [
+    25,
+    3
+   ],
+   "range": 7,
+   "cooldown": 2000,
+   "buff": {
+    "blocks": [
+     1,
+     1
+    ],
+    "durationSec": 120
+   },
+   "fx": "shield"
   }
  }
 }

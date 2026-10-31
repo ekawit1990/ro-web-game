@@ -35,6 +35,17 @@ for (const [id, sk] of Object.entries(data.skills)) {
       ` on conflict (id) do update set cls = excluded.cls, max_level = excluded.max_level;`,
   );
 }
+// Skills that left the game: drop them and give their points back (e.g. the old keyboardist skills).
+const skillIds = Object.keys(data.skills).map(q).join(', ');
+lines.push(
+  '',
+  '-- refund and remove skills that no longer exist',
+  `update public.characters c set` +
+    ` skill_points = c.skill_points + (select coalesce(sum(greatest(0, (e.value)::int)), 0) from jsonb_each_text(c.skills) e where e.key not in (${skillIds})),` +
+    ` skills = (select coalesce(jsonb_object_agg(e.key, e.value), '{}'::jsonb) from jsonb_each(c.skills) e where e.key in (${skillIds}))` +
+    ` where exists (select 1 from jsonb_object_keys(c.skills) k where k not in (${skillIds}));`,
+  `delete from public.skill_defs where id not in (${skillIds});`,
+);
 writeFileSync(new URL('../supabase/migrations/0002_seed.sql', import.meta.url), lines.join('\n') + '\n');
 console.log('wrote supabase/migrations/0002_seed.sql');
 

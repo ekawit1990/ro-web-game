@@ -260,6 +260,8 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .buffs { position: absolute; top: 205px; left: 10px; display: flex; gap: 3px; }
 .buff { width: 26px; height: 26px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.85); border: 1px solid #5d6f8f; border-radius: 3px; position: relative; font-size: 15px; }
 .buff i { position: absolute; bottom: -12px; font-style: normal; font-size: 10px; color: #fff; text-shadow: 0 1px 2px #000; }
+.buff b { position: absolute; top: -6px; right: -6px; min-width: 13px; height: 13px; line-height: 13px; border-radius: 7px; background: #2f7fcc; color: #fff; font-size: 9px; text-align: center; }
+.st-bonus { font-style: normal; color: #1f8a3a; font-weight: 600; }
 .targeting { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); background: rgba(120, 20, 20, 0.85); color: #fff; padding: 4px 14px; border-radius: 3px; font-size: 13px; }
 .tooltip { position: fixed; z-index: 9999; max-width: 220px; background: rgba(255, 255, 255, 0.97); color: #1d2533; border: 1px solid #5d6f8f; padding: 4px 8px; font-size: 12px; pointer-events: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
 .ctx { position: absolute; z-index: 9000; transform: translate(-50%, -100%); display: flex; flex-direction: column; gap: 2px; background: #f7f9fc; border: 1px solid #5d6f8f; padding: 4px; font-size: 12px; color: #1d2533; border-radius: 3px; }

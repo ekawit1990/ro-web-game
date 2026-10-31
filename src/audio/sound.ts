@@ -261,12 +261,13 @@ export function sfxSkill(cls: ClassKey, type: string, vol = 1) {
   if (!ready() || vol <= 0) return;
   const t = now();
   const inst = INSTRUMENTS[cls] ?? INSTRUMENTS.singer;
-  const run = type === 'buff' || type === 'heal' ? [60, 64, 67, 72, 76] : [72, 67, 64, 69, 76];
+  const support = type === 'buff' || type === 'heal' || type === 'heal_target' || type === 'buff_target';
+  const run = support ? [60, 64, 67, 72, 76] : [72, 67, 64, 69, 76];
   run.forEach((n, i) => inst(cls === 'drummer' ? i % 2 : n, t + i * 0.06, 0.3, vol * 0.9));
   if (type === 'aoe' || type === 'aoe_self') {
     noise(t + 0.2, 0.5, { gain: 0.25 * vol, type: 'bandpass', freq: 400, freqTo: 3000, q: 0.8, wet: 0.4 });
     tone(110, t + 0.25, 0.4, { type: 'sine', to: 40, gain: 0.45 * vol, release: 0.15 });
-  } else if (type === 'heal' || type === 'buff') {
+  } else if (support) {
     for (let i = 0; i < 5; i++) tone(midi(84 + PENTA[i]), t + 0.3 + i * 0.05, 0.25, { type: 'sine', gain: 0.07 * vol, wet: 0.6 });
   }
 }

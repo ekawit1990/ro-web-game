@@ -55,6 +55,7 @@ export class Hud implements WorldHooks {
   private raf = 0;
   private lastSig: Record<string, string> = {};
   private buffEnds = new Map<string, number>();
+  private buffBlocks = new Map<string, number>();
   private cooldownEnds = new Map<string, number>();
   /** Touch screens can't drag: tap a skill/item, then tap the hotkey slot to put it there. */
   private picked: Slot = null;
@@ -314,7 +315,8 @@ export class Hud implements WorldHooks {
     const rows = STAT_KEYS.map((k) => {
       const cost = statCost(c[k]);
       const can = c.stat_points >= cost && c[k] < 99;
-      return `<div class="st-row" title="${STAT_HELP[k]}"><label>${STAT_LABEL[k]}</label><b>${c[k]}</b>
+      const plus = d.bonus?.[k] ? ` <em class="st-bonus">+${d.bonus[k]}</em>` : '';
+      return `<div class="st-row" title="${STAT_HELP[k]}"><label>${STAT_LABEL[k]}</label><b>${c[k]}${plus}</b>
         <button class="up" data-stat="${k}" ${can ? '' : 'disabled'}>▲</button><small>${cost}</small></div>`;
     }).join('');
     const right: [string, string | number][] = [
@@ -1214,8 +1216,12 @@ export class Hud implements WorldHooks {
     if (name) el.textContent = `เลือกเป้าหมายสำหรับ "${name}" · ${lastTouch ? 'แตะพื้นเพื่อยกเลิก' : 'คลิกขวาเพื่อยกเลิก'}`;
   }
 
-  buff(skill: string, seconds: number) {
-    this.buffEnds.set(skill, performance.now() + seconds * 1000);
+  /** A buff started or changed (seconds 0 = it ended early, e.g. a shield broke). `blocks` = shield hits left. */
+  buff(skill: string, seconds: number, blocks?: number) {
+    if (seconds <= 0) this.buffEnds.delete(skill);
+    else this.buffEnds.set(skill, performance.now() + seconds * 1000);
+    if (blocks) this.buffBlocks.set(skill, blocks);
+    else this.buffBlocks.delete(skill);
   }
 
   private tooltip(el: HTMLElement, html: () => string) {
@@ -1312,7 +1318,8 @@ export class Hud implements WorldHooks {
         this.buffEnds.delete(id);
         continue;
       }
-      html += `<div class="buff" title="${escapeHtml(SKILLS[id]?.name ?? id)}">${SKILLS[id]?.icon ?? '✨'}<i>${left}</i></div>`;
+      const blocks = this.buffBlocks.get(id);
+      html += `<div class="buff" title="${escapeHtml(SKILLS[id]?.name ?? id)}${blocks ? ` · กันได้อีก ${blocks} ครั้ง` : ''}">${SKILLS[id]?.icon ?? '✨'}${blocks ? `<b>${blocks}</b>` : ''}<i>${left}</i></div>`;
     }
     if (box.innerHTML !== html) box.innerHTML = html;
   }
