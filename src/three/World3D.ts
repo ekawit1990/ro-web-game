@@ -7,6 +7,7 @@ import { escapeHtml } from '../ui/screens';
 import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setHat } from './models';
 import { animateRig, buildVrmCharacter } from './vrm';
+import { PHONE } from './device';
 import { sfx, sfxAttack, sfxSkill } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
@@ -85,8 +86,6 @@ type Effect = (dt: number) => boolean; // false = finished
 
 // one WebGL renderer for the whole session (map switches only swap the scene)
 let renderer: THREE.WebGLRenderer | null = null;
-// phones get a lighter renderer: iOS Safari reloads the page when the GPU memory runs out
-const PHONE = matchMedia('(pointer: coarse)').matches || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 export class World3D {
   private session: Session;
@@ -351,7 +350,7 @@ export class World3D {
     hit.userData.monster = id;
     rig.root.add(hit);
     this.hits.push(hit);
-    const label = this.makeLabel(def.boss ? `★ ${escapeHtml(def.name)} Lv${def.level}` : escapeHtml(def.name), true);
+    const label = this.makeLabel(`${def.boss ? '★ ' : ''}${escapeHtml(def.name)} <span class="lv">Lv.${def.level}</span>`, true);
     label.el.classList.add('mon');
     if (def.boss) label.el.classList.add('boss');
     const m: MonsterActor = {

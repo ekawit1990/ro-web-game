@@ -75,7 +75,14 @@
     <!-- In-game windows are built by src/ui/hud.ts -->
     <section id="hud" class="hidden"></section>
 
-    <div id="loading" class="screen"><p>กำลังโหลด…</p></div>
+    <div id="loading" class="screen">
+      <div class="ld-bg"></div>
+      <img class="ld-art" alt="" />
+      <div class="ld-foot">
+        <p>กำลังโหลด…</p>
+        <div class="ld-bar"><i></i><b>0%</b></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

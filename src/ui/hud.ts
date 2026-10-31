@@ -58,6 +58,7 @@ export class Hud implements WorldHooks {
   private cooldownEnds = new Map<string, number>();
   /** Touch screens can't drag: tap a skill/item, then tap the hotkey slot to put it there. */
   private picked: Slot = null;
+  private errors = 0; // 'bad' toasts so far (the server's error replies land here)
 
   constructor(private s: Session, private actions: HudActions) {
     this.root = document.getElementById('hud')!;
@@ -809,6 +810,7 @@ export class Hud implements WorldHooks {
   }
 
   toast(text: string, kind?: 'good' | 'bad') {
+    if (kind === 'bad') this.errors++;
     if (kind === 'bad') this.line('bad', escapeHtml(text));
     const box = this.root.querySelector('#toasts');
     if (!box) return;
@@ -873,6 +875,14 @@ export class Hud implements WorldHooks {
       btn.addEventListener('click', () => {
         this.closeWin('npc');
         this.actions.send('npcWarp', { to: btn.dataset.warp });
+        // a server from before บูรพา existed ignores the message: say so instead of doing nothing
+        const from = this.map;
+        const errs = this.errors;
+        setTimeout(() => {
+          if (this.map === from && this.errors === errs && !this.ac.signal.aborted) {
+            this.toast('เซิร์ฟเวอร์ไม่ตอบการวาร์ป (เซิร์ฟเวอร์อาจยังเป็นเวอร์ชันเก่า: กด Manual Deploy บน Render)', 'bad');
+          }
+        }, 8000);
       }));
     b.querySelector('[data-storage]')!.addEventListener('click', () => {
       this.closeWin('npc');

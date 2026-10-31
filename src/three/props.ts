@@ -7,6 +7,7 @@ import { buildDesertHouses, buildPalace } from './desert';
 import { buildCart, buildFountain, buildGoods, buildHedge, buildPlanter, buildSign } from './townprops';
 import { buildPonds, hasPonds, pondField } from './pond';
 import { canvasTexture, mesh, outline, shade, shadows, toon } from './toon';
+import { PHONE } from './device';
 
 /** The static world: ground, buildings, market stalls, trees, lamps, fountain, portals. 1 unit = 1 tile. */
 
@@ -19,7 +20,8 @@ function rng(seed: number) {
 
 // ---------------------------------------------------------------- ground
 
-const TILE = 40;
+// pixels per tile of the painted ground: a 96x96 town is 3840 px square, too much for a phone's memory
+const TILE = PHONE ? 24 : 40;
 
 export function buildGround(m: GameMap): THREE.Group {
   const g = new THREE.Group();

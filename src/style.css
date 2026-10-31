@@ -270,8 +270,15 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .toast.good { color: #ffe27a; }
 .toast.bad { color: #ff9b9b; }
 @keyframes toast { 0% { opacity: 0; transform: translateY(6px); } 10%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; } }
-#loading { z-index: 10000; background: rgba(10, 16, 28, 0.88); }
-#loading p { font-size: 18px; }
+#loading { z-index: 10000; background: #0a101c; overflow: hidden; }
+#loading .ld-bg { position: absolute; inset: -40px; background: center / cover no-repeat; filter: blur(24px) brightness(0.45); }
+#loading .ld-art { position: absolute; inset: 0 0 92px; width: 100%; height: calc(100% - 92px); object-fit: contain; opacity: 0; transition: opacity 0.4s; }
+#loading .ld-art.on { opacity: 1; }
+#loading .ld-foot { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 8% 22px; background: linear-gradient(transparent, rgba(6, 10, 20, 0.92) 40%); }
+#loading p { margin: 0 0 8px; font-size: 16px; text-align: center; text-shadow: 0 1px 3px #000; }
+#loading .ld-bar { position: relative; height: 18px; border: 1px solid rgba(190, 160, 255, 0.6); border-radius: 9px; background: rgba(20, 16, 40, 0.8); overflow: hidden; box-shadow: 0 0 12px rgba(150, 90, 255, 0.35); }
+#loading .ld-bar i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, #ff4fa3, #9b5cff 45%, #3fb8ff); box-shadow: 0 0 10px rgba(160, 110, 255, 0.8); }
+#loading .ld-bar b { position: relative; display: block; text-align: center; font-size: 12px; line-height: 18px; color: #fff; text-shadow: 0 1px 2px #000; }
 
 /* ---------- character select / creator ---------- */
 .char-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -309,8 +316,10 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
   .hk { width: 40px; height: 40px; }
   .chatbox { max-width: calc(100% - 410px); min-width: 220px; }
   .chat-log { height: 72px; }
-  .minimap canvas { width: 92px; height: 92px; }
-  .mini-head { font-size: 10px; }
+  .minimap canvas { width: 104px; height: 104px; }
+  .mini-head { font-size: 10px; width: 104px; box-sizing: border-box; }
+  #mini-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  #mini-pos { flex-shrink: 0; }
   .rw.info { transform: scale(0.82); transform-origin: top left; }
 }
 
@@ -342,6 +351,7 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .wl.mon .nm { display: none; color: #ffdede; }
 .wl.mon.named .nm { display: block; }
 .wl.boss .nm { color: #ffd54a; }
+.wl .nm .lv { color: #ffe08a; font-size: 11px; }
 .wl-bar { width: 42px; height: 5px; background: #10141a; border: 1px solid #10141a; margin-bottom: 2px; }
 .wl-bar i { display: block; height: 3px; background: #4cd964; }
 .wl-bar b { display: block; height: 2px; background: #3f7fe8; }

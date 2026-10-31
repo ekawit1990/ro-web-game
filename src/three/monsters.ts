@@ -4,6 +4,7 @@ import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { MONSTERS } from '../data';
 import type { MonsterRig } from './models';
 import { toon } from './toon';
+import { track } from '../ui/loadProgress';
 
 /**
  * Rigged, animated monsters by Quaternius (Ultimate Monsters, CC0), packed as gzipped GLB in
@@ -23,7 +24,7 @@ async function gunzip(buf: ArrayBuffer) {
 
 function load(model: string) {
   if (!cache.has(model)) {
-    cache.set(model, (async () => {
+    cache.set(model, track((async () => {
       try {
         const res = await fetch(`${BASE}${model}.glb.gz`);
         if (!res.ok) return null;
@@ -42,7 +43,7 @@ function load(model: string) {
         console.warn('monster model failed', model, e);
         return null;
       }
-    })());
+    })()));
   }
   return cache.get(model)!;
 }
