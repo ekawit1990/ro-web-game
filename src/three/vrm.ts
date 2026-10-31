@@ -7,6 +7,7 @@ import { dressArmour } from './armour';
 import { buildStringed } from './bass';
 import { buildKeyboard } from './keyboard';
 import { mesh, toon } from './toon';
+import { PHONE } from './device';
 import { track } from '../ui/loadProgress';
 
 /**
@@ -63,11 +64,61 @@ async function parse(file: string): Promise<VRM> {
   }
   const data = await buf;
   const gltf = await loader.parseAsync(data, BASE);
+  if (PHONE) buffers.delete(file); // ~10 MB unzipped each: fetch it again (from the HTTP cache) when needed
   const vrm = gltf.userData.vrm as VRM | undefined;
   if (!vrm) throw new Error(`${file} is not a VRM model`);
   VRMUtils.rotateVRM0(vrm); // VRM 0.x faces -Z
+  if (PHONE) keepUsedMorphs(vrm);
   shareResources(file, vrm.scene);
   return vrm;
+}
+
+/** Phones: half-size character textures (a quarter of the memory; they're small on screen anyway). */
+function halve(src: THREE.Source) {
+  const img = src.data as { width?: number; height?: number } | null;
+  if (!img?.width || !img.height || Math.max(img.width, img.height) < 256) return;
+  const cv = document.createElement('canvas');
+  cv.width = img.width / 2;
+  cv.height = img.height / 2;
+  cv.getContext('2d')!.drawImage(img as CanvasImageSource, 0, 0, cv.width, cv.height);
+  src.data = cv;
+  src.needsUpdate = true;
+}
+
+/**
+ * A VRoid face carries ~57 blend shapes on each of its 7 parts, and three.js packs them into one float texture per
+ * part: ~50 MB of GPU memory per model. We only play a handful of expressions, so on phones drop the rest.
+ */
+function keepUsedMorphs(vrm: VRM) {
+  const em = vrm.expressionManager;
+  if (!em) return;
+  const used = new Set(['blink', 'sad', ...EXPRESSIONS]);
+  const binds: { primitives: THREE.Mesh[]; index: number }[] = [];
+  const keep = new Map<THREE.Mesh, Set<number>>();
+  for (const ex of em.expressions) {
+    for (const b of ex.binds as unknown as { primitives?: THREE.Mesh[]; index?: number }[]) {
+      if (!b.primitives || b.index === undefined) continue; // material binds
+      binds.push(b as { primitives: THREE.Mesh[]; index: number });
+      if (!used.has(ex.expressionName)) continue;
+      for (const m of b.primitives) (keep.get(m) ?? keep.set(m, new Set()).get(m)!).add(b.index);
+    }
+  }
+  const remap = new Map<THREE.Mesh, Map<number, number>>();
+  vrm.scene.traverse((o) => {
+    const m = o as THREE.Mesh;
+    const morphs = m.isMesh ? m.geometry.morphAttributes : undefined;
+    if (!morphs?.position?.length) return;
+    const idx = [...(keep.get(m) ?? [])].sort((x, y) => x - y);
+    remap.set(m, new Map(idx.map((old, i) => [old, i])));
+    for (const k of Object.keys(morphs)) morphs[k] = idx.map((i) => morphs[k][i]);
+    m.morphTargetInfluences = idx.map(() => 0);
+    m.morphTargetDictionary = {};
+  });
+  // the binds now point into the shorter lists; the ones for expressions we dropped point nowhere
+  for (const b of binds) {
+    const to = b.primitives.map((m) => remap.get(m)?.get(b.index));
+    b.index = to[0] !== undefined && to.every((i) => i === to[0]) ? to[0] : -1;
+  }
 }
 
 /**
@@ -104,6 +155,7 @@ function shareResources(file: string, scene: THREE.Object3D) {
   });
   const first = shared.get(file);
   if (!first) {
+    if (PHONE) for (const src of sources) halve(src);
     shared.set(file, { sources, geos });
     return;
   }

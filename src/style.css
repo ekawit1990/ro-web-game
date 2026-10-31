@@ -316,8 +316,10 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
   .hk { width: 40px; height: 40px; }
   .chatbox { max-width: calc(100% - 410px); min-width: 220px; }
   .chat-log { height: 72px; }
-  .minimap canvas { width: 92px; height: 92px; }
-  .mini-head { font-size: 10px; }
+  .minimap canvas { width: 104px; height: 104px; }
+  .mini-head { font-size: 10px; width: 104px; box-sizing: border-box; }
+  #mini-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  #mini-pos { flex-shrink: 0; }
   .rw.info { transform: scale(0.82); transform-origin: top left; }
 }
 
