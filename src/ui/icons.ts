@@ -11,6 +11,7 @@ const EMOJI: Record<string, string> = {
   note_ribbon: '🎀', headphones: '🎧', earbuds: '🎧', in_ear_monitor: '🎧', gaming_headset: '🎧', dj_headphones: '🎧', cat_headphones: '🎧', rock_cap: '🧢', pick_necklace: '📿', metronome_charm: '⏱️', banana: '🍌', carrot: '🥕',
   note_shard: '🎵', silent_spore: '🍄', buzz_stinger: '📌', rock_chip: '🪨', golden_clef: '🗝️', drop_crystal: '💎',
   chick_feather: '🪶', sneakers: '👟', stage_boots: '🥾', dance_shoes: '👠', rock_boots: '🥾',
+  tuning_ore: '💠', velvet_patch: '🧶',
   note_stud: '🎵', pick_earring: '🔸', star_earring: '⭐', crystal_earring: '💎', rabbit_ear: '🐰', frog_skin: '🐸', bat_wing: '🦇', gear_spring: '⚙️',
 };
 
@@ -23,7 +24,23 @@ export function itemIcon(id: string): string {
   cv.width = 32;
   cv.height = 32;
   const c = cv.getContext('2d')!;
-  if (item?.type === 'consumable' && !EMOJI[id]) {
+  if (item?.type === 'card') {
+    // a little card: the monster's colour on top, a parchment frame, a gold corner
+    c.fillStyle = '#5b4a2e';
+    c.fillRect(6, 2, 20, 28);
+    c.fillStyle = '#f3e6c4';
+    c.fillRect(7, 3, 18, 26);
+    c.fillStyle = item.color;
+    c.fillRect(9, 5, 14, 13);
+    c.fillStyle = 'rgba(255,255,255,0.55)';
+    c.beginPath();
+    c.arc(16, 11.5, 4, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = '#8d6e63';
+    for (let y = 21; y <= 26; y += 2.5) c.fillRect(9, y, 14, 1);
+    c.fillStyle = '#e0b21f';
+    c.fillRect(21, 3, 4, 4);
+  } else if (item?.type === 'consumable' && !EMOJI[id]) {
     // potion bottle in the item's colour
     c.fillStyle = '#d9d9d9';
     c.fillRect(13, 4, 6, 6);

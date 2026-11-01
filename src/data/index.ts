@@ -27,6 +27,8 @@ export interface StorageItem {
   id: string;
   item_id: string;
   qty: number;
+  refine?: number;
+  cards?: string[];
 }
 
 export interface ClassDef {
@@ -42,7 +44,7 @@ export interface ClassDef {
   baseStats: Stats;
 }
 
-export type ItemType = 'consumable' | 'loot' | 'weapon' | 'armor' | 'head' | 'accessory' | 'shoes' | 'earring';
+export type ItemType = 'consumable' | 'loot' | 'card' | 'weapon' | 'armor' | 'head' | 'accessory' | 'shoes' | 'earring';
 /** One of each can be worn. Must match the type lists in SQL (item_defs check, _add_item, set_equipped, storage, trade). */
 export const EQUIP_TYPES: ItemType[] = ['weapon', 'armor', 'head', 'accessory', 'shoes', 'earring'];
 
@@ -61,6 +63,60 @@ export interface ItemDef {
   flee?: number;
   crit?: number;
   classes?: ClassKey[];
+  /** Shown in the item window. */
+  desc?: string;
+  /** Card slots on a piece of equipment (RO's [1], [2]). */
+  slots?: number;
+  /** Monster cards: which equipment they go into and what they give. */
+  card?: { slot: CardSlot; bonus: CardBonus };
+}
+
+/** Where a card can go. 'head' cards fit hats and headphones alike. */
+export type CardSlot = 'weapon' | 'armor' | 'head' | 'shoes' | 'accessory';
+/** What a card adds: flat stats and numbers, or percentages (…Pct, aspd). */
+export type CardBonus = Partial<Record<StatKey | 'atk' | 'matk' | 'def' | 'mdef' | 'hit' | 'flee' | 'crit' | 'aspd'
+  | 'maxHp' | 'maxSp' | 'maxHpPct' | 'maxSpPct' | 'atkPct' | 'matkPct', number>>;
+
+export const cardFits = (card: ItemDef | undefined, equip: ItemDef | undefined) =>
+  !!card?.card && !!equip && (card.card.slot === equip.type || (card.card.slot === 'head' && equip.type === 'earring'));
+
+/**
+ * Refining at the refiner NPC (RO-style). Each try costs 1 material and `fee * next level` zeny.
+ * Up to the safe level it always works; past it, a failure destroys the item (and its cards).
+ * Must match refine_item() in SQL.
+ */
+export const REFINE = {
+  max: 10,
+  /** success % for reaching +1 … +10 */
+  chance: {
+    weapon: [100, 100, 100, 100, 100, 70, 55, 40, 25, 15],
+    other: [100, 100, 100, 100, 70, 55, 40, 30, 20, 10],
+  },
+  fee: 100,
+  material: { weapon: 'tuning_ore', other: 'velvet_patch' },
+  /** per + : weapons Atk (and Matk if the weapon has Matk), the rest Def */
+  weaponAtk: 3,
+  armorDef: 1,
+} as const;
+/** Accessories can't be refined, like in RO. */
+export const canRefine = (it: ItemDef | undefined) => !!it && ['weapon', 'armor', 'head', 'shoes', 'earring'].includes(it.type);
+const refineKind = (it: ItemDef) => (it.type === 'weapon' ? 'weapon' : 'other');
+export const refineChance = (it: ItemDef, toLevel: number) => REFINE.chance[refineKind(it)][toLevel - 1] ?? 0;
+export const refineSafe = (it: ItemDef) => REFINE.chance[refineKind(it)].filter((c) => c === 100).length;
+export const refineMaterial = (it: ItemDef) => REFINE.material[refineKind(it)];
+export const refineFee = (toLevel: number) => REFINE.fee * toLevel;
+/** Atk/Matk/Def an item gets from its + level. */
+export function refineBonus(it: ItemDef, refine: number) {
+  if (!refine) return { atk: 0, matk: 0, def: 0 };
+  if (it.type === 'weapon') return { atk: REFINE.weaponAtk * refine, matk: it.matk ? REFINE.weaponAtk * refine : 0, def: 0 };
+  return { atk: 0, matk: 0, def: REFINE.armorDef * refine };
+}
+/** "+7 กีตาร์ไฟฟ้า [2]" */
+export function itemLabel(itemId: string, row?: { refine?: number }): string {
+  const it = ITEMS[itemId];
+  if (!it) return itemId;
+  const plus = row?.refine ? `+${row.refine} ` : '';
+  return `${plus}${it.name}${it.slots ? ` [${it.slots}]` : ''}`;
 }
 
 export interface MonsterDef {
@@ -208,6 +264,10 @@ export interface InvItem {
   item_id: string;
   qty: number;
   equipped: boolean;
+  /** + level from the refiner (equipment only; missing = 0). */
+  refine?: number;
+  /** Card item ids inserted into this piece of equipment. */
+  cards?: string[];
 }
 
 export interface Buffs {
@@ -238,10 +298,30 @@ export interface Derived {
 
 export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Derived {
   const c = { ...base };
-  for (const k of STAT_KEYS) c[k] += buffs.stats?.[k] ?? 0;
+  const worn = inv.filter((i) => i.equipped && ITEMS[i.item_id]);
+  // cards in worn equipment
+  const card: Required<CardBonus> = {
+    str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0, atk: 0, matk: 0, def: 0, mdef: 0, hit: 0, flee: 0, crit: 0, aspd: 0,
+    maxHp: 0, maxSp: 0, maxHpPct: 0, maxSpPct: 0, atkPct: 0, matkPct: 0,
+  };
+  for (const row of worn) {
+    for (const id of row.cards ?? []) {
+      for (const [k, v] of Object.entries(ITEMS[id]?.card?.bonus ?? {}) as [keyof CardBonus, number][]) card[k] += v;
+    }
+  }
+  const bonus: Partial<Stats> = {};
+  for (const k of STAT_KEYS) {
+    const extra = (buffs.stats?.[k] ?? 0) + card[k];
+    c[k] += extra;
+    if (extra) bonus[k] = extra;
+  }
   const cls = CLASSES[c.cls];
-  const equipped = inv.filter((i) => i.equipped).map((i) => ITEMS[i.item_id]).filter(Boolean);
-  const sum = (k: 'atk' | 'matk' | 'def' | 'aspd' | 'flee' | 'crit') => equipped.reduce((s, i) => s + (i[k] ?? 0), 0);
+  const sum = (k: 'atk' | 'matk' | 'def' | 'aspd' | 'flee' | 'crit') =>
+    worn.reduce((s, row) => {
+      const it = ITEMS[row.item_id];
+      const r = k === 'atk' || k === 'matk' || k === 'def' ? refineBonus(it, row.refine ?? 0)[k] : 0;
+      return s + (it[k] ?? 0) + r;
+    }, 0);
 
   const p = { maxHpPct: 0, maxSpPct: 0, atkPct: 0, matkPct: 0, hit: 0 };
   for (const [id, lv] of Object.entries(c.skills ?? {})) {
@@ -251,26 +331,26 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
   }
 
   const mainStat = cls.attackType === 'ranged' ? c.dex : c.str;
-  const atk = sum('atk') + mainStat * 2 + Math.floor(c.level / 2) + Math.floor(c.luk / 3);
-  const matk = sum('matk') + c.int * 3 + Math.floor(c.level / 2);
-  const aspdPct = sum('aspd') + (buffs.aspdPct ?? 0);
+  const atk = sum('atk') + card.atk + mainStat * 2 + Math.floor(c.level / 2) + Math.floor(c.luk / 3);
+  const matk = sum('matk') + card.matk + c.int * 3 + Math.floor(c.level / 2);
+  const aspdPct = sum('aspd') + card.aspd + (buffs.aspdPct ?? 0);
   const attackDelay = Math.max(300, Math.round((1300 - c.agi * 18 - c.dex * 3) * (1 - aspdPct / 100)));
   return {
-    maxHp: Math.floor((40 + c.vit * 8 + c.level * 12) * cls.hpMod * (1 + p.maxHpPct / 100)),
-    maxSp: Math.floor((10 + c.int * 4 + c.level * 2) * cls.spMod * (1 + p.maxSpPct / 100)),
-    atk: Math.floor(atk * (1 + p.atkPct / 100)),
-    matk: Math.floor(matk * (1 + p.matkPct / 100)),
-    def: sum('def') + Math.floor(c.vit / 2) + (buffs.def ?? 0),
-    mdef: Math.floor(c.int / 2) + Math.floor(c.vit / 5),
-    hit: c.level + c.dex + p.hit,
-    flee: c.level + c.agi + sum('flee'),
-    crit: Math.floor(1 + c.luk * 0.3 + c.dex * 0.1) + sum('crit'),
+    maxHp: Math.floor(((40 + c.vit * 8 + c.level * 12) * cls.hpMod + card.maxHp) * (1 + (p.maxHpPct + card.maxHpPct) / 100)),
+    maxSp: Math.floor(((10 + c.int * 4 + c.level * 2) * cls.spMod + card.maxSp) * (1 + (p.maxSpPct + card.maxSpPct) / 100)),
+    atk: Math.floor(atk * (1 + (p.atkPct + card.atkPct) / 100)),
+    matk: Math.floor(matk * (1 + (p.matkPct + card.matkPct) / 100)),
+    def: sum('def') + card.def + Math.floor(c.vit / 2) + (buffs.def ?? 0),
+    mdef: Math.floor(c.int / 2) + Math.floor(c.vit / 5) + card.mdef,
+    hit: c.level + c.dex + p.hit + card.hit,
+    flee: c.level + c.agi + sum('flee') + card.flee,
+    crit: Math.floor(1 + c.luk * 0.3 + c.dex * 0.1) + sum('crit') + card.crit,
     aspd: Math.min(190, Math.floor(200 - attackDelay / 20)),
     attackDelay,
     moveSpeed: 150 + Math.min(60, c.agi * 2),
     weight: inv.reduce((s, i) => s + (ITEMS[i.item_id]?.weight ?? 0) * i.qty, 0),
     maxWeight: 2000 + c.str * 30,
-    bonus: buffs.stats,
+    bonus,
   };
 }
 

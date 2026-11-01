@@ -593,9 +593,10 @@ export class MapRoom extends Room<{ state: MapState }> {
       const otherSeat = this.seats.get(other);
       if (!seat || !otherSeat) continue;
       // show the other side's items by item id (their inventory ids mean nothing to us)
-      const theirs = trade.offers[other].items.map((o) => ({
-        item: otherSeat.inv.find((i) => i.id === o.inv)?.item_id ?? '', qty: o.qty,
-      }));
+      const theirs = trade.offers[other].items.map((o) => {
+        const row = otherSeat.inv.find((i) => i.id === o.inv);
+        return { item: row?.item_id ?? '', qty: o.qty, refine: row?.refine ?? 0, cards: row?.cards ?? [] };
+      });
       seat.client.send('tradeState', {
         with: otherSeat.char.name,
         mine: trade.offers[me],

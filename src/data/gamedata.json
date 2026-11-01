@@ -122,7 +122,8 @@
    "heal": 45,
    "price": 25,
    "color": "#8fd3ff",
-   "weight": 5
+   "weight": 5,
+   "desc": "น้ำดื่มสะอาด ๆ จิบแล้วเสียงใสขึ้นนิดหน่อย"
   },
   "energy_drink": {
    "name": "เครื่องดื่มชูกำลัง",
@@ -130,7 +131,8 @@
    "heal": 110,
    "price": 70,
    "color": "#f0902a",
-   "weight": 5
+   "weight": 5,
+   "desc": "เครื่องดื่มชูกำลังสำหรับนักดนตรีที่ซ้อมดึก ฟื้นแรงได้ดี"
   },
   "honey_lemon": {
    "name": "น้ำผึ้งมะนาว",
@@ -138,7 +140,8 @@
    "sp": 40,
    "price": 120,
    "color": "#f4d03f",
-   "weight": 5
+   "weight": 5,
+   "desc": "น้ำผึ้งผสมมะนาวอุ่น ๆ สูตรรักษาเสียงของนักร้อง ช่วยฟื้นพลังเสียง (SP)"
   },
   "banana": {
    "name": "กล้วย",
@@ -146,42 +149,48 @@
    "heal": 20,
    "price": 8,
    "color": "#ffe066",
-   "weight": 5
+   "weight": 5,
+   "desc": "กล้วยหอมลูกเล็ก กินง่าย อิ่มเร็ว"
   },
   "note_shard": {
    "name": "เศษโน้ตเพี้ยน",
    "type": "loot",
    "price": 4,
    "color": "#f2a3c7",
-   "weight": 1
+   "weight": 1,
+   "desc": "เศษตัวโน้ตที่ร้องเพี้ยนจนแตกออกมา ขายให้ร้านค้าได้"
   },
   "silent_spore": {
    "name": "สปอร์เงียบ",
    "type": "loot",
    "price": 10,
    "color": "#b5835a",
-   "weight": 1
+   "weight": 1,
+   "desc": "สปอร์จากเห็ดเงียบ จับแล้วหูอื้อไปพักหนึ่ง"
   },
   "buzz_stinger": {
    "name": "เหล็กไนเสียงหึ่ง",
    "type": "loot",
    "price": 18,
    "color": "#e8c33a",
-   "weight": 1
+   "weight": 1,
+   "desc": "เหล็กไนของผึ้งเสียงหึ่ง ยังสั่นเป็นจังหวะอยู่เลย"
   },
   "rock_chip": {
    "name": "เศษหินร็อค",
    "type": "loot",
    "price": 30,
    "color": "#8c8c8c",
-   "weight": 1
+   "weight": 1,
+   "desc": "เศษหินแข็งจากหลังเม่นหนามร็อค"
   },
   "golden_clef": {
    "name": "กุญแจซอลทองคำ",
    "type": "loot",
    "price": 400,
    "color": "#ffd700",
-   "weight": 10
+   "weight": 10,
+   "desc": "กุญแจซอลทองคำของราชาเห็ด ของหายากราคาแพง"
   },
   "basic_mic": {
    "name": "ไมค์ธรรมดา",
@@ -193,7 +202,9 @@
     "singer"
    ],
    "color": "#9aa0a6",
-   "weight": 60
+   "weight": 60,
+   "desc": "ไมค์สำหรับนักร้องฝึกหัด ยิงคลื่นเสียงได้พอประมาณ",
+   "slots": 1
   },
   "golden_mic": {
    "name": "ไมค์ทองคำ",
@@ -205,7 +216,9 @@
     "singer"
    ],
    "color": "#ffd700",
-   "weight": 60
+   "weight": 60,
+   "desc": "ไมค์ทองคำของนักร้องอาชีพ คลื่นเสียงแรงขึ้นมาก",
+   "slots": 2
   },
   "acoustic_guitar": {
    "name": "กีตาร์โปร่ง",
@@ -216,7 +229,9 @@
     "guitarist"
    ],
    "color": "#c8843c",
-   "weight": 60
+   "weight": 60,
+   "desc": "กีตาร์โปร่งคู่ใจของมือกีตาร์มือใหม่",
+   "slots": 1
   },
   "electric_guitar": {
    "name": "กีตาร์ไฟฟ้า",
@@ -227,7 +242,9 @@
     "guitarist"
    ],
    "color": "#e23b3b",
-   "weight": 60
+   "weight": 60,
+   "desc": "กีตาร์ไฟฟ้าเสียงแตก พลังโจมตีสูง",
+   "slots": 2
   },
   "wood_sticks": {
    "name": "ไม้กลองไม้",
@@ -238,7 +255,9 @@
     "drummer"
    ],
    "color": "#d2a679",
-   "weight": 60
+   "weight": 60,
+   "desc": "ไม้กลองไม้คู่แรก ใช้ตีได้ทั้งสองมือ",
+   "slots": 1
   },
   "steel_sticks": {
    "name": "ไม้กลองเหล็ก",
@@ -249,7 +268,9 @@
     "drummer"
    ],
    "color": "#b0bec5",
-   "weight": 60
+   "weight": 60,
+   "desc": "ไม้กลองเหล็ก หนักแน่น ตีทีเดียวสะเทือน",
+   "slots": 2
   },
   "basic_bass": {
    "name": "เบส 4 สาย",
@@ -260,7 +281,9 @@
     "bassist"
    ],
    "color": "#5a3a8a",
-   "weight": 60
+   "weight": 60,
+   "desc": "เบส 4 สายมาตรฐาน เสียงทุ้มหนักแน่น",
+   "slots": 1
   },
   "five_string_bass": {
    "name": "เบส 5 สาย",
@@ -271,7 +294,9 @@
     "bassist"
    ],
    "color": "#2e2e48",
-   "weight": 60
+   "weight": 60,
+   "desc": "เบส 5 สาย มีสายต่ำเพิ่ม เสียงสะเทือนพื้น",
+   "slots": 2
   },
   "mini_keyboard": {
    "name": "คีย์บอร์ดจิ๋ว",
@@ -283,7 +308,9 @@
     "keyboardist"
    ],
    "color": "#eeeeee",
-   "weight": 60
+   "weight": 60,
+   "desc": "คีย์บอร์ดจิ๋วพกพา ใช้ร่ายเวทเสียงได้",
+   "slots": 1
   },
   "synth": {
    "name": "ซินธิไซเซอร์",
@@ -295,7 +322,9 @@
     "keyboardist"
    ],
    "color": "#40c4ff",
-   "weight": 60
+   "weight": 60,
+   "desc": "ซินธิไซเซอร์ปรับเสียงได้หลากหลาย พลังเวทสูง",
+   "slots": 2
   },
   "band_tshirt": {
    "name": "เสื้อยืดวง",
@@ -303,7 +332,9 @@
    "def": 3,
    "price": 40,
    "color": "#333333",
-   "weight": 80
+   "weight": 80,
+   "desc": "เสื้อยืดลายวงโปรด ใส่สบายแต่ป้องกันได้นิดเดียว",
+   "slots": 1
   },
   "leather_jacket": {
    "name": "แจ็คเก็ตหนังร็อค",
@@ -311,7 +342,9 @@
    "def": 9,
    "price": 400,
    "color": "#5a3a22",
-   "weight": 80
+   "weight": 80,
+   "desc": "แจ็คเก็ตหนังสไตล์ร็อค หนาและทนทาน",
+   "slots": 2
   },
   "note_ribbon": {
    "name": "ริบบิ้นโน้ต",
@@ -320,7 +353,9 @@
    "matk": 8,
    "price": 300,
    "color": "#ff6fae",
-   "weight": 10
+   "weight": 10,
+   "desc": "ริบบิ้นลายตัวโน้ต ช่วยให้เสียงเวทแรงขึ้น",
+   "slots": 1
   },
   "headphones": {
    "name": "หูฟังสตูดิโอ",
@@ -329,7 +364,9 @@
    "price": 450,
    "color": "#37474f",
    "weight": 20,
-   "matk": 5
+   "matk": 5,
+   "desc": "หูฟังสตูดิโอครอบหู ได้ยินชัดทุกโน้ต",
+   "slots": 1
   },
   "rock_cap": {
    "name": "หมวกร็อค",
@@ -337,7 +374,9 @@
    "def": 5,
    "price": 900,
    "color": "#212121",
-   "weight": 30
+   "weight": 30,
+   "desc": "หมวกแก๊ปสายร็อค แข็งแรงกว่าที่เห็น",
+   "slots": 1
   },
   "pick_necklace": {
    "name": "สร้อยปิ๊ก",
@@ -345,7 +384,9 @@
    "atk": 5,
    "price": 500,
    "color": "#ffb300",
-   "weight": 5
+   "weight": 5,
+   "desc": "สร้อยห้อยปิ๊กกีตาร์ ใส่แล้วมือหนักขึ้น",
+   "slots": 1
   },
   "metronome_charm": {
    "name": "เครื่องรางเมโทรนอม",
@@ -353,49 +394,57 @@
    "aspd": 5,
    "price": 1200,
    "color": "#8d6e63",
-   "weight": 5
+   "weight": 5,
+   "desc": "เครื่องรางเมโทรนอม ช่วยให้ตีเร็วขึ้นตามจังหวะ",
+   "slots": 1
   },
   "drop_crystal": {
    "name": "ผลึกหยดเสียง",
    "type": "loot",
    "price": 8,
    "color": "#64b5f6",
-   "weight": 1
+   "weight": 1,
+   "desc": "ผลึกใสที่เกิดจากเสียงหยดน้ำ"
   },
   "chick_feather": {
    "name": "ขนลูกเจี๊ยบ",
    "type": "loot",
    "price": 12,
    "color": "#ffe082",
-   "weight": 1
+   "weight": 1,
+   "desc": "ขนนุ่มของไก่น้อยที่ชอบร้องเพลงตอนเช้า"
   },
   "rabbit_ear": {
    "name": "หูกระต่ายจังหวะ",
    "type": "loot",
    "price": 20,
    "color": "#fafafa",
-   "weight": 1
+   "weight": 1,
+   "desc": "หูกระต่ายที่ได้ยินจังหวะชัดกว่าใคร"
   },
   "frog_skin": {
    "name": "หนังกบเบส",
    "type": "loot",
    "price": 35,
    "color": "#7cb342",
-   "weight": 1
+   "weight": 1,
+   "desc": "หนังกบเบส สั่นทุกครั้งที่มีเสียงต่ำ"
   },
   "bat_wing": {
    "name": "ปีกค้างคาวโซนิค",
    "type": "loot",
    "price": 45,
    "color": "#5e35b1",
-   "weight": 1
+   "weight": 1,
+   "desc": "ปีกค้างคาวที่ปล่อยคลื่นเสียงความถี่สูง"
   },
   "gear_spring": {
    "name": "สปริงเมโทรนอม",
    "type": "loot",
    "price": 70,
    "color": "#a1887f",
-   "weight": 2
+   "weight": 2,
+   "desc": "สปริงจากกลไกเมโทรนอม ยังเด้งตามจังหวะ"
   },
   "carrot": {
    "name": "แครอท",
@@ -403,280 +452,320 @@
    "heal": 30,
    "price": 14,
    "color": "#ff8f00",
-   "weight": 2
+   "weight": 2,
+   "desc": "แครอทกรอบ ๆ ที่กระต่ายจังหวะชอบแทะ"
   },
   "owl_feather": {
    "name": "ขนนกฮูกเบสทุ้ม",
    "type": "loot",
    "price": 40,
    "color": "#8d6e63",
-   "weight": 1
+   "weight": 1,
+   "desc": "ขนนกฮูกที่ร้องเสียงทุ้มต่ำในป่า"
   },
   "moss_cap": {
    "name": "หมวกเห็ดมอส",
    "type": "loot",
    "price": 55,
    "color": "#689f38",
-   "weight": 1
+   "weight": 1,
+   "desc": "หมวกเห็ดที่มีมอสเกาะ ร้องคอรัสได้เบา ๆ"
   },
   "ancient_bark": {
    "name": "เปลือกไม้ก้องกังวาน",
    "type": "loot",
    "price": 300,
    "color": "#4e7a3a",
-   "weight": 5
+   "weight": 5,
+   "desc": "เปลือกไม้จากต้นไม้โบราณ เคาะแล้วเสียงก้องกังวาน"
   },
   "toad_horn": {
    "name": "แตรคางคกทูบา",
    "type": "loot",
    "price": 60,
    "color": "#556b2f",
-   "weight": 1
+   "weight": 1,
+   "desc": "แตรเล็ก ๆ ของปลาทูบาบึง เป่าแล้วดังปู้น"
   },
   "violin_needle": {
    "name": "เข็มยุงไวโอลิน",
    "type": "loot",
    "price": 70,
    "color": "#9575cd",
-   "weight": 1
+   "weight": 1,
+   "desc": "เข็มของผึ้งยักษ์ไวโอลิน คมเหมือนคันชัก"
   },
   "marsh_pearl": {
    "name": "ไข่มุกบึงจังหวะ",
    "type": "loot",
    "price": 450,
    "color": "#a5d6a7",
-   "weight": 5
+   "weight": 5,
+   "desc": "ไข่มุกจากราชาฉลามบึง เต้นเป็นจังหวะเบา ๆ ในมือ"
   },
   "drum_stone": {
    "name": "หินกลองศิลา",
    "type": "loot",
    "price": 80,
    "color": "#a1887f",
-   "weight": 1
+   "weight": 1,
+   "desc": "หินที่เคาะแล้วเสียงเหมือนกลองใบใหญ่"
   },
   "wolf_fang": {
    "name": "เขี้ยวหมาป่าหอน",
    "type": "loot",
    "price": 90,
    "color": "#bdbdbd",
-   "weight": 1
+   "weight": 1,
+   "desc": "เขี้ยวของไดโนนักหอนเดี่ยว"
   },
   "sand_crystal": {
    "name": "ผลึกทรายร้องเพลง",
    "type": "loot",
    "price": 95,
    "color": "#ffb74d",
-   "weight": 1
+   "weight": 1,
+   "desc": "ผลึกทรายที่ร้องเพลงเมื่อลมพัดผ่าน"
   },
   "dragon_scale": {
    "name": "เกล็ดมังกรร็อก",
    "type": "loot",
    "price": 600,
    "color": "#c62828",
-   "weight": 5
+   "weight": 5,
+   "desc": "เกล็ดมังกรร็อกแอนด์โรล แข็งและร้อนเหมือนแอมป์"
   },
   "ice_feather": {
    "name": "ขนเพนกวินเยือกแข็ง",
    "type": "loot",
    "price": 110,
    "color": "#90caf9",
-   "weight": 1
+   "weight": 1,
+   "desc": "ขนนกเย็นเฉียบจากดินแดนหิมะ"
   },
   "frost_gel": {
    "name": "เจลน้ำแข็งใส",
    "type": "loot",
    "price": 120,
    "color": "#81d4fa",
-   "weight": 1
+   "weight": 1,
+   "desc": "เจลน้ำแข็งใสที่ไม่ละลายง่าย ๆ"
   },
   "yeti_fur": {
    "name": "ขนเยติปุกปุย",
    "type": "loot",
    "price": 150,
    "color": "#eceff1",
-   "weight": 1
+   "weight": 1,
+   "desc": "ขนเยติปุกปุย อุ่นมาก"
   },
   "snow_crown": {
    "name": "มงกุฎเกล็ดหิมะ",
    "type": "loot",
    "price": 800,
    "color": "#e1f5fe",
-   "weight": 5
+   "weight": 5,
+   "desc": "มงกุฎเกล็ดหิมะของราชินีโซปราโน ของหายาก"
   },
   "ember_wing": {
    "name": "ปีกถ่านเพลิง",
    "type": "loot",
    "price": 170,
    "color": "#e53935",
-   "weight": 1
+   "weight": 1,
+   "desc": "ปีกที่ยังมีถ่านไฟลุกอยู่"
   },
   "magma_core": {
    "name": "แกนแมกมา",
    "type": "loot",
    "price": 200,
    "color": "#ef6c00",
-   "weight": 1
+   "weight": 1,
+   "desc": "แกนแมกมาร้อนระอุจากออร์คภูเขาไฟ"
   },
   "molten_spring": {
    "name": "สปริงหลอมเหลว",
    "type": "loot",
    "price": 220,
    "color": "#bf360c",
-   "weight": 1
+   "weight": 1,
+   "desc": "สปริงที่หลอมจนเกือบเหลว ยังเด้งได้"
   },
   "metal_soul": {
    "name": "วิญญาณเมทัลนิรันดร์",
    "type": "loot",
    "price": 1500,
    "color": "#ff1744",
-   "weight": 5
+   "weight": 5,
+   "desc": "วิญญาณเมทัลนิรันดร์จากจอมมารหน้ากาก ของหายากที่สุด"
   },
   "cat_whisker": {
    "name": "หนวดแมวฮัมเพลง",
    "type": "loot",
    "price": 6,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "หนวดแมวส้มที่ฮัมเพลงทั้งวัน"
   },
   "dog_bone": {
    "name": "กระดูกบีทบ็อกซ์",
    "type": "loot",
    "price": 9,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "กระดูกที่หมาน้อยใช้ตีบีทบ็อกซ์"
   },
   "pigeon_feather": {
    "name": "ขนพิราบป๊อป",
    "type": "loot",
    "price": 22,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "ขนนกพิราบสายป๊อป"
   },
   "monkey_drum": {
    "name": "กลองลิงป่า",
    "type": "loot",
    "price": 50,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "กลองจิ๋วของลิงกลองป่า"
   },
   "wizard_hat": {
    "name": "หมวกพ่อมดโน้ต",
    "type": "loot",
    "price": 60,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "หมวกเล็ก ๆ ของพ่อมดน้อยโน้ตม่วง"
   },
   "ninja_scroll": {
    "name": "คัมภีร์จังหวะนินจา",
    "type": "loot",
    "price": 65,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "คัมภีร์ที่จดจังหวะลับของนินจา"
   },
   "squid_ink": {
    "name": "หมึกโน้ตแจ๊ส",
    "type": "loot",
    "price": 68,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "หมึกที่เขียนโน้ตแจ๊สได้เอง"
   },
   "alien_vine": {
    "name": "เถาวัลย์ต่างดาว",
    "type": "loot",
    "price": 70,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "เถาวัลย์ต่างดาวที่สั่นตามเสียงเพลง"
   },
   "mud_tusk": {
    "name": "เขี้ยวออร์คโคลน",
    "type": "loot",
    "price": 75,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "เขี้ยวเปื้อนโคลนของออร์คบึง"
   },
   "triple_eye": {
    "name": "ลูกแก้วสามตา",
    "type": "loot",
    "price": 85,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "ลูกแก้วสามตาที่สะท้อนเสียงก้อง"
   },
   "alpa_wool": {
    "name": "ขนอัลปาคิง",
    "type": "loot",
    "price": 90,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "ขนอัลปาคิงนุ่มฟู ทนแดดทะเลทราย"
   },
   "stone_wing": {
    "name": "ปีกหินร้องเพลง",
    "type": "loot",
    "price": 95,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "ปีกหินที่ร้องเพลงเมื่อกระพือ"
   },
   "tribal_mask": {
    "name": "หน้ากากกลองเผ่า",
    "type": "loot",
    "price": 105,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "หน้ากากของนักรบเผ่ากลอง"
   },
   "chord_blade": {
    "name": "ดาบคอร์ดซามูไร",
    "type": "loot",
    "price": 115,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "ใบดาบที่ตีแล้วเป็นเสียงคอร์ด"
   },
   "frost_tentacle": {
    "name": "หนวดภูตหิมะ",
    "type": "loot",
    "price": 125,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "หนวดเย็นเฉียบของภูตหิมะ"
   },
   "ice_club": {
    "name": "กระบองน้ำแข็ง",
    "type": "loot",
    "price": 135,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "กระบองน้ำแข็งหนักอึ้ง"
   },
   "snow_wool": {
    "name": "ขนอัลปาคิงหิมะ",
    "type": "loot",
    "price": 150,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "ขนอัลปาคิงหิมะ อุ่นกว่าผ้าห่ม"
   },
   "skull_flame": {
    "name": "เปลวกะโหลกร็อก",
    "type": "loot",
    "price": 175,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "เปลวไฟสีม่วงจากกะโหลกร็อก"
   },
   "trident_tip": {
    "name": "ปลายตรีศูลเมทัล",
    "type": "loot",
    "price": 195,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "ปลายตรีศูลของปีศาจเมทัล"
   },
   "iron_skull": {
    "name": "กะโหลกเหล็กเมทัล",
    "type": "loot",
    "price": 230,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "กะโหลกเหล็กของออร์คเมทัล"
   },
   "dove_feather": {
    "name": "ขนนกพิราบป่า",
    "type": "loot",
    "price": 45,
    "color": "#9e9e9e",
-   "weight": 1
+   "weight": 1,
+   "desc": "ขนนกพิราบป่าที่ร้องเสียงใส"
   },
   "dagger": {
    "name": "มีดสั้น",
@@ -687,7 +776,9 @@
     "teen"
    ],
    "color": "#c9ccd1",
-   "weight": 40
+   "weight": 40,
+   "desc": "มีดสั้นธรรมดาของวัยรุ่นนักผจญภัย เบาและใช้ง่าย",
+   "slots": 1
   },
   "steel_dagger": {
    "name": "มีดสั้นเหล็กกล้า",
@@ -698,7 +789,9 @@
     "teen"
    ],
    "color": "#e3e6ea",
-   "weight": 50
+   "weight": 50,
+   "desc": "มีดสั้นเหล็กกล้า คมกว่าและหนักมือกว่ามีดธรรมดา",
+   "slots": 2
   },
   "sneakers": {
    "name": "รองเท้าผ้าใบ",
@@ -707,7 +800,9 @@
    "flee": 2,
    "price": 60,
    "color": "#eceff1",
-   "weight": 30
+   "weight": 30,
+   "desc": "รองเท้าผ้าใบเบา ๆ วิ่งหลบได้คล่อง",
+   "slots": 1
   },
   "stage_boots": {
    "name": "บูทขึ้นเวที",
@@ -716,7 +811,9 @@
    "flee": 3,
    "price": 350,
    "color": "#4e342e",
-   "weight": 50
+   "weight": 50,
+   "desc": "บูทขึ้นเวที ทนทานและมั่นคง",
+   "slots": 1
   },
   "dance_shoes": {
    "name": "รองเท้าเต้นรำ",
@@ -725,7 +822,9 @@
    "flee": 7,
    "price": 800,
    "color": "#d81b60",
-   "weight": 30
+   "weight": 30,
+   "desc": "รองเท้าเต้นรำ หลบหลีกได้ดีเยี่ยม",
+   "slots": 1
   },
   "rock_boots": {
    "name": "บูทร็อคหมุดเหล็ก",
@@ -734,7 +833,9 @@
    "flee": 5,
    "price": 1500,
    "color": "#212121",
-   "weight": 60
+   "weight": 60,
+   "desc": "บูทติดหมุดเหล็กของสายร็อค ทั้งแข็งและคล่อง",
+   "slots": 2
   },
   "note_stud": {
    "name": "ต่างหูตัวโน้ต",
@@ -742,7 +843,9 @@
    "matk": 4,
    "price": 80,
    "color": "#90caf9",
-   "weight": 2
+   "weight": 2,
+   "desc": "ต่างหูรูปตัวโน้ต เพิ่มพลังเวทเล็กน้อย",
+   "slots": 1
   },
   "pick_earring": {
    "name": "ต่างหูปิ๊กกีตาร์",
@@ -750,7 +853,9 @@
    "atk": 4,
    "price": 400,
    "color": "#ffb300",
-   "weight": 2
+   "weight": 2,
+   "desc": "ต่างหูปิ๊กกีตาร์ เพิ่มพลังโจมตี",
+   "slots": 1
   },
   "star_earring": {
    "name": "ต่างหูดาวเด่น",
@@ -758,7 +863,9 @@
    "crit": 4,
    "price": 900,
    "color": "#fdd835",
-   "weight": 2
+   "weight": 2,
+   "desc": "ต่างหูดาวเด่นประจำเวที เพิ่มโอกาสคริติคอล",
+   "slots": 1
   },
   "crystal_earring": {
    "name": "ต่างหูคริสตัลเสียง",
@@ -767,7 +874,9 @@
    "matk": 10,
    "price": 1800,
    "color": "#80deea",
-   "weight": 2
+   "weight": 2,
+   "desc": "ต่างหูคริสตัลที่สะท้อนเสียงได้ เพิ่มทั้งพลังโจมตีและเวท",
+   "slots": 1
   },
   "earbuds": {
    "name": "หูฟังเอียร์บัด",
@@ -776,7 +885,9 @@
    "matk": 3,
    "price": 80,
    "color": "#fafafa",
-   "weight": 5
+   "weight": 5,
+   "desc": "หูฟังเอียร์บัดเล็ก ๆ พกง่าย",
+   "slots": 1
   },
   "in_ear_monitor": {
    "name": "หูฟังอินเอียร์มอนิเตอร์",
@@ -786,7 +897,9 @@
    "flee": 2,
    "price": 400,
    "color": "#29b6f6",
-   "weight": 5
+   "weight": 5,
+   "desc": "หูฟังมอนิเตอร์บนเวที ได้ยินจังหวะชัด ตีแม่นขึ้น",
+   "slots": 1
   },
   "gaming_headset": {
    "name": "เฮดเซ็ตเกมมิ่ง",
@@ -796,7 +909,9 @@
    "matk": 4,
    "price": 900,
    "color": "#7c4dff",
-   "weight": 25
+   "weight": 25,
+   "desc": "เฮดเซ็ตเกมมิ่งพร้อมไมค์ เพิ่มทั้งพลังโจมตีและเวท",
+   "slots": 1
   },
   "dj_headphones": {
    "name": "หูฟังดีเจ",
@@ -806,7 +921,9 @@
    "crit": 5,
    "price": 1300,
    "color": "#ff7043",
-   "weight": 25
+   "weight": 25,
+   "desc": "หูฟังดีเจ จับบีทแม่นจนคริติคอลบ่อยขึ้น",
+   "slots": 1
   },
   "cat_headphones": {
    "name": "หูฟังหูแมว",
@@ -817,7 +934,772 @@
    "crit": 3,
    "price": 2500,
    "color": "#f48fb1",
-   "weight": 20
+   "weight": 20,
+   "desc": "หูฟังหูแมวสุดน่ารัก ของหายาก เพิ่มพลังรอบด้าน",
+   "slots": 1
+  },
+  "tuning_ore": {
+   "name": "หินจูนเสียง",
+   "type": "loot",
+   "price": 150,
+   "color": "#c9a227",
+   "weight": 2,
+   "desc": "หินแร่ที่สั่นตรงคีย์พอดี ช่างตีบวกใช้ตีบวกอาวุธ (ใช้ 1 ก้อนต่อครั้ง)"
+  },
+  "velvet_patch": {
+   "name": "ผ้ากำมะหยี่ซับเสียง",
+   "type": "loot",
+   "price": 150,
+   "color": "#7e57c2",
+   "weight": 2,
+   "desc": "ผ้ากำมะหยี่หนานุ่ม ช่างตีบวกใช้ตีบวกชุด หมวก หูฟัง และรองเท้า (ใช้ 1 ผืนต่อครั้ง)"
+  },
+  "card_jelly": {
+   "name": "การ์ดเจลลี่โน้ต",
+   "type": "card",
+   "price": 140,
+   "color": "#f48fb1",
+   "weight": 1,
+   "desc": "ตัวนุ่มเด้งดึ๋ง · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "vit": 1,
+     "maxHp": 30
+    }
+   }
+  },
+  "card_drop": {
+   "name": "การ์ดวุ้นเขียวบีท",
+   "type": "card",
+   "price": 180,
+   "color": "#64b5f6",
+   "weight": 1,
+   "desc": "หยดเสียงที่ตกกระทบแรง · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "atk": 5
+    }
+   }
+  },
+  "card_chick": {
+   "name": "การ์ดไก่น้อยร้องเพลง",
+   "type": "card",
+   "price": 220,
+   "color": "#ffd54f",
+   "weight": 1,
+   "desc": "ร้องเพลงทุกเช้า · เสียบได้ในช่องการ์ดของหมวก/หูฟัง เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "head",
+    "bonus": {
+     "int": 1,
+     "maxSp": 10
+    }
+   }
+  },
+  "card_mushy": {
+   "name": "การ์ดเห็ดเงียบ",
+   "type": "card",
+   "price": 260,
+   "color": "#c98b5a",
+   "weight": 1,
+   "desc": "เงียบจนเวทแทรกไม่เข้า · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "mdef": 3,
+     "def": 1
+    }
+   }
+  },
+  "card_rabbit": {
+   "name": "การ์ดกระต่ายจังหวะ",
+   "type": "card",
+   "price": 300,
+   "color": "#f5f5f5",
+   "weight": 1,
+   "desc": "กระโดดตามจังหวะ · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "agi": 2
+    }
+   }
+  },
+  "card_buzzer": {
+   "name": "การ์ดผึ้งเสียงหึ่ง",
+   "type": "card",
+   "price": 380,
+   "color": "#f2c230",
+   "weight": 1,
+   "desc": "ต่อยแม่นเหมือนเหล็กไน · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "hit": 5,
+     "crit": 1
+    }
+   }
+  },
+  "card_frog": {
+   "name": "การ์ดกบเบส",
+   "type": "card",
+   "price": 420,
+   "color": "#7cb342",
+   "weight": 1,
+   "desc": "พุงใหญ่ เสียงทุ้ม · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "maxHpPct": 5
+    }
+   }
+  },
+  "card_bat": {
+   "name": "การ์ดค้างคาวโซนิค",
+   "type": "card",
+   "price": 500,
+   "color": "#5e35b1",
+   "weight": 1,
+   "desc": "กระพือปีกเร็วจี๋ · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "agi": 1,
+     "aspd": 3
+    }
+   }
+  },
+  "card_rocky": {
+   "name": "การ์ดเม่นหนามร็อค",
+   "type": "card",
+   "price": 580,
+   "color": "#8d8d8d",
+   "weight": 1,
+   "desc": "หนามแข็งเหมือนหิน · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "def": 3
+    }
+   }
+  },
+  "card_metronome": {
+   "name": "การ์ดกลับลูกตุ้มจังหวะ",
+   "type": "card",
+   "price": 660,
+   "color": "#8d6e63",
+   "weight": 1,
+   "desc": "นับจังหวะไม่เคยพลาด · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "aspd": 4
+    }
+   }
+  },
+  "card_king_jelly": {
+   "name": "การ์ดราชาเห็ดเสียงเพี้ยน",
+   "type": "card",
+   "price": 5000,
+   "color": "#e91e63",
+   "weight": 1,
+   "desc": "ราชาแห่งเสียงเพี้ยน (บอส) · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "maxHpPct": 10,
+     "vit": 3,
+     "mdef": 3
+    }
+   }
+  },
+  "card_owl": {
+   "name": "การ์ดนกฟ้าเบสทุ้ม",
+   "type": "card",
+   "price": 540,
+   "color": "#8d6e63",
+   "weight": 1,
+   "desc": "ตาโตมองเห็นทุกโน้ต · เสียบได้ในช่องการ์ดของหมวก/หูฟัง เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "head",
+    "bonus": {
+     "int": 2,
+     "dex": 1
+    }
+   }
+  },
+  "card_mossy": {
+   "name": "การ์ดภูตเถาวัลย์คอรัส",
+   "type": "card",
+   "price": 620,
+   "color": "#689f38",
+   "weight": 1,
+   "desc": "ร้องคอรัสเบา ๆ ทั้งคืน · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "maxSpPct": 6
+    }
+   }
+  },
+  "card_elder_tree": {
+   "name": "การ์ดราชาเห็ดป่าโบราณ",
+   "type": "card",
+   "price": 5000,
+   "color": "#4e7a3a",
+   "weight": 1,
+   "desc": "ปัญญาจากต้นไม้พันปี (บอส) · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "int": 3,
+     "maxSpPct": 8,
+     "mdef": 3
+    }
+   }
+  },
+  "card_tuba_toad": {
+   "name": "การ์ดปลาทูบาบึง",
+   "type": "card",
+   "price": 660,
+   "color": "#556b2f",
+   "weight": 1,
+   "desc": "ยืนหยัดเหมือนเสียงทูบา · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "maxHp": 120,
+     "vit": 1
+    }
+   }
+  },
+  "card_mosquito": {
+   "name": "การ์ดผึ้งยักษ์ไวโอลิน",
+   "type": "card",
+   "price": 740,
+   "color": "#9575cd",
+   "weight": 1,
+   "desc": "แทงแม่นเหมือนคันชัก · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "dex": 2,
+     "hit": 4
+    }
+   }
+  },
+  "card_marsh_queen": {
+   "name": "การ์ดราชาฉลามบึงทุ้ม",
+   "type": "card",
+   "price": 5000,
+   "color": "#2e7d32",
+   "weight": 1,
+   "desc": "ราชาแห่งบึงเสียงทุ้ม (บอส) · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "atkPct": 8,
+     "str": 2
+    }
+   }
+  },
+  "card_drum_golem": {
+   "name": "การ์ดกระบองเพชรมาเรียชี",
+   "type": "card",
+   "price": 780,
+   "color": "#a1887f",
+   "weight": 1,
+   "desc": "ตัวแข็งเหมือนกลองหนัง · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "def": 4,
+     "str": 1
+    }
+   }
+  },
+  "card_howler": {
+   "name": "การ์ดไดโนหอนโซโล",
+   "type": "card",
+   "price": 820,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "หอนดังจนพื้นสะเทือน · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "str": 2,
+     "atk": 4
+    }
+   }
+  },
+  "card_sand_drop": {
+   "name": "การ์ดกระบองเพชรจิ๋วหมวกปีก",
+   "type": "card",
+   "price": 860,
+   "color": "#ffb74d",
+   "weight": 1,
+   "desc": "หลบในพายุทราย · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "flee": 6
+    }
+   }
+  },
+  "card_rock_dragon": {
+   "name": "การ์ดมังกรร็อกแอนด์โรล",
+   "type": "card",
+   "price": 5000,
+   "color": "#c62828",
+   "weight": 1,
+   "desc": "ริฟฟ์มังกรร็อก (บอส) · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "atk": 15,
+     "crit": 3
+    }
+   }
+  },
+  "card_penguin": {
+   "name": "การ์ดเยติน้อยคอรัส",
+   "type": "card",
+   "price": 940,
+   "color": "#37474f",
+   "weight": 1,
+   "desc": "ร้องคอรัสในหิมะ · เสียบได้ในช่องการ์ดของหมวก/หูฟัง เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "head",
+    "bonus": {
+     "vit": 1,
+     "mdef": 2
+    }
+   }
+  },
+  "card_ice_jelly": {
+   "name": "การ์ดนกน้ำแข็งเสียงสูง",
+   "type": "card",
+   "price": 980,
+   "color": "#81d4fa",
+   "weight": 1,
+   "desc": "เสียงสูงใสเหมือนน้ำแข็ง · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "int": 1,
+     "dex": 1
+    }
+   }
+  },
+  "card_yeti": {
+   "name": "การ์ดเยติเบสหนัก",
+   "type": "card",
+   "price": 1060,
+   "color": "#eceff1",
+   "weight": 1,
+   "desc": "ขนหนาเสียงเบสหนัก · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "vit": 2,
+     "maxHpPct": 5
+    }
+   }
+  },
+  "card_snow_queen": {
+   "name": "การ์ดราชินีหิมะโซปราโน",
+   "type": "card",
+   "price": 5000,
+   "color": "#b3e5fc",
+   "weight": 1,
+   "desc": "เสียงโซปราโนแห่งขั้วโลก (บอส) · เสียบได้ในช่องการ์ดของหมวก/หูฟัง เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "head",
+    "bonus": {
+     "int": 3,
+     "matkPct": 8
+    }
+   }
+  },
+  "card_fire_bat": {
+   "name": "การ์ดค้างคาวเพลิงเมทัล",
+   "type": "card",
+   "price": 1140,
+   "color": "#e53935",
+   "weight": 1,
+   "desc": "บินวนเร็วจนลุกเป็นไฟ · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "agi": 1,
+     "crit": 3
+    }
+   }
+  },
+  "card_magma_golem": {
+   "name": "การ์ดออร์คแมกมา",
+   "type": "card",
+   "price": 1220,
+   "color": "#ef6c00",
+   "weight": 1,
+   "desc": "ผิวแมกมาร้อนระอุ · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "def": 3,
+     "maxHp": 150
+    }
+   }
+  },
+  "card_flame_metronome": {
+   "name": "การ์ดมังกรน้อยเปลวไฟ",
+   "type": "card",
+   "price": 1260,
+   "color": "#bf360c",
+   "weight": 1,
+   "desc": "จังหวะร้อนแรง · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "aspd": 3,
+     "agi": 1
+    }
+   }
+  },
+  "card_metal_lord": {
+   "name": "การ์ดจอมมารหน้ากากเมทัล",
+   "type": "card",
+   "price": 5000,
+   "color": "#212121",
+   "weight": 1,
+   "desc": "จอมมารแห่งเมทัล (บอส) · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "str": 2,
+     "agi": 2,
+     "vit": 2,
+     "int": 2,
+     "dex": 2,
+     "luk": 2
+    }
+   }
+  },
+  "card_cat": {
+   "name": "การ์ดแมวส้มฮัมเพลง",
+   "type": "card",
+   "price": 180,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "แมวนำโชค · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "luk": 2
+    }
+   }
+  },
+  "card_dog": {
+   "name": "การ์ดหมาน้อยบีทบ็อกซ์",
+   "type": "card",
+   "price": 220,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "วิ่งตามบีท · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "agi": 1,
+     "flee": 2
+    }
+   }
+  },
+  "card_pigeon": {
+   "name": "การ์ดนกพิราบป๊อป",
+   "type": "card",
+   "price": 340,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "บินตรงเป้าเสมอ · เสียบได้ในช่องการ์ดของหมวก/หูฟัง เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "head",
+    "bonus": {
+     "dex": 1,
+     "hit": 2
+    }
+   }
+  },
+  "card_monkroose": {
+   "name": "การ์ดลิงกลองป่า",
+   "type": "card",
+   "price": 580,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "ตีกลองรัวไม่หยุด · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "str": 1,
+     "aspd": 2
+    }
+   }
+  },
+  "card_wizard": {
+   "name": "การ์ดพ่อมดน้อยโน้ตม่วง",
+   "type": "card",
+   "price": 620,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "เวทโน้ตม่วง · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "matk": 10,
+     "int": 1
+    }
+   }
+  },
+  "card_ninja": {
+   "name": "การ์ดนินจาเงาไม้",
+   "type": "card",
+   "price": 660,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "เงาที่จับไม่ได้ · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "flee": 5,
+     "agi": 1
+    }
+   }
+  },
+  "card_squidle": {
+   "name": "การ์ดปลาหมึกบินแจ๊ส",
+   "type": "card",
+   "price": 700,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "ด้นสดสไตล์แจ๊ส · เสียบได้ในช่องการ์ดของหมวก/หูฟัง เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "head",
+    "bonus": {
+     "maxSpPct": 5,
+     "int": 1
+    }
+   }
+  },
+  "card_alien": {
+   "name": "การ์ดเอเลี่ยนเถาวัลย์บึง",
+   "type": "card",
+   "price": 700,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "ผิวจากต่างดาว · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "mdef": 4,
+     "int": 1
+    }
+   }
+  },
+  "card_orc": {
+   "name": "การ์ดออร์คโคลนบึง",
+   "type": "card",
+   "price": 740,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "แรงเยอะเหมือนออร์ค · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "str": 2,
+     "atk": 3
+    }
+   }
+  },
+  "card_glub_evo": {
+   "name": "การ์ดกลับสามตาเสียงก้อง",
+   "type": "card",
+   "price": 780,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "สามตามองไม่พลาด · เสียบได้ในช่องการ์ดของหมวก/หูฟัง เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "head",
+    "bonus": {
+     "hit": 4,
+     "dex": 1
+    }
+   }
+  },
+  "card_alpaking": {
+   "name": "การ์ดอัลปาคิงทะเลทราย",
+   "type": "card",
+   "price": 820,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "ขนหนาทนแดด · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "vit": 1,
+     "def": 2
+    }
+   }
+  },
+  "card_goleling": {
+   "name": "การ์ดโกเลลิงปีกหิน",
+   "type": "card",
+   "price": 860,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "เท้าหนักเหมือนหิน · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "def": 2,
+     "maxHp": 60
+    }
+   }
+  },
+  "card_tribal": {
+   "name": "การ์ดนักรบหน้ากากกลอง",
+   "type": "card",
+   "price": 900,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "กลองศึกของเผ่า · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "str": 1,
+     "atk": 4
+    }
+   }
+  },
+  "card_big_ninja": {
+   "name": "การ์ดซามูไรดาบคอร์ด",
+   "type": "card",
+   "price": 940,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "ฟันฉับเดียวจบ · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "crit": 5,
+     "luk": 1
+    }
+   }
+  },
+  "card_hywirl": {
+   "name": "การ์ดภูตหิมะหนวดม่วง",
+   "type": "card",
+   "price": 980,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "หนวดเย็นสะสมพลังเวท · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "int": 1,
+     "maxSpPct": 4
+    }
+   }
+  },
+  "card_bluedemon": {
+   "name": "การ์ดอสูรน้ำแข็งกระบอง",
+   "type": "card",
+   "price": 1020,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "กระบองน้ำแข็งหนักอึ้ง · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "atk": 10
+    }
+   }
+  },
+  "card_alpaking_evo": {
+   "name": "การ์ดอัลปาคิงหิมะสามหัว",
+   "type": "card",
+   "price": 1060,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "สามหัวช่วยกันป้องกัน · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "def": 3,
+     "vit": 2
+    }
+   }
+  },
+  "card_ghost_skull": {
+   "name": "การ์ดวิญญาณกะโหลกร็อก",
+   "type": "card",
+   "price": 1180,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "วิญญาณร็อกที่ไม่ยอมตาย · เสียบได้ในช่องการ์ดของหมวก/หูฟัง เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "head",
+    "bonus": {
+     "luk": 2,
+     "crit": 2
+    }
+   }
+  },
+  "card_demon": {
+   "name": "การ์ดปีศาจตรีศูลเมทัล",
+   "type": "card",
+   "price": 1220,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "ตรีศูลเจาะทะลุ · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "atk": 8,
+     "hit": 3
+    }
+   }
+  },
+  "card_orc_skull": {
+   "name": "การ์ดออร์คกะโหลกเมทัล",
+   "type": "card",
+   "price": 1300,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "ก้าวหนักแบบเมทัล · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "def": 2,
+     "str": 1
+    }
+   }
+  },
+  "card_dove": {
+   "name": "การ์ดนกพิราบป่าเสียงใส",
+   "type": "card",
+   "price": 540,
+   "color": "#9e9e9e",
+   "weight": 1,
+   "desc": "บินเบาเหมือนขนนก · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "dex": 1,
+     "agi": 1
+    }
+   }
   }
  },
  "shop": [
@@ -829,7 +1711,9 @@
   "leather_jacket",
   "note_ribbon",
   "headphones",
-  "pick_necklace"
+  "pick_necklace",
+  "tuning_ore",
+  "velvet_patch"
  ],
  "monsters": {
   "jelly": {
@@ -872,6 +1756,10 @@
     [
      "earbuds",
      0.02
+    ],
+    [
+     "card_jelly",
+     0.004
     ]
    ],
    "model": "Blob_PinkBlob"
@@ -912,6 +1800,10 @@
     [
      "earbuds",
      0.02
+    ],
+    [
+     "card_drop",
+     0.004
     ]
    ],
    "model": "Blob_GreenBlob"
@@ -956,6 +1848,10 @@
     [
      "earbuds",
      0.02
+    ],
+    [
+     "card_chick",
+     0.004
     ]
    ],
    "model": "Blob_Chicken"
@@ -1000,6 +1896,10 @@
     [
      "earbuds",
      0.02
+    ],
+    [
+     "card_mushy",
+     0.004
     ]
    ],
    "model": "Blob_Mushnub"
@@ -1044,6 +1944,10 @@
     [
      "earbuds",
      0.02
+    ],
+    [
+     "card_rabbit",
+     0.004
     ]
    ],
    "model": "Big_Bunny"
@@ -1088,6 +1992,10 @@
     [
      "earbuds",
      0.02
+    ],
+    [
+     "card_buzzer",
+     0.004
     ]
    ],
    "model": "Flying_Armabee"
@@ -1132,6 +2040,10 @@
     [
      "earbuds",
      0.02
+    ],
+    [
+     "card_frog",
+     0.004
     ]
    ],
    "model": "Big_Frog"
@@ -1176,6 +2088,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_bat",
+     0.004
     ]
    ],
    "model": "Flying_Ghost"
@@ -1220,6 +2136,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_rocky",
+     0.004
     ]
    ],
    "model": "Blob_GreenSpikyBlob"
@@ -1264,6 +2184,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_metronome",
+     0.004
     ]
    ],
    "model": "Flying_Glub"
@@ -1320,6 +2244,10 @@
     [
      "cat_headphones",
      0.05
+    ],
+    [
+     "card_king_jelly",
+     0.05
     ]
    ],
    "boss": true,
@@ -1362,6 +2290,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_owl",
+     0.004
     ]
    ],
    "model": "Blob_Birb"
@@ -1403,6 +2335,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_mossy",
+     0.004
     ]
    ],
    "model": "Blob_Alien"
@@ -1453,6 +2389,10 @@
     [
      "cat_headphones",
      0.05
+    ],
+    [
+     "card_elder_tree",
+     0.05
     ]
    ],
    "model": "Big_MushroomKing"
@@ -1494,6 +2434,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_tuba_toad",
+     0.004
     ]
    ],
    "model": "Blob_Fish"
@@ -1535,6 +2479,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_mosquito",
+     0.004
     ]
    ],
    "model": "Flying_Armabee_Evolved"
@@ -1585,6 +2533,10 @@
     [
      "cat_headphones",
      0.05
+    ],
+    [
+     "card_marsh_queen",
+     0.05
     ]
    ],
    "model": "Big_Fish"
@@ -1626,6 +2578,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_drum_golem",
+     0.004
     ]
    ],
    "model": "Big_Cactoro"
@@ -1667,6 +2623,10 @@
     [
      "gaming_headset",
      0.01
+    ],
+    [
+     "card_howler",
+     0.004
     ]
    ],
    "model": "Big_Dino"
@@ -1708,6 +2668,10 @@
     [
      "gaming_headset",
      0.01
+    ],
+    [
+     "card_sand_drop",
+     0.004
     ]
    ],
    "model": "Blob_Cactoro"
@@ -1758,6 +2722,10 @@
     [
      "cat_headphones",
      0.05
+    ],
+    [
+     "card_rock_dragon",
+     0.05
     ]
    ],
    "model": "Flying_Dragon_Evolved"
@@ -1799,6 +2767,10 @@
     [
      "gaming_headset",
      0.01
+    ],
+    [
+     "card_penguin",
+     0.004
     ]
    ],
    "model": "Blob_Yeti"
@@ -1840,6 +2812,10 @@
     [
      "dj_headphones",
      0.01
+    ],
+    [
+     "card_ice_jelly",
+     0.004
     ]
    ],
    "model": "Big_Birb"
@@ -1881,6 +2857,10 @@
     [
      "dj_headphones",
      0.01
+    ],
+    [
+     "card_yeti",
+     0.004
     ]
    ],
    "model": "Big_Yeti"
@@ -1931,6 +2911,10 @@
     [
      "cat_headphones",
      0.05
+    ],
+    [
+     "card_snow_queen",
+     0.05
     ]
    ],
    "model": "Flying_Goleling_Evolved"
@@ -1972,6 +2956,10 @@
     [
      "cat_headphones",
      0.008
+    ],
+    [
+     "card_fire_bat",
+     0.004
     ]
    ],
    "model": "Flying_Demon"
@@ -2013,6 +3001,10 @@
     [
      "cat_headphones",
      0.008
+    ],
+    [
+     "card_magma_golem",
+     0.004
     ]
    ],
    "model": "Big_Orc"
@@ -2054,6 +3046,10 @@
     [
      "cat_headphones",
      0.008
+    ],
+    [
+     "card_flame_metronome",
+     0.004
     ]
    ],
    "model": "Flying_Dragon"
@@ -2112,6 +3108,10 @@
     [
      "cat_headphones",
      0.05
+    ],
+    [
+     "card_metal_lord",
+     0.05
     ]
    ],
    "model": "Flying_Tribal"
@@ -2153,6 +3153,10 @@
     [
      "earbuds",
      0.02
+    ],
+    [
+     "card_cat",
+     0.004
     ]
    ]
   },
@@ -2193,6 +3197,10 @@
     [
      "earbuds",
      0.02
+    ],
+    [
+     "card_dog",
+     0.004
     ]
    ]
   },
@@ -2233,6 +3241,10 @@
     [
      "earbuds",
      0.02
+    ],
+    [
+     "card_pigeon",
+     0.004
     ]
    ]
   },
@@ -2273,6 +3285,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_monkroose",
+     0.004
     ]
    ]
   },
@@ -2313,6 +3329,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_wizard",
+     0.004
     ]
    ]
   },
@@ -2353,6 +3373,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_ninja",
+     0.004
     ]
    ]
   },
@@ -2393,6 +3417,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_squidle",
+     0.004
     ]
    ]
   },
@@ -2433,6 +3461,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_alien",
+     0.004
     ]
    ]
   },
@@ -2473,6 +3505,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_orc",
+     0.004
     ]
    ]
   },
@@ -2513,6 +3549,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_glub_evo",
+     0.004
     ]
    ]
   },
@@ -2553,6 +3593,10 @@
     [
      "gaming_headset",
      0.01
+    ],
+    [
+     "card_alpaking",
+     0.004
     ]
    ]
   },
@@ -2593,6 +3637,10 @@
     [
      "gaming_headset",
      0.01
+    ],
+    [
+     "card_goleling",
+     0.004
     ]
    ]
   },
@@ -2633,6 +3681,10 @@
     [
      "gaming_headset",
      0.01
+    ],
+    [
+     "card_tribal",
+     0.004
     ]
    ]
   },
@@ -2673,6 +3725,10 @@
     [
      "gaming_headset",
      0.01
+    ],
+    [
+     "card_big_ninja",
+     0.004
     ]
    ]
   },
@@ -2713,6 +3769,10 @@
     [
      "dj_headphones",
      0.01
+    ],
+    [
+     "card_hywirl",
+     0.004
     ]
    ]
   },
@@ -2753,6 +3813,10 @@
     [
      "dj_headphones",
      0.01
+    ],
+    [
+     "card_bluedemon",
+     0.004
     ]
    ]
   },
@@ -2793,6 +3857,10 @@
     [
      "dj_headphones",
      0.01
+    ],
+    [
+     "card_alpaking_evo",
+     0.004
     ]
    ]
   },
@@ -2833,6 +3901,10 @@
     [
      "cat_headphones",
      0.008
+    ],
+    [
+     "card_ghost_skull",
+     0.004
     ]
    ]
   },
@@ -2873,6 +3945,10 @@
     [
      "cat_headphones",
      0.008
+    ],
+    [
+     "card_demon",
+     0.004
     ]
    ]
   },
@@ -2913,6 +3989,10 @@
     [
      "cat_headphones",
      0.008
+    ],
+    [
+     "card_orc_skull",
+     0.004
     ]
    ]
   },
@@ -2953,6 +4033,10 @@
     [
      "in_ear_monitor",
      0.015
+    ],
+    [
+     "card_dove",
+     0.004
     ]
    ]
   }

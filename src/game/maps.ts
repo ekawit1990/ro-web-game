@@ -38,7 +38,8 @@ export type Obj =
 
 export interface Npc {
   /** 'warper' = บูรพา: paid warps between towns and the account-wide storage. */
-  id: 'shop' | 'weapons' | 'healer' | 'guide' | 'jobs' | 'warper';
+  /** 'refiner' = refining (+1…+10) and inserting monster cards. */
+  id: 'shop' | 'weapons' | 'healer' | 'guide' | 'jobs' | 'warper' | 'refiner';
   name: string;
   x: number;
   y: number;
@@ -204,6 +205,7 @@ function buildTown(): GameMap {
     { id: 'healer', name: 'ครูเพลงใจดี', x: C - 1, y: C - 4, look: { gender: 'f', hair: 4, hair_color: 7, face: 0, body: '#ffffff' } },
     { id: 'guide', name: 'ไกด์ประจำเมือง', x: C + 3, y: C + 6, look: { gender: 'm', hair: 0, hair_color: 3, face: 3, body: '#3949ab' } },
     { ...BURAPA, x: C + 1, y: C + 3 },
+    { id: 'refiner', name: 'ช่างจูน ตีบวก', x: C - 4, y: C + 6, look: { gender: 'm', hair: 4, hair_color: 1, face: 1, body: '#5d4037' } },
   ];
   for (const n of m.npcs) block(m, n.x, n.y);
   let color = 0;
@@ -358,6 +360,7 @@ function buildDesert(): GameMap {
   m.npcs = [
     { id: 'jobs', name: 'ครูกลองแห่งทะเลทราย', x: C - 5, y: C + 2, look: { gender: 'm', hair: 1, hair_color: 3, face: 3, body: '#a0522d' } },
     { ...BURAPA, x: C + 4, y: C + 2 },
+    { id: 'refiner', name: 'ช่างตีเหล็กทะเลทราย', x: C + 4, y: C - 1, look: { gender: 'm', hair: 0, hair_color: 1, face: 2, body: '#8d6e63' } },
     { id: 'healer', name: 'หมอผีทรายใจดี', x: C - 5, y: C - 1, look: { gender: 'f', hair: 2, hair_color: 0, face: 0, body: '#f3e5c0' } },
     { id: 'shop', name: 'ร้านของใช้ พ่อค้าอูฐ', x: C + 9, y: C + 16, look: { gender: 'm', hair: 0, hair_color: 1, face: 1, body: '#c58b3a' } },
   ];

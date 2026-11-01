@@ -223,6 +223,42 @@ form { display: flex; flex-direction: column; gap: 10px; }
 .tr-head em.ok { color: #b4441a; font-weight: 700; }
 .tr-zeny { margin-top: 3px; }
 .tr-zeny input { width: 110px; }
+
+/* Item details (tooltip + item window), refining, cards */
+.cell u { position: absolute; left: 1px; bottom: -1px; text-decoration: none; font-size: 9px; font-weight: 700; color: #1f5fbf; text-shadow: 0 0 2px #fff, 0 0 2px #fff; }
+.it-tip { min-width: 200px; }
+.it-head { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+.it-head img { width: 32px; height: 32px; background: #eef2f8; border: 1px solid #d3dae6; border-radius: 3px; flex: none; }
+.it-head b { display: block; font-size: 13px; }
+.it-head b.refined { color: #1f5fbf; }
+.it-head small { color: #6b7587; font-size: 11px; }
+.it-stats { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 3px 0; border-top: 1px solid #e3e8f0; }
+.it-stats em.up { font-style: normal; color: #1f8a3a; font-size: 11px; }
+.it-sec { margin-top: 4px; padding-top: 3px; border-top: 1px solid #e3e8f0; font-weight: 600; color: #3b4a63; }
+.it-card { display: flex; gap: 5px; align-items: center; margin: 2px 0; padding: 2px 4px; background: #f4f6fa; border: 1px dashed #c4ccd9; border-radius: 3px; }
+.it-card.on { border-style: solid; background: #fff8e1; border-color: #e3b84a; }
+.it-card img { width: 20px; height: 20px; }
+.it-card .ph { width: 20px; height: 20px; display: inline-block; }
+.it-card b { display: block; font-size: 11px; }
+.it-card small, .it-bonus { color: #1f8a3a; font-size: 11px; }
+.it-desc { margin-top: 4px; padding: 4px 6px; background: #f2f6ff; border-left: 3px solid #7f9ccb; color: #2c3a52; line-height: 1.45; }
+.it-foot { margin-top: 4px; }
+.rw.item { width: min(300px, calc(100% - 24px)); }
+.rw.item .it-tip { font-size: 12px; }
+.it-pick { display: flex; flex-direction: column; gap: 3px; max-height: 180px; overflow-y: auto; margin-top: 3px; }
+.it-pick button { display: flex; gap: 6px; align-items: center; text-align: left; font-weight: 400; }
+.it-pick button img { width: 24px; height: 24px; }
+.it-pick button small { display: block; color: #6b7587; font-size: 10px; }
+.it-pick button.armed, .rw button.armed { background: linear-gradient(#ffd9d2, #f08c7a); border-color: #b4441a; color: #5a1205; font-weight: 700; }
+.rw.refine { width: min(380px, calc(100% - 24px)); }
+.rw.refine .shop-row { grid-template-columns: 30px 1fr 96px; }
+.rw.refine .shop-row small.rf-info { display: block; color: #6b7587; font-size: 11px; }
+.rf-info b.safe { color: #1f8a3a; font-weight: 700; }
+.rf-info b.risk { color: #c0392b; font-weight: 700; }
+.rf-mats { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 4px; font-size: 12px; }
+.rf-mat { display: inline-flex; align-items: center; gap: 3px; }
+.rf-mat img { width: 20px; height: 20px; }
+.rf-mat button { padding: 0 6px; font-size: 11px; }
 .invite, .death, .pinvite { left: 50%; top: 38%; transform: translate(-50%, -50%); width: 280px; max-width: 94vw; }
 .invite p, .death p, .pinvite p { margin: 4px 0 8px; font-size: 13px; }
 .option .keys { display: grid; gap: 3px; font-size: 12px; }
@@ -269,7 +305,7 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .buff b { position: absolute; top: -6px; right: -6px; min-width: 13px; height: 13px; line-height: 13px; border-radius: 7px; background: #2f7fcc; color: #fff; font-size: 9px; text-align: center; }
 .st-bonus { font-style: normal; color: #1f8a3a; font-weight: 600; }
 .targeting { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); background: rgba(120, 20, 20, 0.85); color: #fff; padding: 4px 14px; border-radius: 3px; font-size: 13px; }
-.tooltip { position: fixed; z-index: 9999; max-width: 220px; background: rgba(255, 255, 255, 0.97); color: #1d2533; border: 1px solid #5d6f8f; padding: 4px 8px; font-size: 12px; pointer-events: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
+.tooltip { position: fixed; z-index: 9999; max-width: 260px; background: rgba(255, 255, 255, 0.97); color: #1d2533; border: 1px solid #5d6f8f; padding: 4px 8px; font-size: 12px; pointer-events: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
 .ctx { position: absolute; z-index: 9000; transform: translate(-50%, -100%); display: flex; flex-direction: column; gap: 2px; background: #f7f9fc; border: 1px solid #5d6f8f; padding: 4px; font-size: 12px; color: #1d2533; border-radius: 3px; }
 .ctx b { text-align: center; }
 .ctx button { background: linear-gradient(#ffffff, #d4dceb); color: #1d2533; border: 1px solid #8193b2; padding: 2px 10px; font-size: 12px; font-weight: 400; border-radius: 3px; }

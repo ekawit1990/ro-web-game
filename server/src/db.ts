@@ -2,7 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Character, InvItem } from '../../src/data/index.ts';
 import { LocalStore } from '../../src/services/localStore.ts';
 import type { KillResult, RewardShare, TradeOffer } from '../../src/services/store.ts';
-import { CHAR_COLUMNS } from '../../src/services/supabaseStore.ts';
+import { CHAR_COLUMNS, selectInventory } from '../../src/services/supabaseStore.ts';
 
 export interface Loaded {
   userId: string;
@@ -72,9 +72,9 @@ export class SupabaseDb implements ServerDb {
     // two independent queries: run them side by side (one round trip instead of two)
     const [c, i] = await Promise.all([
       this.sb.from('characters').select(CHAR_COLUMNS).eq('id', charId).eq('user_id', userId).single(),
-      this.sb.from('inventory').select('id,item_id,qty,equipped').eq('character_id', charId),
+      selectInventory(this.sb, charId),
     ]);
-    return { char: check(c) as unknown as Character, inv: check(i) as InvItem[] };
+    return { char: check(c) as unknown as Character, inv: i };
   }
 
   async reportKill(userId: string, charId: string, monster: string) {

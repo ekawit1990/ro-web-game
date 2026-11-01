@@ -1,9 +1,9 @@
 import {
   Appearance, CLASSES, CLASS_KEYS, Character, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL,
-  MONSTERS, SHOP, SKILLS, START_CLASS, STORAGE_SLOTS, StatKey, StorageItem, WEAPON_SHOP, expToNext, jobExpToNext, questCounts,
-  statCost, statPointsAt,
+  MONSTERS, REFINE, SHOP, SKILLS, START_CLASS, STORAGE_SLOTS, StatKey, StorageItem, WEAPON_SHOP, canRefine, cardFits, expToNext,
+  jobExpToNext, questCounts, refineChance, refineFee, refineMaterial, statCost, statPointsAt,
 } from '../data';
-import type { GameStore, KillResult, RewardShare, TradeOffer } from './store';
+import type { GameStore, KillResult, RefineResult, RewardShare, TradeOffer } from './store';
 
 const KEY = 'music-land-save-v2';
 export const TOWN_SPAWN = { map: 'town', x: 48.5, y: 55.5 };
@@ -266,7 +266,7 @@ export class LocalStore implements GameStore {
     row.qty -= qty;
     if (row.qty === 0) inv.splice(inv.indexOf(row), 1);
     if (stack) stack.qty += qty;
-    else st.push({ id: uid(), item_id: row.item_id, qty });
+    else st.push({ id: uid(), item_id: row.item_id, qty, refine: row.refine ?? 0, cards: [...(row.cards ?? [])] });
     this.persist();
   }
 
@@ -278,8 +278,53 @@ export class LocalStore implements GameStore {
     if (!row || qty < 1 || qty > row.qty) throw new Error('ถอนไม่ได้');
     row.qty -= qty;
     if (row.qty === 0) st.splice(st.indexOf(row), 1);
-    this.addItem(charId, row.item_id, qty);
+    if (isEquipment(row.item_id)) {
+      // equipment keeps its + level and cards
+      for (let i = 0; i < qty; i++) {
+        this.inv(charId).push({ id: uid(), item_id: row.item_id, qty: 1, equipped: false, refine: row.refine ?? 0, cards: [...(row.cards ?? [])] });
+      }
+    } else this.addItem(charId, row.item_id, qty);
     this.persist();
+  }
+
+  /** Same rules as insert_card() in SQL. */
+  async insertCard(charId: string, cardInv: string, equipInv: string) {
+    this.char(charId);
+    const inv = this.inv(charId);
+    const card = inv.find((i) => i.id === cardInv);
+    const eq = inv.find((i) => i.id === equipInv);
+    if (!card || !eq) throw new Error('ไม่พบไอเท็ม');
+    if (ITEMS[card.item_id]?.type !== 'card') throw new Error('ไอเท็มนี้ไม่ใช่การ์ด');
+    if (!cardFits(ITEMS[card.item_id], ITEMS[eq.item_id])) throw new Error('การ์ดใบนี้เสียบในไอเท็มนี้ไม่ได้');
+    if ((eq.cards?.length ?? 0) >= (ITEMS[eq.item_id].slots ?? 0)) throw new Error('ไม่มีช่องการ์ดว่าง');
+    card.qty--;
+    if (card.qty === 0) inv.splice(inv.indexOf(card), 1);
+    eq.cards = [...(eq.cards ?? []), card.item_id];
+    this.persist();
+  }
+
+  /** Same rules as refine_item() in SQL. */
+  async refineItem(charId: string, invId: string): Promise<RefineResult> {
+    const c = this.char(charId);
+    const inv = this.inv(charId);
+    const row = inv.find((i) => i.id === invId);
+    if (!row) throw new Error('ไม่พบไอเท็ม');
+    const it = ITEMS[row.item_id];
+    if (!canRefine(it)) throw new Error('ไอเท็มนี้ตีบวกไม่ได้');
+    const cur = row.refine ?? 0;
+    if (cur >= REFINE.max) throw new Error(`ตีบวกสูงสุดแล้ว (+${REFINE.max})`);
+    const fee = refineFee(cur + 1);
+    if (c.zeny < fee) throw new Error(`Zeny ไม่พอ (ค่าตีบวก ${fee} z)`);
+    const mat = inv.find((i) => i.item_id === refineMaterial(it));
+    if (!mat) throw new Error(`ไม่มี${ITEMS[refineMaterial(it)].name}`);
+    mat.qty--;
+    if (mat.qty === 0) inv.splice(inv.indexOf(mat), 1);
+    c.zeny -= fee;
+    const ok = Math.random() * 100 < refineChance(it, cur + 1);
+    if (ok) row.refine = cur + 1;
+    else inv.splice(inv.indexOf(row), 1);
+    this.persist();
+    return { ok, refine: ok ? cur + 1 : cur, character: await this.getCharacter(charId) };
   }
 
   /** บูรพา's warp: pay and move, same as pay_warp() in SQL. */
