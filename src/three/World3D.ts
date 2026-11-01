@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, CROWD_MAX, ClassKey, ITEMS, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsPlayer } from '../data';
+import { CLASSES, CROWD_MAX, ClassKey, ITEMS, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer } from '../data';
 import { findPath, GameMap, Npc, THEMES, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
 import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setHat } from './models';
-import { COMBO_HIT, COMBO_TIME, animateRig, buildVrmCharacter } from './vrm';
+import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { PHONE } from './device';
 import { sfx, sfxAttack, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
@@ -14,6 +14,15 @@ import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
 import { FxOptions, playFx, preloadFx } from './pixelfx';
+
+/** Classes with their own attack moves in vrm.ts (the hit lands when the blow does). */
+const MOVE_CLASSES = new Set<ClassKey>(['drummer', 'guitarist', 'bassist', 'singer']);
+/** Classes whose skills are drawn by jobSkillFx (in their fxColor). */
+const JOB_FX = new Set<ClassKey>(['drummer', 'guitarist', 'bassist', 'singer']);
+
+/** The band classes' effect colours read better drawn solid than added onto the bright ground. */
+const SOLID_FX = new Set(['drummer', 'guitarist', 'bassist', 'singer'].map((k) => new THREE.Color(CLASSES[k as ClassKey].fxColor!).getHex()));
+const blendFor = (color: number) => (SOLID_FX.has(color) ? THREE.NormalBlending : THREE.AdditiveBlending);
 
 const TILE_PX = 32; // derived.moveSpeed is pixels/second at this tile size (same as the server)
 const MOVE_SEND_MS = 100;
@@ -43,7 +52,7 @@ const AUTO_HEAL_HP = 0.6;
 
 interface RemotePlayer {
   name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number; head: string; weapon: string; ear: string;
-  x: number; y: number; hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean; sitting: boolean;
+  x: number; y: number; hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean; sitting: boolean; hidden?: boolean;
 }
 interface RemoteMonster { key: string; x: number; y: number; hp: number; maxHp: number; dead: boolean }
 interface RemoteState {
@@ -76,6 +85,13 @@ interface PlayerActor {
   dash?: { x: number; y: number; t: number };
   /** หมุนตัวแทง: seconds left spinning. */
   spin?: number;
+  /** Playing / singing for a buff skill or a cast until this time (ms, performance.now()). */
+  performUntil?: number;
+  perform?: number;
+  /** หนีไปกลับ PR */
+  hidden?: boolean;
+  /** casting เสียงสูง: the bar over the head */
+  cast?: { start: number; ms: number; bar: THREE.Group };
   dead: boolean;
   sitting: boolean;
   hp: number;
@@ -603,7 +619,8 @@ export class World3D {
     const lv = this.session.char.skills?.[id] ?? 0;
     if (!skill || !lv || skill.type === 'passive' || this.dead) return;
     if (this.session.sp < skillSp(skill, lv)) return this.hooks.toast('SP ไม่พอ', 'bad');
-    if (skill.type === 'single' || skill.type === 'aoe') {
+    if (this.me.cast) return this.hooks.toast('กำลังร่ายสกิลอยู่', 'bad');
+    if (targetsMonster(skill)) {
       const t = this.target?.kind === 'monster' ? this.monsters.get(this.target.id) : undefined;
       if (t && !t.dead) return this.castAt(id, t.id);
       this.startTargeting(id);
@@ -672,7 +689,7 @@ export class World3D {
         this.autoPotionAt = t + 1500;
       }
     }
-    if (this.pendingSkill || this.targetingSkill) return;
+    if (this.pendingSkill || this.targetingSkill || me.cast) return;
 
     let m = this.target?.kind === 'monster' ? this.monsters.get(this.target.id) : undefined;
     if (!m || m.dead) {
@@ -731,8 +748,8 @@ export class World3D {
     const attack = mine
       .filter((id) => {
         const sk = SKILLS[id];
-        if (sk.type === 'aoe_self') return near <= (sk.radius ?? 2);
-        return sk.type === 'single' || sk.type === 'aoe';
+        if (sk.type === 'aoe_self') return sk.power && near <= (sk.radius ?? 2);
+        return sk.type === 'single' || sk.type === 'aoe' || sk.type === 'line';
       })
       .sort((a, b) => score(b) - score(a))[0];
     if (attack) cast(attack, SKILLS[attack].type === 'aoe_self' ? undefined : m.id);
@@ -770,9 +787,16 @@ export class World3D {
         this.attackFx(a, m, land);
       } else land();
     });
-    on('mhit', (msg: { m: string; to: string; dmg: number; block?: boolean }) => {
+    on('mhit', (msg: { m: string; to: string; dmg: number; block?: boolean; guard?: string }) => {
       const v = this.players.get(msg.to);
       const m = this.monsters.get(msg.m);
+      if (msg.guard && v) {
+        // Kick Drum: the bassist takes part of a party member's hit
+        const from = this.players.get(msg.guard);
+        if (from) this.tether(from, v, new THREE.Color(CLASSES.bassist.fxColor!).getHex());
+        this.floatText(new THREE.Vector3(v.x, 1.7, v.y), String(msg.dmg), 'take');
+        return;
+      }
       if (m && v) {
         if (m.anim) m.anim.attack();
         else this.lunge(m.rig.root, v.x - m.x, v.y - m.y);
@@ -798,10 +822,41 @@ export class World3D {
       }
     });
     on('buff', (msg: { skill: string; seconds: number }) => this.autoBuffs.set(msg.skill, performance.now() + msg.seconds * 1000));
+    on('reflect', (msg: { m: string; by: string; dmg: number }) => {
+      // จังหวะยก: the hit bounces back into the monster
+      const m = this.monsters.get(msg.m);
+      const a = this.players.get(msg.by);
+      if (!m) return;
+      const green = new THREE.Color(CLASSES.bassist.fxColor!).getHex();
+      if (a) this.tether(a, m, green);
+      this.floatText(this.top(m), String(msg.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
+      this.glow(new THREE.Vector3(m.x, m.rig.height * 0.5, m.y), green, 2, 220);
+    });
+    on('cast', (msg: { by: string; skill: string; ms: number; x: number; y: number }) => {
+      const a = this.players.get(msg.by);
+      const skill = SKILLS[msg.skill];
+      if (!a || !skill) return;
+      this.face(a, msg.x, msg.y);
+      this.castFx(a, skill, msg.ms);
+      if (a === this.me) this.path = [];
+    });
+    on('castEnd', (msg: { by: string; done: boolean }) => {
+      const a = this.players.get(msg.by);
+      if (!a?.cast) return;
+      this.scene.remove(a.cast.bar);
+      a.cast = undefined;
+      a.performUntil = 0;
+      if (!msg.done && a === this.me) this.hooks.toast('ขยับตัว ยกเลิกการร่ายสกิล', 'bad');
+    });
     on('fx', (msg: { kind: string; to: string }) => {
       const a = this.players.get(msg.to);
       if (!a) return;
       const vol = this.vol(a.x, a.y, a === this.me);
+      if (msg.kind === 'reveal') {
+        const purple = new THREE.Color(CLASSES.drummer.fxColor!).getHex();
+        this.smoke(a.x, a.y, purple);
+        return;
+      }
       if (msg.kind === 'potion') {
         this.sparkle(a, 0x7dff9a);
         sfx('potion', vol);
@@ -860,7 +915,11 @@ export class World3D {
     }
     const mk = this.marker.material as THREE.MeshBasicMaterial;
     mk.opacity = Math.max(0, mk.opacity - dt * 1.5);
-    this.effects = this.effects.filter((fx) => fx(dt));
+    // effects may start new effects while they run (a thrown mic bursts when it lands): keep those too
+    const running = this.effects;
+    this.effects = [];
+    const kept = running.filter((fx) => fx(dt));
+    this.effects = kept.concat(this.effects);
 
     // camera follows the player
     this.camTarget.lerp(new THREE.Vector3(this.me.x, 0.8, this.me.y), Math.min(1, dt * 8));
@@ -976,13 +1035,25 @@ export class World3D {
       }
       a.dead = rp.dead;
       a.sitting = rp.sitting;
+      if (!!rp.hidden !== !!a.hidden) {
+        a.hidden = !!rp.hidden;
+        a.label.el.classList.toggle('hiding', a.hidden);
+        if (a.hidden) this.hideAura(a);
+      }
+      // hidden players aren't drawn for anyone else; we still see ourselves (with a purple haze)
+      a.rig.root.visible = !a.hidden || a === this.me;
+      a.label.el.style.visibility = a.hidden && a !== this.me ? 'hidden' : '';
       a.hp = rp.hp;
       a.maxHp = rp.maxHp;
       setHat(a.rig, rp.head);
       setEar(a.rig, rp.ear);
       a.armed = !!rp.weapon;
       a.moving = Math.max(0, a.moving - dt);
-      a.attack = Math.max(0, a.attack - dt * (a.cls === 'teen' ? 1 / COMBO_TIME : 4));
+      const atkTime = attackTime(a.armed === false ? '' : a.cls);
+      a.attack = Math.max(0, a.attack - dt * (atkTime ? 1 / atkTime : 4));
+      const performing = (a.performUntil ?? 0) > performance.now() && !a.moving;
+      a.perform = Math.max(0, Math.min(1, (a.perform ?? 0) + (performing ? dt * 5 : -dt * 4)));
+      if (performing) a.combat = Math.max(a.combat, 1);
       a.combat = Math.max(0, a.combat - dt);
       a.rig.root.position.set(a.x, 0, a.y);
       if (a.dash) {
@@ -993,7 +1064,14 @@ export class World3D {
           a.rig.root.position.set(a.dash.x + (a.x - a.dash.x) * e, 0, a.dash.y + (a.y - a.dash.y) * e);
         }
       }
-      animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0, armed: a.armed, combo: a.combo });
+      animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0, armed: a.armed, combo: a.combo, perform: a.perform });
+      if (a.cast) {
+        const k = Math.min(1, (performance.now() - a.cast.start) / a.cast.ms);
+        a.cast.bar.position.set(a.x, 2.35, a.y);
+        a.cast.bar.quaternion.copy(this.camera.quaternion);
+        a.cast.bar.children[1].scale.x = Math.max(0.001, k);
+        a.cast.bar.children[1].position.x = -0.5 + k / 2;
+      }
       if (a.spin && a.spin > 0) {
         a.spin = Math.max(0, a.spin - dt);
         a.rig.root.rotation.y += dt * 26;
@@ -1011,7 +1089,9 @@ export class World3D {
     const time = this.now;
     if (this.auto) this.autoStep();
 
-    if (this.target?.kind === 'monster') {
+    if (me.cast) {
+      // singing เสียงสูง: stand still (walking away cancels it on the server)
+    } else if (this.target?.kind === 'monster') {
       const m = this.monsters.get(this.target.id);
       if (!m || m.dead) {
         this.target = null;
@@ -1230,7 +1310,7 @@ export class World3D {
     if (a.cls === 'teen') {
       // dagger combo: slash -> stab -> overhead finisher; the hit lands when the blade does
       const now = performance.now();
-      a.combo = now - (a.lastSwing ?? 0) > 1800 ? 0 : ((a.combo ?? -1) + 1) % COMBO_HIT.length;
+      a.combo = now - (a.lastSwing ?? 0) > 1800 ? 0 : ((a.combo ?? -1) + 1) % attackMoves('teen');
       a.lastSwing = now;
       const move = a.combo;
       this.lunge(a.rig.root, m.x - a.x, m.y - a.y);
@@ -1248,9 +1328,10 @@ export class World3D {
         else if (armed) this.pixelFx('cleave', { at: () => new THREE.Vector3(m.x - ux * r, 0.02, m.y - uy * r), flip });
         this.pixelFx('stab_hit', { at: () => hitAt });
         land();
-      }, COMBO_HIT[move] * COMBO_TIME * 1000);
+      }, attackHit('teen', move) * attackTime('teen') * 1000);
       return;
     }
+    if (MOVE_CLASSES.has(a.cls) && a.armed !== false) return this.jobAttackFx(a, m, land);
     const melee = !CLASSES[a.cls].projectile;
     if (melee) this.lunge(a.rig.root, m.x - a.x, m.y - a.y);
     const notes = ['♪', '♫', '♬'];
@@ -1287,14 +1368,14 @@ export class World3D {
   private ring(x: number, y: number, radius: number, color: number) {
     const m = new THREE.Mesh(
       new THREE.RingGeometry(0.8, 1, 40),
-      new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }),
+      new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: blendFor(color) }),
     );
     m.rotation.x = -Math.PI / 2;
     m.position.set(x, 0.05, y);
     this.scene.add(m);
     const disk = new THREE.Mesh(
       new THREE.CircleGeometry(1, 40),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.25, depthWrite: false, blending: THREE.AdditiveBlending }),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.25, depthWrite: false, blending: blendFor(color) }),
     );
     disk.rotation.x = -Math.PI / 2;
     disk.position.set(x, 0.04, y);
@@ -1325,6 +1406,10 @@ export class World3D {
       }
     }
     if (a && skill.scale === 'crowd') a.spin = 0.55;
+    if (JOB_FX.has(skill.cls)) {
+      this.jobSkillFx(a, msg);
+      return;
+    }
     const color = new THREE.Color(CLASSES[skill.cls].color).getHex();
     const bladeSkill = skill.cls === 'teen' && (skill.type === 'single' || skill.type === 'aoe_self');
     if (a) {
@@ -1363,7 +1448,7 @@ export class World3D {
       } else if (t && skill.type === 'heal_target') this.sparkle(t, 0x7dff9a);
       else if (t) this.levelFx(t, '', color);
     } else if (skill.type === 'single' && a) {
-      const glyph = CLASSES[skill.cls].projectile ? { note: '♪', chord: '♫', wave: '〰' }[CLASSES[skill.cls].projectile!] : '✦';
+      const glyph = ({ note: '♪', chord: '♫', wave: '〰', mic: '🎤' } as Record<string, string>)[CLASSES[skill.cls].projectile ?? ''] ?? '✦';
       for (let i = 0; i < Math.min(3, skill.hits ?? 1); i++) {
         this.projectile(new THREE.Vector3(a.x, 1.0, a.y), new THREE.Vector3(msg.x, 0.6, msg.y), glyphTexture(glyph, '#ffffff'), 0.7, 200, undefined, i * 90);
       }
@@ -1384,6 +1469,582 @@ export class World3D {
           if (p) this.floatText(new THREE.Vector3(p.x, 1.8, p.y), `+${-h.dmg}`, 'heal');
         }
       }, 240 + i * 110);
+    });
+  }
+
+  // ------------------------------------------------------------ drummer / guitarist / bassist / singer
+
+  /** Class effect colour (drummer purple, bassist green, guitarist red, singer yellow). */
+  private fxColor(cls: ClassKey) {
+    return new THREE.Color(CLASSES[cls].fxColor ?? CLASSES[cls].color).getHex();
+  }
+
+  /**
+   * A normal attack with the class's own moves (vrm.ts): drummer sticks left/right, guitar/bass swung like a
+   * sword, the singer's thrown mic. The damage shows when the blow (or the mic) lands.
+   */
+  private jobAttackFx(a: PlayerActor, m: MonsterActor, land: () => void) {
+    const now = performance.now();
+    const n = attackMoves(a.cls);
+    a.combo = a.cls === 'drummer' || now - (a.lastSwing ?? 0) < 1800 ? ((a.combo ?? -1) + 1) % n : 0;
+    a.lastSwing = now;
+    const hitMs = attackHit(a.cls, a.combo) * attackTime(a.cls) * 1000;
+    const mine = a === this.me;
+    const color = this.fxColor(a.cls);
+    const d = Math.hypot(m.x - a.x, m.y - a.y) || 1;
+    const ux = (m.x - a.x) / d;
+    const uy = (m.y - a.y) / d;
+    const r = Math.min(0.5, MONSTERS[m.key].size * 0.3);
+    const hitAt = () => new THREE.Vector3(m.x - ux * r, m.rig.height * 0.5, m.y - uy * r);
+    if (a.cls === 'singer') {
+      // the mic leaves the hand at the release and flies in an arc
+      const move = a.combo;
+      setTimeout(() => {
+        const from = new THREE.Vector3(a.x + ux * 0.3, 1.45, a.y + uy * 0.3);
+        const ms = 120 + Math.min(9, d) * 38;
+        this.micThrow(from, () => hitAt(), ms, color, () => {
+          land();
+          this.pixelFx('stab_hit', { at: hitAt });
+          this.burst(hitAt(), color, 8, 3);
+        });
+      }, attackHit('singer', move) * attackTime('singer') * 1000);
+      return;
+    }
+    const heavy = a.cls !== 'drummer';
+    const move = a.combo;
+    setTimeout(() => {
+      const at = hitAt();
+      if (heavy) {
+        // instrument swing: a wide crescent along the swing (overhead = vertical, sweep = flat)
+        this.crescent(at, move === 0 ? 1.45 : 0.1, 1.9, 0xffffff, 230);
+        this.crescent(at, move === 0 ? 1.45 : 0.1, 1.5, color, 260, 40);
+        this.pixelFx('stab_hit', { at: () => at, scale: 1.6 });
+        if (mine) this.shake(0.08);
+      } else {
+        // a stick blow: a quick small cut, left stick down to the right, right stick the other way
+        this.crescent(at, move === 0 ? -0.8 : 0.8, 1.0, 0xffffff, 160);
+        this.pixelFx('stab_hit', { at: () => at });
+      }
+      land();
+    }, hitMs);
+  }
+
+  /** The skills of the four band classes: big effects in the class colour. */
+  private jobSkillFx(a: PlayerActor | undefined, msg: { by: string; skill: string; x: number; y: number; target?: string; allies?: string[]; fromX?: number; fromY?: number; dirX?: number; dirY?: number; bonus?: boolean; pulled?: string[]; hits: { m?: string; p?: string; dmg: number; at?: number }[] }) {
+    const skill = SKILLS[msg.skill];
+    const id = msg.skill;
+    const c = this.fxColor(skill.cls);
+    const mine = !!a && a === this.me;
+    const vol = a ? this.vol(a.x, a.y, mine) : 0;
+    const isBuff = skill.type === 'buff' || skill.type === 'buff_party' || skill.type === 'buff_target';
+    if (a) {
+      sfxSkill(skill.cls, skill.type, vol);
+      this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
+      if (skill.type !== 'aoe_self' && !isBuff) this.face(a, msg.x, msg.y);
+      a.combat = COMBAT_TIME;
+      if (isBuff && skill.cls !== 'drummer') a.performUntil = performance.now() + 1800;
+      else if (!isBuff && skill.cls !== 'singer') a.attack = 1;
+    }
+    const monsterAt = (mid?: string) => {
+      const m = mid ? this.monsters.get(mid) : undefined;
+      return m ? new THREE.Vector3(m.x, m.rig.height * 0.5, m.y) : new THREE.Vector3(msg.x, 0.7, msg.y);
+    };
+    const target = () => monsterAt(msg.hits[0]?.m ?? msg.target);
+    // damage numbers: at the given time for waves, else one after another
+    let numbersFrom = 240;
+    let numberGap = 110;
+
+    if (id === 'snare_roll' && a) {
+      // 16 alternating stick hits in a blur, purple sparks flying, then a big accent
+      numbersFrom = 120;
+      numberGap = 85;
+      for (let i = 0; i < 16; i++) {
+        setTimeout(() => {
+          a.combo = i % 2;
+          a.attack = 1;
+          const at = target();
+          this.crescent(at, (i % 2 ? 0.9 : -0.9) + (Math.random() - 0.5) * 0.6, 1.1 + Math.random() * 0.4, i % 3 ? c : 0xffffff, 150);
+          this.burst(at, c, 4, 3);
+          if (i % 2) sfxAttack('drummer', vol * 0.8);
+          if (i === 15) {
+            this.glow(at, c, 5, 320);
+            this.ring(at.x, at.z, 2.2, c);
+            this.burst(at, 0xffffff, 30, 6);
+            sfxSlash(vol, true);
+            if (mine) this.shake(0.3);
+          }
+        }, 60 + i * 85);
+      }
+    } else if (id === 'ghost_exit' && a) {
+      this.smoke(a.x, a.y, c);
+      this.ring(a.x, a.y, 1.6, c);
+    } else if (id === 'double_kick' && a) {
+      // two kick-drum thumps: two purple shockwaves rolling out 5 tiles
+      for (let i = 0; i < 2; i++) {
+        setTimeout(() => {
+          this.ring(a.x, a.y, skill.radius ?? 5, i ? 0xffffff : c);
+          this.ring(a.x, a.y, (skill.radius ?? 5) * 0.6, c);
+          this.burst(new THREE.Vector3(a.x, 0.3, a.y), c, 26, 6);
+          this.glow(new THREE.Vector3(a.x, 0.4, a.y), c, 4, 260);
+          sfx('hit', vol);
+          if (mine) this.shake(0.25);
+        }, i * 230);
+      }
+      this.pillar(a.x, a.y, c, 0.9, 3);
+    } else if ((id === 'send_off' || id === 'slide') && a) {
+      // dash: a streak along the way and an X of crescents where it lands (x2 = bigger, white-hot)
+      const fx = msg.fromX ?? a.x;
+      const fy = msg.fromY ?? a.y;
+      this.streak(fx, fy, msg.x, msg.y, c);
+      this.ring(fx, fy, 1, c);
+      setTimeout(() => {
+        const at = target();
+        const big = msg.bonus ? 1.4 : 1;
+        sfxSlash(vol, true);
+        this.crescent(at, 0.75, 2.6 * big, 0xffffff, 300);
+        this.crescent(at, -0.75, 2.6 * big, c, 340, 60);
+        this.glow(at, msg.bonus ? 0xffffff : c, 5 * big, 280);
+        this.ring(at.x, at.z, 2.4 * big, c);
+        this.burst(at, c, 36, 7);
+        if (msg.bonus) this.floatText(at.clone().setY(at.y + 1.4), 'x2!!', 'shout', 900);
+        if (mine) this.shake(0.3 * big);
+      }, DASH_MS);
+    } else if (skill.type === 'line' && a) {
+      numbersFrom = 0;
+      const fx = msg.fromX ?? a.x;
+      const fy = msg.fromY ?? a.y;
+      this.wave(fx, fy, msg.dirX ?? 0, msg.dirY ?? 1, skill.length ?? 5, skill.speed ?? 5, skill.width ?? 1.5, c, skill.shape === 'x');
+      if (mine) this.shake(skill.shape === 'x' ? 0.2 : 0.35);
+    } else if (id === 'root_note' && a) {
+      // a straight-down chop: a tall green crescent, the ground cracks into a ring
+      setTimeout(() => {
+        const at = target();
+        sfxSlash(vol, true);
+        this.crescent(at, Math.PI / 2, 3.0, 0xffffff, 300);
+        this.crescent(at, Math.PI / 2, 2.5, c, 340, 50);
+        this.glow(at, c, 5, 260);
+        this.ring(at.x, at.z, 2.2, c);
+        this.burst(at, c, 30, 6);
+        this.pixelFx('stab_hit', { at: () => at, scale: 2.5 });
+        if (mine) this.shake(0.3);
+      }, 300);
+    } else if (id === 'straight_beat' && a) {
+      // the bass line in three low pulses rolling out round the bassist
+      for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+          this.ring(a.x, a.y, (skill.radius ?? 5) * (0.55 + i * 0.22), i === 1 ? 0xffffff : c);
+          this.burst(new THREE.Vector3(a.x, 0.25, a.y), c, 16, 5);
+          if (mine) this.shake(0.15);
+        }, i * 180);
+      }
+      this.pillar(a.x, a.y, c, 1.0, 2.5);
+    } else if ((id === 'hammer_on' || id === 'ear_training') && a) {
+      const throwIt = id === 'ear_training';
+      const boom = () => {
+        const at = target();
+        sfxSlash(vol, true);
+        this.crescent(at, throwIt ? 0 : 1.2, 2.8, 0xffffff, 300);
+        this.crescent(at, throwIt ? Math.PI / 2 : 1.2, 2.3, c, 340, 50);
+        this.glow(at, c, 6, 300);
+        this.ring(at.x, at.z, 2.6, c);
+        setTimeout(() => this.ring(at.x, at.z, 3.4, 0xffffff), 110);
+        this.burst(at, c, 40, 8);
+        if (mine) this.shake(0.35);
+      };
+      if (throwIt) {
+        numbersFrom = 420;
+        a.attack = 1;
+        a.combo = 0;
+        setTimeout(() => this.micThrow(new THREE.Vector3(a.x, 1.45, a.y), target, 260, c, boom, 1.6), 280);
+      } else setTimeout(boom, 330);
+    } else if (id === 'dynamics' && a) {
+      // two mics thrown in quick succession, each lands in a yellow star burst
+      numbersFrom = 420;
+      numberGap = 230;
+      for (let i = 0; i < 2; i++) {
+        setTimeout(() => {
+          a.attack = 1;
+          a.combo = 0;
+          setTimeout(() => this.micThrow(new THREE.Vector3(a.x, 1.45, a.y), target, 230, c, () => {
+            const at = target();
+            this.glow(at, c, 4, 240);
+            this.ring(at.x, at.z, 1.6, c);
+            this.burst(at, 0xffffff, 18, 5);
+            this.pixelFx('stab_hit', { at: () => at, scale: 2 });
+          }, 1.2), 280);
+        }, i * 230);
+      }
+    } else if (id === 'bending' && a) {
+      sfxWhirl(vol);
+      const r = skill.radius ?? 2;
+      for (let i = 0; i < 3; i++) this.whirlRing(a, 0.4 + i * 0.5, r * (0.9 + i * 0.25), i % 2 ? 0xffffff : c, i * 70);
+      this.ring(a.x, a.y, r + 0.5, c);
+      this.burst(new THREE.Vector3(a.x, 0.5, a.y), c, 40, 7);
+      if (mine) this.shake(0.25);
+    } else if (id === 'palm_muting' && a) {
+      // a red wave goes out 12 tiles and drags everything back in
+      this.ring(a.x, a.y, skill.radius ?? 12, c);
+      this.implode(a.x, a.y, skill.radius ?? 12, c);
+      for (const mid of msg.pulled ?? []) {
+        const m = this.monsters.get(mid);
+        if (m) setTimeout(() => this.tether(a, m, c), 120);
+      }
+      this.pillar(a.x, a.y, c, 1.0, 3);
+    } else if (isBuff) {
+      for (const sid of msg.allies ?? [msg.by]) {
+        const t = this.players.get(sid);
+        if (!t) continue;
+        this.buffFx(t, id, c);
+      }
+    }
+    msg.hits.forEach((h, i) => {
+      setTimeout(() => {
+        const m = h.m ? this.monsters.get(h.m) : undefined;
+        if (!m) return;
+        this.floatText(this.top(m).add(new THREE.Vector3(0, (i % 4) * 0.1, 0)), String(h.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
+        this.flash(m.rig.root, c);
+        m.anim?.hit();
+      }, h.at !== undefined ? h.at + 60 : numbersFrom + i * numberGap);
+    });
+  }
+
+  /** The look of each buff on the player who got it. */
+  private buffFx(t: PlayerActor, id: string, c: number) {
+    this.pillar(t.x, t.y, c, 0.6, 3.2);
+    this.ring(t.x, t.y, 1.8, c);
+    this.notes(t, c);
+    if (id === 'kick_drum') this.dome(t, c, 0.9);
+    else if (id === 'lift_beat') this.dome(t, 0xffffff, 0.75);
+    else if (id === 'push_note') this.pixelFx('heal_ring', { at: () => new THREE.Vector3(t.x, 0.02, t.y) });
+    else if (id === 'vibrato') this.burst(new THREE.Vector3(t.x, 1, t.y), 0xffffff, 24, 5);
+    else this.sparkle(t, c);
+  }
+
+  /** The cast of เสียงสูง: a bar over the head, a pulsing circle under the feet, singing. */
+  private castFx(a: PlayerActor, skill: { cls: ClassKey; name: string }, ms: number) {
+    const c = this.fxColor(skill.cls);
+    if (a.cast) this.scene.remove(a.cast.bar);
+    const bar = new THREE.Group();
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.1), new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.7, depthTest: false }));
+    const fill = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.08), new THREE.MeshBasicMaterial({ color: c, depthTest: false }));
+    back.renderOrder = fill.renderOrder = 10;
+    bar.add(back, fill);
+    this.scene.add(bar);
+    const start = performance.now();
+    a.cast = { start, ms, bar };
+    a.performUntil = start + ms;
+    a.combat = COMBAT_TIME;
+    this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}...`, 'shout', 1200);
+    const circle = new THREE.Mesh(new THREE.RingGeometry(0.75, 1, 6, 1), new THREE.MeshBasicMaterial({ color: c, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: blendFor(c) }));
+    circle.rotation.x = -Math.PI / 2;
+    this.scene.add(circle);
+    let tt = 0;
+    let lastNote = 0;
+    this.effects.push((dt) => {
+      tt += dt;
+      circle.position.set(a.x, 0.05, a.y);
+      circle.rotation.z += dt * 1.5;
+      circle.scale.setScalar(1.2 + Math.sin(tt * 8) * 0.12 + tt * 0.15);
+      (circle.material as THREE.MeshBasicMaterial).opacity = 0.8;
+      if (tt - lastNote > 0.35) {
+        lastNote = tt;
+        this.notes(a, c, 2);
+      }
+      if (!a.cast || a.cast.start !== start) {
+        this.scene.remove(circle);
+        circle.geometry.dispose();
+        (circle.material as THREE.Material).dispose();
+        return false;
+      }
+      return true;
+    });
+  }
+
+  /** A spinning microphone flying in an arc to wherever `to()` is when it arrives, with a coloured trail. */
+  private micThrow(from: THREE.Vector3, to: () => THREE.Vector3, ms: number, color: number, done: () => void, size = 1) {
+    const mic = new THREE.Group();
+    mic.add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.028, 0.24, 8), new THREE.MeshBasicMaterial({ color: 0x222222 })));
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), new THREE.MeshBasicMaterial({ color: 0xd8dde3 }));
+    head.position.y = 0.15;
+    mic.add(head);
+    mic.scale.setScalar(size * 1.3);
+    const glow = this.sprite(sparkTexture(), 0.6 * size, color, true);
+    this.scene.add(mic);
+    const end = to().clone();
+    let t = 0;
+    let trail = 0;
+    this.effects.push((dt) => {
+      t += (dt * 1000) / ms;
+      const k = Math.min(1, t);
+      end.lerp(to(), 0.3);
+      mic.position.lerpVectors(from, end, k).add(new THREE.Vector3(0, Math.sin(k * Math.PI) * 0.6, 0));
+      mic.rotation.x += dt * 25;
+      mic.rotation.z += dt * 9;
+      glow.position.copy(mic.position);
+      trail += dt;
+      if (trail > 0.025) {
+        trail = 0;
+        const s = this.sprite(sparkTexture(), 0.35 * size, color, true);
+        s.position.copy(mic.position);
+        let f = 0;
+        this.effects.push((d2) => {
+          f += d2 / 0.3;
+          s.material.opacity = Math.max(0, 0.8 * (1 - f));
+          s.scale.setScalar(0.35 * size * (1 - f * 0.6));
+          if (f >= 1) this.scene.remove(s);
+          return f < 1;
+        });
+      }
+      if (t >= 1) {
+        this.scene.remove(mic, glow);
+        mic.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
+        done();
+        return false;
+      }
+      return true;
+    });
+  }
+
+  /**
+   * A sound wave travelling from (fx,fy) along (dx,dy) for `length` tiles at `speed` tiles/s: arcs of sound
+   * (เสียงสูง) or a big spinning X (คลื่นเสียงทำลาย), leaving a glowing track on the ground.
+   */
+  private wave(fx: number, fy: number, dx: number, dy: number, length: number, speed: number, width: number, color: number, x: boolean) {
+    const yaw = Math.atan2(dx, dy);
+    const g = new THREE.Group();
+    const mats: THREE.MeshBasicMaterial[] = [];
+    const mat = (c: number, o = 0.9) => {
+      const m = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, side: THREE.DoubleSide, depthWrite: false, blending: blendFor(c) });
+      mats.push(m);
+      return m;
+    };
+    const geos: THREE.BufferGeometry[] = [];
+    if (x) {
+      // two crossed bars of sound standing up, plus their glow
+      for (const [w, c] of [[0.5, color], [0.18, 0xffffff]] as const) {
+        for (const r of [Math.PI / 4, -Math.PI / 4]) {
+          const geo = new THREE.PlaneGeometry(width * 1.3, w);
+          geos.push(geo);
+          const m = new THREE.Mesh(geo, mat(c));
+          m.rotation.z = r;
+          g.add(m);
+        }
+      }
+      g.position.y = 1.0;
+    } else {
+      // three nested arcs facing the way it goes
+      for (let i = 0; i < 3; i++) {
+        const geo = crescentGeometry(width * (0.6 + i * 0.25), 0.25, Math.PI * 0.7);
+        geos.push(geo);
+        const m = new THREE.Mesh(geo, mat(i === 1 ? 0xffffff : color));
+        m.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
+        m.position.z = -i * 0.35;
+        g.add(m);
+      }
+      g.position.y = 0.9;
+    }
+    const core = this.sprite(sparkTexture(), width * 1.6, color, true);
+    core.material.depthTest = false;
+    g.rotation.y = yaw;
+    this.scene.add(g);
+    // ground track
+    const trackGeo = new THREE.PlaneGeometry(width * 0.8, 1);
+    const track = new THREE.Mesh(trackGeo, mat(color, 0.5));
+    track.rotation.order = 'YXZ';
+    track.rotation.set(-Math.PI / 2, yaw, 0);
+    this.scene.add(track);
+    const dur = length / speed;
+    let t = 0;
+    let puff = 0;
+    this.effects.push((dt) => {
+      t += dt;
+      const k = Math.min(1, t / dur);
+      const d = 0.6 + k * length;
+      g.position.x = fx + dx * d;
+      g.position.z = fy + dy * d;
+      if (x) g.children.forEach((c) => (c.rotation.z += dt * 3 * Math.sign(c.rotation.z || 1)));
+      else g.scale.setScalar(0.7 + k * 0.6);
+      core.position.copy(g.position);
+      core.material.opacity = 0.7;
+      track.scale.y = d;
+      track.position.set(fx + (dx * d) / 2, 0.06, fy + (dy * d) / 2);
+      puff += dt;
+      if (puff > 0.06) {
+        puff = 0;
+        this.burst(g.position.clone(), color, 3, 2);
+      }
+      const fade = t > dur ? 1 - (t - dur) / 0.35 : 1;
+      for (const m of mats) m.opacity = Math.max(0, (m === track.material ? 0.45 : 0.9) * fade);
+      core.material.opacity = Math.max(0, 0.7 * fade);
+      if (fade <= 0) {
+        this.scene.remove(g, track, core);
+        geos.forEach((geo) => geo.dispose());
+        trackGeo.dispose();
+        mats.forEach((m) => m.dispose());
+        return false;
+      }
+      return true;
+    });
+    // the end: a burst where the wave dies out
+    setTimeout(() => {
+      const end = new THREE.Vector3(fx + dx * (length + 0.6), 0.9, fy + dy * (length + 0.6));
+      this.glow(end, color, 4, 300);
+      this.burst(end, color, 24, 5);
+    }, dur * 1000);
+  }
+
+  /** A column of light rising out of the ground. */
+  private pillar(x: number, y: number, color: number, radius: number, height: number) {
+    const m = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius, radius * 1.15, 1, 24, 1, true),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false, blending: blendFor(color) }),
+    );
+    this.scene.add(m);
+    let t = 0;
+    this.effects.push((dt) => {
+      t += dt / 0.9;
+      const h = Math.max(0.01, Math.min(1, t * 2) * height);
+      m.position.set(x, h / 2, y);
+      m.scale.set(1 - t * 0.3, h, 1 - t * 0.3);
+      (m.material as THREE.MeshBasicMaterial).opacity = 0.55 * (1 - t);
+      if (t >= 1) {
+        this.scene.remove(m);
+        m.geometry.dispose();
+        (m.material as THREE.Material).dispose();
+      }
+      return t < 1;
+    });
+  }
+
+  /** Music notes floating up round a player. */
+  private notes(a: PlayerActor, color: number, n = 6) {
+    const css = `#${new THREE.Color(color).getHexString()}`;
+    for (let i = 0; i < n; i++) {
+      const s = this.sprite(glyphTexture(['♪', '♫', '♬'][i % 3], css, 'rgba(255,255,255,0.85)'), 0.45);
+      const ang = Math.random() * Math.PI * 2;
+      let t = -i * 0.08;
+      this.effects.push((dt) => {
+        t += dt;
+        const k = Math.max(0, t);
+        s.visible = t >= 0;
+        s.position.set(a.x + Math.cos(ang + k * 2) * 0.7, 0.6 + k * 1.6, a.y + Math.sin(ang + k * 2) * 0.7);
+        s.material.opacity = Math.max(0, 1 - k / 1.1);
+        if (t > 1.1) this.scene.remove(s);
+        return t <= 1.1;
+      });
+    }
+  }
+
+  /** A see-through bubble round a player (Kick Drum, จังหวะยก). */
+  private dome(a: PlayerActor, color: number, opacity: number) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 24, 14),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3 * opacity, wireframe: true, depthWrite: false, blending: blendFor(color) }),
+    );
+    this.scene.add(m);
+    let t = 0;
+    this.effects.push((dt) => {
+      t += dt / 1.2;
+      m.position.set(a.x, 0.9, a.y);
+      m.scale.setScalar(0.4 + Math.min(1, t * 3) * 0.9);
+      m.rotation.y += dt;
+      (m.material as THREE.MeshBasicMaterial).opacity = 0.35 * opacity * (1 - t);
+      if (t >= 1) {
+        this.scene.remove(m);
+        m.geometry.dispose();
+        (m.material as THREE.Material).dispose();
+      }
+      return t < 1;
+    });
+  }
+
+  /** A puff of smoke: hiding, or showing up again. */
+  private smoke(x: number, y: number, color: number) {
+    this.glow(new THREE.Vector3(x, 1, y), color, 4, 350);
+    for (let i = 0; i < 18; i++) {
+      const s = this.sprite(sparkTexture(), 0.6, i % 3 ? color : 0x444466, false);
+      const ang = (i / 18) * Math.PI * 2;
+      let t = 0;
+      this.effects.push((dt) => {
+        t += dt / 0.8;
+        s.position.set(x + Math.cos(ang) * t * 1.4, 0.3 + t * 1.2 + Math.sin(i) * 0.3, y + Math.sin(ang) * t * 1.4);
+        s.scale.setScalar(0.6 + t * 0.9);
+        s.material.opacity = Math.max(0, 0.75 * (1 - t));
+        if (t >= 1) this.scene.remove(s);
+        return t < 1;
+      });
+    }
+  }
+
+  /** While hidden, our own character trails purple haze so we know it's working. */
+  private hideAura(a: PlayerActor) {
+    if (a !== this.me) return;
+    const c = this.fxColor('drummer');
+    let t = 0;
+    this.effects.push((dt) => {
+      t += dt;
+      if (t > 0.12) {
+        t = 0;
+        const s = this.sprite(sparkTexture(), 0.5, c, true);
+        const off = new THREE.Vector3((Math.random() - 0.5) * 0.7, 0.2 + Math.random() * 1.4, (Math.random() - 0.5) * 0.7);
+        let f = 0;
+        this.effects.push((d2) => {
+          f += d2 / 0.7;
+          s.position.set(a.x + off.x, off.y + f * 0.4, a.y + off.z);
+          s.material.opacity = Math.max(0, 0.5 * (1 - f));
+          if (f >= 1) this.scene.remove(s);
+          return f < 1;
+        });
+      }
+      return !!a.hidden && this.players.get(a.id) === a;
+    });
+  }
+
+  /** A ring that closes in on (x,y) from `radius` (Palm muting pulling monsters in). */
+  private implode(x: number, y: number, radius: number, color: number) {
+    const m = new THREE.Mesh(
+      new THREE.RingGeometry(0.9, 1, 64),
+      new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: blendFor(color) }),
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, 0.07, y);
+    this.scene.add(m);
+    let t = 0;
+    this.effects.push((dt) => {
+      t += dt / 0.6;
+      m.scale.setScalar(Math.max(0.3, radius * (1 - t)));
+      (m.material as THREE.MeshBasicMaterial).opacity = Math.min(1, t * 3) * (1 - t * 0.5);
+      if (t >= 1) {
+        this.scene.remove(m);
+        m.geometry.dispose();
+        (m.material as THREE.Material).dispose();
+      }
+      return t < 1;
+    });
+  }
+
+  /** A flash of light between two actors (pulled monster, Kick Drum, a reflected hit). */
+  private tether(a: { x: number; y: number }, b: { x: number; y: number }, color: number) {
+    const from = new THREE.Vector3(a.x, 1, a.y);
+    const to = new THREE.Vector3(b.x, 1, b.y);
+    const len = from.distanceTo(to);
+    if (len < 0.1) return;
+    const geo = new THREE.CylinderGeometry(0.05, 0.05, len, 6, 1, true);
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, blending: blendFor(color) }));
+    m.position.copy(from).add(to).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
+    this.scene.add(m);
+    let t = 0;
+    this.effects.push((dt) => {
+      t += dt / 0.35;
+      (m.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - t);
+      m.scale.set(1 + t * 2, 1, 1 + t * 2);
+      if (t >= 1) {
+        this.scene.remove(m);
+        geo.dispose();
+        (m.material as THREE.Material).dispose();
+      }
+      return t < 1;
     });
   }
 
@@ -1461,7 +2122,7 @@ export class World3D {
   /** A tapered crescent (thick middle, sharp tips) facing the camera, tilted by `tilt` radians, that sweeps and fades. */
   private crescent(at: THREE.Vector3, tilt: number, radius: number, color: number, ms: number, delay = 0) {
     const geo = crescentGeometry(radius, radius * 0.28, Math.PI * 0.95);
-    const mats = [color, 0xffffff].map((c, i) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: i ? 0.9 : 0.85, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const mats = [color, 0xffffff].map((c, i) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: i ? 0.9 : 0.85, side: THREE.DoubleSide, depthWrite: false, blending: blendFor(c) }));
     const g = new THREE.Group();
     const outer = new THREE.Mesh(geo, mats[0]);
     const core = new THREE.Mesh(crescentGeometry(radius * 0.97, radius * 0.08, Math.PI * 0.9), mats[1]);
@@ -1492,7 +2153,7 @@ export class World3D {
   /** A horizontal ring of blade arcs spinning round a player (หมุนตัวแทง). */
   private whirlRing(a: PlayerActor, height: number, radius: number, color: number, delay: number) {
     const geos = [0, 1, 2].map(() => crescentGeometry(radius, radius * 0.22, Math.PI * 0.55));
-    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, blending: blendFor(color) });
     const g = new THREE.Group();
     geos.forEach((geo, i) => {
       const m = new THREE.Mesh(geo, mat);
@@ -1528,7 +2189,7 @@ export class World3D {
     const parts = [0.5, 1.0, 1.4].map((h, i) => {
       const m = new THREE.Mesh(
         new THREE.PlaneGeometry(len, i === 1 ? 0.5 : 0.18),
-        new THREE.MeshBasicMaterial({ color: i === 1 ? color : 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }),
+        new THREE.MeshBasicMaterial({ color: i === 1 ? color : 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false, blending: blendFor(i === 1 ? color : 0xffffff) }),
       );
       m.position.set((fx + tx) / 2, h, (fy + ty) / 2);
       m.rotation.order = 'YXZ';
@@ -1561,6 +2222,7 @@ export class World3D {
   /** A quick bright flash (a big additive spark) at a hit. */
   private glow(at: THREE.Vector3, color: number, size: number, ms: number) {
     const s = this.sprite(sparkTexture(), size, color, true);
+    s.material.depthTest = false; // a big glow would be cut off flat where it meets the ground
     s.position.copy(at);
     let t = 0;
     this.effects.push((dt) => {
@@ -1615,7 +2277,7 @@ export class World3D {
 
   minimapDots() {
     const others: { x: number; y: number }[] = [];
-    for (const a of this.players.values()) if (a !== this.me) others.push({ x: a.x, y: a.y });
+    for (const a of this.players.values()) if (a !== this.me && !a.hidden) others.push({ x: a.x, y: a.y });
     const monsters: { x: number; y: number; key: string }[] = [];
     for (const m of this.monsters.values()) if (!m.dead) monsters.push({ x: m.x, y: m.y, key: m.key });
     return { me: { x: this.me.x, y: this.me.y }, others, monsters };

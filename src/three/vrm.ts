@@ -269,6 +269,8 @@ interface Piece {
   obj: THREE.Object3D;
   held: THREE.Object3D;
   back: THREE.Object3D;
+  /** Guitar/bass: gripped by the neck in the right fist like a sword, for swinging at monsters. */
+  swing?: THREE.Object3D;
 }
 
 interface Gear {
@@ -388,6 +390,10 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean): Gear
     hang.quaternion.copy(p.back.quaternion);
     vrm.scene.updateMatrixWorld(true);
     const backStrap = addBackStrap(vrm, chest, inst.group);
+    // swung like a two-handed sword, gripped by the neck near the headstock (placed each frame, see swingGrip)
+    p.swing = new THREE.Object3D();
+    p.swing.matrixAutoUpdate = false;
+    p.swing.userData.hold = inst.grip.position.x + (bass ? 0.1 : 0.06);
     const poleL = new THREE.Object3D();
     poleL.position.set(0.45, -0.35, -0.25).multiplyScalar(fit);
     const poleR = new THREE.Object3D();
@@ -477,11 +483,36 @@ const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion();
 const _m = new THREE.Matrix4(), _mi = new THREE.Matrix4();
 
 /** Puts a piece `k` of the way from the back (0) to the hands (1), arcing out behind the shoulder on the way. */
-function place(p: Piece, k: number) {
-  p.held.matrixWorld.decompose(_pa, _qa, _sa);
-  p.back.matrixWorld.decompose(_pb, _qb, _sb);
+const _sh = new THREE.Vector3(), _hd = new THREE.Vector3(), _up = new THREE.Vector3(), _fw = new THREE.Vector3();
+/**
+ * Where a swung guitar/bass goes: the neck in the right fist and the body carried on out along the arm
+ * (shoulder to hand, tipped up a little like a sword), strings facing out of the swing.
+ */
+function swingGrip(vrm: VRM, root: THREE.Object3D, p: Piece) {
+  const sh = vrm.humanoid.getNormalizedBoneNode('rightUpperArm');
+  const hand = vrm.humanoid.getNormalizedBoneNode('rightHand');
+  if (!sh || !hand || !p.swing) return;
+  sh.getWorldPosition(_sh);
+  hand.getWorldPosition(_hd);
+  const dir = _pa.subVectors(_hd, _sh).normalize();
+  _up.set(0, 1, 0);
+  dir.addScaledVector(_up, 0.35).normalize();
+  // strings face sideways to the swing: across the arm and the character's facing
+  _fw.set(0, 0, 1).applyQuaternion(root.getWorldQuaternion(_qb));
+  const n = _sb.crossVectors(dir, _fw);
+  if (n.lengthSq() < 1e-4) n.crossVectors(dir, _up);
+  const q = basis(dir.clone().negate(), n.normalize());
+  p.held.matrixWorld.decompose(_pb, _qa, _sa);
+  const scale = _sa.x;
+  const pos = _hd.clone().addScaledVector(dir, p.swing.userData.hold * scale);
+  p.swing.matrixWorld.compose(pos, q, _sa.setScalar(scale));
+}
+
+function place(p: Piece, k: number, from = p.back, to = p.held, arc = true) {
+  to.matrixWorld.decompose(_pa, _qa, _sa);
+  from.matrixWorld.decompose(_pb, _qb, _sb);
   _pb.lerp(_pa, k);
-  _pb.y += Math.sin(k * Math.PI) * 0.12 * _sa.y;
+  if (arc) _pb.y += Math.sin(k * Math.PI) * 0.12 * _sa.y;
   _qb.slerp(_qa, k);
   _sb.lerp(_sa, k);
   _m.compose(_pb, _qb, _sb);
@@ -609,11 +640,75 @@ const COMBO: ComboKey[][] = [
     { at: 0.68, bones: { rightUpperArm: [-0.4, 0, 1.4], rightLowerArm: [0, 0.3, 0], rightHand: [0, -0.9, 0], spine: [0.65, 0, 0], chest: [0.22, 0, 0], head: [-0.6, 0, 0], leftUpperArm: [0.45, 0, -1.1], leftLowerArm: [0, -0.6, 0], ...LUNGE }, dy: -0.28, dz: 0.18 },
   ],
 ];
-const COMBO_BONES = [...new Set(COMBO.flat().flatMap((key) => Object.keys(key.bones)))] as VRMHumanBoneName[];
-/** When each combo move lands (fraction of the attack), so the hit effect can wait for the blade. */
-export const COMBO_HIT = COMBO.map((m) => m.find((key) => key.hit)!.at);
-/** Seconds one Teen attack animation lasts. */
-export const COMBO_TIME = 0.55;
+
+// a guard for the off hand while the other one strikes
+const DRUM_L_GUARD = { leftUpperArm: [-1.25, 0, -0.85] as V3, leftLowerArm: [0, -1.5, 0] as V3 };
+const DRUM_R_GUARD = { rightUpperArm: [-1.25, 0, 0.85] as V3, rightLowerArm: [0, 1.5, 0] as V3 };
+
+/**
+ * Drummer: quick alternating stick strikes, low and leaning in like a knife-fighter, one stick per attack
+ * (left, right, left …).
+ */
+const DRUM: ComboKey[][] = [
+  [
+    { at: 0.18, bones: { leftUpperArm: [-2.4, 0, -0.8], leftLowerArm: [0, -1.3, 0], ...DRUM_R_GUARD, spine: [0.15, -0.4, 0], chest: [0, -0.15, 0], head: [-0.15, 0.45, 0] }, dy: -0.08 },
+    { at: 0.42, hit: true, bones: { leftUpperArm: [-1.05, 0.1, -0.25], leftLowerArm: [0, -0.1, 0], ...DRUM_R_GUARD, spine: [0.4, 0.45, 0], chest: [0.1, 0.15, 0], head: [-0.3, -0.5, 0], ...LUNGE }, dy: -0.16, dz: 0.14 },
+    { at: 0.62, bones: { leftUpperArm: [-0.75, 0.3, -0.25], leftLowerArm: [0, -0.15, 0], ...DRUM_R_GUARD, spine: [0.42, 0.5, 0], chest: [0.1, 0.15, 0], head: [-0.3, -0.55, 0], ...LUNGE }, dy: -0.16, dz: 0.14 },
+  ],
+  [
+    { at: 0.18, bones: { rightUpperArm: [-2.4, 0, 0.8], rightLowerArm: [0, 1.3, 0], ...DRUM_L_GUARD, spine: [0.15, 0.4, 0], chest: [0, 0.15, 0], head: [-0.15, -0.45, 0] }, dy: -0.08 },
+    { at: 0.42, hit: true, bones: { rightUpperArm: [-1.05, -0.1, 0.25], rightLowerArm: [0, 0.1, 0], ...DRUM_L_GUARD, spine: [0.4, -0.45, 0], chest: [0.1, -0.15, 0], head: [-0.3, 0.5, 0], ...LUNGE }, dy: -0.16, dz: 0.14 },
+    { at: 0.62, bones: { rightUpperArm: [-0.75, -0.3, 0.25], rightLowerArm: [0, 0.15, 0], ...DRUM_L_GUARD, spine: [0.42, -0.5, 0], chest: [0.1, -0.15, 0], head: [-0.3, 0.55, 0], ...LUNGE }, dy: -0.16, dz: 0.14 },
+  ],
+];
+
+/**
+ * Guitarist / bassist: the instrument swung two-handed like a big sword: an overhead chop, then a
+ * sweeping side cut from right to left.
+ */
+const SWORD: ComboKey[][] = [
+  [
+    { at: 0.3, bones: { rightUpperArm: [-2.9, 0, 0.75], rightLowerArm: [0, 0.9, 0], rightHand: [0, 0, 0.4], leftUpperArm: [-2.75, 0, -0.55], leftLowerArm: [0, -1.1, 0], spine: [-0.25, -0.2, 0], chest: [-0.1, 0, 0], head: [0.05, 0.2, 0] }, dy: 0.02 },
+    { at: 0.5, hit: true, bones: { rightUpperArm: [-1.0, 0.35, 0.55], rightLowerArm: [0, 0.15, 0], rightHand: [0, 0, -0.5], leftUpperArm: [-1.05, -0.3, -0.45], leftLowerArm: [0, -0.5, 0], spine: [0.55, 0.15, 0], chest: [0.2, 0, 0], head: [-0.55, -0.1, 0], ...LUNGE }, dy: -0.2, dz: 0.18 },
+    { at: 0.72, bones: { rightUpperArm: [-0.6, 0.4, 0.75], rightLowerArm: [0, 0.2, 0], rightHand: [0, 0, -0.6], leftUpperArm: [-0.7, -0.3, -0.6], leftLowerArm: [0, -0.5, 0], spine: [0.6, 0.2, 0], chest: [0.2, 0, 0], head: [-0.6, -0.1, 0], ...LUNGE }, dy: -0.21, dz: 0.18 },
+  ],
+  [
+    { at: 0.28, bones: { rightUpperArm: [-1.5, -1.0, 0.35], rightLowerArm: [0, 0.6, 0], rightHand: [0, 0, 0.3], leftUpperArm: [-1.3, -0.9, -0.2], leftLowerArm: [0, -1.4, 0], spine: [0.05, -0.85, 0], chest: [0, -0.3, 0], head: [0, 0.9, 0] }, dy: -0.06 },
+    { at: 0.5, hit: true, bones: { rightUpperArm: [-1.45, 1.05, 0.35], rightLowerArm: [0, 0.15, 0], rightHand: [0, 0, -0.3], leftUpperArm: [-1.35, 0.75, -0.6], leftLowerArm: [0, -0.4, 0], spine: [0.25, 0.75, 0], chest: [0.05, 0.3, 0], head: [-0.1, -0.7, 0], ...LUNGE }, dy: -0.15, dz: 0.14 },
+    { at: 0.7, bones: { rightUpperArm: [-1.3, 1.35, 0.55], rightLowerArm: [0, 0.2, 0], rightHand: [0, 0, -0.3], leftUpperArm: [-1.2, 1.0, -0.7], leftLowerArm: [0, -0.4, 0], spine: [0.25, 0.9, 0], chest: [0.05, 0.3, 0], head: [-0.1, -0.85, 0], ...LUNGE }, dy: -0.15, dz: 0.14 },
+  ],
+];
+
+/**
+ * Singer: an archer-style throw. Side-on to the target with the off hand pointing at it and the mic
+ * drawn back by the ear, then the hips and shoulders turn and the mic is thrown.
+ */
+const THROW: ComboKey[][] = [
+  [
+    { at: 0.38, bones: { spine: [0, -0.75, 0], chest: [0, -0.3, 0], head: [0, 1.0, 0], leftUpperArm: [-0.05, -0.55, -0.1], leftLowerArm: [0, -0.1, 0], rightUpperArm: [0.1, -0.45, 0.15], rightLowerArm: [0, 2.1, 0], rightHand: [0, 0, 0.4], leftUpperLeg: [-0.35, 0, -0.2], rightUpperLeg: [0.2, 0, 0.2], rightLowerLeg: [0.3, 0, 0] }, dy: -0.05, dz: -0.05 },
+    { at: 0.55, hit: true, bones: { spine: [0.2, 0.35, 0], chest: [0.08, 0.15, 0], head: [-0.1, -0.4, 0], leftUpperArm: [0.3, 0.3, -1.0], leftLowerArm: [0, -0.6, 0], rightUpperArm: [-1.65, 0.45, 0.25], rightLowerArm: [0, 0.1, 0], rightHand: [0, 0, -0.4], ...LUNGE }, dy: -0.12, dz: 0.12 },
+    { at: 0.78, bones: { spine: [0.25, 0.4, 0], chest: [0.08, 0.15, 0], head: [-0.15, -0.45, 0], leftUpperArm: [0.35, 0.3, -1.1], leftLowerArm: [0, -0.6, 0], rightUpperArm: [-1.0, 0.6, 0.6], rightLowerArm: [0, 0.2, 0], rightHand: [0, 0, -0.4], ...LUNGE }, dy: -0.12, dz: 0.12 },
+  ],
+];
+
+/** Each class's attack: its moves (one per attack, in turn) and how long one lasts in seconds. */
+const MOVES: Record<string, { moves: ComboKey[][]; time: number }> = {
+  teen: { moves: COMBO, time: 0.55 },
+  drummer: { moves: DRUM, time: 0.3 },
+  guitarist: { moves: SWORD, time: 0.6 },
+  bassist: { moves: SWORD, time: 0.65 },
+  singer: { moves: THROW, time: 0.55 },
+};
+const MOVE_BONES = [...new Set(Object.values(MOVES).flatMap((m) => m.moves.flat().flatMap((key) => Object.keys(key.bones))))] as VRMHumanBoneName[];
+/** Seconds one attack animation lasts (0 = the old quick arm swing). */
+export const attackTime = (cls: string) => MOVES[cls]?.time ?? 0;
+/** How many moves the class's attack cycles through. */
+export const attackMoves = (cls: string) => MOVES[cls]?.moves.length ?? 1;
+/** When move `n` lands (fraction of the attack), so the hit effect can wait for the blow. */
+export const attackHit = (cls: string, n: number) => {
+  const m = MOVES[cls];
+  return m ? m.moves[n % m.moves.length].find((key) => key.hit)!.at : 0.5;
+};
 
 export interface AnimState {
   moving: boolean;
@@ -624,8 +719,10 @@ export interface AnimState {
   drawn?: boolean;
   /** A weapon is equipped (false = bare hands: no instrument or dagger at all). Defaults to true. */
   armed?: boolean;
-  /** Which move of the Teen's dagger combo this attack is. */
+  /** Which move of the class's attack this is (Teen dagger combo, drummer's left/right stick, …). */
   combo?: number;
+  /** 0..1: playing / singing for a buff skill or while casting (guitarist, bassist, singer). */
+  perform?: number;
 }
 
 const DRAW_TIME = 0.22; // seconds to swing the instrument from the back into the hands
@@ -650,6 +747,12 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
   const clsKey = rig.root.userData.cls as string;
   // the Teen keeps the dagger in hand all the time; only the guard stance waits for a fight
   const knife = clsKey === 'teen' && armed;
+  const moves = armed ? MOVES[clsKey] : undefined;
+  const perform = !s.dead && !s.sitting ? s.perform ?? 0 : 0;
+  // guitar / bass: how far the instrument has gone from the strap into the swinging grip (fades in and out of an attack)
+  const swingP = 1 - s.attack;
+  const swingW = s.attack > 0 && moves && (clsKey === 'guitarist' || clsKey === 'bassist')
+    ? THREE.MathUtils.smoothstep(swingP, 0, 0.16) * (1 - THREE.MathUtils.smoothstep(swingP, 0.84, 1)) : 0;
   const cls = POSES[clsKey] ?? POSES.idle;
   const idle = POSES.idle;
   const mix = (x: number, y: number) => x + (y - x) * k;
@@ -676,7 +779,7 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
   set('head', gear?.ik ? 0.14 * k : 0, 0, s.moving ? 0 : Math.sin(t * 1.3) * 0.04);
   rig.body.position.y = s.moving ? Math.abs(Math.sin(t * 11)) * 0.04 : 0;
 
-  if (knife && k > 0 && !s.moving && !s.sitting && !s.dead) {
+  if ((knife || (clsKey === 'drummer' && armed)) && k > 0 && !s.moving && !s.sitting && !s.dead) {
     // guard stance: knees bent, feet apart, weight low
     const g = k;
     for (const [n, v] of Object.entries(GUARD) as [VRMHumanBoneName, V3][]) {
@@ -685,16 +788,47 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
     }
     rig.body.position.y -= 0.13 * g;
   }
-  if (s.attack > 0 && knife) {
-    // dagger combo: diagonal slash -> piercing stab -> overhead finisher, one move per attack
-    const move = COMBO[(s.combo ?? 0) % COMBO.length];
+  if (perform > 0 && !s.moving) {
+    // buff skills: stand and play / sing
+    const w = perform;
+    const add = (n: VRMHumanBoneName, x: number, y: number, z: number) => {
+      const r = b(n)?.rotation;
+      if (r) r.set(r.x + x * w, r.y + y * w, r.z + z * w);
+    };
+    if (clsKey === 'singer') {
+      // mic up at the mouth, free arm thrown out wide, head back, swaying with the song
+      const sway = Math.sin(t * 3);
+      set('rightUpperArm', -1.05 * w + (1 - w) * b('rightUpperArm')!.rotation.x, -0.35 * w, 0.75 * w + (1 - w) * b('rightUpperArm')!.rotation.z);
+      set('rightLowerArm', 0, 2.25 * w + (1 - w) * b('rightLowerArm')!.rotation.y, 0);
+      set('leftUpperArm', -0.9 * w, -0.35 * w, (-0.35 + Math.sin(t * 2.2) * 0.12) * w + (1 - w) * b('leftUpperArm')!.rotation.z);
+      set('leftLowerArm', 0, -0.25 * w, 0);
+      add('spine', -0.12, sway * 0.12, sway * 0.05);
+      add('chest', -0.08, 0, 0);
+      add('head', -0.3, -sway * 0.1, 0);
+      add('leftUpperLeg', -0.15, 0, -0.08);
+      add('rightUpperLeg', 0.1, 0, 0.08);
+    } else {
+      // rocking out: lean back, nod to the beat, knees bouncing
+      const beat = Math.abs(Math.sin(t * 5.5));
+      add('spine', -0.12 + beat * 0.06, 0.15, 0);
+      add('head', 0.1 + beat * 0.3, 0, 0);
+      add('leftUpperLeg', -0.3, 0, -0.18);
+      add('leftLowerLeg', 0.35, 0, 0);
+      add('rightUpperLeg', 0.15, 0, 0.18);
+      add('rightLowerLeg', 0.25, 0, 0);
+      rig.body.position.y -= (0.04 + beat * 0.04) * w;
+    }
+  }
+  if (s.attack > 0 && moves) {
+    // the class's attack moves, one per attack (Teen dagger combo, drummer sticks, instrument swings, mic throw)
+    const move = moves.moves[(s.combo ?? 0) % moves.moves.length];
     const p = 1 - s.attack; // 0 -> 1 over the attack
     const lo = [...move].reverse().find((key) => key.at <= p);
     const hi = move.find((key) => key.at > p);
     const f0 = lo?.at ?? 0;
     const f1 = hi?.at ?? 1;
     const w = THREE.MathUtils.smoothstep(p, f0, f1);
-    for (const n of COMBO_BONES) {
+    for (const n of MOVE_BONES) {
       const r = b(n)?.rotation;
       if (!r) continue;
       const base = [r.x, r.y, r.z];
@@ -734,19 +868,33 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
 
   if (gear) {
     rig.root.updateMatrixWorld(true);
-    for (const p of gear.pieces) place(p, knife && !s.dead ? 1 : k);
-    for (const o of gear.heldOnly) o.visible = k > 0.98;
+    for (const p of gear.pieces) {
+      place(p, knife && !s.dead ? 1 : k);
+      if (p.swing && swingW > 0) {
+        p.obj.updateMatrixWorld(true);
+        swingGrip(vrm, rig.root, p);
+        place(p, swingW, p.held, p.swing, false);
+      }
+    }
+    for (const o of gear.heldOnly) o.visible = k > 0.98 && swingW < 0.02;
     for (const o of gear.backOnly) o.visible = k < 0.02;
+    // the singer's mic is in the air from the throw until the attack ends
+    if (clsKey === 'singer' && armed) {
+      const thrown = s.attack > 0 && 1 - s.attack > attackHit('singer', s.combo ?? 0) && s.attack > 0.06;
+      for (const p of gear.pieces) p.obj.visible = !thrown;
+    }
   }
 
   // instrument players: wrists go to the neck and over the strings, as far as the instrument has come round
   const ik = gear?.ik;
   if (ik && !s.dead && k > 0) {
-    const a = s.attack > 0 ? Math.sin(s.attack * Math.PI) : 0;
+    const a = s.attack > 0 && !moves ? Math.sin(s.attack * Math.PI) : 0;
     ik.left.position.copy(ik.restL);
     ik.right.position.copy(ik.restR);
     if (ik.play === 'strings') {
-      ik.right.position.y += -0.05 * a + (s.moving ? 0 : Math.sin(t * 9) * 0.006);
+      // a hard strum while performing a buff skill
+      ik.right.position.y += -0.05 * a + (s.moving ? 0 : Math.sin(t * (perform > 0 ? 22 : 9)) * (perform > 0 ? 0.04 * perform : 0.006));
+      ik.left.position.x += perform > 0 ? Math.sin(t * 1.7) * 0.05 * perform : 0;
       ik.right.position.z += 0.02 * a;
     } else {
       // little key presses, hands drifting along the keyboard; an attack is a two-hand chord
@@ -762,15 +910,18 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
     const [twL, twR] = keys ? [-1.5, 1.5] : [-1.5, -1.5];
     reach(vrm, 'left', ik.left.getWorldPosition(new THREE.Vector3()), ik.poleL.getWorldPosition(new THREE.Vector3()), twL);
     reach(vrm, 'right', ik.right.getWorldPosition(new THREE.Vector3()), ik.poleR.getWorldPosition(new THREE.Vector3()), twR);
-    if (k < 1) ARM_BONES.forEach((n, i) => before[i] && b(n)?.quaternion.slerpQuaternions(before[i]!, b(n)!.quaternion, k));
-    const c = (v: number[]) => v.map((x) => x * k);
+    // while swinging the instrument the arms follow the attack moves instead of the strings
+    const ikW = k * (1 - swingW);
+    if (ikW < 1) ARM_BONES.forEach((n, i) => before[i] && b(n)?.quaternion.slerpQuaternions(before[i]!, b(n)!.quaternion, ikW));
+    const c = (v: number[]) => v.map((x) => x * Math.max(k * (1 - swingW), swingW));
     curl(vrm, 'left', c(keys ? [0.35, 0.4, 0.45, 0.5] : [1.0, 1.1, 1.15, 1.2]), v0);
     curl(vrm, 'right', c(keys ? [0.35, 0.4, 0.45, 0.5] : [0.55, 0.7, 0.9, 1.0]), v0);
   } else if (ik) {
     curl(vrm, 'left', [0, 0, 0, 0], v0);
     curl(vrm, 'right', [0, 0, 0, 0], v0);
-  } else if (knife) {
+  } else if (knife || (clsKey === 'drummer' && armed && k > 0)) {
     curl(vrm, 'right', s.dead ? [0, 0, 0, 0] : [1.1, 1.2, 1.25, 1.3], v0); // a fist round the grip
+    if (clsKey === 'drummer') curl(vrm, 'left', s.dead ? [0, 0, 0, 0] : [1.1, 1.2, 1.25, 1.3], v0);
   }
 
   // facial expression + blinking
