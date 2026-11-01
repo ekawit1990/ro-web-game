@@ -583,8 +583,8 @@ export class Hud implements WorldHooks {
     const sig = JSON.stringify([c.skills, c.skill_points, c.cls]);
     if (this.lastSig.skill === sig) return;
     this.lastSig.skill = sig;
-    // Teen skills stay on the list after the job change (usable, no longer trainable)
-    const list = c.cls === START_CLASS ? skillsOf(c.cls) : [...skillsOf(c.cls), ...skillsOf(START_CLASS).filter(([id]) => c.skills?.[id])];
+    // the job change refunds Teen skills, so only your class's own skills are listed
+    const list = skillsOf(c.cls);
     const rows = list.map(([id, sk]) => {
       const lv = c.skills?.[id] ?? 0;
       const passive = sk.type === 'passive';
@@ -667,6 +667,12 @@ export class Hud implements WorldHooks {
     const sig = JSON.stringify([this.hotkeys, this.s.inv, this.s.char.skills]);
     if (this.lastSig.hot === sig) return;
     this.lastSig.hot = sig;
+    // skills you no longer have (Teen skills after the job change) come off the bar
+    const lost = this.hotkeys.some((h) => h?.t === 's' && !this.s.char.skills?.[h.id]);
+    if (lost) {
+      this.hotkeys = this.hotkeys.map((h) => (h?.t === 's' && !this.s.char.skills?.[h.id] ? null : h));
+      this.saveHotkeys();
+    }
     bar.innerHTML = this.hotkeys
       .map((h, i) => {
         let inner = '';
@@ -1117,7 +1123,7 @@ export class Hud implements WorldHooks {
     const text: Record<Npc['id'], string> = {
       shop: 'ยินดีต้อนรับจ้า~ มีน้ำดื่ม ยาฟื้นเสียง และเสื้อผ้าเท่ ๆ ให้เลือกเพียบ',
       weapons: 'เครื่องดนตรีดี ๆ ทั้งนั้น! เลือกให้เหมาะกับอาชีพของเจ้านะ',
-      healer: 'เหนื่อยไหมจ๊ะ? ให้ครูช่วยพักเสียงให้ไหม (ฟื้น HP/SP เต็มฟรี)',
+      healer: 'เหนื่อยไหมจ๊ะ? ให้ครูช่วยพักเสียงให้ไหม (ฟื้น HP/SP เต็ม และบัพทุกสกิลในเกมระดับสูงสุดให้ ฟรี)',
       jobs: '',
       warper: '',
       refiner: '',
@@ -1329,7 +1335,8 @@ export class Hud implements WorldHooks {
     } else if (q < kills) {
       text = `ยังไม่ครบนะ! กำจัดมอนสเตอร์ Lv ${monsterLevel} ขึ้นไปแล้ว ${q} / ${kills} ตัว`;
     } else {
-      text = `ผ่านบททดสอบแล้ว! เลือกเส้นทางดนตรีของเธอได้เลย (เลือกแล้วเปลี่ยนไม่ได้นะ)${away}`;
+      text = `ผ่านบททดสอบแล้ว! เลือกเส้นทางดนตรีของเธอได้เลย (เลือกแล้วเปลี่ยนไม่ได้นะ)\n`
+        + `เมื่อเปลี่ยนอาชีพ สเตตัสทุกอันจะกลับเป็น 1 พร้อมคืนแต้มให้กดใหม่ และสกิลวัยรุ่นจะหายไป แต้มสกิลที่เคยใช้ไปจะคืนมาให้เรียนสกิลอาชีพใหม่${away}`;
       buttons = here.map((k) => `<button class="ok" data-job="${k}" title="${escapeHtml(CLASSES[k].desc)}">${CLASSES[k].name}</button>`).join('');
     }
     b.innerHTML = `<div class="npc-text">${escapeHtml(text).replace(/\n/g, '<br>')}</div>
@@ -1346,7 +1353,7 @@ export class Hud implements WorldHooks {
         if (!confirm(`เปลี่ยนเป็น${CLASSES[job as ClassKey].name}เลยนะ? เปลี่ยนกลับไม่ได้`)) return;
         await this.s.changeJob(job as ClassKey);
         sfx('levelup');
-        this.toast(`เปลี่ยนอาชีพเป็น${CLASSES[job as ClassKey].name}แล้ว! ได้อาวุธใหม่ติดตัว`, 'good');
+        this.toast(`เปลี่ยนอาชีพเป็น${CLASSES[job as ClassKey].name}แล้ว! ได้อาวุธใหม่ติดตัว สเตตัสกลับเป็น 1 ให้กดแต้มใหม่`, 'good');
         this.talkJobs(n);
       })),
     );

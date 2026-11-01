@@ -148,8 +148,8 @@ export interface SpawnDef {
   respawnSec?: number;
 }
 
-/** heal_target and buff_target pick yourself or one other player. */
-export type SkillType = 'single' | 'aoe' | 'aoe_self' | 'heal' | 'heal_target' | 'buff' | 'buff_target' | 'passive';
+/** heal_target and buff_target pick yourself or one other player; buff_party buffs you and your party on the map. */
+export type SkillType = 'single' | 'aoe' | 'aoe_self' | 'heal' | 'heal_target' | 'buff' | 'buff_target' | 'buff_party' | 'passive';
 export const targetsPlayer = (s: SkillDef) => s.type === 'heal_target' || s.type === 'buff_target';
 
 export interface SkillDef {
@@ -197,8 +197,10 @@ export const MAX_JOB_LEVEL = raw.levels.maxJobLevel;
 export const CROWD_MAX = 8;
 
 export const skillsOf = (cls: ClassKey) => Object.entries(SKILLS).filter(([, s]) => s.cls === cls);
-/** Teen skills stay usable after the job change (like RO's basic skills). */
-export const canUseSkill = (s: SkillDef, cls: ClassKey) => s.cls === cls || s.cls === START_CLASS;
+/** Only your own class's skills: the job change refunds Teen skills (see change_job in SQL). */
+export const canUseSkill = (s: SkillDef, cls: ClassKey) => s.cls === cls;
+/** Every buff skill in the game: ครูเพลงใจดี hands them all out at max level. */
+export const isBuffSkill = (s: SkillDef) => !!s.buff && (s.type === 'buff' || s.type === 'buff_target' || s.type === 'buff_party');
 /** SP a skill costs at level lv (whole SP, at least 1: Teen skills use fractional rates). */
 export const skillSp = (s: SkillDef, lv: number) => (s.sp ? Math.max(1, Math.round(s.sp[0] + s.sp[1] * (lv - 1))) : 0);
 export const skillPower = (s: SkillDef, lv: number) => (s.power ? s.power[0] + s.power[1] * (lv - 1) : 0);
@@ -226,6 +228,13 @@ export function jobExpToNext(level: number): number {
 /** Status points needed to raise a stat from `current` (RO formula). Must match stat_cost() in SQL. */
 export function statCost(current: number): number {
   return Math.floor((current - 1) / 10) + 2;
+}
+
+/** Status points a stat at `value` is worth when reset to 1 (the job change). Must match _stat_refund() in SQL. */
+export function statRefund(value: number): number {
+  let n = 0;
+  for (let v = 1; v < value; v++) n += statCost(v);
+  return n;
 }
 
 /** Status points gained when reaching `level` (RO formula). */

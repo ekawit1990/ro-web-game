@@ -2,7 +2,7 @@ import { Room, type Client } from 'colyseus';
 import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ITEMS, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
-  STAT_KEYS, buffBlocks, buffStats, canUseSkill, hitChance, monsterFlee, monsterHit, questCounts, skillHeal, skillPower, skillSp,
+  STAT_KEYS, buffBlocks, buffStats, canUseSkill, isBuffSkill, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts, skillHeal, skillPower, skillSp,
   targetsPlayer,
 } from '../../src/data/index.ts';
 import { GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
@@ -53,6 +53,8 @@ export const MapState = schema({
 export type MapState = SchemaType<typeof MapState>;
 
 /** Server-only data about a connected player. */
+type SeatBuff = { until: number; blocks?: number } & Buffs;
+
 interface Seat {
   client: Client;
   userId: string;
@@ -60,7 +62,7 @@ interface Seat {
   inv: InvItem[];
   derived: Derived;
   /** skill id -> buff; `blocks` = physical hits a shield buff still stops. */
-  buffs: Map<string, { until: number; blocks?: number } & Buffs>;
+  buffs: Map<string, SeatBuff>;
   cooldowns: Map<string, number>;
   lastAttack: number;
   lastMoveAt: number;
@@ -253,6 +255,17 @@ export class MapRoom extends Room<{ state: MapState }> {
     const p = this.state.players.get(c.sessionId);
     const healer = this.map.npcs.find((n) => n.id === 'healer');
     if (!p || p.dead || !healer || dist(p.x, p.y, healer.x + 0.5, healer.y + 0.5) > 2.5) return;
+    // ครูเพลงใจดี also hands out every buff skill in the game, each at its max level
+    const seat = this.seats.get(c.sessionId);
+    if (seat) {
+      for (const [id, skill] of Object.entries(SKILLS)) {
+        if (!isBuffSkill(skill)) continue;
+        const b = this.buffFor(skill, skill.maxLevel);
+        seat.buffs.set(id, b);
+        c.send('buff', { skill: id, seconds: skill.buff!.durationSec, blocks: b.blocks || undefined, from: 'healer' });
+      }
+      this.applyDerived(seat, p);
+    }
     p.hp = p.maxHp;
     p.sp = p.maxSp;
     c.send('healed', {});
@@ -438,7 +451,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     p.sp -= sp;
     p.sitting = false;
     seat.cooldowns.set(msg.id, this.now + (skill.cooldown ?? 1000));
-    const fx: { by: string; skill: string; x: number; y: number; target?: string; hits: { m?: string; p?: string; dmg: number }[] } = {
+    const fx: { by: string; skill: string; x: number; y: number; target?: string; allies?: string[]; hits: { m?: string; p?: string; dmg: number }[] } = {
       by: c.sessionId, skill: msg.id, x: tx, y: ty, target: monsterId ?? ally, hits: [],
     };
     const base = skill.magic ? seat.derived.matk : seat.derived.atk;
@@ -493,26 +506,26 @@ export class MapRoom extends Room<{ state: MapState }> {
         a.hp = Math.min(a.maxHp, a.hp + amount);
         fx.hits.push({ p: sid, dmg: -amount });
       });
-    } else if (skill.type === 'buff' && skill.buff) {
-      seat.buffs.set(msg.id, {
-        until: this.now + skill.buff.durationSec * 1000,
-        aspdPct: (skill.buff.aspdPct ?? 0) * lv,
-        def: (skill.buff.def ?? 0) * lv,
-      });
-      this.applyDerived(seat, p);
-      c.send('buff', { skill: msg.id, seconds: skill.buff.durationSec });
-    } else if (skill.type === 'buff_target' && skill.buff) {
-      const to = this.seats.get(ally!);
-      const tp = this.state.players.get(ally!);
-      if (to && tp) {
-        const blocks = buffBlocks(skill, lv);
-        to.buffs.set(msg.id, {
-          until: this.now + skill.buff.durationSec * 1000,
-          stats: buffStats(skill, lv),
-          ...(blocks > 0 ? { blocks } : {}),
-        });
-        this.applyDerived(to, tp);
-        to.client.send('buff', { skill: msg.id, seconds: skill.buff.durationSec, blocks: blocks || undefined });
+    } else if (skill.buff && (skill.type === 'buff' || skill.type === 'buff_target' || skill.type === 'buff_party')) {
+      // buff: yourself; buff_target: the player you picked; buff_party: you and your party members on this map
+      let to: string[] = [skill.type === 'buff_target' ? ally! : c.sessionId];
+      if (skill.type === 'buff_party') {
+        const party = Parties.of(seat.char.id);
+        if (party) {
+          const ids = new Set(party.members.map((m) => m.id));
+          to = [...this.seats].filter(([sid, s]) => ids.has(s.char.id) && !this.state.players.get(sid)?.dead).map(([sid]) => sid);
+          if (!to.includes(c.sessionId)) to.push(c.sessionId);
+        }
+        fx.allies = to;
+      }
+      for (const sid of to) {
+        const ts = this.seats.get(sid);
+        const tp = this.state.players.get(sid);
+        if (!ts || !tp) continue;
+        const b = this.buffFor(skill, lv);
+        ts.buffs.set(msg.id, b);
+        this.applyDerived(ts, tp);
+        ts.client.send('buff', { skill: msg.id, seconds: skill.buff.durationSec, blocks: b.blocks || undefined });
       }
     }
     this.broadcast('skill', fx);
@@ -883,6 +896,18 @@ export class MapRoom extends Room<{ state: MapState }> {
   }
 
   // ------------------------------------------------------------ helpers
+
+  /** The buff a skill gives at `lv` (aspd/def for 'buff', stats/shield for the keyboardist's buffs). */
+  private buffFor(skill: SkillDef, lv: number): SeatBuff {
+    const blocks = buffBlocks(skill, lv);
+    return {
+      until: this.now + skill.buff!.durationSec * 1000,
+      ...(skill.buff!.aspdPct ? { aspdPct: skill.buff!.aspdPct * lv } : {}),
+      ...(skill.buff!.def ? { def: skill.buff!.def * lv } : {}),
+      ...(skill.buff!.stats ? { stats: buffStats(skill, lv) } : {}),
+      ...(blocks > 0 ? { blocks } : {}),
+    };
+  }
 
   private applyDerived(seat: Seat, p: PlayerState) {
     const buffs: Buffs = { aspdPct: 0, def: 0 };

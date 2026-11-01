@@ -2,6 +2,7 @@ import {
   Appearance, CLASSES, CLASS_KEYS, Character, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL,
   MONSTERS, REFINE, SHOP, SKILLS, START_CLASS, STORAGE_SLOTS, StatKey, StorageItem, WEAPON_SHOP, canRefine, cardFits, expToNext,
   jobExpToNext, questCounts, refineChance, refineFee, refineMaterial, statCost, statPointsAt,
+  STAT_KEYS, statRefund,
 } from '../data';
 import type { GameStore, KillResult, RefineResult, RewardShare, TradeOffer } from './store';
 
@@ -193,7 +194,20 @@ export class LocalStore implements GameStore {
     if (c.level < JOB_CHANGE.level || (c.job_quest ?? -1) < JOB_CHANGE.kills) throw new Error('ยังทำเควสไม่สำเร็จ');
     // which town hands out which class (JOB_TOWN) is checked by the NPC and by change_job() in SQL;
     // the browser's copy of `map` can lag behind in dev mode, so it isn't checked here
-    Object.assign(c, { cls, job_level: 1, job_exp: 0, job_quest: -1 });
+    // fresh start (same as change_job in SQL): stats back to 1 with points refunded, Teen skills refunded
+    let statBack = 0;
+    for (const k of STAT_KEYS) statBack += statRefund(c[k]);
+    let skillBack = 0;
+    const skills: Record<string, number> = {};
+    for (const [id, lv] of Object.entries(c.skills ?? {})) {
+      if (SKILLS[id]?.cls === START_CLASS) skillBack += Math.max(0, lv);
+      else skills[id] = lv;
+    }
+    Object.assign(c, {
+      cls, job_level: 1, job_exp: 0, job_quest: -1, skills,
+      stat_points: c.stat_points + statBack, skill_points: c.skill_points + skillBack,
+      str: 1, agi: 1, vit: 1, int: 1, dex: 1, luk: 1,
+    });
     // the old weapon only fits a Teen: put it in the bag and hand over the new class's first instrument
     const inv = this.inv(charId);
     inv.forEach((i) => { if (i.equipped && ITEMS[i.item_id].type === 'weapon') i.equipped = false; });

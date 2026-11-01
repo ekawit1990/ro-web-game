@@ -308,7 +308,7 @@ export function sfxSkill(cls: ClassKey, type: string, vol = 1) {
   if (!ready() || vol <= 0) return;
   const t = now();
   const inst = INSTRUMENTS[cls] ?? INSTRUMENTS.singer;
-  const support = type === 'buff' || type === 'heal' || type === 'heal_target' || type === 'buff_target';
+  const support = type === 'buff' || type === 'heal' || type === 'heal_target' || type === 'buff_target' || type === 'buff_party';
   const run = support ? [60, 64, 67, 72, 76] : [72, 67, 64, 69, 76];
   run.forEach((n, i) => inst(cls === 'drummer' ? i % 2 : n, t + i * 0.06, 0.3, vol * 0.9));
   if (type === 'aoe' || type === 'aoe_self') {

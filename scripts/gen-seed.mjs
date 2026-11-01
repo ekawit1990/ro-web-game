@@ -45,6 +45,12 @@ lines.push(
     ` skills = (select coalesce(jsonb_object_agg(e.key, e.value), '{}'::jsonb) from jsonb_each(c.skills) e where e.key in (${skillIds}))` +
     ` where exists (select 1 from jsonb_object_keys(c.skills) k where k not in (${skillIds}));`,
   `delete from public.skill_defs where id not in (${skillIds});`,
+  '',
+  '-- Teen skills only work for Teens now: characters who already changed job get those skill points back',
+  `update public.characters c set` +
+    ` skill_points = c.skill_points + (select coalesce(sum(greatest(0, (e.value)::int)), 0) from jsonb_each_text(c.skills) e where e.key in (select id from public.skill_defs where cls = 'teen')),` +
+    ` skills = (select coalesce(jsonb_object_agg(e.key, e.value), '{}'::jsonb) from jsonb_each(c.skills) e where e.key not in (select id from public.skill_defs where cls = 'teen'))` +
+    ` where c.cls <> 'teen' and exists (select 1 from jsonb_object_keys(c.skills) k where k in (select id from public.skill_defs where cls = 'teen'));`,
 );
 writeFileSync(new URL('../supabase/migrations/0002_seed.sql', import.meta.url), lines.join('\n') + '\n');
 console.log('wrote supabase/migrations/0002_seed.sql');

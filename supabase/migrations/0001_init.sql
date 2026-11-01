@@ -151,6 +151,10 @@ language sql immutable as $$ select floor(12 * power(lvl::float8, 1.8))::int + 8
 create or replace function public.stat_cost(cur int) returns int
 language sql immutable as $$ select (cur - 1) / 10 + 2 $$;
 
+-- status points a stat at p_value is worth when reset to 1 (statRefund in src/data/index.ts)
+create or replace function public._stat_refund(p_value int) returns int
+language sql immutable as $$ select coalesce(sum(public.stat_cost(v)), 0)::int from generate_series(1, p_value - 1) v $$;
+
 -- ---------------------------------------------------------------- helpers
 
 create or replace function public._own_char(p_char uuid, p_user uuid default null) returns public.characters
@@ -281,7 +285,16 @@ begin
     from public.item_defs i
     where inv.character_id = p_char and inv.equipped and i.id = inv.item_id and i.type = 'weapon';
   insert into public.inventory (character_id, item_id, qty, equipped) values (p_char, d.start_weapon, 1, true);
-  update public.characters set cls = p_cls, job_level = 1, job_exp = 0, job_quest = -1
+  -- a fresh start for the new class: every stat back to 1 with its points refunded, and the Teen skills
+  -- are dropped with their skill points refunded (only the new class's skills can be learned)
+  update public.characters set cls = p_cls, job_level = 1, job_exp = 0, job_quest = -1,
+    stat_points = stat_points + public._stat_refund(str) + public._stat_refund(agi) + public._stat_refund(vit)
+      + public._stat_refund("int") + public._stat_refund(dex) + public._stat_refund(luk),
+    str = 1, agi = 1, vit = 1, "int" = 1, dex = 1, luk = 1,
+    skill_points = skill_points + (select coalesce(sum(greatest(0, e.value::int)), 0) from jsonb_each_text(skills) e
+      where e.key in (select id from public.skill_defs where cls = 'teen')),
+    skills = (select coalesce(jsonb_object_agg(e.key, e.value), '{}'::jsonb) from jsonb_each(skills) e
+      where e.key not in (select id from public.skill_defs where cls = 'teen'))
     where id = p_char returning * into c;
   return c;
 end $$;
