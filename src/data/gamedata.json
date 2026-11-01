@@ -698,6 +698,75 @@
    ],
    "color": "#e3e6ea",
    "weight": 50
+  },
+  "sneakers": {
+   "name": "รองเท้าผ้าใบ",
+   "type": "shoes",
+   "def": 1,
+   "flee": 2,
+   "price": 60,
+   "color": "#eceff1",
+   "weight": 30
+  },
+  "stage_boots": {
+   "name": "บูทขึ้นเวที",
+   "type": "shoes",
+   "def": 3,
+   "flee": 3,
+   "price": 350,
+   "color": "#4e342e",
+   "weight": 50
+  },
+  "dance_shoes": {
+   "name": "รองเท้าเต้นรำ",
+   "type": "shoes",
+   "def": 2,
+   "flee": 7,
+   "price": 800,
+   "color": "#d81b60",
+   "weight": 30
+  },
+  "rock_boots": {
+   "name": "บูทร็อคหมุดเหล็ก",
+   "type": "shoes",
+   "def": 6,
+   "flee": 5,
+   "price": 1500,
+   "color": "#212121",
+   "weight": 60
+  },
+  "note_stud": {
+   "name": "ต่างหูตัวโน้ต",
+   "type": "earring",
+   "matk": 4,
+   "price": 80,
+   "color": "#90caf9",
+   "weight": 2
+  },
+  "pick_earring": {
+   "name": "ต่างหูปิ๊กกีตาร์",
+   "type": "earring",
+   "atk": 4,
+   "price": 400,
+   "color": "#ffb300",
+   "weight": 2
+  },
+  "star_earring": {
+   "name": "ต่างหูดาวเด่น",
+   "type": "earring",
+   "crit": 4,
+   "price": 900,
+   "color": "#fdd835",
+   "weight": 2
+  },
+  "crystal_earring": {
+   "name": "ต่างหูคริสตัลเสียง",
+   "type": "earring",
+   "atk": 4,
+   "matk": 10,
+   "price": 1800,
+   "color": "#80deea",
+   "weight": 2
   }
  },
  "shop": [
@@ -740,6 +809,14 @@
     [
      "water",
      0.05
+    ],
+    [
+     "sneakers",
+     0.02
+    ],
+    [
+     "note_stud",
+     0.02
     ]
    ],
    "model": "Blob_PinkBlob"
@@ -768,6 +845,14 @@
     [
      "water",
      0.1
+    ],
+    [
+     "sneakers",
+     0.02
+    ],
+    [
+     "note_stud",
+     0.02
     ]
    ],
    "model": "Blob_GreenBlob"
@@ -800,6 +885,14 @@
     [
      "note_ribbon",
      0.01
+    ],
+    [
+     "sneakers",
+     0.02
+    ],
+    [
+     "note_stud",
+     0.02
     ]
    ],
    "model": "Blob_Chicken"
@@ -832,6 +925,14 @@
     [
      "band_tshirt",
      0.03
+    ],
+    [
+     "sneakers",
+     0.02
+    ],
+    [
+     "note_stud",
+     0.02
     ]
    ],
    "model": "Blob_Mushnub"
@@ -864,6 +965,14 @@
     [
      "headphones",
      0.01
+    ],
+    [
+     "sneakers",
+     0.02
+    ],
+    [
+     "note_stud",
+     0.02
     ]
    ],
    "model": "Big_Bunny"
@@ -896,6 +1005,14 @@
     [
      "acoustic_guitar",
      0.03
+    ],
+    [
+     "sneakers",
+     0.02
+    ],
+    [
+     "note_stud",
+     0.02
     ]
    ],
    "model": "Flying_Armabee"
@@ -928,6 +1045,14 @@
     [
      "basic_bass",
      0.03
+    ],
+    [
+     "sneakers",
+     0.02
+    ],
+    [
+     "note_stud",
+     0.02
     ]
    ],
    "model": "Big_Frog"
@@ -960,6 +1085,14 @@
     [
      "pick_necklace",
      0.02
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ],
    "model": "Flying_Ghost"
@@ -991,6 +1124,14 @@
     ],
     [
      "steel_sticks",
+     0.015
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
      0.015
     ]
    ],
@@ -1024,6 +1165,14 @@
     [
      "rock_cap",
      0.02
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ],
    "model": "Flying_Glub"
@@ -1068,6 +1217,14 @@
     [
      "steel_sticks",
      0.15
+    ],
+    [
+     "rock_boots",
+     0.05
+    ],
+    [
+     "crystal_earring",
+     0.05
     ]
    ],
    "boss": true,
@@ -1098,6 +1255,14 @@
     [
      "honey_lemon",
      0.06
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ],
    "model": "Blob_Birb"
@@ -1127,6 +1292,14 @@
     [
      "band_tshirt",
      0.04
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ],
    "model": "Blob_Alien"
@@ -1165,6 +1338,14 @@
     [
      "synth",
      0.12
+    ],
+    [
+     "rock_boots",
+     0.05
+    ],
+    [
+     "crystal_earring",
+     0.05
     ]
    ],
    "model": "Big_MushroomKing"
@@ -1194,6 +1375,14 @@
     [
      "energy_drink",
      0.1
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ],
    "model": "Blob_Fish"
@@ -1223,6 +1412,14 @@
     [
      "pick_necklace",
      0.02
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ],
    "model": "Flying_Armabee_Evolved"
@@ -1261,6 +1458,14 @@
     [
      "metronome_charm",
      0.08
+    ],
+    [
+     "rock_boots",
+     0.05
+    ],
+    [
+     "crystal_earring",
+     0.05
     ]
    ],
    "model": "Big_Fish"
@@ -1290,6 +1495,14 @@
     [
      "steel_sticks",
      0.02
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ],
    "model": "Big_Cactoro"
@@ -1319,6 +1532,14 @@
     [
      "carrot",
      0.2
+    ],
+    [
+     "dance_shoes",
+     0.01
+    ],
+    [
+     "star_earring",
+     0.01
     ]
    ],
    "model": "Big_Dino"
@@ -1348,6 +1569,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "dance_shoes",
+     0.01
+    ],
+    [
+     "star_earring",
+     0.01
     ]
    ],
    "model": "Blob_Cactoro"
@@ -1386,6 +1615,14 @@
     [
      "steel_sticks",
      0.2
+    ],
+    [
+     "rock_boots",
+     0.05
+    ],
+    [
+     "crystal_earring",
+     0.05
     ]
    ],
    "model": "Flying_Dragon_Evolved"
@@ -1415,6 +1652,14 @@
     [
      "honey_lemon",
      0.1
+    ],
+    [
+     "dance_shoes",
+     0.01
+    ],
+    [
+     "star_earring",
+     0.01
     ]
    ],
    "model": "Blob_Yeti"
@@ -1444,6 +1689,14 @@
     [
      "water",
      0.2
+    ],
+    [
+     "dance_shoes",
+     0.01
+    ],
+    [
+     "star_earring",
+     0.01
     ]
    ],
    "model": "Big_Birb"
@@ -1473,6 +1726,14 @@
     [
      "leather_jacket",
      0.03
+    ],
+    [
+     "dance_shoes",
+     0.01
+    ],
+    [
+     "star_earring",
+     0.01
     ]
    ],
    "model": "Big_Yeti"
@@ -1511,6 +1772,14 @@
     [
      "headphones",
      0.3
+    ],
+    [
+     "rock_boots",
+     0.05
+    ],
+    [
+     "crystal_earring",
+     0.05
     ]
    ],
    "model": "Flying_Goleling_Evolved"
@@ -1540,6 +1809,14 @@
     [
      "energy_drink",
      0.12
+    ],
+    [
+     "rock_boots",
+     0.008
+    ],
+    [
+     "crystal_earring",
+     0.008
     ]
    ],
    "model": "Flying_Demon"
@@ -1569,6 +1846,14 @@
     [
      "rock_cap",
      0.02
+    ],
+    [
+     "rock_boots",
+     0.008
+    ],
+    [
+     "crystal_earring",
+     0.008
     ]
    ],
    "model": "Big_Orc"
@@ -1598,6 +1883,14 @@
     [
      "metronome_charm",
      0.03
+    ],
+    [
+     "rock_boots",
+     0.008
+    ],
+    [
+     "crystal_earring",
+     0.008
     ]
    ],
    "model": "Flying_Dragon"
@@ -1644,6 +1937,14 @@
     [
      "steel_sticks",
      0.3
+    ],
+    [
+     "rock_boots",
+     0.05
+    ],
+    [
+     "crystal_earring",
+     0.05
     ]
    ],
    "model": "Flying_Tribal"
@@ -1673,6 +1974,14 @@
     [
      "banana",
      0.08
+    ],
+    [
+     "sneakers",
+     0.02
+    ],
+    [
+     "note_stud",
+     0.02
     ]
    ]
   },
@@ -1701,6 +2010,14 @@
     [
      "banana",
      0.08
+    ],
+    [
+     "sneakers",
+     0.02
+    ],
+    [
+     "note_stud",
+     0.02
     ]
    ]
   },
@@ -1729,6 +2046,14 @@
     [
      "banana",
      0.08
+    ],
+    [
+     "sneakers",
+     0.02
+    ],
+    [
+     "note_stud",
+     0.02
     ]
    ]
   },
@@ -1757,6 +2082,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ]
   },
@@ -1785,6 +2118,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ]
   },
@@ -1813,6 +2154,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ]
   },
@@ -1841,6 +2190,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ]
   },
@@ -1869,6 +2226,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ]
   },
@@ -1897,6 +2262,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ]
   },
@@ -1925,6 +2298,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ]
   },
@@ -1953,6 +2334,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "dance_shoes",
+     0.01
+    ],
+    [
+     "star_earring",
+     0.01
     ]
    ]
   },
@@ -1981,6 +2370,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "dance_shoes",
+     0.01
+    ],
+    [
+     "star_earring",
+     0.01
     ]
    ]
   },
@@ -2009,6 +2406,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "dance_shoes",
+     0.01
+    ],
+    [
+     "star_earring",
+     0.01
     ]
    ]
   },
@@ -2037,6 +2442,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "dance_shoes",
+     0.01
+    ],
+    [
+     "star_earring",
+     0.01
     ]
    ]
   },
@@ -2065,6 +2478,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "dance_shoes",
+     0.01
+    ],
+    [
+     "star_earring",
+     0.01
     ]
    ]
   },
@@ -2093,6 +2514,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "dance_shoes",
+     0.01
+    ],
+    [
+     "star_earring",
+     0.01
     ]
    ]
   },
@@ -2121,6 +2550,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "dance_shoes",
+     0.01
+    ],
+    [
+     "star_earring",
+     0.01
     ]
    ]
   },
@@ -2149,6 +2586,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "rock_boots",
+     0.008
+    ],
+    [
+     "crystal_earring",
+     0.008
     ]
    ]
   },
@@ -2177,6 +2622,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "rock_boots",
+     0.008
+    ],
+    [
+     "crystal_earring",
+     0.008
     ]
    ]
   },
@@ -2205,6 +2658,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "rock_boots",
+     0.008
+    ],
+    [
+     "crystal_earring",
+     0.008
     ]
    ]
   },
@@ -2233,6 +2694,14 @@
     [
      "honey_lemon",
      0.08
+    ],
+    [
+     "stage_boots",
+     0.015
+    ],
+    [
+     "pick_earring",
+     0.015
     ]
    ]
   }

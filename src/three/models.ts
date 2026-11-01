@@ -266,6 +266,11 @@ function draw(rig: CharRig, drawn: boolean) {
   }
 }
 
+/** Remembers an instrument/dagger part, hidden while no weapon is equipped. */
+function prop(rig: CharRig, o: THREE.Object3D) {
+  ((rig.root.userData.props ??= []) as THREE.Object3D[]).push(o);
+}
+
 function instrument(rig: CharRig, cls: ClassKey) {
   const handR = rig.armR.getObjectByName('hand')!;
   const handL = rig.armL.getObjectByName('hand')!;
@@ -274,6 +279,7 @@ function instrument(rig: CharRig, cls: ClassKey) {
     knife.rotation.x = Math.PI / 2 + 0.3;
     knife.position.set(0, -0.02, 0.03);
     handR.add(knife);
+    prop(rig, knife);
     // the Teen keeps the dagger in hand all the time (not slung)
   } else if (cls === 'singer') {
     const mic = new THREE.Group();
@@ -281,6 +287,7 @@ function instrument(rig: CharRig, cls: ClassKey) {
     mic.add(mesh(S(0.05), toon('#b0b6bd'), 0, 0.18, 0));
     mic.rotation.x = -0.6;
     handR.add(mic);
+    prop(rig, mic);
     sling(rig, mic, [-0.12, 0.8, -0.2], [-0.2, 0, 0.5]);
     rig.armR.rotation.x = -1.1; // holding the mic up
   } else if (cls === 'guitarist' || cls === 'bassist') {
@@ -303,6 +310,7 @@ function instrument(rig: CharRig, cls: ClassKey) {
     g.position.set(0.02, 0.62, 0.2);
     g.rotation.set(0, 0, -1.05);
     rig.body.add(g);
+    prop(rig, g);
     sling(rig, g, [-0.05, 0.75, -0.24], [0, Math.PI, 0.45]);
     rig.armR.rotation.set(-0.5, 0, 0.3);
     rig.armL.rotation.set(-1.0, 0, -0.5);
@@ -311,6 +319,7 @@ function instrument(rig: CharRig, cls: ClassKey) {
       const stick = mesh(CYL(0.014, 0.02, 0.36), toon('#e3c18f'), 0, 0.12, 0.06);
       stick.rotation.x = -1.1;
       h.add(stick);
+      prop(rig, stick);
       sling(rig, stick, [0, 1.0, -0.21], [-0.15, 0, side * 0.5]);
     }
   } else if (cls === 'keyboardist') {
@@ -332,6 +341,7 @@ function instrument(rig: CharRig, cls: ClassKey) {
     k.position.set(0, 0.62, 0.26);
     k.rotation.set(0.5, 0, 0.15);
     rig.body.add(k);
+    prop(rig, k);
     sling(rig, k, [0, 0.72, -0.22], [-Math.PI / 2, 0, 1.0], 'ZYX');
     rig.armR.rotation.set(-0.9, 0, 0.2);
     rig.armL.rotation.set(-0.9, 0, -0.2);
@@ -552,8 +562,13 @@ export function buildCharacter(look: Look, hat = ''): CharRig {
 const SLACK = new THREE.Euler();
 
 /** Procedural animation: walking, idle breathing, sitting, attack swing, lying down. */
-export function animateCharacter(rig: CharRig, t: number, s: { moving: boolean; sitting: boolean; dead: boolean; attack: number; drawn?: boolean }) {
-  const drawn = !!s.drawn && !s.dead;
+export function animateCharacter(rig: CharRig, t: number, s: { moving: boolean; sitting: boolean; dead: boolean; attack: number; drawn?: boolean; armed?: boolean }) {
+  const armed = s.armed !== false;
+  if (rig.root.userData.armed !== armed) {
+    rig.root.userData.armed = armed;
+    for (const o of (rig.root.userData.props ?? []) as THREE.Object3D[]) o.visible = armed;
+  }
+  const drawn = !!s.drawn && !s.dead && armed;
   draw(rig, drawn);
   const restL = drawn ? (rig.armL.userData.rest as THREE.Euler) : SLACK;
   const restR = drawn ? (rig.armR.userData.rest as THREE.Euler) : SLACK;

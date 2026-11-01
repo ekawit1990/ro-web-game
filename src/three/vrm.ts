@@ -278,6 +278,8 @@ interface Gear {
   backOnly: THREE.Object3D[];
   /** 0 = on the back, 1 = in hand. */
   draw?: number;
+  /** Last visibility set by setGearShown. */
+  shown?: boolean;
 }
 
 /** An empty marker with this local transform under `parent`. */
@@ -288,6 +290,14 @@ function anchor(parent: THREE.Object3D, pos: THREE.Vector3, quat: THREE.Quaterni
   o.scale.setScalar(scale);
   parent.add(o);
   return o;
+}
+
+/** Shows or hides everything an instrument/dagger is made of (bare hands when no weapon is equipped). */
+function setGearShown(gear: Gear | undefined, shown: boolean) {
+  if (!gear || gear.shown === shown) return;
+  gear.shown = shown;
+  for (const p of gear.pieces) p.obj.visible = shown;
+  for (const o of [...gear.heldOnly, ...gear.backOnly]) o.visible = shown;
 }
 
 /** Rotation whose +X runs along `x` and whose +Z (or +Y, when `yUp`) points along `n`. */
@@ -549,7 +559,43 @@ const POSES: Record<string, { rU: [number, number]; rL: number; lU: [number, num
 };
 
 const POSED: VRMHumanBoneName[] = ['rightUpperArm', 'leftUpperArm', 'rightLowerArm', 'leftLowerArm', 'leftUpperLeg', 'rightUpperLeg',
-  'leftLowerLeg', 'rightLowerLeg', 'spine', 'head'];
+  'leftLowerLeg', 'rightLowerLeg', 'spine', 'head', 'rightHand'];
+
+type V3 = [number, number, number];
+/** One pose in a dagger move, `at` = fraction of the attack; the move starts and ends at the normal pose. */
+interface ComboKey { at: number; bones: Partial<Record<VRMHumanBoneName, V3>>; dy?: number; dz?: number }
+
+/** The Teen's crouched guard, added on top of the class pose while fighting. */
+const GUARD: Partial<Record<VRMHumanBoneName, V3>> = {
+  leftUpperLeg: [-0.6, 0, -0.22], rightUpperLeg: [0.25, 0, 0.25], leftLowerLeg: [1.0, 0, 0], rightLowerLeg: [0.65, 0, 0],
+  spine: [0.15, 0, 0], leftUpperArm: [-0.4, 0, 0.35], leftLowerArm: [0, -0.6, 0],
+};
+
+const LUNGE = { leftUpperLeg: [-0.9, 0, -0.15] as V3, leftLowerLeg: [0.9, 0, 0] as V3, rightUpperLeg: [0.45, 0, 0.2] as V3, rightLowerLeg: [0.3, 0, 0] as V3 };
+
+/** Dagger combo (reference: the user's "Chibi Rogue Dagger Combo" sheet). Hits land at COMBO_HIT. */
+const COMBO: ComboKey[][] = [
+  // diagonal slash: blade cocked high on the right, swept down across the body to the left
+  [
+    { at: 0.3, bones: { rightUpperArm: [0, -0.4, -0.6], rightLowerArm: [0, 0.9, 0], rightHand: [0, 0, 0.6], spine: [0, 0.45, 0] }, dy: -0.04 },
+    { at: 0.48, bones: { rightUpperArm: [0, 1.7, 0.6], rightLowerArm: [0, 0.15, 0], rightHand: [0, -0.6, -0.3], spine: [0.15, -0.45, 0], ...LUNGE }, dy: -0.1, dz: 0.08 },
+  ],
+  // piercing stab: elbow drawn back, then the whole body drives the point forward
+  [
+    { at: 0.25, bones: { rightUpperArm: [-0.2, 0, 1.3], rightLowerArm: [0, 1.9, 0], spine: [0, 0.3, 0] }, dy: -0.05, dz: -0.05 },
+    { at: 0.42, bones: { rightUpperArm: [-1.7, 0, 1.5], rightLowerArm: [0, 0.05, 0], rightHand: [0, -1.2, 0], spine: [0.15, -0.25, 0], leftUpperArm: [0.5, 0, -1.1], ...LUNGE }, dy: -0.12, dz: 0.16 },
+  ],
+  // finisher: dagger raised over the head and brought down hard
+  [
+    { at: 0.35, bones: { rightUpperArm: [-2.7, 0, 1.4], rightLowerArm: [0, 0.5, 0], rightHand: [0, 0, 0], spine: [-0.15, 0.1, 0] }, dy: 0.02 },
+    { at: 0.52, bones: { rightUpperArm: [-0.5, 0, 1.4], rightLowerArm: [0, 0.1, 0], rightHand: [0, -0.6, 0], spine: [0.45, -0.1, 0], ...LUNGE }, dy: -0.16, dz: 0.1 },
+  ],
+];
+const COMBO_BONES = [...new Set(COMBO.flat().flatMap((key) => Object.keys(key.bones)))] as VRMHumanBoneName[];
+/** When each combo move lands (fraction of the attack), so the hit effect can wait for the blade. */
+export const COMBO_HIT = COMBO.map((m) => m[1].at);
+/** Seconds one Teen attack animation lasts. */
+export const COMBO_TIME = 0.45;
 
 export interface AnimState {
   moving: boolean;
@@ -558,6 +604,10 @@ export interface AnimState {
   attack: number;
   /** Instrument in hand (fighting); otherwise it is slung on the back. */
   drawn?: boolean;
+  /** A weapon is equipped (false = bare hands: no instrument or dagger at all). Defaults to true. */
+  armed?: boolean;
+  /** Which move of the Teen's dagger combo this attack is. */
+  combo?: number;
 }
 
 const DRAW_TIME = 0.22; // seconds to swing the instrument from the back into the hands
@@ -569,7 +619,9 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
   const dt = Math.min(0.1, Math.max(0, t - (rig.root.userData.lastT ?? t)));
   rig.root.userData.lastT = t;
   const b = (n: VRMHumanBoneName) => vrm.humanoid.getNormalizedBoneNode(n);
-  const gear = rig.root.userData.gear as Gear | undefined;
+  const armed = s.armed !== false;
+  const gear = armed ? (rig.root.userData.gear as Gear | undefined) : undefined;
+  setGearShown(rig.root.userData.gear as Gear | undefined, armed);
   // how far the instrument has come off the back (eased)
   let k = 0;
   if (gear) {
@@ -579,7 +631,7 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
   }
   const clsKey = rig.root.userData.cls as string;
   // the Teen keeps the dagger in hand all the time; only the guard stance waits for a fight
-  const knife = clsKey === 'teen';
+  const knife = clsKey === 'teen' && armed;
   const cls = POSES[clsKey] ?? POSES.idle;
   const idle = POSES.idle;
   const mix = (x: number, y: number) => x + (y - x) * k;
@@ -606,21 +658,35 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
   set('head', gear?.ik ? 0.14 * k : 0, 0, s.moving ? 0 : Math.sin(t * 1.3) * 0.04);
   rig.body.position.y = s.moving ? Math.abs(Math.sin(t * 11)) * 0.04 : 0;
 
-  if (knife) b('rightHand')?.rotation.set(0, 0, 0);
+  if (knife && k > 0 && !s.moving && !s.sitting && !s.dead) {
+    // guard stance: knees bent, feet apart, weight low
+    const g = k * (s.attack > 0 ? 0.6 : 1);
+    for (const [n, v] of Object.entries(GUARD) as [VRMHumanBoneName, V3][]) {
+      const r = b(n)?.rotation;
+      if (r) r.set(r.x + v[0] * g, r.y + v[1] * g, r.z + v[2] * g);
+    }
+    rig.body.position.y -= 0.11 * g;
+  }
   if (s.attack > 0 && knife) {
-    // a dagger stab: the arm drives straight forward fast, then pulls back
+    // dagger combo: diagonal slash -> piercing stab -> overhead finisher, one move per attack
+    const move = COMBO[(s.combo ?? 0) % COMBO.length];
     const p = 1 - s.attack; // 0 -> 1 over the attack
-    const a = p < 0.35 ? THREE.MathUtils.smoothstep(p, 0, 0.35) : 1 - THREE.MathUtils.smoothstep(p, 0.35, 1);
-    const ru = b('rightUpperArm')!.rotation;
-    ru.x += (-1.45 - ru.x) * a;
-    ru.z += (1.5 - ru.z) * a;
-    const rl = b('rightLowerArm')!.rotation;
-    rl.y += (0.05 - rl.y) * a;
-    b('leftUpperArm')!.rotation.x += a * 0.35;
-    b('spine')!.rotation.x += a * 0.18;
-    b('spine')!.rotation.y += a * 0.25;
-    rig.body.position.z += a * 0.12;
-    b('rightHand')?.rotation.set(0, -1.2 * a, 0); // turn the blade to point at the target
+    const lo = [...move].reverse().find((key) => key.at <= p);
+    const hi = move.find((key) => key.at > p);
+    const f0 = lo?.at ?? 0;
+    const f1 = hi?.at ?? 1;
+    const w = THREE.MathUtils.smoothstep(p, f0, f1);
+    for (const n of COMBO_BONES) {
+      const r = b(n)?.rotation;
+      if (!r) continue;
+      const base = [r.x, r.y, r.z];
+      const a = lo?.bones[n] ?? base;
+      const c = hi?.bones[n] ?? base;
+      r.set(a[0] + (c[0] - a[0]) * w, a[1] + (c[1] - a[1]) * w, a[2] + (c[2] - a[2]) * w);
+    }
+    const dy0 = lo?.dy ?? 0, dy1 = hi?.dy ?? 0, dz0 = lo?.dz ?? 0, dz1 = hi?.dz ?? 0;
+    rig.body.position.y += dy0 + (dy1 - dy0) * w;
+    rig.body.position.z += dz0 + (dz1 - dz0) * w;
   } else if (s.attack > 0) {
     const a = Math.sin(s.attack * Math.PI);
     b('rightUpperArm')!.rotation.x -= a * 1.2;

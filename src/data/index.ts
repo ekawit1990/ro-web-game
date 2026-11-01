@@ -42,8 +42,9 @@ export interface ClassDef {
   baseStats: Stats;
 }
 
-export type ItemType = 'consumable' | 'loot' | 'weapon' | 'armor' | 'head' | 'accessory';
-export const EQUIP_TYPES: ItemType[] = ['weapon', 'armor', 'head', 'accessory'];
+export type ItemType = 'consumable' | 'loot' | 'weapon' | 'armor' | 'head' | 'accessory' | 'shoes' | 'earring';
+/** One of each can be worn. Must match the type lists in SQL (item_defs check, _add_item, set_equipped, storage, trade). */
+export const EQUIP_TYPES: ItemType[] = ['weapon', 'armor', 'head', 'accessory', 'shoes', 'earring'];
 
 export interface ItemDef {
   name: string;
@@ -57,6 +58,8 @@ export interface ItemDef {
   matk?: number;
   def?: number;
   aspd?: number;
+  flee?: number;
+  crit?: number;
   classes?: ClassKey[];
 }
 
@@ -238,7 +241,7 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
   for (const k of STAT_KEYS) c[k] += buffs.stats?.[k] ?? 0;
   const cls = CLASSES[c.cls];
   const equipped = inv.filter((i) => i.equipped).map((i) => ITEMS[i.item_id]).filter(Boolean);
-  const sum = (k: 'atk' | 'matk' | 'def' | 'aspd') => equipped.reduce((s, i) => s + (i[k] ?? 0), 0);
+  const sum = (k: 'atk' | 'matk' | 'def' | 'aspd' | 'flee' | 'crit') => equipped.reduce((s, i) => s + (i[k] ?? 0), 0);
 
   const p = { maxHpPct: 0, maxSpPct: 0, atkPct: 0, matkPct: 0, hit: 0 };
   for (const [id, lv] of Object.entries(c.skills ?? {})) {
@@ -260,8 +263,8 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
     def: sum('def') + Math.floor(c.vit / 2) + (buffs.def ?? 0),
     mdef: Math.floor(c.int / 2) + Math.floor(c.vit / 5),
     hit: c.level + c.dex + p.hit,
-    flee: c.level + c.agi,
-    crit: Math.floor(1 + c.luk * 0.3 + c.dex * 0.1),
+    flee: c.level + c.agi + sum('flee'),
+    crit: Math.floor(1 + c.luk * 0.3 + c.dex * 0.1) + sum('crit'),
     aspd: Math.min(190, Math.floor(200 - attackDelay / 20)),
     attackDelay,
     moveSpeed: 150 + Math.min(60, c.agi * 2),

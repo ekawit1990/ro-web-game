@@ -6,7 +6,7 @@ import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
 import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setHat } from './models';
-import { animateRig, buildVrmCharacter } from './vrm';
+import { COMBO_HIT, COMBO_TIME, animateRig, buildVrmCharacter } from './vrm';
 import { PHONE } from './device';
 import { sfx, sfxAttack, sfxSkill } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
@@ -29,7 +29,7 @@ export interface WorldHooks {
 }
 
 interface RemotePlayer {
-  name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number; head: string;
+  name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number; head: string; weapon: string;
   x: number; y: number; hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean; sitting: boolean;
 }
 interface RemoteMonster { key: string; x: number; y: number; hp: number; maxHp: number; dead: boolean }
@@ -54,6 +54,11 @@ interface PlayerActor {
   attack: number;
   /** Seconds left with the instrument in hand after the last attack; then it goes back over the shoulder. */
   combat: number;
+  /** Teen dagger combo: which move the last attack was, and when it was swung (ms). */
+  combo?: number;
+  lastSwing?: number;
+  /** Has a weapon equipped (from the server). */
+  armed?: boolean;
   dead: boolean;
   sitting: boolean;
   hp: number;
@@ -165,7 +170,7 @@ export class World3D {
     const c = this.session.char;
     this.me = this.makePlayer(this.room.sessionId, {
       name: c.name, cls: c.cls, level: c.level, gender: c.gender, hair: c.hair, hairColor: c.hair_color, face: c.face,
-      head: this.session.equippedOf('head')?.item_id ?? '', x: data.x, y: data.y, hp: 1, maxHp: 1, sp: 0, maxSp: 0, dead: false, sitting: false,
+      head: this.session.equippedOf('head')?.item_id ?? '', weapon: this.session.equippedOf('weapon')?.item_id ?? '', x: data.x, y: data.y, hp: 1, maxHp: 1, sp: 0, maxSp: 0, dead: false, sitting: false,
     });
     this.me.label.el.classList.add('me');
     this.camTarget.set(data.x, 0, data.y);
@@ -763,11 +768,12 @@ export class World3D {
       a.hp = rp.hp;
       a.maxHp = rp.maxHp;
       setHat(a.rig, rp.head);
+      a.armed = !!rp.weapon;
       a.moving = Math.max(0, a.moving - dt);
-      a.attack = Math.max(0, a.attack - dt * 4);
+      a.attack = Math.max(0, a.attack - dt * (a.cls === 'teen' ? 1 / COMBO_TIME : 4));
       a.combat = Math.max(0, a.combat - dt);
       a.rig.root.position.set(a.x, 0, a.y);
-      animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0 });
+      animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0, armed: a.armed, combo: a.combo });
     });
     for (const [id, a] of this.players) {
       if (!seen.has(id) && a !== this.me) this.destroyPlayer(a);
@@ -994,15 +1000,27 @@ export class World3D {
   /** Every normal attack sends black music notes flying at the monster; damage shows when the first one lands. */
   private attackFx(a: PlayerActor, m: MonsterActor, land: () => void) {
     if (a.cls === 'teen') {
-      // dagger stab: no notes, the blade lands as the arm reaches full stretch
+      // dagger combo: slash -> stab -> overhead finisher; the hit lands when the blade does
+      const now = performance.now();
+      a.combo = now - (a.lastSwing ?? 0) > 1800 ? 0 : ((a.combo ?? -1) + 1) % COMBO_HIT.length;
+      a.lastSwing = now;
+      const move = a.combo;
       this.lunge(a.rig.root, m.x - a.x, m.y - a.y);
+      const d = Math.hypot(m.x - a.x, m.y - a.y) || 1;
+      const ux = (m.x - a.x) / d;
+      const uy = (m.y - a.y) / d;
+      // pixel effects are drawn facing right: mirror them when the target is left of the player on screen
+      const flip = new THREE.Vector3(m.x, 1, m.y).project(this.camera).x < new THREE.Vector3(a.x, 1, a.y).project(this.camera).x;
+      const r = Math.min(0.5, MONSTERS[m.key].size * 0.3);
+      const hitAt = new THREE.Vector3(m.x - ux * r, m.rig.height * 0.45, m.y - uy * r);
+      const armed = a.armed !== false;
       setTimeout(() => {
-        const d = Math.hypot(m.x - a.x, m.y - a.y) || 1;
-        const r = Math.min(0.5, MONSTERS[m.key].size * 0.3);
-        const at = new THREE.Vector3(m.x - ((m.x - a.x) / d) * r, m.rig.height * 0.45, m.y - ((m.y - a.y) / d) * r);
-        this.pixelFx('stab_hit', { at: () => at });
+        if (armed && move === 0) this.pixelFx('slash', { at: () => hitAt.clone().setY(m.rig.height * 0.3), flip });
+        else if (armed && move === 1) this.pixelFx('thrust', { at: () => new THREE.Vector3(a.x + ux * 0.35, 0.95, a.y + uy * 0.35), flip });
+        else if (armed) this.pixelFx('cleave', { at: () => new THREE.Vector3(m.x - ux * r, 0.02, m.y - uy * r), flip });
+        this.pixelFx('stab_hit', { at: () => hitAt });
         land();
-      }, 90);
+      }, COMBO_HIT[move] * COMBO_TIME * 1000);
       return;
     }
     const melee = !CLASSES[a.cls].projectile;

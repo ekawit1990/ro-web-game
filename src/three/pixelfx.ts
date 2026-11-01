@@ -25,6 +25,9 @@ const SCALE: Record<string, number> = {
   shield: 0.032,
   block: 0.022,
   stab_hit: 0.012,
+  slash: 0.018,
+  thrust: 0.014,
+  cleave: 0.02,
 };
 
 let index: Promise<Record<string, Sheet>> | null = null;
@@ -61,6 +64,8 @@ export interface FxOptions {
   /** Play this many seconds at most (loops repeat until then). */
   seconds?: number;
   scale?: number;
+  /** Mirror left-right (the sheets face right). */
+  flip?: boolean;
 }
 
 /**
@@ -79,7 +84,7 @@ export async function playFx(scene: THREE.Scene, name: string, o: FxOptions): Pr
   });
   const sprite = new THREE.Sprite(mat);
   const k = (o.scale ?? 1) * (SCALE[name] ?? 0.02);
-  sprite.scale.set(s.w * k, s.h * k, 1);
+  sprite.scale.set(s.w * k * (o.flip ? -1 : 1), s.h * k, 1);
   sprite.center.set(s.pivot[0] / s.w, 1 - s.pivot[1] / s.h);
   sprite.renderOrder = 20;
   scene.add(sprite);
