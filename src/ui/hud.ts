@@ -132,7 +132,9 @@ export class Hud implements WorldHooks {
     w.innerHTML = `<div class="rw-title"><span>${title}</span><button class="rw-x" title="ปิด">×</button></div><div class="rw-body"></div>`;
     this.root.appendChild(w);
     this.wins.set(id, w);
-    const pos = this.loadPos()[id] ?? DEFAULT_POS[id];
+    // short (phone landscape) screens: the party window goes top, next to Basic Info, so it isn't cut off
+    const short = id === 'party' && window.innerHeight < 520;
+    const pos = this.loadPos()[id] ?? (short ? [215, 6] as [number, number] : DEFAULT_POS[id]);
     const place = () => {
       let [x, y] = pos;
       if (x < 0 && x !== -1) x = window.innerWidth + x;
