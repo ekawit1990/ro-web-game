@@ -545,34 +545,32 @@ grant execute on function public.pay_warp(uuid, uuid, int, int, int, text, real,
 
 -- ---------------------------------------------------------------------------
 -- Accounts: players sign in with a username + password.
--- The Supabase Auth email of a new account is a made-up address built from the
+-- The Supabase Auth email of each account is a made-up address built from the
 -- username (<username>@player.musicland.invalid), so it is always unique and
--- never receives mail. The player's real email lives here, only for password
--- recovery, and several accounts may share the same one.
--- Accounts are created by the game server (service role), never by the browser.
--- Older accounts that signed up with a real email keep working: they log in with
--- that email and can pick a username once (the server moves them over).
+-- never receives mail. The player's phone number lives here for password
+-- recovery (username + matching phone -> set a new password); several accounts
+-- may share the same number. Accounts are created by the game server (service
+-- role), never by the browser. Older accounts that signed up with a real email
+-- keep working: they log in with that email and can pick a username once.
 -- ---------------------------------------------------------------------------
 create table if not exists public.accounts (
   user_id uuid primary key references auth.users (id) on delete cascade,
   username text not null,
-  recovery_email text not null,
+  recovery_phone text not null,
   created_at timestamptz not null default now(),
   constraint accounts_username_format check (username ~ '^[a-z0-9_]{4,16}$')
 );
 create unique index if not exists accounts_username_key on public.accounts (username);
-create index if not exists accounts_recovery_email_idx on public.accounts (lower(recovery_email));
 alter table public.accounts enable row level security;
 drop policy if exists "own account" on public.accounts;
 create policy "own account" on public.accounts for select to authenticated using (user_id = auth.uid());
 
--- one-time codes for "forgot password" (server only: no policies, so the browser can't read it)
-create table if not exists public.password_resets (
+-- failed "forgot password" tries per account, so nobody can guess a phone number (server only)
+drop table if exists public.password_resets;
+create table if not exists public.reset_attempts (
   user_id uuid primary key references auth.users (id) on delete cascade,
-  code_hash text not null,
-  expires_at timestamptz not null,
-  attempts int not null default 0,
-  sent_at timestamptz not null default now()
+  fails int not null default 0,
+  window_start timestamptz not null default now()
 );
-alter table public.password_resets enable row level security;
-revoke all on public.password_resets from anon, authenticated;
+alter table public.reset_attempts enable row level security;
+revoke all on public.reset_attempts from anon, authenticated;

@@ -3,7 +3,7 @@ import { Appearance, CLASSES, Character, ClassKey, FACES, HAIR_COLORS, HAIR_STYL
 import type { GameStore } from '../services/store';
 import { drawLook } from './icons';
 import { vrmModelCount } from '../three/vrm';
-import { USERNAME_RE, authEmail, normalizeUsername } from '../data/account';
+import { USERNAME_RE, authEmail, normalizePhone, normalizeUsername } from '../data/account';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -80,8 +80,7 @@ export function loginScreen(sb: SupabaseClient, apiBase: string): Promise<void> 
       el.onclick = (e) => {
         e.preventDefault();
         const mode = el.dataset.go as AuthMode;
-        if (mode === 'forgot') $<HTMLInputElement>('fg-user').value = normalizeUsername(val('login-user')).includes('@') ? '' : val('login-user');
-        if (mode === 'reset') $<HTMLInputElement>('rs-user').value = val('fg-user');
+        if (mode === 'forgot') $<HTMLInputElement>('fg-user').value = val('login-user').includes('@') ? '' : val('login-user');
         go(mode);
       };
     });
@@ -113,28 +112,33 @@ export function loginScreen(sb: SupabaseClient, apiBase: string): Promise<void> 
         const username = normalizeUsername(val('su-user'));
         if (!USERNAME_RE.test(username)) throw new Error('ชื่อผู้ใช้ต้องยาว 4–16 ตัว ใช้ได้เฉพาะ a-z, 0-9 และ _');
         if (val('su-password') !== val('su-password2')) throw new Error('รหัสผ่านทั้งสองช่องไม่ตรงกัน');
-        await api(apiBase, '/auth/register', { username, password: val('su-password'), email: val('su-email') });
+        if (!normalizePhone(val('su-phone'))) throw new Error('เบอร์โทรศัพท์ไม่ถูกต้อง (เช่น 0812345678)');
+        await api(apiBase, '/auth/register', { username, password: val('su-password'), phone: val('su-phone') });
         await signIn(username, val('su-password'));
       },
       'กำลังสมัคร... (ถ้าเซิร์ฟเวอร์เพิ่งตื่นอาจใช้เวลาเกือบ 1 นาที)',
     );
 
+    // forgot password: username + phone -> if they match, ask for a new password
+    let recover = { username: '', phone: '' };
     run(
       $<HTMLFormElement>('forgot-form'),
       async () => {
-        await api(apiBase, '/auth/forgot', { username: normalizeUsername(val('fg-user')), email: val('fg-email') });
-        $<HTMLInputElement>('rs-user').value = val('fg-user');
+        recover = { username: normalizeUsername(val('fg-user')), phone: val('fg-phone') };
+        if (!normalizePhone(recover.phone)) throw new Error('เบอร์โทรศัพท์ไม่ถูกต้อง (เช่น 0812345678)');
+        await api(apiBase, '/auth/verify-phone', recover);
+        $('rs-for').textContent = `บัญชี: ${recover.username}`;
+        $<HTMLInputElement>('rs-password').value = '';
+        $<HTMLInputElement>('rs-password2').value = '';
         go('reset');
-        ok.textContent = 'ถ้าชื่อผู้ใช้และอีเมลตรงกัน ระบบได้ส่งรหัส 6 หลักไปที่อีเมลแล้ว (ดูในกล่องจดหมายขยะด้วย)';
       },
-      'กำลังส่งอีเมล...',
+      'กำลังตรวจสอบ... (ถ้าเซิร์ฟเวอร์เพิ่งตื่นอาจใช้เวลาเกือบ 1 นาที)',
     );
 
     run($<HTMLFormElement>('reset-form'), async () => {
       if (val('rs-password') !== val('rs-password2')) throw new Error('รหัสผ่านทั้งสองช่องไม่ตรงกัน');
-      const username = normalizeUsername(val('rs-user'));
-      await api(apiBase, '/auth/reset', { username, code: val('rs-code'), password: val('rs-password') });
-      $<HTMLInputElement>('login-user').value = username;
+      await api(apiBase, '/auth/reset', { ...recover, password: val('rs-password') });
+      $<HTMLInputElement>('login-user').value = recover.username;
       $<HTMLInputElement>('login-password').value = '';
       go('login');
       ok.textContent = 'เปลี่ยนรหัสผ่านแล้ว เข้าสู่ระบบด้วยรหัสผ่านใหม่ได้เลย';
@@ -145,8 +149,9 @@ export function loginScreen(sb: SupabaseClient, apiBase: string): Promise<void> 
       async () => {
         const username = normalizeUsername(val('cl-user'));
         if (!USERNAME_RE.test(username)) throw new Error('ชื่อผู้ใช้ต้องยาว 4–16 ตัว ใช้ได้เฉพาะ a-z, 0-9 และ _');
+        if (!normalizePhone(val('cl-phone'))) throw new Error('เบอร์โทรศัพท์ไม่ถูกต้อง (เช่น 0812345678)');
         const token = (await sb.auth.getSession()).data.session?.access_token;
-        await api(apiBase, '/auth/claim', { username }, token);
+        await api(apiBase, '/auth/claim', { username, phone: val('cl-phone') }, token);
         await sb.auth.refreshSession();
         alert(`ตั้งชื่อผู้ใช้ "${username}" แล้ว ครั้งหน้าเข้าสู่ระบบด้วยชื่อนี้และรหัสผ่านเดิม`);
         resolve();

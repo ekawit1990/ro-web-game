@@ -12,12 +12,10 @@
     "@colyseus/schema": "^5.0.42",
     "@supabase/supabase-js": "^2.118.0",
     "colyseus": "^0.18.10",
-    "nodemailer": "^6.10.1",
     "tsx": "^4.23.15"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
-    "@types/nodemailer": "^6.4.24",
     "typescript": "^7.0.2"
   }
 }
