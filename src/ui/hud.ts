@@ -1,5 +1,5 @@
 import {
-  CLASSES, CLASS_KEYS, CardBonus, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, REFINE, SHOP, SKILLS,
+  CLASSES, CLASS_KEYS, CardBonus, MONSTERS, SPAWNS, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, REFINE, SHOP, SKILLS,
   START_CLASS, STAT_KEYS, STORAGE_SLOTS, StatKey, WEAPON_SHOP, canRefine, cardFits, expToNext, itemLabel, jobExpToNext, jobTown,
   refineBonus, refineChance, refineFee, refineMaterial, refineSafe, skillSp, skillsOf, statCost,
 } from '../data';
@@ -10,7 +10,7 @@ import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
 
-type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine';
+type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'worldmap';
 /** A bag row, or what we know of someone else's (trade): the + level and cards travel with it. */
 type ItemRow = Pick<InvItem, 'refine' | 'cards'> & { qty?: number; equipped?: boolean };
 type Slot = { t: 's' | 'i'; id: string } | null;
@@ -63,7 +63,7 @@ export const bonusText = (b: CardBonus) =>
   (Object.entries(b) as [keyof CardBonus, number][]).map(([k, v]) => `${BONUS_LABEL[k]} +${v}${PCT_BONUS.has(k) ? '%' : ''}`).join(' · ');
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
-  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80],
+  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], worldmap: [-1, 40],
 };
 
 /** The RO-style windows over the game: Basic Info, Equipment+Status, Inventory, Skill Tree, hotkeys, minimap, chat. */
@@ -132,6 +132,7 @@ export class Hud implements WorldHooks {
     this.closeWin('npc');
     this.closeWin('storage');
     this.closeWin('refine');
+    this.closeWin('worldmap');
     this.closeTrade();
     // a new map starts with /auto off
     this.root.querySelector('#bi-auto')?.classList.remove('on');
@@ -782,17 +783,23 @@ export class Hud implements WorldHooks {
     this.root.insertAdjacentHTML('beforeend', `
       <div id="minimap" class="minimap">
         <div class="mini-head"><span id="mini-name"></span><span id="mini-pos"></span></div>
-        <canvas id="mini-cv" width="140" height="140"></canvas>
+        <canvas id="mini-cv" width="140" height="140" title="คลิกเพื่อเปิดแผนที่ใหญ่"></canvas>
       </div>`);
+    this.root.querySelector('#mini-cv')!.addEventListener('click', () => this.toggleWorldMap());
   }
 
   private drawMiniBase() {
+    this.miniBase = this.drawMapBase(140);
+  }
+
+  /** The map's ground, buildings, trees, walls, portals and NPCs at `size` px. */
+  private drawMapBase(size: number) {
     const m = this.map;
     const cv = document.createElement('canvas');
-    cv.width = 140;
-    cv.height = 140;
+    cv.width = size;
+    cv.height = size;
     const c = cv.getContext('2d')!;
-    const s = 140 / Math.max(m.w, m.h);
+    const s = size / Math.max(m.w, m.h);
     const colors = THEMES[m.theme].ground;
     for (let y = 0; y < m.h; y++) {
       for (let x = 0; x < m.w; x++) {
@@ -830,7 +837,124 @@ export class Hud implements WorldHooks {
       c.fillStyle = '#ffd54a';
       c.fillRect((n.x + 0.5) * s - 2, (n.y + 0.5) * s - 2, 4, 4);
     }
-    this.miniBase = cv;
+    return cv;
+  }
+
+  // ------------------------------------------------------------ big map
+
+  private bigBase?: HTMLCanvasElement;
+  /** monster id highlighted on the big map (tapped in the list) */
+  private mapPick = '';
+
+  private toggleWorldMap() {
+    if (this.isOpen('worldmap')) return this.closeWin('worldmap');
+    this.win('worldmap', `แผนที่ · ${escapeHtml(this.map.name)}`, 'worldmap');
+    this.bigBase = undefined;
+    this.mapPick = '';
+    this.renderWorldMap();
+  }
+
+  /** Spawns on this map grouped by monster: how many, where, and what they're like. */
+  private mapMonsters() {
+    const by = new Map<string, { id: string; count: number; areas: [number, number, number, number][] }>();
+    for (const s of SPAWNS) {
+      if (s.map !== this.map.id || !MONSTERS[s.monster]) continue;
+      const e = by.get(s.monster) ?? { id: s.monster, count: 0, areas: [] };
+      e.count += s.count;
+      e.areas.push(s.area);
+      by.set(s.monster, e);
+    }
+    return [...by.values()].sort((a, b) => MONSTERS[a.id].level - MONSTERS[b.id].level);
+  }
+
+  private renderWorldMap() {
+    const b = this.body('worldmap');
+    if (!b) return;
+    const list = this.mapMonsters();
+    const myLv = this.s.char.level;
+    const rows = list.map((e) => {
+      const d = MONSTERS[e.id];
+      const diff = d.level - myLv;
+      const tag = diff >= 8 ? '<em class="wm-hard">อันตราย</em>' : diff <= -10 ? '<em class="wm-easy">ง่าย</em>' : '';
+      const quest = this.s.char.job_quest >= 0 && d.level >= JOB_CHANGE.monsterLevel ? '<em class="wm-quest">นับเควส</em>' : '';
+      return `<div class="wm-row ${this.mapPick === e.id ? 'on' : ''}" data-mon="${e.id}">
+        <i style="background:${d.color}"></i>
+        <span><b>${d.boss ? '★ ' : ''}${escapeHtml(d.name)}</b> <small>Lv.${d.level}</small>${tag}${quest}
+          <small class="wm-sub">${d.aggressive ? '⚔ ดุ (เข้ามาตีก่อน)' : 'ไม่ตีก่อน'} · HP ${d.hp.toLocaleString()} · EXP ${d.exp}/${d.jobExp} · ${e.count} ตัว</small></span></div>`;
+    }).join('');
+    const portals = this.map.portals.map((p) => `<div class="wm-portal"><i></i>${escapeHtml(p.label)}</div>`).join('');
+    b.innerHTML = `<div class="wm-wrap">
+        <canvas id="wm-cv" width="320" height="320"></canvas>
+        <div class="wm-side">
+          <div class="wm-sec">${this.map.safe ? 'เมือง (ไม่มีมอนสเตอร์)' : `มอนสเตอร์ในแผนที่นี้ (${list.length} ชนิด) · แตะเพื่อดูจุดเกิด`}</div>
+          <div class="wm-list">${rows || '<p class="hint">ปลอดภัย ไม่มีมอนสเตอร์</p>'}</div>
+          ${portals ? `<div class="wm-sec">ทางออก</div>${portals}` : ''}
+          <div class="wm-legend"><span><i class="me"></i>คุณ</span><span><i class="pl"></i>ผู้เล่นอื่น</span><span><i class="np"></i>NPC</span><span><i class="pt"></i>ทางออก</span></div>
+        </div>
+      </div>`;
+    b.querySelectorAll<HTMLElement>('[data-mon]').forEach((el) =>
+      el.addEventListener('click', () => {
+        this.mapPick = this.mapPick === el.dataset.mon ? '' : el.dataset.mon!;
+        this.renderWorldMap();
+      }));
+    b.querySelectorAll<HTMLElement>('[data-mon]').forEach((el) => this.tooltip(el, () => {
+      const d = MONSTERS[el.dataset.mon!];
+      const drops = d.drops.filter(([id]) => ITEMS[id]).map(([id, r]) => `${escapeHtml(ITEMS[id].name)} ${(r * 100).toFixed(r < 0.01 ? 1 : 0)}%`).join(', ');
+      return `<b>${escapeHtml(d.name)}</b> Lv.${d.level}<div class="muted">Atk ${d.atk} · Def ${d.def}</div><div>ดรอป: ${drops}</div>`;
+    }));
+    this.drawWorldMap();
+  }
+
+  /** Redrawn every frame while open: spawn areas, live monsters, players, you. */
+  private drawWorldMap() {
+    const scene = this.actions.scene();
+    const cv = this.root.querySelector('#wm-cv') as HTMLCanvasElement | null;
+    if (!scene || !cv || !this.isOpen('worldmap')) return;
+    const size = cv.width;
+    this.bigBase ??= this.drawMapBase(size);
+    const c = cv.getContext('2d')!;
+    const s = size / Math.max(this.map.w, this.map.h);
+    c.drawImage(this.bigBase, 0, 0);
+    for (const e of this.mapMonsters()) {
+      const d = MONSTERS[e.id];
+      const on = this.mapPick === e.id;
+      if (this.mapPick && !on) continue;
+      for (const [x0, y0, x1, y1] of e.areas) {
+        c.fillStyle = d.color + (on ? '66' : '33');
+        c.strokeStyle = d.color;
+        c.lineWidth = on ? 2 : 1;
+        c.fillRect(x0 * s, y0 * s, (x1 - x0) * s, (y1 - y0) * s);
+        c.strokeRect(x0 * s, y0 * s, (x1 - x0) * s, (y1 - y0) * s);
+        c.font = 'bold 10px sans-serif';
+        c.textAlign = 'center';
+        c.fillStyle = '#fff';
+        c.strokeStyle = 'rgba(0,0,0,0.75)';
+        c.lineWidth = 3;
+        // all areas at once get crowded: just the level; a picked monster gets its name too
+        const label = on ? `${d.name} Lv.${d.level}` : `Lv.${d.level}`;
+        const lx = ((x0 + x1) / 2) * s;
+        const ly = ((y0 + y1) / 2) * s + 3;
+        c.strokeText(label, lx, ly);
+        c.fillText(label, lx, ly);
+      }
+    }
+    const dots = scene.minimapDots();
+    for (const m of dots.monsters) {
+      if (this.mapPick && m.key !== this.mapPick) continue;
+      c.fillStyle = MONSTERS[m.key]?.color ?? '#f44';
+      c.beginPath();
+      c.arc(m.x * s, m.y * s, 2.2, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.fillStyle = '#ff7bd5';
+    for (const o of dots.others) c.fillRect(o.x * s - 3, o.y * s - 3, 6, 6);
+    c.fillStyle = '#ffffff';
+    c.strokeStyle = '#000';
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.arc(dots.me.x * s, dots.me.y * s, 5, 0, Math.PI * 2);
+    c.fill();
+    c.stroke();
   }
 
   private drawMinimap() {
@@ -1673,6 +1797,7 @@ export class Hud implements WorldHooks {
 
   private frame() {
     this.drawMinimap();
+    this.drawWorldMap();
     const now = performance.now();
     // hotkey cooldown overlays
     this.root.querySelectorAll<HTMLElement>('#hotbar [data-hk]').forEach((el) => {

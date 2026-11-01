@@ -30,6 +30,10 @@ export interface WorldHooks {
   autoChanged(on: boolean): void;
 }
 
+/** Touch screens have no hover: show name + Lv of monsters this close (tiles) all the time. */
+const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+const TOUCH_NAME_RANGE = 9;
+
 /** /auto: how far (tiles) the character looks for the next monster, and when it drinks a potion / heals. */
 const AUTO_RANGE = 12;
 const AUTO_POTION_HP = 0.35;
@@ -1081,9 +1085,12 @@ export class World3D {
     }
     for (const m of this.monsters.values()) {
       const def = MONSTERS[m.key];
-      const show = !m.dead && (!!def.boss || m.hp < m.maxHp || this.hoverMonster === m || (this.target?.kind === 'monster' && this.target.id === m.id));
+      const targeted = this.target?.kind === 'monster' && this.target.id === m.id;
+      const named = !!def.boss || this.hoverMonster === m || targeted
+        || (TOUCH && Math.hypot(m.x - this.me.x, m.y - this.me.y) < TOUCH_NAME_RANGE);
+      const show = !m.dead && (named || m.hp < m.maxHp);
       this.place(m.label.el, new THREE.Vector3(m.x, 0, m.y), show);
-      m.label.el.classList.toggle('named', !!def.boss || this.hoverMonster === m);
+      m.label.el.classList.toggle('named', named);
       if (m.label.fill) m.label.fill.style.width = `${(m.hp / Math.max(1, m.maxHp)) * 100}%`;
     }
     this.floats = this.floats.filter((f) => {
@@ -1361,7 +1368,9 @@ export class World3D {
   minimapDots() {
     const others: { x: number; y: number }[] = [];
     for (const a of this.players.values()) if (a !== this.me) others.push({ x: a.x, y: a.y });
-    return { me: { x: this.me.x, y: this.me.y }, others };
+    const monsters: { x: number; y: number; key: string }[] = [];
+    for (const m of this.monsters.values()) if (!m.dead) monsters.push({ x: m.x, y: m.y, key: m.key });
+    return { me: { x: this.me.x, y: this.me.y }, others, monsters };
   }
 
   private resize() {
