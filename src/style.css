@@ -410,6 +410,7 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .world-overlay > [hidden] { display: none !important; } /* .wl sets display:flex, which would beat the hidden attribute */
 .wl { display: flex; flex-direction: column; align-items: center; transform-origin: 0 0; margin-top: 4px; }
 .wl > * { transform: translateX(-50%); position: relative; left: 0; }
+.wl.hiding { opacity: 0.55; } /* หนีไปกลับ PR: our own name while hidden */
 .wl .nm, .wl .npc, .wl .portal { font-size: 12px; color: #fff; white-space: nowrap; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
 .wl .npc { color: #9fe3ff; }
 .wl .portal { color: #c8f0ff; }

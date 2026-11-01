@@ -17,53 +17,56 @@
     "int": 4,
     "dex": 5,
     "luk": 4
-   }
+   },
+   "fxColor": "#b08a5a"
   },
   "singer": {
    "name": "นักร้อง",
-   "desc": "ยิงคลื่นเสียง ใช้ SP แรงสุด",
+   "desc": "สายกายภาพระยะไกล 9 ช่อง: โยนไมค์ใส่มอนสเตอร์ ความแรงคิดจาก DEX",
    "color": "#ec5fa8",
-   "hpMod": 0.85,
-   "spMod": 1.6,
-   "range": 4.5,
-   "attackType": "magic",
-   "projectile": "wave",
+   "hpMod": 0.95,
+   "spMod": 1.1,
+   "range": 9,
+   "attackType": "ranged",
+   "projectile": "mic",
    "startWeapon": "basic_mic",
    "baseStats": {
     "str": 1,
-    "agi": 4,
+    "agi": 6,
     "vit": 4,
-    "int": 10,
-    "dex": 6,
+    "int": 4,
+    "dex": 10,
     "luk": 3
-   }
+   },
+   "fxColor": "#ffd23f"
   },
   "guitarist": {
    "name": "มือกีตาร์",
-   "desc": "ยิงโน้ตไกล ตีเร็ว",
+   "desc": "สายกายภาพประชิด 1 ช่อง: ฟาดกีตาร์ใส่มอนสเตอร์ ความแรงคิดจาก STR",
    "color": "#f08a24",
-   "hpMod": 1.0,
-   "spMod": 1.0,
-   "range": 5.5,
-   "attackType": "ranged",
-   "projectile": "note",
+   "hpMod": 1.2,
+   "spMod": 0.9,
+   "range": 1.3,
+   "attackType": "melee",
+   "projectile": null,
    "startWeapon": "acoustic_guitar",
    "baseStats": {
-    "str": 3,
-    "agi": 7,
-    "vit": 4,
+    "str": 8,
+    "agi": 6,
+    "vit": 5,
     "int": 2,
-    "dex": 9,
-    "luk": 3
-   }
+    "dex": 5,
+    "luk": 2
+   },
+   "fxColor": "#ff3a3a"
   },
   "drummer": {
    "name": "มือกลอง",
-   "desc": "ตีประชิด 2 ไม้ แรงและอึด",
+   "desc": "สายกายภาพประชิด 1 ช่อง: ตีไม้กลองซ้าย-ขวาสลับกันเร็ว ๆ หายตัวลอบโจมตีได้",
    "color": "#d9443f",
    "hpMod": 1.4,
    "spMod": 0.7,
-   "range": 1.4,
+   "range": 1.3,
    "attackType": "melee",
    "projectile": null,
    "startWeapon": "wood_sticks",
@@ -74,15 +77,17 @@
     "int": 1,
     "dex": 3,
     "luk": 3
-   }
+   },
+   "fxColor": "#b45cff",
+   "aspdPct": 20
   },
   "bassist": {
    "name": "มือเบส",
-   "desc": "แทงก์ HP สูงสุด ตีหนัก",
+   "desc": "สายกายภาพประชิด 1 ช่อง ตัวแทงก์: ฟาดเบสใส่มอนสเตอร์ HP และ VIT สูง",
    "color": "#7a4fd0",
    "hpMod": 1.65,
    "spMod": 0.7,
-   "range": 1.8,
+   "range": 1.3,
    "attackType": "melee",
    "projectile": null,
    "startWeapon": "basic_bass",
@@ -93,7 +98,8 @@
     "int": 1,
     "dex": 5,
     "luk": 3
-   }
+   },
+   "fxColor": "#3ee07a"
   },
   "keyboardist": {
    "name": "มือคีย์บอร์ด",
@@ -112,7 +118,8 @@
     "int": 9,
     "dex": 6,
     "luk": 3
-   }
+   },
+   "fxColor": "#2fb3a8"
   }
  },
  "items": {
@@ -195,29 +202,27 @@
   "basic_mic": {
    "name": "ไมค์ธรรมดา",
    "type": "weapon",
-   "atk": 6,
-   "matk": 15,
+   "atk": 13,
    "price": 60,
    "classes": [
     "singer"
    ],
    "color": "#9aa0a6",
    "weight": 60,
-   "desc": "ไมค์สำหรับนักร้องฝึกหัด ยิงคลื่นเสียงได้พอประมาณ",
+   "desc": "ไมค์สำหรับนักร้องฝึกหัด ปาใส่มอนสเตอร์ได้ไกล 9 ช่อง",
    "slots": 1
   },
   "golden_mic": {
    "name": "ไมค์ทองคำ",
    "type": "weapon",
-   "atk": 12,
-   "matk": 45,
+   "atk": 37,
    "price": 750,
    "classes": [
     "singer"
    ],
    "color": "#ffd700",
    "weight": 60,
-   "desc": "ไมค์ทองคำของนักร้องอาชีพ คลื่นเสียงแรงขึ้นมาก",
+   "desc": "ไมค์ทองคำของนักร้องอาชีพ หนักมือ ปาแล้วแรงขึ้นมาก",
    "slots": 2
   },
   "acoustic_guitar": {
@@ -230,7 +235,7 @@
    ],
    "color": "#c8843c",
    "weight": 60,
-   "desc": "กีตาร์โปร่งคู่ใจของมือกีตาร์มือใหม่",
+   "desc": "กีตาร์โปร่งคู่ใจ ใช้ฟาดมอนสเตอร์แบบนักดาบ",
    "slots": 1
   },
   "electric_guitar": {
@@ -243,7 +248,7 @@
    ],
    "color": "#e23b3b",
    "weight": 60,
-   "desc": "กีตาร์ไฟฟ้าเสียงแตก พลังโจมตีสูง",
+   "desc": "กีตาร์ไฟฟ้าตัวหนัก ฟาดทีเดียวไฟลุก พลังโจมตีสูง",
    "slots": 2
   },
   "wood_sticks": {
@@ -282,7 +287,7 @@
    ],
    "color": "#5a3a8a",
    "weight": 60,
-   "desc": "เบส 4 สายมาตรฐาน เสียงทุ้มหนักแน่น",
+   "desc": "เบส 4 สายมาตรฐาน ตัวยาวหนัก ใช้ฟาดมอนสเตอร์",
    "slots": 1
   },
   "five_string_bass": {
@@ -295,7 +300,7 @@
    ],
    "color": "#2e2e48",
    "weight": 60,
-   "desc": "เบส 5 สาย มีสายต่ำเพิ่ม เสียงสะเทือนพื้น",
+   "desc": "เบส 5 สาย หนักกว่าเดิม ฟาดทีเดียวสะเทือนพื้น",
    "slots": 2
   },
   "mini_keyboard": {
@@ -4706,271 +4711,463 @@
     "atkPct": 2
    }
   },
-  "high_note": {
+  "dynamics": {
    "cls": "singer",
-   "name": "ไฮโน้ต",
+   "name": "การใส่ไดนามิกและอารมณ์",
    "icon": "🎤",
-   "desc": "ยิงโน้ตเสียงสูงใส่ศัตรู 1 ตัว (เวทย์)",
    "type": "single",
-   "magic": true,
-   "maxLevel": 5,
+   "range": 9,
+   "hits": 2,
+   "cooldown": 5000,
    "sp": [
     10,
-    3
+    2
    ],
-   "range": 6,
-   "cooldown": 1000,
-   "power": [
-    150,
-    40
-   ]
-  },
-  "lullaby": {
-   "cls": "singer",
-   "name": "เพลงกล่อม",
-   "icon": "💗",
-   "desc": "ฟื้น HP ตัวเองและเพื่อนรอบตัว 4 ช่อง",
-   "type": "heal",
-   "maxLevel": 5,
-   "sp": [
-    20,
-    5
-   ],
-   "range": 0,
-   "radius": 4,
-   "cooldown": 3000,
-   "heal": [
-    40,
-    30
-   ]
-  },
-  "chorus_storm": {
-   "cls": "singer",
-   "name": "คอรัสพายุ",
-   "icon": "🌪️",
-   "desc": "พายุเสียงโจมตีศัตรูรอบเป้าหมาย 2 ช่อง",
-   "type": "aoe",
-   "magic": true,
-   "maxLevel": 5,
-   "sp": [
-    30,
-    5
-   ],
-   "range": 6,
-   "radius": 2,
-   "cooldown": 3000,
    "power": [
     100,
-    30
-   ]
-  },
-  "breath": {
-   "cls": "singer",
-   "name": "ลมหายใจนักร้อง",
-   "icon": "🌬️",
-   "desc": "(ติดตัว) SP สูงสุด +6% ต่อเลเวล",
-   "type": "passive",
-   "maxLevel": 5,
-   "passive": {
-    "maxSpPct": 6
-   }
-  },
-  "double_strum": {
-   "cls": "guitarist",
-   "name": "ดับเบิลสตริง",
-   "icon": "🎸",
-   "desc": "ดีดโน้ต 2 ครั้งติดใส่ศัตรู 1 ตัว",
-   "type": "single",
-   "maxLevel": 5,
-   "sp": [
-    8,
-    2
-   ],
-   "range": 6,
-   "cooldown": 800,
-   "power": [
-    90,
-    20
-   ],
-   "hits": 2
-  },
-  "fire_solo": {
-   "cls": "guitarist",
-   "name": "โซโล่ไฟ",
-   "icon": "🔥",
-   "desc": "โซโล่ระเบิดใส่ศัตรูรอบเป้าหมาย 1.5 ช่อง",
-   "type": "aoe",
-   "maxLevel": 5,
-   "sp": [
-    20,
-    4
-   ],
-   "range": 6,
-   "radius": 1.5,
-   "cooldown": 2500,
-   "power": [
-    120,
-    30
-   ]
-  },
-  "speed_riff": {
-   "cls": "guitarist",
-   "name": "ริฟเร็ว",
-   "icon": "⚡",
-   "desc": "ตีเร็วขึ้น 6% ต่อเลเวล นาน 60 วินาที",
-   "type": "buff",
-   "maxLevel": 5,
-   "sp": [
-    15,
-    3
-   ],
-   "cooldown": 1000,
-   "buff": {
-    "aspdPct": 6,
-    "durationSec": 60
-   }
-  },
-  "quick_fingers": {
-   "cls": "guitarist",
-   "name": "นิ้วไว",
-   "icon": "✋",
-   "desc": "(ติดตัว) HIT +3 และพลังโจมตี +2% ต่อเลเวล",
-   "type": "passive",
-   "maxLevel": 5,
-   "passive": {
-    "hit": 3,
-    "atkPct": 2
-   }
-  },
-  "drum_roll": {
-   "cls": "drummer",
-   "name": "กลองรัว",
-   "icon": "🥁",
-   "desc": "รัวไม้กลอง 3 ครั้งใส่ศัตรู 1 ตัว",
-   "type": "single",
-   "maxLevel": 5,
-   "sp": [
-    8,
-    2
-   ],
-   "range": 1.6,
-   "cooldown": 800,
-   "power": [
-    70,
     15
    ],
-   "hits": 3
-  },
-  "stomp": {
-   "cls": "drummer",
-   "name": "กระทืบจังหวะ",
-   "icon": "💥",
-   "desc": "กระทืบพื้นโจมตีศัตรูรอบตัว 2 ช่อง",
-   "type": "aoe_self",
-   "maxLevel": 5,
-   "sp": [
-    15,
-    3
+   "stats": [
+    "hit"
    ],
-   "radius": 2,
-   "cooldown": 2000,
-   "power": [
-    110,
-    25
-   ]
+   "desc": "ปาไมค์ใส่อารมณ์ โดนศัตรู 1 ตัว 2 ครั้ง (ดับเบิ้ลดาเมจ) ดาเมจคิดจาก ATK และ HIT (คูลดาวน์ 5 วินาที)",
+   "maxLevel": 10
   },
-  "adrenaline": {
-   "cls": "drummer",
-   "name": "จังหวะคึก",
-   "icon": "❤️‍🔥",
-   "desc": "ตีเร็วขึ้น 8% ต่อเลเวล นาน 60 วินาที",
+  "warm_up": {
+   "cls": "singer",
+   "name": "การวอร์มเสียง",
+   "icon": "🌬️",
    "type": "buff",
-   "maxLevel": 5,
+   "cooldown": 15000,
    "sp": [
-    15,
-    3
+    20,
+    2
    ],
-   "cooldown": 1000,
    "buff": {
-    "aspdPct": 8,
-    "durationSec": 60
-   }
+    "fleePct": 8,
+    "durationSec": 30
+   },
+   "desc": "บัฟตัวเอง หลบหลีก (Flee) +8% ต่อเลเวล (Lv 10 = 80%) นาน 30 วินาที (คูลดาวน์ 15 วินาที)",
+   "maxLevel": 10
   },
-  "strong_arms": {
-   "cls": "drummer",
-   "name": "แขนแกร่ง",
-   "icon": "💪",
-   "desc": "(ติดตัว) พลังโจมตี +4% ต่อเลเวล",
-   "type": "passive",
-   "maxLevel": 5,
-   "passive": {
-    "atkPct": 4
-   }
+  "enunciation": {
+   "cls": "singer",
+   "name": "Enunciation",
+   "icon": "🎯",
+   "type": "buff",
+   "cooldown": 15000,
+   "sp": [
+    20,
+    2
+   ],
+   "buff": {
+    "hitPct": 8,
+    "durationSec": 30
+   },
+   "desc": "บัฟตัวเอง ความแม่นยำ (HIT) +8% ต่อเลเวล (Lv 10 = 80%) นาน 30 วินาที (คูลดาวน์ 15 วินาที)",
+   "maxLevel": 10
   },
-  "heavy_bass": {
-   "cls": "bassist",
-   "name": "เบสหนัก",
-   "icon": "🎵",
-   "desc": "ฟาดเบสแรงใส่ศัตรู 1 ตัว",
+  "ear_training": {
+   "cls": "singer",
+   "name": "Ear Training",
+   "icon": "👂",
    "type": "single",
-   "maxLevel": 5,
+   "range": 9,
+   "cooldown": 5000,
    "sp": [
     10,
-    3
+    2
    ],
-   "range": 2,
-   "cooldown": 1200,
    "power": [
-    200,
-    50
-   ]
-  },
-  "low_wave": {
-   "cls": "bassist",
-   "name": "คลื่นเสียงต่ำ",
-   "icon": "〰️",
-   "desc": "ดึงความสนใจศัตรูรอบตัว 3 ช่องและโจมตี",
-   "type": "aoe_self",
-   "maxLevel": 5,
-   "sp": [
-    15,
-    3
-   ],
-   "radius": 3,
-   "cooldown": 3000,
-   "power": [
-    80,
+    140,
     20
    ],
-   "provoke": true
+   "stats": [
+    "dex"
+   ],
+   "knockback": 2,
+   "desc": "ปาไมค์แรง ๆ 1 ครั้ง มอนสเตอร์กระเด็นถอยหลัง 2 ช่อง ดาเมจคิดจาก ATK และ DEX (คูลดาวน์ 5 วินาที)",
+   "maxLevel": 10
   },
-  "sound_wall": {
-   "cls": "bassist",
-   "name": "กำแพงเสียง",
-   "icon": "🛡️",
-   "desc": "ป้องกัน +5 ต่อเลเวล นาน 60 วินาที",
-   "type": "buff",
-   "maxLevel": 5,
+  "breath_control": {
+   "cls": "singer",
+   "name": "การควบคุมลมหายใจ",
+   "icon": "🫁",
+   "type": "passive",
+   "passive": {
+    "stats": {
+     "agi": 5,
+     "dex": 5
+    }
+   },
+   "desc": "(ติดตัว) AGI +5 และ DEX +5 ต่อเลเวล",
+   "maxLevel": 10
+  },
+  "high_voice": {
+   "cls": "singer",
+   "name": "เสียงสูง",
+   "icon": "📢",
+   "type": "line",
+   "range": 9,
+   "length": 9,
+   "width": 1.6,
+   "speed": 14,
+   "castMs": 5000,
+   "cooldown": 15000,
    "sp": [
-    15,
+    30,
+    4
+   ],
+   "power": [
+    200,
+    40
+   ],
+   "stats": [
+    "dex",
+    "int"
+   ],
+   "desc": "ร่าย 5 วินาที (ขยับ = ยกเลิก) แล้วปล่อยคลื่นเสียงพุ่งไปข้างหน้า 9 ช่อง โดนทุกตัวที่ขวางทาง ดาเมจคิดจาก DEX x INT (คูลดาวน์ 15 วินาที)",
+   "maxLevel": 10
+  },
+  "hammer_on": {
+   "cls": "guitarist",
+   "name": "Hammer-on",
+   "icon": "🔨",
+   "type": "single",
+   "range": 1.5,
+   "cooldown": 5000,
+   "sp": [
+    10,
+    2
+   ],
+   "power": [
+    140,
+    20
+   ],
+   "stats": [
+    "str"
+   ],
+   "knockback": 2,
+   "desc": "ฟาดกีตาร์แรง ๆ 1 ครั้ง มอนสเตอร์กระเด็นถอยหลัง 2 ช่อง ดาเมจคิดจาก ATK และ STR (คูลดาวน์ 5 วินาที)",
+   "maxLevel": 10
+  },
+  "slide": {
+   "cls": "guitarist",
+   "name": "Slide",
+   "icon": "💨",
+   "type": "single",
+   "range": 2,
+   "scale": "distance",
+   "cooldown": 10000,
+   "sp": [
+    10,
+    2
+   ],
+   "power": [
+    90,
+    15
+   ],
+   "bonusIf": {
+    "buff": "vibrato",
+    "mult": 2
+   },
+   "desc": "พุ่งเข้าหาเป้าหมายระยะ 2 ช่อง ดาเมจ = ATK x ระยะที่พุ่ง ถ้ามีบัฟ Vibrato อยู่ดาเมจ x2 (คูลดาวน์ 10 วินาที)",
+   "maxLevel": 10
+  },
+  "vibrato": {
+   "cls": "guitarist",
+   "name": "Vibrato",
+   "icon": "⚡",
+   "type": "buff",
+   "cooldown": 15000,
+   "sp": [
+    20,
+    2
+   ],
+   "buff": {
+    "aspdPct": 8,
+    "durationSec": 30
+   },
+   "desc": "บัฟตัวเอง ตีเร็วขึ้น (ASPD) 8% ต่อเลเวล (Lv 10 = 80%) นาน 30 วินาที (คูลดาวน์ 15 วินาที)",
+   "maxLevel": 10
+  },
+  "bending": {
+   "cls": "guitarist",
+   "name": "Bending",
+   "icon": "🌀",
+   "type": "aoe_self",
+   "radius": 2,
+   "scale": "crowd",
+   "cooldown": 10000,
+   "sp": [
+    18,
+    2
+   ],
+   "power": [
+    40,
+    8
+   ],
+   "desc": "หมุนตัวฟาดกีตาร์โดนมอนสเตอร์ทุกตัวในระยะ 2 ช่อง ดาเมจ = ATK x % สกิล x จำนวนมอนรอบตัว (สูงสุด 8) ยิ่งรุมเยอะยิ่งแรง (คูลดาวน์ 10 วินาที)",
+   "maxLevel": 10
+  },
+  "arpeggio": {
+   "cls": "guitarist",
+   "name": "Arpeggio",
+   "icon": "🎶",
+   "type": "passive",
+   "passive": {
+    "regenPct": 8
+   },
+   "desc": "(ติดตัว) ฟื้น HP เร็วขึ้น 8% ต่อเลเวล (Lv 10 = 80%)",
+   "maxLevel": 10
+  },
+  "palm_muting": {
+   "cls": "guitarist",
+   "name": "Palm muting",
+   "icon": "✋",
+   "type": "aoe_self",
+   "radius": 12,
+   "pull": true,
+   "defDownPct": 50,
+   "debuffSec": [
+    5,
+    1
+   ],
+   "cooldown": 15000,
+   "sp": [
+    25,
+    2
+   ],
+   "desc": "คลื่นเสียงระยะ 12 ช่อง ดึงมอนสเตอร์ในระยะเข้ามารุมตัวเอง และลด Def ของมอนสเตอร์ลง 50% นาน 5 วินาที +1 วินาทีต่อเลเวล (คูลดาวน์ 15 วินาที)",
+   "maxLevel": 10
+  },
+  "snare_roll": {
+   "cls": "drummer",
+   "name": "รัวสแนร์",
+   "icon": "🥁",
+   "type": "single",
+   "range": 1.5,
+   "cooldown": 5000,
+   "sp": [
+    12,
+    2
+   ],
+   "power": [
+    12,
+    2
+   ],
+   "hits": 16,
+   "stats": [
+    "str"
+   ],
+   "desc": "รัวไม้กลองใส่ศัตรู 1 ตัว 16 ครั้งติด ดาเมจคิดจาก ATK และ STR (คูลดาวน์ 5 วินาที)",
+   "maxLevel": 10
+  },
+  "ghost_exit": {
+   "cls": "drummer",
+   "name": "หนีไปกลับ PR",
+   "icon": "👻",
+   "type": "buff",
+   "cooldown": 5000,
+   "sp": [
+    30,
+    -2
+   ],
+   "buff": {
+    "stealth": true,
+    "durationSec": 30
+   },
+   "desc": "หายตัว 30 วินาที ผู้เล่นอื่นและมอนสเตอร์มองไม่เห็น (ยกเว้นบอส MVP) โจมตีหรือใช้สกิลโจมตีเมื่อไรจะปรากฏตัว (คูลดาวน์ 5 วินาที)",
+   "maxLevel": 10
+  },
+  "double_kick": {
+   "cls": "drummer",
+   "name": "กระเดื่องคู่",
+   "icon": "💥",
+   "type": "aoe_self",
+   "radius": 5,
+   "cooldown": 5000,
+   "sp": [
+    18,
+    2
+   ],
+   "power": [
+    60,
+    12
+   ],
+   "stats": [
+    "int"
+   ],
+   "desc": "กระทืบกระเดื่องสร้างคลื่นเสียงเป็นวงรอบตัว 5 ช่อง ดาเมจคิดจาก ATK x INT (คูลดาวน์ 5 วินาที)",
+   "maxLevel": 10
+  },
+  "send_off": {
+   "cls": "drummer",
+   "name": "จังหวะส่ง",
+   "icon": "💨",
+   "type": "single",
+   "range": 9,
+   "scale": "distance",
+   "cooldown": 10000,
+   "sp": [
+    14,
+    2
+   ],
+   "power": [
+    40,
+    8
+   ],
+   "bonusIf": {
+    "buff": "ghost_exit",
+    "mult": 2
+   },
+   "desc": "พุ่งเข้าหาเป้าหมายระยะ 9 ช่อง ดาเมจ = ATK x ระยะที่พุ่ง ยิ่งไกลยิ่งแรง ถ้าใช้ตอนหายตัวดาเมจ x2 (คูลดาวน์ 10 วินาที)",
+   "maxLevel": 10
+  },
+  "x_wave": {
+   "cls": "drummer",
+   "name": "คลื่นเสียงทำลาย",
+   "icon": "❌",
+   "type": "line",
+   "shape": "x",
+   "range": 5,
+   "length": 5,
+   "width": 2.4,
+   "speed": 2.5,
+   "cooldown": 15000,
+   "sp": [
+    25,
     3
    ],
-   "cooldown": 1000,
-   "buff": {
-    "def": 5,
-    "durationSec": 60
-   }
+   "power": [
+    100,
+    20
+   ],
+   "stats": [
+    "int"
+   ],
+   "desc": "คลื่นเสียงรูปตัว X ลอยไปข้างหน้าช้า ๆ 5 ช่อง โดนทุกตัวที่ขวางทาง ดาเมจคิดจาก ATK x INT (คูลดาวน์ 15 วินาที)",
+   "maxLevel": 10
   },
-  "big_body": {
-   "cls": "bassist",
-   "name": "ร่างใหญ่",
-   "icon": "🧱",
-   "desc": "(ติดตัว) HP สูงสุด +5% ต่อเลเวล",
+  "collect_exp": {
+   "cls": "drummer",
+   "name": "เก็บประสบการณ์",
+   "icon": "🍀",
    "type": "passive",
-   "maxLevel": 5,
    "passive": {
-    "maxHpPct": 5
-   }
+    "stats": {
+     "luk": 5
+    },
+    "flee": 5
+   },
+   "desc": "(ติดตัว) LUK +5 และ Flee +5 ต่อเลเวล",
+   "maxLevel": 10
+  },
+  "root_note": {
+   "cls": "bassist",
+   "name": "โน้ตราก",
+   "icon": "🎸",
+   "type": "single",
+   "range": 1.5,
+   "cooldown": 1000,
+   "sp": [
+    10,
+    2
+   ],
+   "power": [
+    120,
+    20
+   ],
+   "stats": [
+    "vit"
+   ],
+   "desc": "ฟาดเบสผ่ากลางใส่ศัตรู 1 ตัว ดาเมจคิดจาก ATK x VIT",
+   "maxLevel": 10
+  },
+  "kick_drum": {
+   "cls": "bassist",
+   "name": "Kick Drum",
+   "icon": "🛡️",
+   "type": "buff",
+   "cooldown": 5000,
+   "sp": [
+    20,
+    2
+   ],
+   "buff": {
+    "guardPct": 5,
+    "durationSec": 30
+   },
+   "desc": "รับความเสียหายแทนเพื่อนในปาร์ตี้ (แผนที่เดียวกัน) 5% ต่อเลเวล (Lv 10 = 50%) มาลดเลือดตัวเองแทน นาน 30 วินาที (คูลดาวน์ 5 วินาที)",
+   "maxLevel": 10
+  },
+  "straight_beat": {
+   "cls": "bassist",
+   "name": "จังหวะ Straight",
+   "icon": "〰️",
+   "type": "aoe_self",
+   "radius": 5,
+   "cooldown": 5000,
+   "sp": [
+    18,
+    2
+   ],
+   "power": [
+    45,
+    10
+   ],
+   "stats": [
+    "vit",
+    "int"
+   ],
+   "desc": "คลื่นเสียงเบสเป็นวงรอบตัว 5 ช่อง ดาเมจคิดจาก ATK x VIT x INT (คูลดาวน์ 5 วินาที)",
+   "maxLevel": 10
+  },
+  "lift_beat": {
+   "cls": "bassist",
+   "name": "จังหวะยก",
+   "icon": "🔰",
+   "type": "buff",
+   "cooldown": 15000,
+   "sp": [
+    20,
+    2
+   ],
+   "buff": {
+    "reflectPct": 8,
+    "durationSec": 30
+   },
+   "desc": "บัฟตัวเอง สะท้อนความเสียหายที่โดนกลับใส่มอนสเตอร์ 8% ต่อเลเวล (Lv 10 = 80%) นาน 30 วินาที (คูลดาวน์ 15 วินาที)",
+   "maxLevel": 10
+  },
+  "push_note": {
+   "cls": "bassist",
+   "name": "ลูกส่ง",
+   "icon": "💚",
+   "type": "buff",
+   "cooldown": 15000,
+   "sp": [
+    20,
+    2
+   ],
+   "buff": {
+    "regenPct": 8,
+    "durationSec": 30
+   },
+   "desc": "บัฟตัวเอง ฟื้น HP เร็วขึ้น 8% ต่อเลเวล (Lv 10 = 80%) นาน 30 วินาที ฟื้นได้แม้กำลังสู้ (คูลดาวน์ 15 วินาที)",
+   "maxLevel": 10
+  },
+  "pluck_control": {
+   "cls": "bassist",
+   "name": "ควบคุมน้ำหนักการดีด",
+   "icon": "🧱",
+   "type": "passive",
+   "passive": {
+    "def": 5,
+    "mdef": 5
+   },
+   "desc": "(ติดตัว) Def +5 และ MDef +5 ต่อเลเวล",
+   "maxLevel": 10
   },
   "note_blast": {
    "cls": "keyboardist",

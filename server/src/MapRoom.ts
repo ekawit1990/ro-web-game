@@ -2,8 +2,8 @@ import { Room, type Client } from 'colyseus';
 import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ITEMS, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
-  STAT_KEYS, buffBlocks, buffStats, canUseSkill, isBuffSkill, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts, skillHeal, skillPower, skillSp,
-  targetsPlayer,
+  STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
+  skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, targetsPlayer, totalStats,
 } from '../../src/data/index.ts';
 import { GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
 import type { RewardShare, TradeOffer } from '../../src/services/store.ts';
@@ -32,6 +32,7 @@ export const PlayerState = schema({
   maxSp: t.number(),
   dead: t.boolean(),
   sitting: t.boolean(),
+  hidden: t.boolean(), // หนีไปกลับ PR: other players don't draw this one
 }, 'PlayerState');
 export type PlayerState = SchemaType<typeof PlayerState>;
 
@@ -53,7 +54,16 @@ export const MapState = schema({
 export type MapState = SchemaType<typeof MapState>;
 
 /** Server-only data about a connected player. */
-type SeatBuff = { until: number; blocks?: number } & Buffs;
+type SeatBuff = {
+  until: number;
+  blocks?: number;
+  /** % of monster damage hit back (จังหวะยก), % faster HP regen (ลูกส่ง), % of party members' damage taken over (Kick Drum) */
+  reflectPct?: number;
+  regenPct?: number;
+  guardPct?: number;
+  /** หนีไปกลับ PR */
+  stealth?: boolean;
+} & Buffs;
 
 interface Seat {
   client: Client;
@@ -69,6 +79,8 @@ interface Seat {
   lastChat: number;
   busy: boolean;
   trade?: Trade;
+  /** A skill being cast (เสียงสูง): goes off when the timer fires unless the player moves first. */
+  cast?: { id: string; sp: number; timer: { clear(): void } };
 }
 
 interface Trade {
@@ -88,10 +100,39 @@ interface Brain {
   wanderAt: number;
   wanderTo: { x: number; y: number } | null;
   damage: Map<string, number>; // sessionId -> damage dealt, for sharing rewards
+  /** Palm muting: Def lowered by defDownPct % until defDownUntil; pulled monsters don't give up the chase until pulledUntil */
+  defDownUntil?: number;
+  defDownPct?: number;
+  pulledUntil?: number;
 }
 
 /** Where a character arrives after taking a portal (set by the room they left). */
 const arrivals = new Map<string, { map: string; x: number; y: number; at: number; hp?: number; sp?: number }>();
+
+/** Where a skill was aimed: a monster, a player, or just a spot. */
+interface Aim {
+  x: number;
+  y: number;
+  monster?: string;
+  ally?: string;
+}
+
+/** The 'skill' message every browser gets to draw a skill. `at` = ms after the message that the hit lands (waves). */
+interface SkillFx {
+  by: string;
+  skill: string;
+  x: number;
+  y: number;
+  target?: string;
+  allies?: string[];
+  fromX?: number;
+  fromY?: number;
+  dirX?: number;
+  dirY?: number;
+  bonus?: boolean;
+  pulled?: string[];
+  hits: { m?: string; p?: string; dmg: number; at?: number }[];
+}
 
 const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -193,7 +234,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const p = new PlayerState();
     Object.assign(p, {
       name: c.name, cls: c.cls, level: c.level, gender: c.gender, hair: c.hair, hairColor: c.hair_color, face: c.face,
-      head: '', weapon: '', ear: '', x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
+      head: '', weapon: '', ear: '', hidden: false, x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
       hp: (carry.hp ?? c.hp) > 0 ? Math.min(carry.hp ?? c.hp, seat.derived.maxHp) : seat.derived.maxHp,
       sp: (carry.sp ?? c.sp) >= 0 ? Math.min(carry.sp ?? c.sp, seat.derived.maxSp) : seat.derived.maxSp,
       dead: false, sitting: false,
@@ -211,6 +252,7 @@ export class MapRoom extends Room<{ state: MapState }> {
 
   async onLeave(client: Client) {
     const seat = this.seats.get(client.sessionId);
+    seat?.cast?.timer.clear();
     const p = this.state.players.get(client.sessionId);
     this.cancelTrade(seat?.trade, 'อีกฝ่ายออกจากแผนที่');
     if (seat) Parties.offline(seat.char.id, client.sessionId);
@@ -241,9 +283,21 @@ export class MapRoom extends Room<{ state: MapState }> {
       return;
     }
     seat.lastMoveAt = this.now;
+    if (seat.cast && dist(p.x, p.y, msg.x, msg.y) > 0.05) this.cancelCast(c.sessionId, seat, p);
     p.x = msg.x;
     p.y = msg.y;
     p.sitting = false;
+  }
+
+  /** Moving breaks a cast: the SP comes back and the skill can be used again straight away. */
+  private cancelCast(sid: string, seat: Seat, p: PlayerState) {
+    const cast = seat.cast;
+    if (!cast) return;
+    cast.timer.clear();
+    seat.cast = undefined;
+    seat.cooldowns.delete(cast.id);
+    p.sp = Math.min(p.maxSp, p.sp + cast.sp);
+    this.broadcast('castEnd', { by: sid, skill: cast.id, done: false });
   }
 
   private onSit(c: Client) {
@@ -259,7 +313,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const seat = this.seats.get(c.sessionId);
     if (seat) {
       for (const [id, skill] of Object.entries(SKILLS)) {
-        if (!isBuffSkill(skill)) continue;
+        if (!isHealerBuff(skill)) continue;
         const b = this.buffFor(skill, skill.maxLevel);
         seat.buffs.set(id, b);
         c.send('buff', { skill: id, seconds: skill.buff!.durationSec, blocks: b.blocks || undefined, from: 'healer' });
@@ -390,13 +444,14 @@ export class MapRoom extends Room<{ state: MapState }> {
     const seat = this.seats.get(c.sessionId);
     const m = this.state.monsters.get(msg?.id);
     const brain = this.brains.get(msg?.id);
-    if (!p || !seat || !m || !brain || p.dead || m.dead) return;
+    if (!p || !seat || !m || !brain || p.dead || m.dead || seat.cast) return;
     if (this.now - seat.lastAttack < seat.derived.attackDelay * 0.9) return;
     const cls = CLASSES[seat.char.cls];
     const def = MONSTERS[m.key];
     if (dist(p.x, p.y, m.x, m.y) > cls.range + def.size * 0.3 + 0.8) return;
     seat.lastAttack = this.now;
     p.sitting = false;
+    this.unhide(c.sessionId, seat, p); // attacking gives a hidden drummer away
 
     if (Math.random() > hitChance(seat.derived.hit, monsterFlee(def))) {
       this.engage(brain, c.sessionId);
@@ -406,12 +461,12 @@ export class MapRoom extends Room<{ state: MapState }> {
     let dmg: number;
     if (cls.attackType === 'magic' && p.sp >= MAGIC_SP_COST) {
       p.sp -= MAGIC_SP_COST;
-      dmg = seat.derived.matk * rand(0.95, 1.15) - def.def / 2;
+      dmg = seat.derived.matk * rand(0.95, 1.15) - this.monsterDef(brain, def) / 2;
     } else {
-      dmg = seat.derived.atk * rand(0.9, 1.1) - def.def;
+      dmg = seat.derived.atk * rand(0.9, 1.1) - this.monsterDef(brain, def);
     }
     const crit = Math.random() < seat.derived.crit / 100;
-    if (crit) dmg = dmg * 1.4 + def.def; // crits ignore defense, like RO
+    if (crit) dmg = dmg * 1.4 + this.monsterDef(brain, def); // crits ignore defense, like RO
     const amount = Math.max(1, Math.round(dmg));
     this.broadcast('hit', { by: c.sessionId, m: msg.id, dmg: amount, crit });
     this.damageMonster(msg.id, m, brain, c.sessionId, amount);
@@ -421,7 +476,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const p = this.state.players.get(c.sessionId);
     const seat = this.seats.get(c.sessionId);
     const skill = SKILLS[msg?.id];
-    if (!p || !seat || !skill || p.dead) return;
+    if (!p || !seat || !skill || p.dead || seat.cast) return;
     const lv = seat.char.skills?.[msg.id] ?? 0;
     if (!canUseSkill(skill, seat.char.cls) || lv < 1 || skill.type === 'passive') return;
     if ((seat.cooldowns.get(msg.id) ?? 0) > this.now) return;
@@ -429,35 +484,58 @@ export class MapRoom extends Room<{ state: MapState }> {
     if (p.sp < sp) return c.send('error', { text: 'SP ไม่พอ' });
 
     // find and validate the target
-    let tx = p.x;
-    let ty = p.y;
-    let monsterId: string | undefined;
-    let ally: string | undefined;
-    if (skill.type === 'single' || skill.type === 'aoe') {
+    const aim: Aim = { x: p.x, y: p.y };
+    if (targetsMonster(skill)) {
       const m = this.state.monsters.get(msg.target ?? '');
       if (!m || m.dead) return;
       if (dist(p.x, p.y, m.x, m.y) > (skill.range ?? 1) + MONSTERS[m.key].size * 0.3 + 0.8) return;
-      monsterId = msg.target;
-      tx = m.x;
-      ty = m.y;
+      Object.assign(aim, { monster: msg.target, x: m.x, y: m.y });
     } else if (targetsPlayer(skill)) {
-      ally = msg.target && this.state.players.has(msg.target) ? msg.target : c.sessionId;
-      const a = this.state.players.get(ally)!;
+      aim.ally = msg.target && this.state.players.has(msg.target) ? msg.target : c.sessionId;
+      const a = this.state.players.get(aim.ally)!;
       if (a.dead || dist(p.x, p.y, a.x, a.y) > (skill.range ?? 1) + 0.8) return;
-      tx = a.x;
-      ty = a.y;
+      aim.x = a.x;
+      aim.y = a.y;
     }
 
     p.sp -= sp;
     p.sitting = false;
     seat.cooldowns.set(msg.id, this.now + (skill.cooldown ?? 1000));
-    const fx: { by: string; skill: string; x: number; y: number; target?: string; allies?: string[]; hits: { m?: string; p?: string; dmg: number }[] } = {
-      by: c.sessionId, skill: msg.id, x: tx, y: ty, target: monsterId ?? ally, hits: [],
-    };
+    if (skill.castMs) {
+      // เสียงสูง: stand still and sing for castMs, then it goes off towards where the target was
+      const sid = c.sessionId;
+      const timer = this.clock.setTimeout(() => {
+        if (seat.cast?.timer !== timer) return;
+        seat.cast = undefined;
+        const me = this.state.players.get(sid);
+        if (!me || me.dead || this.seats.get(sid) !== seat) return;
+        this.broadcast('castEnd', { by: sid, skill: msg.id, done: true });
+        this.useSkill(c, seat, me, msg.id, skill, lv, aim);
+      }, skill.castMs);
+      seat.cast = { id: msg.id, sp, timer };
+      this.broadcast('cast', { by: sid, skill: msg.id, ms: skill.castMs, x: aim.x, y: aim.y });
+      return;
+    }
+    this.useSkill(c, seat, p, msg.id, skill, lv, aim);
+  }
+
+  private useSkill(c: Client, seat: Seat, p: PlayerState, id: string, skill: SkillDef, lv: number, aim: Aim) {
+    const { x: tx, y: ty } = aim;
+    let monsterId = aim.monster;
+    if (monsterId && this.state.monsters.get(monsterId)?.dead) monsterId = undefined;
+    const ally = aim.ally;
+    const fx: SkillFx = { by: c.sessionId, skill: id, x: tx, y: ty, target: monsterId ?? ally, hits: [] };
     const base = skill.magic ? seat.derived.matk : seat.derived.atk;
-    let power = skillPower(skill, lv) / 100;
+    let power = (skillPower(skill, lv) / 100) * skillStatMult(skill, totalStats(seat.char, seat.derived), seat.derived.hit);
+    // จังหวะส่ง from hiding, Slide with Vibrato on
+    if (skill.bonusIf && seat.buffs.has(skill.bonusIf.buff)) {
+      power *= skill.bonusIf.mult;
+      fx.bonus = true;
+    }
+    // attack skills give a hidden drummer away
+    if (skill.power) this.unhide(c.sessionId, seat, p);
     if (skill.scale === 'distance' && monsterId) {
-      // พุ่งแทง: dash next to the monster; damage x tiles dashed
+      // dash next to the monster; damage x tiles dashed
       const m = this.state.monsters.get(monsterId)!;
       const d = dist(p.x, p.y, m.x, m.y);
       const stop = Math.min(d, 0.8 + MONSTERS[m.key].size * 0.3);
@@ -472,31 +550,73 @@ export class MapRoom extends Room<{ state: MapState }> {
         c.send('correct', { x: nx, y: ny });
       }
     } else if (skill.scale === 'crowd') {
-      // หมุนตัวแทง: damage x monsters around you
+      // damage x monsters around you
       let n = 0;
       this.state.monsters.forEach((m) => {
         if (!m.dead && dist(tx, ty, m.x, m.y) <= (skill.radius ?? 1) + MONSTERS[m.key].size * 0.3) n++;
       });
       power *= Math.max(1, Math.min(CROWD_MAX, n));
     }
-    const hitMonster = (id: string, m: MonsterState) => {
-      const def = MONSTERS[m.key];
+    const rollDamage = (m: MonsterState, brain: Brain) => {
+      const def = this.monsterDef(brain, MONSTERS[m.key]);
+      return Math.max(1, Math.round(base * power * rand(0.95, 1.1) - (skill.magic ? def / 2 : def)));
+    };
+    const hitMonster = (mid: string, m: MonsterState) => {
+      const brain = this.brains.get(mid)!;
       for (let i = 0; i < (skill.hits ?? 1); i++) {
-        const dmg = Math.max(1, Math.round(base * power * rand(0.95, 1.1) - (skill.magic ? def.def / 2 : def.def)));
-        fx.hits.push({ m: id, dmg });
-        this.damageMonster(id, m, this.brains.get(id)!, c.sessionId, dmg);
+        const dmg = rollDamage(m, brain);
+        fx.hits.push({ m: mid, dmg });
+        this.damageMonster(mid, m, brain, c.sessionId, dmg);
         if (m.dead) break;
       }
+      if (skill.knockback && !m.dead) this.knockBack(m, brain, p.x, p.y, skill.knockback);
     };
 
-    if (skill.type === 'single') {
-      hitMonster(monsterId!, this.state.monsters.get(monsterId!)!);
-    } else if (skill.type === 'aoe' || skill.type === 'aoe_self') {
-      this.state.monsters.forEach((m, id) => {
-        if (m.dead || dist(tx, ty, m.x, m.y) > (skill.radius ?? 1) + MONSTERS[m.key].size * 0.3) return;
-        if (skill.provoke) this.brains.get(id)!.target = c.sessionId;
-        hitMonster(id, m);
+    if (skill.type === 'single' && monsterId) {
+      hitMonster(monsterId, this.state.monsters.get(monsterId)!);
+    } else if (skill.type === 'line') {
+      // a wave that travels from you towards the target: everything in its path gets hit when the wave gets there
+      const len = Math.hypot(tx - p.x, ty - p.y) || 1;
+      const ux = (tx - p.x) / len;
+      const uy = (ty - p.y) / len;
+      const ox = p.x;
+      const oy = p.y;
+      const speed = skill.speed ?? 10;
+      Object.assign(fx, { fromX: ox, fromY: oy, dirX: ux, dirY: uy });
+      this.state.monsters.forEach((m, mid) => {
+        if (m.dead) return;
+        const r = MONSTERS[m.key].size * 0.3;
+        const along = (m.x - ox) * ux + (m.y - oy) * uy;
+        const side = Math.abs((m.x - ox) * uy - (m.y - oy) * ux);
+        if (along < -0.5 || along > (skill.length ?? 5) + r || side > (skill.width ?? 1) / 2 + r) return;
+        const at = Math.round((Math.max(0, along) / speed) * 1000);
+        const brain = this.brains.get(mid)!;
+        const dmg = rollDamage(m, brain);
+        fx.hits.push({ m: mid, dmg, at });
+        this.clock.setTimeout(() => {
+          if (!m.dead && this.seats.has(c.sessionId)) this.damageMonster(mid, m, brain, c.sessionId, dmg);
+        }, at);
       });
+    } else if (skill.type === 'aoe' || skill.type === 'aoe_self') {
+      const until = this.now + debuffSec(skill, lv) * 1000;
+      const pulled: string[] = [];
+      this.state.monsters.forEach((m, mid) => {
+        if (m.dead || dist(tx, ty, m.x, m.y) > (skill.radius ?? 1) + MONSTERS[m.key].size * 0.3) return;
+        const brain = this.brains.get(mid)!;
+        if (skill.provoke || skill.pull) brain.target = c.sessionId;
+        if (skill.defDownPct) {
+          brain.defDownPct = skill.defDownPct;
+          brain.defDownUntil = until;
+        }
+        if (skill.pull) {
+          // Palm muting: everything in range comes running to you (bosses only turn to you)
+          brain.pulledUntil = until;
+          if (!MONSTERS[m.key].boss) this.pullIn(m, brain, p, pulled.length);
+          pulled.push(mid);
+        }
+        if (skill.power) hitMonster(mid, m);
+      });
+      if (skill.pull) fx.pulled = pulled;
     } else if (skill.type === 'heal' || skill.type === 'heal_target') {
       const amount = skillHeal(skill, lv) + seat.char.int * 2;
       this.state.players.forEach((a, sid) => {
@@ -523,12 +643,63 @@ export class MapRoom extends Room<{ state: MapState }> {
         const tp = this.state.players.get(sid);
         if (!ts || !tp) continue;
         const b = this.buffFor(skill, lv);
-        ts.buffs.set(msg.id, b);
+        ts.buffs.set(id, b);
         this.applyDerived(ts, tp);
-        ts.client.send('buff', { skill: msg.id, seconds: skill.buff.durationSec, blocks: b.blocks || undefined });
+        ts.client.send('buff', { skill: id, seconds: skill.buff.durationSec, blocks: b.blocks || undefined });
       }
     }
     this.broadcast('skill', fx);
+  }
+
+  /** Monster Def, lowered while Palm muting's debuff lasts. */
+  private monsterDef(b: Brain, def: MonsterDef) {
+    return b.defDownUntil && b.defDownUntil > this.now ? def.def * (1 - (b.defDownPct ?? 0) / 100) : def.def;
+  }
+
+  /** Pushes a monster `tiles` straight away from (fx, fy), stopping at walls. Bosses don't budge. */
+  private knockBack(m: MonsterState, b: Brain, fx: number, fy: number, tiles: number) {
+    if (MONSTERS[m.key].boss) return;
+    const d = dist(fx, fy, m.x, m.y) || 1;
+    const ux = (m.x - fx) / d;
+    const uy = (m.y - fy) / d;
+    for (let i = 0; i < tiles * 4; i++) {
+      const nx = m.x + ux * 0.25;
+      const ny = m.y + uy * 0.25;
+      if (!this.monsterCanStand(nx, ny)) break;
+      m.x = nx;
+      m.y = ny;
+    }
+    b.wanderTo = null;
+  }
+
+  /** Palm muting: puts a monster in a ring right next to the player (the n-th one pulled). */
+  private pullIn(m: MonsterState, b: Brain, p: PlayerState, n: number) {
+    const r = 1.0 + MONSTERS[m.key].size * 0.35;
+    const a0 = Math.atan2(m.y - p.y, m.x - p.x);
+    for (let k = 0; k < 6; k++) {
+      const a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.6 + n * 0.05;
+      const nx = p.x + Math.cos(a) * r;
+      const ny = p.y + Math.sin(a) * r;
+      if (this.monsterCanStand(nx, ny) || walkable(this.map, nx, ny)) {
+        m.x = nx;
+        m.y = ny;
+        break;
+      }
+    }
+    b.wanderTo = null;
+  }
+
+  /** Ends หนีไปกลับ PR. */
+  private unhide(sid: string, seat: Seat, p: PlayerState) {
+    for (const [k, b] of seat.buffs) {
+      if (!b.stealth) continue;
+      seat.buffs.delete(k);
+      seat.client.send('buff', { skill: k, seconds: 0 });
+    }
+    if (p.hidden) {
+      p.hidden = false;
+      this.broadcast('fx', { kind: 'reveal', to: sid });
+    }
   }
 
   private engage(b: Brain, sid: string) {
@@ -679,7 +850,9 @@ export class MapRoom extends Room<{ state: MapState }> {
     const home = { x: (b.spawn.area[0] + b.spawn.area[2]) / 2, y: (b.spawn.area[1] + b.spawn.area[3]) / 2 };
 
     let target = b.target ? this.state.players.get(b.target) : undefined;
-    if (target && (target.dead || dist(m.x, m.y, home.x, home.y) > 18)) {
+    const leash = !(b.pulledUntil && b.pulledUntil > this.now) && dist(m.x, m.y, home.x, home.y) > 18;
+    // a hidden player (หนีไปกลับ PR) can only be seen by bosses
+    if (target && (target.dead || leash || (target.hidden && !def.boss))) {
       b.target = null;
       target = undefined;
     }
@@ -687,7 +860,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       let best = 5;
       this.state.players.forEach((p, sid) => {
         const d = dist(m.x, m.y, p.x, p.y);
-        if (!p.dead && d < best) {
+        if (!p.dead && (!p.hidden || def.boss) && d < best) {
           best = d;
           b.target = sid;
           target = p;
@@ -751,12 +924,43 @@ export class MapRoom extends Room<{ state: MapState }> {
       this.broadcast('mhit', { m: id, to: sid, dmg: 0, block: true });
       return;
     }
-    const dmg = Math.max(1, Math.round(def.atk * rand(0.85, 1.15) - seat.derived.def));
+    let dmg = Math.max(1, Math.round(def.atk * rand(0.85, 1.15) - seat.derived.def));
+    // Kick Drum: a bassist in the party (on this map) takes part of the hit
+    const party = Parties.of(seat.char.id);
+    if (party) {
+      const ids = new Set(party.members.map((pm) => pm.id));
+      for (const [gsid, gs] of this.seats) {
+        const gp = this.state.players.get(gsid);
+        const pct = [...gs.buffs.values()].reduce((sum, gb) => sum + (gb.guardPct ?? 0), 0);
+        if (gsid === sid || !gp || gp.dead || !pct || !ids.has(gs.char.id)) continue;
+        const share = Math.min(dmg, Math.round((dmg * Math.min(100, pct)) / 100));
+        if (share <= 0) break;
+        dmg -= share;
+        this.broadcast('mhit', { m: id, to: gsid, dmg: share, guard: sid });
+        this.hurt(gsid, gs, gp, share);
+        break;
+      }
+    }
+    this.broadcast('mhit', { m: id, to: sid, dmg });
+    this.hurt(sid, seat, p, dmg);
+    // จังหวะยก: part of the hit goes back into the monster
+    const reflect = [...seat.buffs.values()].reduce((sum, rb) => sum + (rb.reflectPct ?? 0), 0);
+    const back = Math.round((dmg * reflect) / 100);
+    const b = this.brains.get(id);
+    if (back > 0 && b && !m.dead) {
+      this.broadcast('reflect', { m: id, by: sid, dmg: back });
+      this.damageMonster(id, m, b, sid, back);
+    }
+  }
+
+  /** Takes HP off a player; at 0 they fall. */
+  private hurt(sid: string, seat: Seat, p: PlayerState, dmg: number) {
     p.hp = Math.max(0, p.hp - dmg);
     p.sitting = false;
-    this.broadcast('mhit', { m: id, to: sid, dmg });
-    if (p.hp <= 0) {
+    if (p.hp <= 0 && !p.dead) {
       p.dead = true;
+      this.cancelCast(sid, seat, p);
+      this.unhide(sid, seat, p);
       this.cancelTrade(seat.trade, 'อีกฝ่ายหมดสติ');
       for (const b of this.brains.values()) if (b.target === sid) b.target = null;
     }
@@ -885,12 +1089,19 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.state.players.forEach((p, sid) => {
       const seat = this.seats.get(sid);
       if (!seat || p.dead) return;
-      const fighting = [...this.brains.values()].some((b) => b.target === sid);
-      if (fighting) return;
       const overweight = seat.derived.weight >= seat.derived.maxWeight * 0.9;
       if (overweight) return;
+      // ลูกส่ง (buff) and Arpeggio (passive) make HP come back faster, and keep it coming back in a fight
+      let regenPct = [...seat.buffs.values()].reduce((sum, b) => sum + (b.regenPct ?? 0), 0);
+      for (const [id, lv] of Object.entries(seat.char.skills ?? {})) regenPct += (SKILLS[id]?.passive?.regenPct ?? 0) * lv;
+      const hpTick = p.maxHp * 0.01 + seat.char.vit / 5;
+      const fighting = [...this.brains.values()].some((b) => b.target === sid);
+      if (fighting) {
+        if (regenPct > 0) p.hp = Math.min(p.maxHp, p.hp + Math.ceil((hpTick * regenPct) / 100));
+        return;
+      }
       const boost = (this.map.safe ? 3 : 1) * (p.sitting ? 2 : 1);
-      p.hp = Math.min(p.maxHp, p.hp + Math.ceil((p.maxHp * 0.01 + seat.char.vit / 5) * boost));
+      p.hp = Math.min(p.maxHp, p.hp + Math.ceil(hpTick * boost * (1 + regenPct / 100)));
       p.sp = Math.min(p.maxSp, p.sp + Math.ceil((1 + seat.char.int / 6) * boost));
     });
   }
@@ -904,17 +1115,27 @@ export class MapRoom extends Room<{ state: MapState }> {
       until: this.now + skill.buff!.durationSec * 1000,
       ...(skill.buff!.aspdPct ? { aspdPct: skill.buff!.aspdPct * lv } : {}),
       ...(skill.buff!.def ? { def: skill.buff!.def * lv } : {}),
+      ...(skill.buff!.hitPct ? { hitPct: skill.buff!.hitPct * lv } : {}),
+      ...(skill.buff!.fleePct ? { fleePct: skill.buff!.fleePct * lv } : {}),
+      ...(skill.buff!.reflectPct ? { reflectPct: skill.buff!.reflectPct * lv } : {}),
+      ...(skill.buff!.regenPct ? { regenPct: skill.buff!.regenPct * lv } : {}),
+      ...(skill.buff!.guardPct ? { guardPct: skill.buff!.guardPct * lv } : {}),
+      ...(skill.buff!.stealth ? { stealth: true } : {}),
       ...(skill.buff!.stats ? { stats: buffStats(skill, lv) } : {}),
       ...(blocks > 0 ? { blocks } : {}),
     };
   }
 
   private applyDerived(seat: Seat, p: PlayerState) {
-    const buffs: Buffs = { aspdPct: 0, def: 0 };
+    const buffs: Buffs = { aspdPct: 0, def: 0, hitPct: 0, fleePct: 0 };
     const stats: Buffs['stats'] = {};
+    let hidden = false;
     for (const b of seat.buffs.values()) {
       buffs.aspdPct! += b.aspdPct ?? 0;
       buffs.def! += b.def ?? 0;
+      buffs.hitPct! += b.hitPct ?? 0;
+      buffs.fleePct! += b.fleePct ?? 0;
+      if (b.stealth) hidden = true;
       for (const k of STAT_KEYS) if (b.stats?.[k]) stats[k] = (stats[k] ?? 0) + b.stats[k]!;
     }
     if (Object.keys(stats).length) buffs.stats = stats;
@@ -923,6 +1144,8 @@ export class MapRoom extends Room<{ state: MapState }> {
     p.cls = seat.char.cls;
     p.maxHp = seat.derived.maxHp;
     p.maxSp = seat.derived.maxSp;
+    if (p.hidden && !hidden) this.broadcast('fx', { kind: 'reveal', to: seat.client.sessionId });
+    p.hidden = hidden;
     p.hp = Math.min(p.hp, p.maxHp);
     p.sp = Math.min(p.sp, p.maxSp);
     p.head = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'head')?.item_id ?? '';
