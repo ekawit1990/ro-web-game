@@ -9,7 +9,7 @@ import type { GameStore } from './services/store';
 import { supabase } from './services/supabase';
 import { SupabaseStore } from './services/supabaseStore';
 import { Hud } from './ui/hud';
-import { $, characterScreen, loginScreen, show } from './ui/screens';
+import { $, characterScreen, httpBase, loginScreen, show } from './ui/screens';
 import { playMusic, sfx, unlockAudio } from './audio/sound';
 import { assetShare, assetsIdle, reset as resetAssets } from './ui/loadProgress';
 
@@ -205,7 +205,7 @@ async function main() {
     playMusic('title');
     if (supabase) {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) await loginScreen(supabase);
+      if (!data.session) await loginScreen(supabase, httpBase(SERVER_URL));
     }
     const char = await characterScreen(store);
     if (!char) continue; // signed out

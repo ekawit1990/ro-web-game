@@ -1,5 +1,6 @@
 import { defineRoom, defineServer, listen } from 'colyseus';
 import { MAP_IDS } from '../../src/game/maps.ts';
+import { setupAuthRoutes } from './auth.ts';
 import { DevDb, SupabaseDb } from './db.ts';
 import { MapRoom } from './MapRoom.ts';
 
@@ -18,6 +19,8 @@ console.log(`Music Land server: database = ${MapRoom.db.name}`);
 // one room per map: "town", "field"
 const server = defineServer({
   rooms: Object.fromEntries(MAP_IDS.map((id) => [id, defineRoom(MapRoom, { map: id })])),
+  // username/password accounts and "forgot password" (see auth.ts)
+  express: (app) => setupAuthRoutes(app, url, serviceKey),
 });
 
 listen(server, Number(process.env.PORT ?? 2567));

@@ -21,7 +21,9 @@ export class SupabaseStore implements GameStore {
 
   async userLabel() {
     const { data } = await this.sb.auth.getUser();
-    return data.user?.email ?? 'ผู้เล่น';
+    const u = data.user;
+    if (!u) return 'ผู้เล่น';
+    return (u.user_metadata?.username as string | undefined) ?? u.email ?? 'ผู้เล่น';
   }
 
   async listCharacters() {
