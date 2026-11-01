@@ -278,6 +278,31 @@ export function sfxAttack(cls: ClassKey, vol = 1) {
   inst(cls === 'drummer' ? Math.floor(Math.random() * 2) : pentaNote(67), now(), cls === 'singer' ? 0.28 : 0.22, vol);
 }
 
+/**
+ * A sword cut, "ฉับ!": a fast rising swish, the blade's metallic ring and a dull thud as it lands.
+ * `big` makes it heavier (พุ่งแทง's impact).
+ */
+export function sfxSlash(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = big ? 1.4 : 1;
+  noise(t, 0.09, { gain: 0.42 * vol * k, type: 'bandpass', freq: 1200, freqTo: 7000, q: 1.6, release: 0.03 });
+  noise(t + 0.05, 0.05, { gain: 0.5 * vol * k, type: 'highpass', freq: 3500, release: 0.02 });
+  // inharmonic partials read as steel rather than a note
+  [2637, 3720, 5280].forEach((f, i) => tone(f, t + 0.05, 0.25, { type: 'sine', gain: (0.05 / (i + 1)) * vol * k, release: 0.12, wet: 0.35 }));
+  tone(big ? 150 : 210, t + 0.05, 0.12, { type: 'sine', to: 55, gain: 0.4 * vol * k, release: 0.05 });
+  if (big) noise(t + 0.05, 0.25, { gain: 0.3 * vol, type: 'lowpass', freq: 900, release: 0.1, wet: 0.3 });
+}
+
+/** หมุนตัวแทง: a whirlwind of three swishes with a cut on each turn. */
+export function sfxWhirl(vol = 1) {
+  if (!ready() || vol <= 0) return;
+  const t = now();
+  noise(t, 0.6, { gain: 0.3 * vol, type: 'bandpass', freq: 500, freqTo: 4000, q: 0.9, wet: 0.4 });
+  for (let i = 0; i < 3; i++) sfxSlash(vol * 0.75, false, 0.05 + i * 0.16);
+  tone(110, t + 0.45, 0.35, { type: 'sine', to: 40, gain: 0.4 * vol, release: 0.12 });
+}
+
 /** A skill: a quick flourish on the class instrument, plus a whoosh/boom for area skills. */
 export function sfxSkill(cls: ClassKey, type: string, vol = 1) {
   if (!ready() || vol <= 0) return;
