@@ -32,7 +32,9 @@ const STAT_HELP: Record<StatKey, string> = {
   str: 'พลังโจมตีประชิด, น้ำหนักที่แบกได้', agi: 'ความเร็วโจมตี/เดิน, หลบหลีก (Flee)', vit: 'HP, พลังป้องกัน, ฟื้น HP',
   int: 'พลังเวทย์ (Matk), SP', dex: 'ความแม่นยำ (Hit), โจมตีไกล', luk: 'คริติคอล, โจมตีเล็กน้อย',
 };
-const SLOT_LABEL: Record<string, string> = { head: 'หมวก', weapon: 'อาวุธ', armor: 'ชุด', accessory: 'เครื่องประดับ' };
+const SLOT_LABEL: Record<string, string> = {
+  head: 'หมวก', weapon: 'อาวุธ', armor: 'ชุด', accessory: 'เครื่องประดับ', shoes: 'รองเท้า', earring: 'หูฟัง',
+};
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
   option: [-260, 170], npc: [-1, -1], storage: [300, 80],
@@ -325,16 +327,16 @@ export class Hud implements WorldHooks {
     ];
     b.innerHTML = `
       <div class="eq-grid">
-        <div class="eq-col">${slot('head')}${slot('armor')}</div>
+        <div class="eq-col">${slot('head')}${slot('armor')}${slot('shoes')}</div>
         <canvas id="eq-preview" width="96" height="134"></canvas>
-        <div class="eq-col">${slot('weapon')}${slot('accessory')}</div>
+        <div class="eq-col">${slot('earring')}${slot('weapon')}${slot('accessory')}</div>
       </div>
       <div class="st-grid">
         <div>${rows}</div>
         <div class="st-right">${right.map(([k, v]) => `<div><label>${k}</label><b>${v}</b></div>`).join('')}
           <div class="sp-pts"><label>Status Point</label><b>${c.stat_points}</b></div></div>
       </div>`;
-    drawLook(b.querySelector('#eq-preview')!, { ...c, cls: c.cls }, 'f', this.s.equippedOf('head')?.item_id);
+    drawLook(b.querySelector('#eq-preview')!, { ...c, cls: c.cls }, 'f', this.s.equippedOf('head')?.item_id, true, !!this.s.equippedOf('weapon'), this.s.equippedOf('earring')?.item_id);
     b.querySelectorAll<HTMLButtonElement>('[data-stat]').forEach((btn) =>
       btn.addEventListener('click', () => this.run(() => this.s.allocate(btn.dataset.stat as StatKey))),
     );
@@ -413,6 +415,8 @@ export class Hud implements WorldHooks {
     if (it.matk) parts.push(`Matk +${it.matk}`);
     if (it.def) parts.push(`Def +${it.def}`);
     if (it.aspd) parts.push(`Aspd +${it.aspd}%`);
+    if (it.flee) parts.push(`Flee +${it.flee}`);
+    if (it.crit) parts.push(`Critical +${it.crit}`);
     if (it.heal) parts.push(`ฟื้น HP ${it.heal}`);
     if (it.sp) parts.push(`ฟื้น SP ${it.sp}`);
     const classes = it.classes ? `<div class="muted">ใช้ได้: ${it.classes.map((c) => CLASSES[c].name).join(', ')}</div>` : '';

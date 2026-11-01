@@ -82,5 +82,53 @@
    61
   ],
   "add": false
+ },
+ "stab_hit": {
+  "w": 111,
+  "h": 67,
+  "cols": 3,
+  "n": 11,
+  "fps": 20,
+  "pivot": [
+   27,
+   55
+  ],
+  "add": false
+ },
+ "slash": {
+  "w": 123,
+  "h": 96,
+  "cols": 3,
+  "n": 11,
+  "fps": 20,
+  "pivot": [
+   42,
+   88
+  ],
+  "add": false
+ },
+ "thrust": {
+  "w": 153,
+  "h": 63,
+  "cols": 3,
+  "n": 11,
+  "fps": 20,
+  "pivot": [
+   12,
+   53
+  ],
+  "add": false
+ },
+ "cleave": {
+  "w": 138,
+  "h": 98,
+  "cols": 3,
+  "n": 9,
+  "fps": 15,
+  "pivot": [
+   41,
+   80
+  ],
+  "add": false
  }
 }

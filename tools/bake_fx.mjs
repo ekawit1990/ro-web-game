@@ -23,6 +23,11 @@ const BAKES = {
   solo_star: { id: 'pickups/power-star', opts: {}, fps: 15, from: 0, to: 1.6, add: false },
   shield: { id: 'holy/divine-shield', opts: { palette: PAL.water, actor: null }, fps: 15, from: 0, to: 2.4, add: false },
   block: { id: 'impacts/shield-block', opts: {}, fps: 15, from: 0, to: 1.0, add: false },
+  stab_hit: { id: 'impacts/hit-spark', opts: {}, fps: 20, from: 0, to: 0.5, add: false },
+  // the Teen's dagger combo (slash, stab, finisher)
+  slash: { id: 'melee/sword-slash', opts: {}, fps: 20, from: 0, to: 0.5, add: false },
+  thrust: { id: 'melee/thrust', opts: { palette: PAL.ice, sparks: ['#ffffff', '#d8f4ff', '#9bdcff', '#58b4ec'] }, fps: 20, from: 0, to: 0.5, add: false },
+  cleave: { id: 'melee/heavy-cleave', opts: { palette: PAL.ice }, fps: 15, from: 0.25, to: 0.85, add: false },
 };
 
 const outDir = new URL('../public/fx/', import.meta.url);
