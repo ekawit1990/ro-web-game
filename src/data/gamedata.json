@@ -4638,41 +4638,43 @@
    ],
    "hits": 2
   },
-  "stone_throw": {
+  "dash_stab": {
    "cls": "teen",
-   "name": "ปาก้อนหิน",
-   "icon": "🪨",
-   "desc": "ปาก้อนหินใส่ศัตรูไกล 6 ช่อง",
+   "name": "พุ่งแทง",
+   "icon": "💨",
+   "desc": "พุ่งเข้าหามอนสเตอร์ในระยะ 1-5 ช่องแล้วแทง ยิ่งพุ่งไกลยิ่งแรง (ดาเมจ = ATK x ระยะที่พุ่ง)",
    "type": "single",
    "maxLevel": 5,
    "sp": [
-    4,
-    1
-   ],
-   "range": 6,
-   "cooldown": 1000,
-   "power": [
-    110,
-    20
-   ]
-  },
-  "first_aid": {
-   "cls": "teen",
-   "name": "ปฐมพยาบาล",
-   "icon": "🩹",
-   "desc": "ทำแผลฟื้น HP ให้ตัวเอง",
-   "type": "heal",
-   "maxLevel": 5,
-   "sp": [
-    5,
+    8,
     2
    ],
-   "radius": 0.5,
+   "range": 5,
+   "cooldown": 2000,
+   "power": [
+    60,
+    10
+   ],
+   "scale": "distance"
+  },
+  "whirl_stab": {
+   "cls": "teen",
+   "name": "หมุนตัวแทง",
+   "icon": "🌀",
+   "desc": "หมุนตัวแทงเป็นพายุ โดนมอนสเตอร์รอบตัวทุกตัว ยิ่งรุมเยอะยิ่งแรง (ดาเมจ = ATK x จำนวนมอนรอบตัว สูงสุด 8 ตัว)",
+   "type": "aoe_self",
+   "maxLevel": 5,
+   "sp": [
+    12,
+    3
+   ],
+   "radius": 2,
    "cooldown": 3000,
-   "heal": [
-    20,
-    15
-   ]
+   "power": [
+    40,
+    10
+   ],
+   "scale": "crowd"
   },
   "pump_up": {
    "cls": "teen",

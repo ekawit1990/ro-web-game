@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, ClassKey, ITEMS, MONSTERS, SKILLS, SPAWNS, canUseSkill, skillPower, skillSp, skillsOf, targetsPlayer } from '../data';
+import { CLASSES, CROWD_MAX, ClassKey, ITEMS, MONSTERS, SKILLS, SPAWNS, canUseSkill, skillPower, skillSp, skillsOf, targetsPlayer } from '../data';
 import { findPath, GameMap, Npc, THEMES, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
@@ -33,6 +33,8 @@ export interface WorldHooks {
 /** Touch screens have no hover: show name + Lv of monsters this close (tiles) all the time. */
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 const TOUCH_NAME_RANGE = 9;
+/** พุ่งแทง slide time (ms). */
+const DASH_MS = 160;
 
 /** /auto: how far (tiles) the character looks for the next monster, and when it drinks a potion / heals. */
 const AUTO_RANGE = 12;
@@ -70,6 +72,10 @@ interface PlayerActor {
   lastSwing?: number;
   /** Has a weapon equipped (from the server). */
   armed?: boolean;
+  /** พุ่งแทง: dashing from here (ms start) — drawn as a quick slide to the landing spot. */
+  dash?: { x: number; y: number; t: number };
+  /** หมุนตัวแทง: seconds left spinning. */
+  spin?: number;
   dead: boolean;
   sitting: boolean;
   hp: number;
@@ -707,13 +713,25 @@ export class World3D {
     // the strongest ready attack skill
     const lvOf = (id: string) => s.char.skills?.[id] ?? 0;
     const near = Math.hypot(m.x - me.x, m.y - me.y);
+    // expected damage: พุ่งแทง grows with the gap, หมุนตัวแทง with the monsters around you
+    const score = (id: string) => {
+      const sk = SKILLS[id];
+      let k = sk.hits ?? 1;
+      if (sk.scale === 'distance') k *= Math.max(1, Math.min(sk.range ?? 5, near));
+      if (sk.scale === 'crowd') {
+        let n = 0;
+        for (const x of this.monsters.values()) if (!x.dead && Math.hypot(x.x - me.x, x.y - me.y) <= (sk.radius ?? 2) + 0.3) n++;
+        k *= Math.max(1, Math.min(CROWD_MAX, n));
+      }
+      return skillPower(sk, lvOf(id)) * k;
+    };
     const attack = mine
       .filter((id) => {
         const sk = SKILLS[id];
         if (sk.type === 'aoe_self') return near <= (sk.radius ?? 2);
         return sk.type === 'single' || sk.type === 'aoe';
       })
-      .sort((a, b) => skillPower(SKILLS[b], lvOf(b)) * (SKILLS[b].hits ?? 1) - skillPower(SKILLS[a], lvOf(a)) * (SKILLS[a].hits ?? 1))[0];
+      .sort((a, b) => score(b) - score(a))[0];
     if (attack) cast(attack, SKILLS[attack].type === 'aoe_self' ? undefined : m.id);
     // otherwise updateMe() walks up and attacks the target as usual
   }
@@ -958,7 +976,19 @@ export class World3D {
       a.attack = Math.max(0, a.attack - dt * (a.cls === 'teen' ? 1 / COMBO_TIME : 4));
       a.combat = Math.max(0, a.combat - dt);
       a.rig.root.position.set(a.x, 0, a.y);
+      if (a.dash) {
+        const k = (performance.now() - a.dash.t) / DASH_MS;
+        if (k >= 1) a.dash = undefined;
+        else {
+          const e = 1 - (1 - k) * (1 - k);
+          a.rig.root.position.set(a.dash.x + (a.x - a.dash.x) * e, 0, a.dash.y + (a.y - a.dash.y) * e);
+        }
+      }
       animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0, armed: a.armed, combo: a.combo });
+      if (a.spin && a.spin > 0) {
+        a.spin = Math.max(0, a.spin - dt);
+        a.rig.root.rotation.y += dt * 26;
+      }
     });
     for (const [id, a] of this.players) {
       if (!seen.has(id) && a !== this.me) this.destroyPlayer(a);
@@ -1273,10 +1303,24 @@ export class World3D {
     });
   }
 
-  private skillFx(msg: { by: string; skill: string; x: number; y: number; target?: string; hits: { m?: string; p?: string; dmg: number }[] }) {
+  private skillFx(msg: { by: string; skill: string; x: number; y: number; target?: string; fromX?: number; fromY?: number; hits: { m?: string; p?: string; dmg: number }[] }) {
     const skill = SKILLS[msg.skill];
     const a = this.players.get(msg.by);
     if (!skill) return;
+    if (a && skill.scale === 'distance' && msg.fromX !== undefined && msg.fromY !== undefined) {
+      a.dash = { x: msg.fromX, y: msg.fromY, t: performance.now() };
+      if (a !== this.me) {
+        // others: jump straight to where the server put them (the slide is drawn from `dash`)
+        a.x = a.tx;
+        a.y = a.ty;
+      }
+      const color = new THREE.Color(CLASSES[skill.cls].color).getHex();
+      for (let i = 1; i <= 4; i++) {
+        const k = i / 5;
+        setTimeout(() => this.burst(new THREE.Vector3(msg.fromX! + (msg.x - msg.fromX!) * k, 0.4, msg.fromY! + (msg.y - msg.fromY!) * k), color, 5, 2), i * 30);
+      }
+    }
+    if (a && skill.scale === 'crowd') a.spin = 0.55;
     const color = new THREE.Color(CLASSES[skill.cls].color).getHex();
     if (a) {
       sfxSkill(skill.cls, skill.type, this.vol(a.x, a.y, a === this.me));
@@ -1299,6 +1343,8 @@ export class World3D {
         if (t !== a) this.burst(new THREE.Vector3(t.x, 1, t.y), color, 10);
       } else if (t && skill.type === 'heal_target') this.sparkle(t, 0x7dff9a);
       else if (t) this.levelFx(t, '', color);
+    } else if (skill.type === 'single' && a && skill.scale === 'distance') {
+      setTimeout(() => this.burst(new THREE.Vector3(msg.x, 0.7, msg.y), color, 16, 3), DASH_MS);
     } else if (skill.type === 'single' && a) {
       const glyph = CLASSES[skill.cls].projectile ? { note: '♪', chord: '♫', wave: '〰' }[CLASSES[skill.cls].projectile!] : '✦';
       for (let i = 0; i < Math.min(3, skill.hits ?? 1); i++) {
