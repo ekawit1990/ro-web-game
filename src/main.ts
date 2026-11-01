@@ -201,6 +201,8 @@ async function play(char: Character): Promise<void> {
 
 async function main() {
   unlockAudio();
+  // iOS Safari ignores user-scalable=no: stop its page pinch-zoom so two fingers zoom the game camera instead
+  for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
   for (;;) {
     playMusic('title');
     if (supabase) {

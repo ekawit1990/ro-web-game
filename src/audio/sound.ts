@@ -86,20 +86,42 @@ export function setAudioPrefs(p: Partial<AudioPrefs>) {
 }
 
 let unlocked = false;
-/** Call once at startup: resumes audio on the first user gesture. */
+/**
+ * Call once at startup: starts (and later restarts) audio on user gestures.
+ * iOS Safari only counts touchend/click as a gesture that may start audio (not pointerdown), may leave the
+ * context "interrupted" after a call or a trip to the home screen, and mutes Web Audio while the ring/silent
+ * switch is on unless the page asks for "playback" audio. So: listen to every kind of gesture, keep listening,
+ * and kick the context awake whenever it isn't running.
+ */
 export function unlockAudio() {
+  // iOS 17+: play through the silent switch like a video would
+  const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+  if (session) {
+    try {
+      session.type = 'playback';
+    } catch {
+      /* older engines */
+    }
+  }
   const go = () => {
     const c = init();
-    if (!c) return;
-    void c.resume().then(() => {
+    if (!c || document.hidden) return;
+    if (c.state === 'running' && unlocked) return;
+    // a one-sample silent buffer started inside the gesture is what wakes older iOS versions
+    const src = c.createBufferSource();
+    src.buffer = c.createBuffer(1, 1, 22050);
+    src.connect(c.destination);
+    src.start(0);
+    const ok = () => {
+      if (c.state !== 'running') return;
+      const first = !unlocked;
       unlocked = true;
-      if (pendingSong !== undefined) playMusic(pendingSong);
-    });
-    window.removeEventListener('pointerdown', go, true);
-    window.removeEventListener('keydown', go, true);
+      if (first && pendingSong !== undefined) playMusic(pendingSong);
+    };
+    if (c.state === 'running') ok();
+    else void c.resume().then(ok, () => {});
   };
-  window.addEventListener('pointerdown', go, true);
-  window.addEventListener('keydown', go, true);
+  for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, go, { capture: true, passive: true });
 }
 
 // ------------------------------------------------------------ synth building blocks
