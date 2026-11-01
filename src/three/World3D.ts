@@ -383,7 +383,35 @@ export class World3D {
     const sig = { signal: this.ac.signal };
     let drag: { x: number; yaw: number; moved: boolean } | null = null;
     cv.addEventListener('contextmenu', (e) => e.preventDefault(), sig);
+    // fingers: tap = click, one-finger drag = turn the camera, two fingers = pinch zoom + twist
+    const touches = new Map<number, { x: number; y: number }>();
+    let tap: { x: number; y: number; yaw: number; moved: boolean } | null = null;
+    let pinch: { span: number; angle: number; dist: number; yaw: number } | null = null;
+    const two = () => {
+      const [a, b] = [...touches.values()];
+      return { span: Math.hypot(b.x - a.x, b.y - a.y) || 1, angle: Math.atan2(b.y - a.y, b.x - a.x) };
+    };
+    const lift = (e: PointerEvent) => {
+      if (!touches.delete(e.pointerId)) return;
+      if (touches.size < 2) pinch = null;
+      if (touches.size === 0) tap = null;
+      else if (touches.size === 1) {
+        // one finger stays down after a pinch: let it keep turning without jumping
+        const [p] = [...touches.values()];
+        tap = { x: p.x, y: p.y, yaw: this.yaw, moved: true };
+      }
+    };
     cv.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'touch') {
+        cv.setPointerCapture(e.pointerId);
+        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (touches.size === 1) tap = { x: e.clientX, y: e.clientY, yaw: this.yaw, moved: false };
+        else if (touches.size === 2) {
+          if (tap) tap.moved = true; // a pinch is never a tap
+          pinch = { ...two(), dist: this.dist, yaw: this.yaw };
+        }
+        return;
+      }
       if (e.button === 2) {
         drag = { x: e.clientX, yaw: this.yaw, moved: false };
         cv.setPointerCapture(e.pointerId);
@@ -392,6 +420,27 @@ export class World3D {
       if (e.button === 0) this.click(e.clientX, e.clientY);
     }, sig);
     cv.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch') {
+        const p = touches.get(e.pointerId);
+        if (!p) return;
+        p.x = e.clientX;
+        p.y = e.clientY;
+        if (pinch && touches.size >= 2) {
+          const now = two();
+          this.dist = Math.max(7, Math.min(28, pinch.dist * (pinch.span / now.span)));
+          this.yaw = pinch.yaw - (now.angle - pinch.angle);
+        } else if (tap && touches.size === 1) {
+          const dx = e.clientX - tap.x;
+          if (!tap.moved && Math.hypot(dx, e.clientY - tap.y) > 12) {
+            tap.moved = true;
+            tap.x = e.clientX; // start turning from here, so the camera doesn't jump by the dead zone
+            tap.yaw = this.yaw;
+            return;
+          }
+          if (tap.moved) this.yaw = tap.yaw - dx * 0.01;
+        }
+        return;
+      }
       if (drag) {
         const dx = e.clientX - drag.x;
         if (Math.abs(dx) > 4) drag.moved = true;
@@ -401,10 +450,20 @@ export class World3D {
       this.hover(e.clientX, e.clientY);
     }, sig);
     cv.addEventListener('pointerup', (e) => {
+      if (e.pointerType === 'touch') {
+        const t = tap;
+        if (t && !t.moved && touches.size === 1) this.click(e.clientX, e.clientY);
+        lift(e);
+        return;
+      }
       if (e.button === 2 && drag) {
         if (!drag.moved) this.cancelTargeting();
         drag = null;
       }
+    }, sig);
+    cv.addEventListener('pointercancel', (e) => {
+      if (e.pointerType === 'touch') lift(e);
+      else drag = null;
     }, sig);
     cv.addEventListener('wheel', (e) => {
       e.preventDefault();

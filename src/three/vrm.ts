@@ -551,7 +551,7 @@ function curl(vrm: VRM, side: 'left' | 'right', amount: number[], v0: boolean) {
 /** Per-class arm poses (normalized VRM bones, T-pose = all zero, model faces +Z). */
 const POSES: Record<string, { rU: [number, number]; rL: number; lU: [number, number]; lL: number; locked: boolean }> = {
   idle: { rU: [0, 1.25], rL: 0.25, lU: [0, -1.25], lL: -0.25, locked: false },
-  teen: { rU: [-0.5, 1.15], rL: 1.1, lU: [-0.2, -1.2], lL: -0.6, locked: false },
+  teen: { rU: [-0.35, 1.2], rL: 1.75, lU: [-1.0, -0.95], lL: -1.5, locked: false },
   singer: { rU: [-0.9, 1.1], rL: 1.9, lU: [0, -1.25], lL: -0.25, locked: true },
   guitarist: { rU: [-0.3, 1.1], rL: 1.3, lU: [-0.7, -0.9], lL: -1.7, locked: true },
   bassist: { rU: [-0.3, 1.1], rL: 1.3, lU: [-0.7, -0.9], lL: -1.7, locked: true },
@@ -560,43 +560,60 @@ const POSES: Record<string, { rU: [number, number]; rL: number; lU: [number, num
 };
 
 const POSED: VRMHumanBoneName[] = ['rightUpperArm', 'leftUpperArm', 'rightLowerArm', 'leftLowerArm', 'leftUpperLeg', 'rightUpperLeg',
-  'leftLowerLeg', 'rightLowerLeg', 'spine', 'head', 'rightHand'];
+  'leftLowerLeg', 'rightLowerLeg', 'spine', 'chest', 'head', 'rightHand', 'leftHand'];
 
 type V3 = [number, number, number];
-/** One pose in a dagger move, `at` = fraction of the attack; the move starts and ends at the normal pose. */
-interface ComboKey { at: number; bones: Partial<Record<VRMHumanBoneName, V3>>; dy?: number; dz?: number }
+/**
+ * One pose in a dagger move, `at` = fraction of the attack; the move starts and ends at the guard pose.
+ * `hit` marks the key where the blade connects. dy/dz move the whole body (down / forward).
+ */
+interface ComboKey { at: number; bones: Partial<Record<VRMHumanBoneName, V3>>; dy?: number; dz?: number; hit?: boolean }
 
-/** The Teen's crouched guard, added on top of the class pose while fighting. */
+/**
+ * The Teen's knife-fighter guard, added on top of the class pose while fighting: left foot forward,
+ * knees bent and weight low, shoulders turned so the left side leads, head kept on the target,
+ * off hand up in front of the chest and the dagger held low at the hip, point forward.
+ */
 const GUARD: Partial<Record<VRMHumanBoneName, V3>> = {
-  leftUpperLeg: [-0.6, 0, -0.22], rightUpperLeg: [0.25, 0, 0.25], leftLowerLeg: [1.0, 0, 0], rightLowerLeg: [0.65, 0, 0],
-  spine: [0.15, 0, 0], leftUpperArm: [-0.4, 0, 0.35], leftLowerArm: [0, -0.6, 0],
+  leftUpperLeg: [-0.55, 0, -0.18], leftLowerLeg: [0.8, 0, 0], rightUpperLeg: [0.3, 0, 0.18], rightLowerLeg: [0.4, 0, 0],
+  spine: [0.22, -0.3, 0], chest: [0.06, -0.1, 0], head: [-0.2, 0.38, 0],
+  rightHand: [0, -0.7, 0.25], leftHand: [0, 0, -0.3],
 };
 
-const LUNGE = { leftUpperLeg: [-0.9, 0, -0.15] as V3, leftLowerLeg: [0.9, 0, 0] as V3, rightUpperLeg: [0.45, 0, 0.2] as V3, rightLowerLeg: [0.3, 0, 0] as V3 };
+// legs for a committed lunge: front knee over the toes, back leg driving
+const LUNGE = { leftUpperLeg: [-1.0, 0, -0.15] as V3, leftLowerLeg: [1.05, 0, 0] as V3, rightUpperLeg: [0.6, 0, 0.18] as V3, rightLowerLeg: [0.35, 0, 0] as V3 };
+// legs gathered under the body (the hop before the finisher)
+const TUCK = { leftUpperLeg: [-0.7, 0, -0.1] as V3, leftLowerLeg: [1.2, 0, 0] as V3, rightUpperLeg: [-0.2, 0, 0.1] as V3, rightLowerLeg: [1.0, 0, 0] as V3 };
 
-/** Dagger combo (reference: the user's "Chibi Rogue Dagger Combo" sheet). Hits land at COMBO_HIT. */
+/**
+ * Dagger combo (reference: the user's "Chibi Rogue Dagger Combo" sheet): every move has a wind-up,
+ * a fast strike driven by the hips and shoulders, a follow-through and a recovery back into the guard.
+ */
 const COMBO: ComboKey[][] = [
-  // diagonal slash: blade cocked high on the right, swept down across the body to the left
+  // 1. diagonal slash: body coils to the right with the blade high, then uncoils and cuts down across to the left
   [
-    { at: 0.3, bones: { rightUpperArm: [0, -0.4, -0.6], rightLowerArm: [0, 0.9, 0], rightHand: [0, 0, 0.6], spine: [0, 0.45, 0] }, dy: -0.04 },
-    { at: 0.48, bones: { rightUpperArm: [0, 1.7, 0.6], rightLowerArm: [0, 0.15, 0], rightHand: [0, -0.6, -0.3], spine: [0.15, -0.45, 0], ...LUNGE }, dy: -0.1, dz: 0.08 },
+    { at: 0.24, bones: { rightUpperArm: [-1.5, -0.5, 0.1], rightLowerArm: [0, 1.2, 0], rightHand: [0, 0, 0.7], spine: [0.08, -0.6, 0], chest: [0, -0.3, 0], head: [-0.1, 0.75, 0], leftUpperArm: [-1.0, 0, -1.0], leftLowerArm: [0, -1.1, 0] }, dy: -0.06 },
+    { at: 0.42, hit: true, bones: { rightUpperArm: [-0.7, 1.3, 0.9], rightLowerArm: [0, 0.25, 0], rightHand: [0, -0.3, -0.5], spine: [0.32, 0.4, 0], chest: [0.1, 0.25, 0], head: [-0.25, -0.5, 0], leftUpperArm: [0.35, 0, -1.3], leftLowerArm: [0, -0.5, 0], ...LUNGE }, dy: -0.17, dz: 0.14 },
+    { at: 0.6, bones: { rightUpperArm: [-0.25, 1.6, 1.2], rightLowerArm: [0, 0.5, 0], rightHand: [0, -0.3, -0.6], spine: [0.36, 0.55, 0], chest: [0.1, 0.3, 0], head: [-0.3, -0.65, 0], leftUpperArm: [0.45, 0, -1.3], leftLowerArm: [0, -0.4, 0], ...LUNGE }, dy: -0.18, dz: 0.15 },
   ],
-  // piercing stab: elbow drawn back, then the whole body drives the point forward
+  // 2. piercing stab: elbow chambered back while the off hand reaches out, then hips, shoulder and arm drive the point straight in
   [
-    { at: 0.25, bones: { rightUpperArm: [-0.2, 0, 1.3], rightLowerArm: [0, 1.9, 0], spine: [0, 0.3, 0] }, dy: -0.05, dz: -0.05 },
-    { at: 0.42, bones: { rightUpperArm: [-1.7, 0, 1.5], rightLowerArm: [0, 0.05, 0], rightHand: [0, -1.2, 0], spine: [0.15, -0.25, 0], leftUpperArm: [0.5, 0, -1.1], ...LUNGE }, dy: -0.12, dz: 0.16 },
+    { at: 0.24, bones: { rightUpperArm: [0.55, 0, 1.0], rightLowerArm: [0, 2.0, 0], rightHand: [0, -0.9, 0], spine: [0.1, -0.6, 0], chest: [0, -0.25, 0], head: [-0.15, 0.8, 0], leftUpperArm: [-1.35, 0, -0.75], leftLowerArm: [0, -0.5, 0] }, dy: -0.08, dz: -0.06 },
+    { at: 0.4, hit: true, bones: { rightUpperArm: [-1.5, 0.15, 1.45], rightLowerArm: [0, 0.05, 0], rightHand: [0, -1.3, 0], spine: [0.3, 0.45, 0], chest: [0.08, 0.2, 0], head: [-0.3, -0.6, 0], leftUpperArm: [0.6, 0, -1.2], leftLowerArm: [0, -1.4, 0], ...LUNGE }, dy: -0.19, dz: 0.22 },
+    { at: 0.58, bones: { rightUpperArm: [-1.45, 0.2, 1.45], rightLowerArm: [0, 0.1, 0], rightHand: [0, -1.3, 0.4], spine: [0.3, 0.5, 0], chest: [0.08, 0.2, 0], head: [-0.3, -0.65, 0], leftUpperArm: [0.6, 0, -1.2], leftLowerArm: [0, -1.4, 0], ...LUNGE }, dy: -0.19, dz: 0.22 },
   ],
-  // finisher: dagger raised over the head and brought down hard
+  // 3. finisher: a small hop with the blade raised over the head, then the whole body drops into a low downward strike
   [
-    { at: 0.35, bones: { rightUpperArm: [-2.7, 0, 1.4], rightLowerArm: [0, 0.5, 0], rightHand: [0, 0, 0], spine: [-0.15, 0.1, 0] }, dy: 0.02 },
-    { at: 0.52, bones: { rightUpperArm: [-0.5, 0, 1.4], rightLowerArm: [0, 0.1, 0], rightHand: [0, -0.6, 0], spine: [0.45, -0.1, 0], ...LUNGE }, dy: -0.16, dz: 0.1 },
+    { at: 0.3, bones: { rightUpperArm: [-2.75, 0, 1.3], rightLowerArm: [0, 0.9, 0], rightHand: [0, 0, 0.6], spine: [-0.2, -0.15, 0], chest: [-0.1, 0, 0], head: [0.1, 0.15, 0], leftUpperArm: [-1.4, 0, -1.0], leftLowerArm: [0, -0.6, 0], ...TUCK }, dy: 0.1, dz: 0.05 },
+    { at: 0.48, hit: true, bones: { rightUpperArm: [-0.55, 0, 1.4], rightLowerArm: [0, 0.2, 0], rightHand: [0, -0.9, 0], spine: [0.6, 0, 0], chest: [0.22, 0, 0], head: [-0.55, 0, 0], leftUpperArm: [0.45, 0, -1.1], leftLowerArm: [0, -0.6, 0], ...LUNGE }, dy: -0.27, dz: 0.18 },
+    { at: 0.68, bones: { rightUpperArm: [-0.4, 0, 1.4], rightLowerArm: [0, 0.3, 0], rightHand: [0, -0.9, 0], spine: [0.65, 0, 0], chest: [0.22, 0, 0], head: [-0.6, 0, 0], leftUpperArm: [0.45, 0, -1.1], leftLowerArm: [0, -0.6, 0], ...LUNGE }, dy: -0.28, dz: 0.18 },
   ],
 ];
 const COMBO_BONES = [...new Set(COMBO.flat().flatMap((key) => Object.keys(key.bones)))] as VRMHumanBoneName[];
 /** When each combo move lands (fraction of the attack), so the hit effect can wait for the blade. */
-export const COMBO_HIT = COMBO.map((m) => m[1].at);
+export const COMBO_HIT = COMBO.map((m) => m.find((key) => key.hit)!.at);
 /** Seconds one Teen attack animation lasts. */
-export const COMBO_TIME = 0.45;
+export const COMBO_TIME = 0.55;
 
 export interface AnimState {
   moving: boolean;
@@ -661,12 +678,12 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
 
   if (knife && k > 0 && !s.moving && !s.sitting && !s.dead) {
     // guard stance: knees bent, feet apart, weight low
-    const g = k * (s.attack > 0 ? 0.6 : 1);
+    const g = k;
     for (const [n, v] of Object.entries(GUARD) as [VRMHumanBoneName, V3][]) {
       const r = b(n)?.rotation;
       if (r) r.set(r.x + v[0] * g, r.y + v[1] * g, r.z + v[2] * g);
     }
-    rig.body.position.y -= 0.11 * g;
+    rig.body.position.y -= 0.13 * g;
   }
   if (s.attack > 0 && knife) {
     // dagger combo: diagonal slash -> piercing stab -> overhead finisher, one move per attack
