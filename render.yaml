@@ -10,3 +10,14 @@ services:
         value: https://udylzxxjayoprpfkxxjf.supabase.co
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false # paste it in the Render dashboard, never commit it
+      # "Forgot password" emails (any SMTP: Gmail app password, Brevo, ...). Leave empty to turn the feature off.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false

@@ -3,6 +3,7 @@ import { Appearance, CLASSES, Character, ClassKey, FACES, HAIR_COLORS, HAIR_STYL
 import type { GameStore } from '../services/store';
 import { drawLook } from './icons';
 import { vrmModelCount } from '../three/vrm';
+import { USERNAME_RE, authEmail, normalizeUsername } from '../data/account';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -14,38 +15,145 @@ export function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
 
-/** Resolves once the player is signed in. */
-export function loginScreen(sb: SupabaseClient): Promise<void> {
+type AuthMode = 'login' | 'signup' | 'forgot' | 'reset' | 'claim';
+
+/** ws://host -> http://host, wss://host -> https://host (account endpoints live on the game server). */
+export const httpBase = (wsUrl: string) => wsUrl.replace(/^ws/, 'http').replace(/\/+$/, '');
+
+async function api(base: string, path: string, body: unknown, token?: string): Promise<Record<string, unknown>> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 90_000); // free server may take ~1 min to wake up
+  try {
+    const r = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body),
+      signal: ctl.signal,
+    });
+    const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!r.ok) throw new Error(typeof j.error === 'string' ? j.error : `เซิร์ฟเวอร์ตอบกลับผิดพลาด (${r.status})`);
+    return j;
+  } catch (e) {
+    if (e instanceof TypeError || (e as Error).name === 'AbortError') throw new Error('เชื่อมต่อเซิร์ฟเวอร์เกมไม่ได้ ลองใหม่อีกครั้ง');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Resolves once the player is signed in. Accounts use a username + password; see src/data/account.ts. */
+export function loginScreen(sb: SupabaseClient, apiBase: string): Promise<void> {
   show('screen-login');
   const msg = $('login-msg');
-  const email = $<HTMLInputElement>('login-email');
-  const pass = $<HTMLInputElement>('login-password');
-  msg.textContent = '';
+  const ok = $('login-ok');
+  const val = (id: string) => $<HTMLInputElement>(id).value;
+
+  const go = (mode: AuthMode) => {
+    document.querySelectorAll<HTMLFormElement>('#screen-login .auth-mode').forEach((f) => f.classList.toggle('hidden', f.dataset.mode !== mode));
+    msg.textContent = '';
+    ok.textContent = '';
+    document.querySelector<HTMLInputElement>(`#screen-login [data-mode="${mode}"] input`)?.focus();
+  };
+  go('login');
 
   return new Promise((resolve) => {
-    const form = $<HTMLFormElement>('login-form');
-    const busy = (b: boolean) => form.querySelectorAll('button').forEach((x) => (x.disabled = b));
-
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      busy(true);
-      msg.textContent = '';
-      const { error } = await sb.auth.signInWithPassword({ email: email.value, password: pass.value });
-      busy(false);
-      if (error) msg.textContent = error.message === 'Invalid login credentials' ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : error.message;
-      else resolve();
+    // run a form action with the buttons locked and errors shown under the card
+    const run = (form: HTMLFormElement, fn: () => Promise<void>, wait = '') => {
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const btns = form.querySelectorAll('button');
+        btns.forEach((x) => (x.disabled = true));
+        msg.textContent = '';
+        ok.textContent = wait;
+        try {
+          await fn();
+        } catch (err) {
+          ok.textContent = '';
+          msg.textContent = (err as Error).message;
+        } finally {
+          btns.forEach((x) => (x.disabled = false));
+        }
+      };
     };
 
-    $('btn-signup').onclick = async () => {
-      if (!form.reportValidity()) return;
-      busy(true);
-      msg.textContent = '';
-      const { data, error } = await sb.auth.signUp({ email: email.value, password: pass.value });
-      busy(false);
-      if (error) msg.textContent = error.message;
-      else if (data.session) resolve();
-      else msg.textContent = 'สมัครแล้ว! กรุณายืนยันอีเมลก่อน แล้วกลับมาเข้าสู่ระบบ';
+    document.querySelectorAll<HTMLElement>('#screen-login [data-go]').forEach((el) => {
+      el.onclick = (e) => {
+        e.preventDefault();
+        const mode = el.dataset.go as AuthMode;
+        if (mode === 'forgot') $<HTMLInputElement>('fg-user').value = normalizeUsername(val('login-user')).includes('@') ? '' : val('login-user');
+        if (mode === 'reset') $<HTMLInputElement>('rs-user').value = val('fg-user');
+        go(mode);
+      };
+    });
+
+    const signIn = async (login: string, password: string) => {
+      const legacy = login.includes('@'); // accounts made before usernames sign in with their email
+      const { error } = await sb.auth.signInWithPassword({ email: legacy ? login.trim() : authEmail(login), password });
+      if (error) {
+        if (error.message === 'Invalid login credentials') throw new Error('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+        if (/not confirmed/i.test(error.message)) throw new Error('อีเมลนี้ยังไม่ได้ยืนยัน กรุณากดลิงก์ยืนยันในอีเมลก่อน');
+        throw new Error(error.message);
+      }
+      if (legacy) {
+        // no username yet? offer to pick one now (needs the new setup.sql; skip quietly if it isn't there)
+        const { data, error: e2 } = await sb.from('accounts').select('username').maybeSingle();
+        if (!e2 && !data) {
+          go('claim');
+          return;
+        }
+      }
+      resolve();
     };
+
+    run($<HTMLFormElement>('login-form'), () => signIn(val('login-user'), val('login-password')));
+
+    run(
+      $<HTMLFormElement>('signup-form'),
+      async () => {
+        const username = normalizeUsername(val('su-user'));
+        if (!USERNAME_RE.test(username)) throw new Error('ชื่อผู้ใช้ต้องยาว 4–16 ตัว ใช้ได้เฉพาะ a-z, 0-9 และ _');
+        if (val('su-password') !== val('su-password2')) throw new Error('รหัสผ่านทั้งสองช่องไม่ตรงกัน');
+        await api(apiBase, '/auth/register', { username, password: val('su-password'), email: val('su-email') });
+        await signIn(username, val('su-password'));
+      },
+      'กำลังสมัคร... (ถ้าเซิร์ฟเวอร์เพิ่งตื่นอาจใช้เวลาเกือบ 1 นาที)',
+    );
+
+    run(
+      $<HTMLFormElement>('forgot-form'),
+      async () => {
+        await api(apiBase, '/auth/forgot', { username: normalizeUsername(val('fg-user')), email: val('fg-email') });
+        $<HTMLInputElement>('rs-user').value = val('fg-user');
+        go('reset');
+        ok.textContent = 'ถ้าชื่อผู้ใช้และอีเมลตรงกัน ระบบได้ส่งรหัส 6 หลักไปที่อีเมลแล้ว (ดูในกล่องจดหมายขยะด้วย)';
+      },
+      'กำลังส่งอีเมล...',
+    );
+
+    run($<HTMLFormElement>('reset-form'), async () => {
+      if (val('rs-password') !== val('rs-password2')) throw new Error('รหัสผ่านทั้งสองช่องไม่ตรงกัน');
+      const username = normalizeUsername(val('rs-user'));
+      await api(apiBase, '/auth/reset', { username, code: val('rs-code'), password: val('rs-password') });
+      $<HTMLInputElement>('login-user').value = username;
+      $<HTMLInputElement>('login-password').value = '';
+      go('login');
+      ok.textContent = 'เปลี่ยนรหัสผ่านแล้ว เข้าสู่ระบบด้วยรหัสผ่านใหม่ได้เลย';
+    });
+
+    run(
+      $<HTMLFormElement>('claim-form'),
+      async () => {
+        const username = normalizeUsername(val('cl-user'));
+        if (!USERNAME_RE.test(username)) throw new Error('ชื่อผู้ใช้ต้องยาว 4–16 ตัว ใช้ได้เฉพาะ a-z, 0-9 และ _');
+        const token = (await sb.auth.getSession()).data.session?.access_token;
+        await api(apiBase, '/auth/claim', { username }, token);
+        await sb.auth.refreshSession();
+        alert(`ตั้งชื่อผู้ใช้ "${username}" แล้ว ครั้งหน้าเข้าสู่ระบบด้วยชื่อนี้และรหัสผ่านเดิม`);
+        resolve();
+      },
+      'กำลังบันทึก...',
+    );
+    $('cl-skip').onclick = () => resolve();
   });
 }
 

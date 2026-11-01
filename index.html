@@ -18,15 +18,66 @@
       <div class="card">
         <h1 class="logo">♪ Music Land</h1>
         <p class="sub">ผจญภัยในดินแดนแห่งเสียงเพลง</p>
-        <form id="login-form">
-          <input id="login-email" type="email" placeholder="อีเมล" autocomplete="email" required />
-          <input id="login-password" type="password" placeholder="รหัสผ่าน (6 ตัวขึ้นไป)" autocomplete="current-password" minlength="6" required />
+        <!-- sign in -->
+        <form id="login-form" class="auth-mode" data-mode="login">
+          <input id="login-user" type="text" placeholder="ชื่อผู้ใช้ (บัญชีเดิมใส่อีเมลได้)" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" required />
+          <input id="login-password" type="password" placeholder="รหัสผ่าน" autocomplete="current-password" minlength="6" required />
           <div class="row">
-            <button type="submit" id="btn-login">เข้าสู่ระบบ</button>
-            <button type="button" id="btn-signup" class="ghost">สมัครใหม่</button>
+            <button type="submit">เข้าสู่ระบบ</button>
+            <button type="button" class="ghost" data-go="signup">สมัครใหม่</button>
+          </div>
+          <a href="#" class="auth-link" data-go="forgot">ลืมรหัสผ่าน?</a>
+        </form>
+
+        <!-- sign up -->
+        <form id="signup-form" class="auth-mode hidden" data-mode="signup">
+          <p class="auth-title">สมัครสมาชิก</p>
+          <input id="su-user" type="text" placeholder="ชื่อผู้ใช้ (a-z, 0-9, _ 4–16 ตัว)" autocomplete="username" autocapitalize="none" spellcheck="false" pattern="[A-Za-z0-9_]{4,16}" maxlength="16" required />
+          <input id="su-password" type="password" placeholder="รหัสผ่าน (6 ตัวขึ้นไป)" autocomplete="new-password" minlength="6" maxlength="72" required />
+          <input id="su-password2" type="password" placeholder="ยืนยันรหัสผ่าน" autocomplete="new-password" minlength="6" maxlength="72" required />
+          <input id="su-email" type="email" placeholder="อีเมล (ไว้กู้รหัสผ่าน)" autocomplete="email" required />
+          <p class="auth-hint">อีเมลใช้ซ้ำกับหลายบัญชีได้ ใช้สำหรับกู้รหัสผ่านเท่านั้น</p>
+          <div class="row">
+            <button type="submit">สมัครสมาชิก</button>
+            <button type="button" class="ghost" data-go="login">กลับ</button>
+          </div>
+        </form>
+
+        <!-- forgot password: step 1 ask for a code, step 2 enter it -->
+        <form id="forgot-form" class="auth-mode hidden" data-mode="forgot">
+          <p class="auth-title">ลืมรหัสผ่าน</p>
+          <input id="fg-user" type="text" placeholder="ชื่อผู้ใช้" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="16" required />
+          <input id="fg-email" type="email" placeholder="อีเมลที่ใช้ตอนสมัคร" autocomplete="email" required />
+          <div class="row">
+            <button type="submit">ส่งรหัสยืนยันทางอีเมล</button>
+            <button type="button" class="ghost" data-go="login">กลับ</button>
+          </div>
+          <a href="#" class="auth-link" data-go="reset">มีรหัสยืนยันแล้ว</a>
+        </form>
+        <form id="reset-form" class="auth-mode hidden" data-mode="reset">
+          <p class="auth-title">ตั้งรหัสผ่านใหม่</p>
+          <input id="rs-user" type="text" placeholder="ชื่อผู้ใช้" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="16" required />
+          <input id="rs-code" type="text" placeholder="รหัสยืนยัน 6 หลักจากอีเมล" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
+          <input id="rs-password" type="password" placeholder="รหัสผ่านใหม่ (6 ตัวขึ้นไป)" autocomplete="new-password" minlength="6" maxlength="72" required />
+          <input id="rs-password2" type="password" placeholder="ยืนยันรหัสผ่านใหม่" autocomplete="new-password" minlength="6" maxlength="72" required />
+          <div class="row">
+            <button type="submit">บันทึกรหัสผ่านใหม่</button>
+            <button type="button" class="ghost" data-go="login">กลับ</button>
+          </div>
+        </form>
+
+        <!-- older accounts that signed in with an email pick a username once -->
+        <form id="claim-form" class="auth-mode hidden" data-mode="claim">
+          <p class="auth-title">ตั้งชื่อผู้ใช้</p>
+          <p class="auth-hint">ระบบใหม่เข้าสู่ระบบด้วยชื่อผู้ใช้แทนอีเมล ตั้งชื่อผู้ใช้ครั้งเดียว ครั้งหน้าใช้ชื่อนี้กับรหัสผ่านเดิม อีเมลเดิมจะใช้กู้รหัสผ่าน</p>
+          <input id="cl-user" type="text" placeholder="ชื่อผู้ใช้ (a-z, 0-9, _ 4–16 ตัว)" autocomplete="username" autocapitalize="none" spellcheck="false" pattern="[A-Za-z0-9_]{4,16}" maxlength="16" required />
+          <div class="row">
+            <button type="submit">บันทึก</button>
+            <button type="button" class="ghost" id="cl-skip">ไว้ทีหลัง</button>
           </div>
         </form>
         <p id="login-msg" class="msg"></p>
+        <p id="login-ok" class="msg ok"></p>
       </div>
     </section>
 
