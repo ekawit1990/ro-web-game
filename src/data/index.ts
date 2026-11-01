@@ -174,6 +174,11 @@ export interface SkillDef {
    */
   buff?: { aspdPct?: number; def?: number; stats?: Partial<Record<StatKey, [number, number]>>; blocks?: [number, number]; durationSec: number };
   passive?: { maxHpPct?: number; maxSpPct?: number; atkPct?: number; matkPct?: number; hit?: number };
+  /**
+   * Damage that grows with the situation (power is then % ATK per unit):
+   * 'distance' = dash up to the target, x tiles dashed (min 1); 'crowd' = x monsters around you (max CROWD_MAX).
+   */
+  scale?: 'distance' | 'crowd';
   /** Baked pixelfx sheet (public/fx/<fx>.png) played when the skill lands. */
   fx?: string;
 }
@@ -187,6 +192,9 @@ export const WEAPON_SHOP = raw.weaponShop as string[];
 export const SKILLS = raw.skills as unknown as Record<string, SkillDef>;
 export const MAX_LEVEL = raw.levels.maxLevel;
 export const MAX_JOB_LEVEL = raw.levels.maxJobLevel;
+
+/** หมุนตัวแทง counts at most this many monsters around you. */
+export const CROWD_MAX = 8;
 
 export const skillsOf = (cls: ClassKey) => Object.entries(SKILLS).filter(([, s]) => s.cls === cls);
 /** Teen skills stay usable after the job change (like RO's basic skills). */

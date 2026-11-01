@@ -1,7 +1,7 @@
 import { Room, type Client } from 'colyseus';
 import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
-  Buffs, CLASSES, Character, Derived, ITEMS, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
+  Buffs, CLASSES, CROWD_MAX, Character, Derived, ITEMS, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
   STAT_KEYS, buffBlocks, buffStats, canUseSkill, hitChance, monsterFlee, monsterHit, questCounts, skillHeal, skillPower, skillSp,
   targetsPlayer,
 } from '../../src/data/index.ts';
@@ -442,7 +442,30 @@ export class MapRoom extends Room<{ state: MapState }> {
       by: c.sessionId, skill: msg.id, x: tx, y: ty, target: monsterId ?? ally, hits: [],
     };
     const base = skill.magic ? seat.derived.matk : seat.derived.atk;
-    const power = skillPower(skill, lv) / 100;
+    let power = skillPower(skill, lv) / 100;
+    if (skill.scale === 'distance' && monsterId) {
+      // พุ่งแทง: dash next to the monster; damage x tiles dashed
+      const m = this.state.monsters.get(monsterId)!;
+      const d = dist(p.x, p.y, m.x, m.y);
+      const stop = Math.min(d, 0.8 + MONSTERS[m.key].size * 0.3);
+      const nx = m.x - ((m.x - p.x) / Math.max(d, 0.01)) * stop;
+      const ny = m.y - ((m.y - p.y) / Math.max(d, 0.01)) * stop;
+      power *= Math.max(1, Math.min(skill.range ?? 5, d));
+      Object.assign(fx, { fromX: p.x, fromY: p.y });
+      if (walkable(this.map, nx, ny)) {
+        p.x = nx;
+        p.y = ny;
+        seat.lastMoveAt = this.now;
+        c.send('correct', { x: nx, y: ny });
+      }
+    } else if (skill.scale === 'crowd') {
+      // หมุนตัวแทง: damage x monsters around you
+      let n = 0;
+      this.state.monsters.forEach((m) => {
+        if (!m.dead && dist(tx, ty, m.x, m.y) <= (skill.radius ?? 1) + MONSTERS[m.key].size * 0.3) n++;
+      });
+      power *= Math.max(1, Math.min(CROWD_MAX, n));
+    }
     const hitMonster = (id: string, m: MonsterState) => {
       const def = MONSTERS[m.key];
       for (let i = 0; i < (skill.hits ?? 1); i++) {
