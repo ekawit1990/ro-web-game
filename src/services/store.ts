@@ -10,6 +10,16 @@ export interface KillResult {
   jobLeveledUp: boolean;
 }
 
+/** One character's part of a kill: what the game server hands out when a party shares a monster. */
+export interface RewardShare {
+  exp: number;
+  jobExp: number;
+  zeny: number;
+  items: string[];
+  /** counts as a job-change quest kill */
+  quest: boolean;
+}
+
 export interface TradeOffer {
   items: { inv: string; qty: number }[];
   zeny: number;

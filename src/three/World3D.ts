@@ -98,6 +98,7 @@ export class World3D {
   private room: Room;
   private map: GameMap;
   private hooks: WorldHooks;
+  private partyIds = new Set<string>();
   private container: HTMLElement;
   private overlay: HTMLElement;
   private scene = new THREE.Scene();
@@ -312,6 +313,7 @@ export class World3D {
       dead: rp.dead, sitting: rp.sitting, hp: rp.hp, maxHp: rp.maxHp, label: this.makeLabel(escapeHtml(rp.name), true, id === this.room.sessionId), hit,
     };
     this.players.set(id, a);
+    a.label.el.classList.toggle('party', this.partyIds.has(id));
     this.upgradePlayer(a, look, rp.head);
     return a;
   }
@@ -340,6 +342,12 @@ export class World3D {
     this.scene.remove(old.root);
     this.scene.add(v.root);
     this.animated = this.animated.map((o) => (o === old.root ? v.root : o));
+  }
+
+  /** Party members on this map (session ids): their names are drawn in the party color. */
+  setParty(ids: Set<string>) {
+    this.partyIds = ids;
+    for (const [id, a] of this.players) a.label.el.classList.toggle('party', ids.has(id));
   }
 
   private destroyPlayer(a: PlayerActor) {

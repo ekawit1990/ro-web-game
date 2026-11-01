@@ -9,7 +9,7 @@ import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
 
-type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage';
+type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party';
 type Slot = { t: 's' | 'i'; id: string } | null;
 type InvTab = 'item' | 'equip' | 'etc';
 type ChatTab = 'all' | 'chat' | 'sys';
@@ -19,6 +19,16 @@ interface TradeView {
   mine: { items: { inv: string; qty: number }[]; zeny: number };
   theirs: { items: { item: string; qty: number }[]; zeny: number };
   lockedMine: boolean; lockedTheirs: boolean; confirmedMine: boolean; confirmedTheirs: boolean;
+}
+
+/** The game server's party window data (see server/src/party.ts). */
+export interface PartyView {
+  id: string;
+  name: string;
+  leader: string;
+  me: string;
+  max: number;
+  members: { id: string; name: string; cls: string; level: number; online: boolean; map: string; sid: string; hp: number; maxHp: number; dead: boolean }[];
 }
 
 export interface HudActions {
@@ -37,7 +47,7 @@ const SLOT_LABEL: Record<string, string> = {
 };
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
-  option: [-260, 170], npc: [-1, -1], storage: [300, 80],
+  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250],
 };
 
 /** The RO-style windows over the game: Basic Info, Equipment+Status, Inventory, Skill Tree, hotkeys, minimap, chat. */
@@ -49,6 +59,7 @@ export class Hud implements WorldHooks {
   private chatTab: ChatTab = 'all';
   private hotkeys: Slot[];
   private trade: TradeView | null = null;
+  private partyView: PartyView | null = null;
   private shopKind: 'shop' | 'weapons' = 'shop';
   private shopTab: 'buy' | 'sell' = 'buy';
   private storageTab: 'put' | 'take' = 'put';
@@ -161,6 +172,7 @@ export class Hud implements WorldHooks {
     if (id === 'inv') this.openInv();
     if (id === 'skill') this.openSkills();
     if (id === 'option') this.openOption();
+    if (id === 'party') this.openParty();
   }
 
   private z = 20;
@@ -226,6 +238,7 @@ export class Hud implements WorldHooks {
         <button data-open="equip" title="Alt+Q">สถานะ<i id="bi-pts" class="dot hidden"></i></button>
         <button data-open="skill" title="Alt+S">สกิล<i id="bi-spts" class="dot hidden"></i></button>
         <button data-open="inv" title="Alt+E">ไอเท็ม</button>
+        <button data-open="party" title="Alt+Z">ปาร์ตี้</button>
         <button data-open="map" title="Tab">แผนที่</button>
         <button data-open="sit" title="Insert">นั่ง</button>
         <button data-open="option" title="Esc">ตั้งค่า</button>
@@ -724,7 +737,7 @@ export class Hud implements WorldHooks {
           <div class="chat-grip" title="ลากเพื่อยืด/หดหน้าต่างแชท">⇱</div>
         </div>
         <div id="chat-log" class="chat-log"></div>
-        <form id="chat-form"><input id="chat-input" placeholder="Enter เพื่อพิมพ์ · /sit = นั่ง" maxlength="120" autocomplete="off"/></form>
+        <form id="chat-form"><input id="chat-input" placeholder="Enter เพื่อพิมพ์ · /p = แชทปาร์ตี้ · /sit = นั่ง" maxlength="120" autocomplete="off"/></form>
       </div>`);
     this.chatResize();
     const input = this.root.querySelector('#chat-input') as HTMLInputElement;
@@ -811,6 +824,10 @@ export class Hud implements WorldHooks {
     this.line('chat', `<b>${escapeHtml(name)}</b> : ${escapeHtml(text)}`);
   }
 
+  partyChat(name: string, text: string) {
+    this.line('chat', `<span class="pt">[ปาร์ตี้] <b>${escapeHtml(name)}</b> : ${escapeHtml(text)}</span>`);
+  }
+
   system(text: string) {
     this.line('sys', escapeHtml(text));
   }
@@ -827,8 +844,9 @@ export class Hud implements WorldHooks {
     setTimeout(() => t.remove(), 2600);
   }
 
-  reward(msg: { monster: string; exp: number; jobExp: number; zeny: number; drops: string[]; leveledUp: boolean; jobLeveledUp: boolean }) {
-    this.line('good', `ได้รับ Base EXP ${msg.exp} · Job EXP ${msg.jobExp} · ${msg.zeny} Zeny`);
+  reward(msg: { monster: string; exp: number; jobExp: number; zeny: number; drops: string[]; leveledUp: boolean; jobLeveledUp: boolean; shared?: number }) {
+    const split = (msg.shared ?? 1) > 1 ? ` <span class="pt">(แบ่งปาร์ตี้ ${msg.shared} คน)</span>` : '';
+    this.line('good', `ได้รับ Base EXP ${msg.exp} · Job EXP ${msg.jobExp} · ${msg.zeny} Zeny${split}`);
     for (const d of msg.drops) this.line('good', `ได้รับไอเท็ม <b>${escapeHtml(ITEMS[d]?.name ?? d)}</b>`);
     if (msg.leveledUp) this.toast(`Base Level Up! ได้ Status Point แล้ว (กด Alt+Q)`, 'good');
     if (msg.jobLeveledUp) this.toast(`Job Level Up! ได้ Skill Point แล้ว (กด Alt+S)`, 'good');
@@ -1053,8 +1071,15 @@ export class Hud implements WorldHooks {
     m.className = 'ctx';
     m.style.left = `${x}px`;
     m.style.top = `${y}px`;
-    m.innerHTML = `<b>${escapeHtml(name)}</b><button data-a="trade">ขอแลกเปลี่ยน</button><button data-a="close">ยกเลิก</button>`;
+    const inParty = this.partyView?.members.some((x) => x.sid === sessionId);
+    const canInvite = !inParty && (!this.partyView || this.partyView.leader === this.partyView.me);
+    m.innerHTML = `<b>${escapeHtml(name)}</b><button data-a="trade">ขอแลกเปลี่ยน</button>`
+      + `${canInvite ? '<button data-a="party">ชวนเข้าปาร์ตี้</button>' : ''}<button data-a="close">ยกเลิก</button>`;
     this.root.appendChild(m);
+    m.querySelector('[data-a=party]')?.addEventListener('click', () => {
+      this.actions.send('partyInvite', { to: sessionId });
+      m.remove();
+    });
     m.querySelector('[data-a=trade]')!.addEventListener('click', () => {
       this.actions.send('tradeRequest', { to: sessionId });
       m.remove();
@@ -1158,6 +1183,104 @@ export class Hud implements WorldHooks {
     this.closeWin('trade');
     this.lastSig.inv = '';
     this.renderInv();
+  }
+
+  // ------------------------------------------------------------ party
+
+  /** The server sent our party (null = not in one). */
+  party(v: PartyView | null) {
+    const was = this.partyView;
+    this.partyView = v;
+    this.actions.scene()?.setParty(new Set(v?.members.filter((m) => m.sid).map((m) => m.sid) ?? []));
+    if (!v && was) this.lastSig.party = '';
+    // joining a party (or making one) opens the window once
+    if (v && (!was || was.id !== v.id) && !this.isOpen('party')) this.openParty();
+    else this.renderParty();
+  }
+
+  /** Re-color party members' names in a freshly built map. */
+  syncPartyWorld() {
+    const v = this.partyView;
+    this.actions.scene()?.setParty(new Set(v?.members.filter((m) => m.sid).map((m) => m.sid) ?? []));
+  }
+
+  partyInvite(msg: { party: string; from: string }) {
+    this.root.querySelector('.pinvite')?.remove();
+    const d = document.createElement('div');
+    d.className = 'rw pinvite';
+    d.innerHTML = `<div class="rw-title"><span>คำชวนเข้าปาร์ตี้</span></div><div class="rw-body">
+      <p><b>${escapeHtml(msg.from)}</b> ชวนคุณเข้าปาร์ตี้ <b>"${escapeHtml(msg.party)}"</b></p>
+      <p class="hint">ในปาร์ตี้ EXP / Job EXP / Zeny แบ่งเท่ากัน ไอเท็มวนแจกทีละคน</p>
+      <div class="npc-btns"><button class="ok">เข้าร่วม</button><button class="close">ปฏิเสธ</button></div></div>`;
+    this.root.appendChild(d);
+    this.bringFront(d);
+    const answer = (accept: boolean) => {
+      this.actions.send('partyRespond', { accept });
+      d.remove();
+    };
+    d.querySelector('.ok')!.addEventListener('click', () => answer(true));
+    d.querySelector('.close')!.addEventListener('click', () => answer(false));
+    setTimeout(() => d.remove(), 30000); // the invite runs out on the server too
+  }
+
+  private openParty() {
+    this.win('party', 'ปาร์ตี้', 'party');
+    this.lastSig.party = '';
+    this.renderParty();
+  }
+
+  private renderParty() {
+    const b = this.body('party');
+    if (!b || !this.isOpen('party')) return;
+    const v = this.partyView;
+    const sig = JSON.stringify(v);
+    if (this.lastSig.party === sig) return;
+    this.lastSig.party = sig;
+    const w = this.wins.get('party')!;
+    w.querySelector('.rw-title span')!.textContent = v ? `ปาร์ตี้ : ${v.name} (${v.members.length}/${v.max})` : 'ปาร์ตี้';
+    const rule = '<p class="hint">EXP · Job EXP · Zeny แบ่งเท่ากันทุกคนที่อยู่แผนที่เดียวกันและยังไม่หมดสติ · ไอเท็มที่ดรอปวนแจกทีละคน · แชทปาร์ตี้: พิมพ์ <b>/p ข้อความ</b></p>';
+    if (!v) {
+      b.innerHTML = `<p>คุณยังไม่ได้อยู่ในปาร์ตี้ (สูงสุด 10 คน)</p>
+        <div class="pt-form"><input id="pt-name" maxlength="24" placeholder="ชื่อปาร์ตี้ (ไม่ใส่ก็ได้)"/><button class="ok" id="pt-create">สร้างปาร์ตี้</button></div>
+        <p class="hint">หรือแตะ/คลิกผู้เล่นคนอื่น แล้วเลือก "ชวนเข้าปาร์ตี้"</p>${rule}`;
+      b.querySelector('#pt-create')!.addEventListener('click', () =>
+        this.actions.send('partyCreate', { name: (b.querySelector('#pt-name') as HTMLInputElement).value }));
+      return;
+    }
+    const lead = v.leader === v.me;
+    const rows = v.members.map((m) => {
+      const where = !m.online ? '<em class="off">ออฟไลน์</em>' : m.dead ? '<em class="off">หมดสติ</em>' : escapeHtml(getMap(m.map)?.name ?? m.map);
+      const hp = m.online ? Math.max(0, Math.min(100, (m.hp / Math.max(1, m.maxHp)) * 100)) : 0;
+      const tools = lead && m.id !== v.me
+        ? `<button data-lead="${m.id}" title="มอบหัวหน้า">👑</button><button data-kick="${m.id}" title="เชิญออก">✕</button>` : '';
+      return `<div class="pt-row ${m.online ? '' : 'offline'} ${m.id === v.me ? 'me' : ''}">
+        <div class="pt-who"><b>${m.id === v.leader ? '👑 ' : ''}${escapeHtml(m.name)}</b>
+          <small>${escapeHtml(CLASSES[m.cls as ClassKey]?.name ?? m.cls)} · Lv ${m.level} · ${where}</small>
+          <div class="gauge hp"><i style="width:${hp}%"></i></div></div>
+        <div class="pt-tools">${tools}</div></div>`;
+    }).join('');
+    b.innerHTML = `<div class="pt-list">${rows}</div>
+      ${lead && v.members.length < v.max ? '<div class="pt-form"><input id="pt-invite" maxlength="30" placeholder="ชื่อตัวละครที่จะชวน"/><button class="ok" id="pt-inv">ชวน</button></div>' : ''}
+      <div class="npc-btns"><button class="close" id="pt-leave">ออกจากปาร์ตี้</button></div>${rule}`;
+    const inv = b.querySelector<HTMLInputElement>('#pt-invite');
+    const invite = () => {
+      if (!inv?.value.trim()) return;
+      this.actions.send('partyInvite', { name: inv.value.trim() });
+      inv.value = '';
+    };
+    b.querySelector('#pt-inv')?.addEventListener('click', invite);
+    inv?.addEventListener('keydown', (e) => e.key === 'Enter' && invite());
+    b.querySelector('#pt-leave')!.addEventListener('click', () => {
+      if (confirm('ออกจากปาร์ตี้?')) this.actions.send('partyLeave');
+    });
+    b.querySelectorAll<HTMLButtonElement>('[data-kick]').forEach((el) => el.addEventListener('click', () => {
+      const name = v.members.find((m) => m.id === el.dataset.kick)?.name ?? '';
+      if (confirm(`เชิญ ${name} ออกจากปาร์ตี้?`)) this.actions.send('partyKick', { id: el.dataset.kick });
+    }));
+    b.querySelectorAll<HTMLButtonElement>('[data-lead]').forEach((el) => el.addEventListener('click', () => {
+      const name = v.members.find((m) => m.id === el.dataset.lead)?.name ?? '';
+      if (confirm(`มอบหัวหน้าปาร์ตี้ให้ ${name}?`)) this.actions.send('partyLeader', { id: el.dataset.lead });
+    }));
   }
 
   // ------------------------------------------------------------ misc windows
@@ -1270,6 +1393,7 @@ export class Hud implements WorldHooks {
       else if (e.altKey && k === 'e') this.toggle('inv');
       else if (e.altKey && k === 's') this.toggle('skill');
       else if (e.altKey && k === 'a') this.toggle('equip');
+      else if (e.altKey && k === 'z') this.toggle('party');
       else if (k === 'tab') this.root.querySelector('#minimap')!.classList.toggle('hidden');
       else if (k === 'insert') this.actions.scene()?.toggleSit();
       else if (k === 'escape') {

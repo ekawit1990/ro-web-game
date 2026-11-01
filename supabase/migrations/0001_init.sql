@@ -327,43 +327,40 @@ end $$;
 
 -- ---------------------------------------------------------------- game server only
 
-create or replace function public.report_kill(p_user uuid, p_char uuid, p_monster text) returns jsonb
+-- Adds a reward to one character: EXP (with level ups), zeny, items, and a job-quest kill.
+-- report_kill rolls a monster's reward for one player; the game server calls this directly
+-- with each member's share when a party splits a kill.
+create or replace function public.grant_reward(
+  p_user uuid, p_char uuid, p_exp int, p_job_exp int, p_zeny int, p_items text[], p_quest boolean
+) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
-  c public.characters; m public.monster_defs; d jsonb;
-  got text[] := '{}'; z int; start_level int; start_job int;
+  c public.characters; it text; start_level int; start_job int;
   max_level constant int := 99; max_job constant int := 50;
 begin
   c := public._own_char(p_char, p_user);
-  select * into m from public.monster_defs where id = p_monster;
-  if not found then raise exception 'unknown monster'; end if;
-
-  for d in select * from jsonb_array_elements(m.drops) loop
-    if random() < (d->>1)::float8 then
-      got := got || (d->>0);
-      perform public._add_item(p_char, d->>0, 1);
-    end if;
+  foreach it in array coalesce(p_items, '{}') loop
+    perform public._add_item(p_char, it, 1);
   end loop;
 
-  z := m.zeny_min + floor(random() * (m.zeny_max - m.zeny_min + 1))::int;
   start_level := c.level;
   start_job := c.job_level;
-  c.zeny := c.zeny + z;
-  if c.level < max_level then c.exp := c.exp + m.exp; end if;
+  c.zeny := c.zeny + greatest(p_zeny, 0);
+  if c.level < max_level then c.exp := c.exp + greatest(p_exp, 0); end if;
   while c.level < max_level and c.exp >= public.exp_to_next(c.level) loop
     c.exp := c.exp - public.exp_to_next(c.level);
     c.level := c.level + 1;
     c.stat_points := c.stat_points + c.level / 5 + 3;
   end loop;
   if c.level >= max_level then c.exp := 0; end if;
-  if c.job_level < max_job then c.job_exp := c.job_exp + m.job_exp; end if;
+  if c.job_level < max_job then c.job_exp := c.job_exp + greatest(p_job_exp, 0); end if;
   while c.job_level < max_job and c.job_exp >= public.job_exp_to_next(c.job_level) loop
     c.job_exp := c.job_exp - public.job_exp_to_next(c.job_level);
     c.job_level := c.job_level + 1;
     c.skill_points := c.skill_points + 1;
   end loop;
   if c.job_level >= max_job then c.job_exp := 0; end if;
-  if c.job_quest >= 0 and c.job_quest < 30 and m.level >= 10 then c.job_quest := c.job_quest + 1; end if;
+  if p_quest and c.job_quest >= 0 and c.job_quest < 30 then c.job_quest := c.job_quest + 1; end if;
 
   update public.characters
     set zeny = c.zeny, exp = c.exp, level = c.level, stat_points = c.stat_points,
@@ -372,8 +369,23 @@ begin
     where id = p_char returning * into c;
 
   return jsonb_build_object(
-    'character', public._char_json(c), 'drops', to_jsonb(got), 'zeny', z, 'exp', m.exp, 'jobExp', m.job_exp,
+    'character', public._char_json(c), 'drops', to_jsonb(coalesce(p_items, '{}')), 'zeny', greatest(p_zeny, 0),
+    'exp', greatest(p_exp, 0), 'jobExp', greatest(p_job_exp, 0),
     'leveledUp', c.level > start_level, 'jobLeveledUp', c.job_level > start_job);
+end $$;
+
+create or replace function public.report_kill(p_user uuid, p_char uuid, p_monster text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare m public.monster_defs; d jsonb; got text[] := '{}';
+begin
+  perform public._own_char(p_char, p_user);
+  select * into m from public.monster_defs where id = p_monster;
+  if not found then raise exception 'unknown monster'; end if;
+  for d in select * from jsonb_array_elements(m.drops) loop
+    if random() < (d->>1)::float8 then got := got || (d->>0); end if;
+  end loop;
+  return public.grant_reward(p_user, p_char, m.exp, m.job_exp,
+    m.zeny_min + floor(random() * (m.zeny_max - m.zeny_min + 1))::int, got, m.level >= 10);
 end $$;
 
 create or replace function public.use_item(p_user uuid, p_char uuid, p_inv uuid) returns text
@@ -531,12 +543,14 @@ grant execute on function public.storage_put(uuid, uuid, int) to authenticated;
 grant execute on function public.storage_take(uuid, uuid, int) to authenticated;
 
 revoke execute on function public.report_kill(uuid, uuid, text) from public, anon, authenticated;
+revoke execute on function public.grant_reward(uuid, uuid, int, int, int, text[], boolean) from public, anon, authenticated;
 revoke execute on function public.use_item(uuid, uuid, uuid) from public, anon, authenticated;
 revoke execute on function public.save_state(uuid, uuid, int, int, text, real, real) from public, anon, authenticated;
 revoke execute on function public.on_death(uuid, uuid) from public, anon, authenticated;
 revoke execute on function public.trade_execute(uuid, uuid, jsonb, int, uuid, uuid, jsonb, int) from public, anon, authenticated;
 revoke execute on function public.pay_warp(uuid, uuid, int, int, int, text, real, real) from public, anon, authenticated;
 grant execute on function public.report_kill(uuid, uuid, text) to service_role;
+grant execute on function public.grant_reward(uuid, uuid, int, int, int, text[], boolean) to service_role;
 grant execute on function public.use_item(uuid, uuid, uuid) to service_role;
 grant execute on function public.save_state(uuid, uuid, int, int, text, real, real) to service_role;
 grant execute on function public.on_death(uuid, uuid) to service_role;
