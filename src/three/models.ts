@@ -22,6 +22,9 @@ export interface CharRig {
   legR: THREE.Group;
   hatSlot: THREE.Group;
   hat: string;
+  /** Headphones (the ear slot), placed like the hat but drawn independently of it. */
+  earSlot: THREE.Group;
+  ear: string;
   height: number;
 }
 
@@ -365,18 +368,6 @@ export function setHat(rig: CharRig, item: string) {
     g.add(mesh(S(0.05), toon('#ff3d8b')));
     g.position.set(0.16, 0.3, 0.05);
     g.rotation.z = -0.4;
-  } else if (item === 'headphones') {
-    const band = mesh(new THREE.TorusGeometry(0.37, 0.025, 8, 24, Math.PI), toon('#37474f'));
-    band.position.y = 0.02;
-    g.add(band);
-    for (const s of [-1, 1]) {
-      const cup = mesh(CYL(0.1, 0.1, 0.07, 16), toon('#263238'), s * 0.37, 0.0, 0);
-      cup.rotation.z = Math.PI / 2;
-      g.add(cup);
-      const pad = mesh(CYL(0.06, 0.06, 0.075, 16), toon('#ef5350'), s * 0.375, 0, 0);
-      pad.rotation.z = Math.PI / 2;
-      g.add(pad);
-    }
   } else if (item === 'rock_cap') {
     g.add(mesh(new THREE.SphereGeometry(0.37, 20, 10, 0, Math.PI * 2, 0, 1.35), toon('#212121'), 0, 0.03, 0));
     const brim = mesh(CYL(0.24, 0.24, 0.025, 20), toon('#111111'), 0, 0.12, 0.3);
@@ -387,6 +378,88 @@ export function setHat(rig: CharRig, item: string) {
   outline(g, 0.012);
   shadows(g);
   rig.hatSlot.add(g);
+}
+
+/** A headband over the top of the head (half torus). */
+function band(g: THREE.Group, color: string, r = 0.39, thick = 0.026) {
+  const b = mesh(new THREE.TorusGeometry(r, thick, 8, 28, Math.PI), toon(color));
+  b.position.y = 0.02;
+  g.add(b);
+}
+
+/** A pair of over-ear cups at the sides of the head. */
+function cups(g: THREE.Group, shell: string, pad: string, r = 0.1, x = 0.38, ring?: string) {
+  for (const s of [-1, 1]) {
+    const c = mesh(CYL(r, r, 0.075, 18), toon(shell), s * x, 0, 0);
+    c.rotation.z = Math.PI / 2;
+    g.add(c);
+    const p = mesh(CYL(r * 0.62, r * 0.62, 0.08, 18), toon(pad), s * (x + 0.004), 0, 0);
+    p.rotation.z = Math.PI / 2;
+    g.add(p);
+    if (ring) {
+      const l = mesh(new THREE.TorusGeometry(r * 0.8, 0.012, 6, 20), toon(ring, { emissive: new THREE.Color(ring).multiplyScalar(0.6).getHex() }), s * (x + 0.04), 0, 0);
+      l.rotation.y = Math.PI / 2;
+      l.userData.noOutline = true;
+      g.add(l);
+    }
+  }
+}
+
+/** Headphones (ear slot): small ones sit in the ears, big ones go over the head. */
+export function setEar(rig: CharRig, item: string) {
+  if (rig.ear === item) return;
+  rig.ear = item;
+  rig.earSlot.clear();
+  const g = new THREE.Group();
+  if (item === 'earbuds') {
+    for (const s of [-1, 1]) {
+      g.add(mesh(S(0.045, 12, 8), toon('#fafafa'), s * 0.345, -0.04, 0.02));
+      g.add(mesh(CYL(0.016, 0.016, 0.11, 8), toon('#fafafa'), s * 0.35, -0.11, 0.03));
+    }
+  } else if (item === 'in_ear_monitor') {
+    for (const s of [-1, 1]) {
+      const shell = mesh(S(0.055, 12, 8), toon('#29b6f6'), s * 0.345, -0.03, 0.02);
+      shell.scale.set(0.7, 1, 1.2);
+      g.add(shell);
+      // the cable loops back over the top of the ear, then hangs down
+      const loop = mesh(new THREE.TorusGeometry(0.07, 0.008, 6, 16, Math.PI * 1.2), toon('#b3e5fc'), s * 0.35, 0.0, -0.04);
+      loop.rotation.y = Math.PI / 2;
+      loop.userData.noOutline = true;
+      g.add(loop);
+      const wire = mesh(CYL(0.008, 0.008, 0.22, 6), toon('#b3e5fc'), s * 0.33, -0.18, -0.08);
+      wire.userData.noOutline = true;
+      g.add(wire);
+    }
+  } else if (item === 'headphones') {
+    band(g, '#37474f', 0.37, 0.025);
+    cups(g, '#263238', '#ef5350', 0.1, 0.37);
+  } else if (item === 'gaming_headset') {
+    band(g, '#212121', 0.39, 0.03);
+    cups(g, '#311b92', '#212121', 0.11, 0.39, '#69f0ae');
+    // mic boom from the left cup round to the mouth
+    const boom = mesh(new THREE.TorusGeometry(0.3, 0.012, 6, 16, 1.1), toon('#212121'), 0.0, -0.12, 0.0);
+    boom.rotation.set(Math.PI / 2, 0, 0.35);
+    g.add(boom);
+    g.add(mesh(S(0.03, 10, 8), toon('#424242'), 0.12, -0.15, 0.3));
+  } else if (item === 'dj_headphones') {
+    band(g, '#ff7043', 0.4, 0.032);
+    cups(g, '#fafafa', '#ff7043', 0.12, 0.4);
+    for (const s of [-1, 1]) g.add(mesh(CYL(0.035, 0.035, 0.09, 12), toon('#ff7043'), s * 0.4, 0, 0).rotateZ(Math.PI / 2));
+  } else if (item === 'cat_headphones') {
+    band(g, '#f48fb1', 0.39, 0.03);
+    cups(g, '#f48fb1', '#ffffff', 0.11, 0.39, '#ff80ab');
+    for (const s of [-1, 1]) {
+      const earCone = mesh(new THREE.ConeGeometry(0.11, 0.22, 4), toon('#f48fb1'), s * 0.22, 0.4, 0);
+      earCone.rotation.z = -s * 0.45;
+      g.add(earCone);
+      const inner = mesh(new THREE.ConeGeometry(0.065, 0.14, 4), toon('#ffffff'), s * 0.215, 0.39, 0.035);
+      inner.rotation.z = -s * 0.45;
+      g.add(inner);
+    }
+  } else return;
+  outline(g, 0.012);
+  shadows(g);
+  rig.earSlot.add(g);
 }
 
 // ---------------------------------------------------------------- characters
@@ -545,10 +618,11 @@ export function buildCharacter(look: Look, hat = ''): CharRig {
   head.add(face);
   buildHair(head, look.hair, female, hairColor);
   const hatSlot = new THREE.Group();
-  head.add(hatSlot);
+  const earSlot = new THREE.Group();
+  head.add(hatSlot, earSlot);
   body.add(head);
 
-  const rig: CharRig = { root, body, head, armL, armR, legL, legR, hatSlot, hat: '', height: 1.6 };
+  const rig: CharRig = { root, body, head, armL, armR, legL, legR, hatSlot, hat: '', earSlot, ear: '', height: 1.6 };
   if (look.cls) instrument(rig, look.cls);
   rig.root.userData.drawn = true; // built in hand; the first frame slings it on the back
   outline(body, 0.014);

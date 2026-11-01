@@ -5,7 +5,7 @@ import { findPath, GameMap, Npc, THEMES, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
 import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
-import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setHat } from './models';
+import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setHat } from './models';
 import { COMBO_HIT, COMBO_TIME, animateRig, buildVrmCharacter } from './vrm';
 import { PHONE } from './device';
 import { sfx, sfxAttack, sfxSkill } from '../audio/sound';
@@ -29,7 +29,7 @@ export interface WorldHooks {
 }
 
 interface RemotePlayer {
-  name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number; head: string; weapon: string;
+  name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number; head: string; weapon: string; ear: string;
   x: number; y: number; hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean; sitting: boolean;
 }
 interface RemoteMonster { key: string; x: number; y: number; hp: number; maxHp: number; dead: boolean }
@@ -170,7 +170,7 @@ export class World3D {
     const c = this.session.char;
     this.me = this.makePlayer(this.room.sessionId, {
       name: c.name, cls: c.cls, level: c.level, gender: c.gender, hair: c.hair, hairColor: c.hair_color, face: c.face,
-      head: this.session.equippedOf('head')?.item_id ?? '', weapon: this.session.equippedOf('weapon')?.item_id ?? '', x: data.x, y: data.y, hp: 1, maxHp: 1, sp: 0, maxSp: 0, dead: false, sitting: false,
+      head: this.session.equippedOf('head')?.item_id ?? '', weapon: this.session.equippedOf('weapon')?.item_id ?? '', ear: this.session.equippedOf('earring')?.item_id ?? '', x: data.x, y: data.y, hp: 1, maxHp: 1, sp: 0, maxSp: 0, dead: false, sitting: false,
     });
     this.me.label.el.classList.add('me');
     this.camTarget.set(data.x, 0, data.y);
@@ -327,6 +327,7 @@ export class World3D {
     this.scene.remove(old.root);
     this.scene.add(v.root);
     setHat(v, old.hat);
+    setEar(v, old.ear);
     a.rig = v;
   }
 
@@ -768,6 +769,7 @@ export class World3D {
       a.hp = rp.hp;
       a.maxHp = rp.maxHp;
       setHat(a.rig, rp.head);
+      setEar(a.rig, rp.ear);
       a.armed = !!rp.weapon;
       a.moving = Math.max(0, a.moving - dt);
       a.attack = Math.max(0, a.attack - dt * (a.cls === 'teen' ? 1 / COMBO_TIME : 4));

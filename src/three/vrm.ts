@@ -239,11 +239,12 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
   if (v0) hatSlot.rotation.y = Math.PI;
   hatSlot.scale.setScalar(0.37); // our hats fit a 0.33 head; a VRoid head is ~0.12 m
   hatSlot.position.y = 0.11;
-  head.add(hatSlot);
+  const earSlot = hatSlot.clone();
+  head.add(hatSlot, earSlot);
 
   const rig: CharRig & { vrm: VRM } = {
     root, body, head, armL: g(bone('leftUpperArm')), armR: g(bone('rightUpperArm')), legL: g(bone('leftUpperLeg')),
-    legR: g(bone('rightUpperLeg')), hatSlot, hat: '', height: HEIGHT, vrm,
+    legR: g(bone('rightUpperLeg')), hatSlot, hat: '', earSlot, ear: '', height: HEIGHT, vrm,
   };
   rig.root.userData.vrmFace = EXPRESSIONS[look.face] ?? 'neutral';
   if (look.cls) rig.root.userData.gear = attachInstrument(vrm, look.cls, 1 / (HEIGHT / h), v0);

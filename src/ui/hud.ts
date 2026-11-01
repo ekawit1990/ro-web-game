@@ -33,7 +33,7 @@ const STAT_HELP: Record<StatKey, string> = {
   int: 'พลังเวทย์ (Matk), SP', dex: 'ความแม่นยำ (Hit), โจมตีไกล', luk: 'คริติคอล, โจมตีเล็กน้อย',
 };
 const SLOT_LABEL: Record<string, string> = {
-  head: 'หมวก', weapon: 'อาวุธ', armor: 'ชุด', accessory: 'เครื่องประดับ', shoes: 'รองเท้า', earring: 'เครื่องประดับหู',
+  head: 'หมวก', weapon: 'อาวุธ', armor: 'ชุด', accessory: 'เครื่องประดับ', shoes: 'รองเท้า', earring: 'หูฟัง',
 };
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
@@ -336,7 +336,7 @@ export class Hud implements WorldHooks {
         <div class="st-right">${right.map(([k, v]) => `<div><label>${k}</label><b>${v}</b></div>`).join('')}
           <div class="sp-pts"><label>Status Point</label><b>${c.stat_points}</b></div></div>
       </div>`;
-    drawLook(b.querySelector('#eq-preview')!, { ...c, cls: c.cls }, 'f', this.s.equippedOf('head')?.item_id, true, !!this.s.equippedOf('weapon'));
+    drawLook(b.querySelector('#eq-preview')!, { ...c, cls: c.cls }, 'f', this.s.equippedOf('head')?.item_id, true, !!this.s.equippedOf('weapon'), this.s.equippedOf('earring')?.item_id);
     b.querySelectorAll<HTMLButtonElement>('[data-stat]').forEach((btn) =>
       btn.addEventListener('click', () => this.run(() => this.s.allocate(btn.dataset.stat as StatKey))),
     );

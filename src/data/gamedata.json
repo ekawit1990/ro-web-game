@@ -324,11 +324,12 @@
   },
   "headphones": {
    "name": "หูฟังสตูดิโอ",
-   "type": "head",
+   "type": "earring",
    "def": 3,
    "price": 450,
    "color": "#37474f",
-   "weight": 20
+   "weight": 20,
+   "matk": 5
   },
   "rock_cap": {
    "name": "หมวกร็อค",
@@ -737,7 +738,7 @@
   },
   "note_stud": {
    "name": "ต่างหูตัวโน้ต",
-   "type": "earring",
+   "type": "accessory",
    "matk": 4,
    "price": 80,
    "color": "#90caf9",
@@ -745,7 +746,7 @@
   },
   "pick_earring": {
    "name": "ต่างหูปิ๊กกีตาร์",
-   "type": "earring",
+   "type": "accessory",
    "atk": 4,
    "price": 400,
    "color": "#ffb300",
@@ -753,7 +754,7 @@
   },
   "star_earring": {
    "name": "ต่างหูดาวเด่น",
-   "type": "earring",
+   "type": "accessory",
    "crit": 4,
    "price": 900,
    "color": "#fdd835",
@@ -761,12 +762,62 @@
   },
   "crystal_earring": {
    "name": "ต่างหูคริสตัลเสียง",
-   "type": "earring",
+   "type": "accessory",
    "atk": 4,
    "matk": 10,
    "price": 1800,
    "color": "#80deea",
    "weight": 2
+  },
+  "earbuds": {
+   "name": "หูฟังเอียร์บัด",
+   "type": "earring",
+   "def": 1,
+   "matk": 3,
+   "price": 80,
+   "color": "#fafafa",
+   "weight": 5
+  },
+  "in_ear_monitor": {
+   "name": "หูฟังอินเอียร์มอนิเตอร์",
+   "type": "earring",
+   "def": 1,
+   "atk": 3,
+   "flee": 2,
+   "price": 400,
+   "color": "#29b6f6",
+   "weight": 5
+  },
+  "gaming_headset": {
+   "name": "เฮดเซ็ตเกมมิ่ง",
+   "type": "earring",
+   "def": 3,
+   "atk": 4,
+   "matk": 4,
+   "price": 900,
+   "color": "#7c4dff",
+   "weight": 25
+  },
+  "dj_headphones": {
+   "name": "หูฟังดีเจ",
+   "type": "earring",
+   "def": 4,
+   "atk": 3,
+   "crit": 5,
+   "price": 1300,
+   "color": "#ff7043",
+   "weight": 25
+  },
+  "cat_headphones": {
+   "name": "หูฟังหูแมว",
+   "type": "earring",
+   "def": 5,
+   "atk": 6,
+   "matk": 10,
+   "crit": 3,
+   "price": 2500,
+   "color": "#f48fb1",
+   "weight": 20
   }
  },
  "shop": [
@@ -817,6 +868,10 @@
     [
      "note_stud",
      0.02
+    ],
+    [
+     "earbuds",
+     0.02
     ]
    ],
    "model": "Blob_PinkBlob"
@@ -852,6 +907,10 @@
     ],
     [
      "note_stud",
+     0.02
+    ],
+    [
+     "earbuds",
      0.02
     ]
    ],
@@ -893,6 +952,10 @@
     [
      "note_stud",
      0.02
+    ],
+    [
+     "earbuds",
+     0.02
     ]
    ],
    "model": "Blob_Chicken"
@@ -932,6 +995,10 @@
     ],
     [
      "note_stud",
+     0.02
+    ],
+    [
+     "earbuds",
      0.02
     ]
    ],
@@ -973,6 +1040,10 @@
     [
      "note_stud",
      0.02
+    ],
+    [
+     "earbuds",
+     0.02
     ]
    ],
    "model": "Big_Bunny"
@@ -1012,6 +1083,10 @@
     ],
     [
      "note_stud",
+     0.02
+    ],
+    [
+     "earbuds",
      0.02
     ]
    ],
@@ -1053,6 +1128,10 @@
     [
      "note_stud",
      0.02
+    ],
+    [
+     "earbuds",
+     0.02
     ]
    ],
    "model": "Big_Frog"
@@ -1092,6 +1171,10 @@
     ],
     [
      "pick_earring",
+     0.015
+    ],
+    [
+     "in_ear_monitor",
      0.015
     ]
    ],
@@ -1133,6 +1216,10 @@
     [
      "pick_earring",
      0.015
+    ],
+    [
+     "in_ear_monitor",
+     0.015
     ]
    ],
    "model": "Blob_GreenSpikyBlob"
@@ -1172,6 +1259,10 @@
     ],
     [
      "pick_earring",
+     0.015
+    ],
+    [
+     "in_ear_monitor",
      0.015
     ]
    ],
@@ -1225,6 +1316,10 @@
     [
      "crystal_earring",
      0.05
+    ],
+    [
+     "cat_headphones",
+     0.05
     ]
    ],
    "boss": true,
@@ -1263,6 +1358,10 @@
     [
      "pick_earring",
      0.015
+    ],
+    [
+     "in_ear_monitor",
+     0.015
     ]
    ],
    "model": "Blob_Birb"
@@ -1299,6 +1398,10 @@
     ],
     [
      "pick_earring",
+     0.015
+    ],
+    [
+     "in_ear_monitor",
      0.015
     ]
    ],
@@ -1346,6 +1449,10 @@
     [
      "crystal_earring",
      0.05
+    ],
+    [
+     "cat_headphones",
+     0.05
     ]
    ],
    "model": "Big_MushroomKing"
@@ -1383,6 +1490,10 @@
     [
      "pick_earring",
      0.015
+    ],
+    [
+     "in_ear_monitor",
+     0.015
     ]
    ],
    "model": "Blob_Fish"
@@ -1419,6 +1530,10 @@
     ],
     [
      "pick_earring",
+     0.015
+    ],
+    [
+     "in_ear_monitor",
      0.015
     ]
    ],
@@ -1466,6 +1581,10 @@
     [
      "crystal_earring",
      0.05
+    ],
+    [
+     "cat_headphones",
+     0.05
     ]
    ],
    "model": "Big_Fish"
@@ -1502,6 +1621,10 @@
     ],
     [
      "pick_earring",
+     0.015
+    ],
+    [
+     "in_ear_monitor",
      0.015
     ]
    ],
@@ -1540,6 +1663,10 @@
     [
      "star_earring",
      0.01
+    ],
+    [
+     "gaming_headset",
+     0.01
     ]
    ],
    "model": "Big_Dino"
@@ -1576,6 +1703,10 @@
     ],
     [
      "star_earring",
+     0.01
+    ],
+    [
+     "gaming_headset",
      0.01
     ]
    ],
@@ -1623,6 +1754,10 @@
     [
      "crystal_earring",
      0.05
+    ],
+    [
+     "cat_headphones",
+     0.05
     ]
    ],
    "model": "Flying_Dragon_Evolved"
@@ -1659,6 +1794,10 @@
     ],
     [
      "star_earring",
+     0.01
+    ],
+    [
+     "gaming_headset",
      0.01
     ]
    ],
@@ -1697,6 +1836,10 @@
     [
      "star_earring",
      0.01
+    ],
+    [
+     "dj_headphones",
+     0.01
     ]
    ],
    "model": "Big_Birb"
@@ -1733,6 +1876,10 @@
     ],
     [
      "star_earring",
+     0.01
+    ],
+    [
+     "dj_headphones",
      0.01
     ]
    ],
@@ -1780,6 +1927,10 @@
     [
      "crystal_earring",
      0.05
+    ],
+    [
+     "cat_headphones",
+     0.05
     ]
    ],
    "model": "Flying_Goleling_Evolved"
@@ -1816,6 +1967,10 @@
     ],
     [
      "crystal_earring",
+     0.008
+    ],
+    [
+     "cat_headphones",
      0.008
     ]
    ],
@@ -1854,6 +2009,10 @@
     [
      "crystal_earring",
      0.008
+    ],
+    [
+     "cat_headphones",
+     0.008
     ]
    ],
    "model": "Big_Orc"
@@ -1890,6 +2049,10 @@
     ],
     [
      "crystal_earring",
+     0.008
+    ],
+    [
+     "cat_headphones",
      0.008
     ]
    ],
@@ -1945,6 +2108,10 @@
     [
      "crystal_earring",
      0.05
+    ],
+    [
+     "cat_headphones",
+     0.05
     ]
    ],
    "model": "Flying_Tribal"
@@ -1982,6 +2149,10 @@
     [
      "note_stud",
      0.02
+    ],
+    [
+     "earbuds",
+     0.02
     ]
    ]
   },
@@ -2017,6 +2188,10 @@
     ],
     [
      "note_stud",
+     0.02
+    ],
+    [
+     "earbuds",
      0.02
     ]
    ]
@@ -2054,6 +2229,10 @@
     [
      "note_stud",
      0.02
+    ],
+    [
+     "earbuds",
+     0.02
     ]
    ]
   },
@@ -2089,6 +2268,10 @@
     ],
     [
      "pick_earring",
+     0.015
+    ],
+    [
+     "in_ear_monitor",
      0.015
     ]
    ]
@@ -2126,6 +2309,10 @@
     [
      "pick_earring",
      0.015
+    ],
+    [
+     "in_ear_monitor",
+     0.015
     ]
    ]
   },
@@ -2161,6 +2348,10 @@
     ],
     [
      "pick_earring",
+     0.015
+    ],
+    [
+     "in_ear_monitor",
      0.015
     ]
    ]
@@ -2198,6 +2389,10 @@
     [
      "pick_earring",
      0.015
+    ],
+    [
+     "in_ear_monitor",
+     0.015
     ]
    ]
   },
@@ -2233,6 +2428,10 @@
     ],
     [
      "pick_earring",
+     0.015
+    ],
+    [
+     "in_ear_monitor",
      0.015
     ]
    ]
@@ -2270,6 +2469,10 @@
     [
      "pick_earring",
      0.015
+    ],
+    [
+     "in_ear_monitor",
+     0.015
     ]
    ]
   },
@@ -2305,6 +2508,10 @@
     ],
     [
      "pick_earring",
+     0.015
+    ],
+    [
+     "in_ear_monitor",
      0.015
     ]
    ]
@@ -2342,6 +2549,10 @@
     [
      "star_earring",
      0.01
+    ],
+    [
+     "gaming_headset",
+     0.01
     ]
    ]
   },
@@ -2377,6 +2588,10 @@
     ],
     [
      "star_earring",
+     0.01
+    ],
+    [
+     "gaming_headset",
      0.01
     ]
    ]
@@ -2414,6 +2629,10 @@
     [
      "star_earring",
      0.01
+    ],
+    [
+     "gaming_headset",
+     0.01
     ]
    ]
   },
@@ -2449,6 +2668,10 @@
     ],
     [
      "star_earring",
+     0.01
+    ],
+    [
+     "gaming_headset",
      0.01
     ]
    ]
@@ -2486,6 +2709,10 @@
     [
      "star_earring",
      0.01
+    ],
+    [
+     "dj_headphones",
+     0.01
     ]
    ]
   },
@@ -2521,6 +2748,10 @@
     ],
     [
      "star_earring",
+     0.01
+    ],
+    [
+     "dj_headphones",
      0.01
     ]
    ]
@@ -2558,6 +2789,10 @@
     [
      "star_earring",
      0.01
+    ],
+    [
+     "dj_headphones",
+     0.01
     ]
    ]
   },
@@ -2593,6 +2828,10 @@
     ],
     [
      "crystal_earring",
+     0.008
+    ],
+    [
+     "cat_headphones",
      0.008
     ]
    ]
@@ -2630,6 +2869,10 @@
     [
      "crystal_earring",
      0.008
+    ],
+    [
+     "cat_headphones",
+     0.008
     ]
    ]
   },
@@ -2666,6 +2909,10 @@
     [
      "crystal_earring",
      0.008
+    ],
+    [
+     "cat_headphones",
+     0.008
     ]
    ]
   },
@@ -2701,6 +2948,10 @@
     ],
     [
      "pick_earring",
+     0.015
+    ],
+    [
+     "in_ear_monitor",
      0.015
     ]
    ]

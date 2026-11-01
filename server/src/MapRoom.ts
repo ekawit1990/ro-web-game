@@ -21,6 +21,7 @@ export const PlayerState = schema({
   face: t.number(),
   head: t.string(), // equipped headgear item id, for drawing
   weapon: t.string(), // equipped weapon item id ('' = bare hands), for drawing
+  ear: t.string(), // equipped headphones item id, for drawing
   x: t.number(),
   y: t.number(),
   hp: t.number(),
@@ -176,7 +177,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const p = new PlayerState();
     Object.assign(p, {
       name: c.name, cls: c.cls, level: c.level, gender: c.gender, hair: c.hair, hairColor: c.hair_color, face: c.face,
-      head: '', weapon: '', x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
+      head: '', weapon: '', ear: '', x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
       hp: (carry.hp ?? c.hp) > 0 ? Math.min(carry.hp ?? c.hp, seat.derived.maxHp) : seat.derived.maxHp,
       sp: (carry.sp ?? c.sp) >= 0 ? Math.min(carry.sp ?? c.sp, seat.derived.maxSp) : seat.derived.maxSp,
       dead: false, sitting: false,
@@ -784,6 +785,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     p.sp = Math.min(p.sp, p.maxSp);
     p.head = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'head')?.item_id ?? '';
     p.weapon = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'weapon')?.item_id ?? '';
+    p.ear = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'earring')?.item_id ?? '';
     seat.client.send('derived', { derived: seat.derived });
   }
 
