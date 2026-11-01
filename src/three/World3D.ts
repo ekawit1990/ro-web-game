@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, CROWD_MAX, ClassKey, ITEMS, MONSTERS, SKILLS, SPAWNS, canUseSkill, skillPower, skillSp, skillsOf, targetsPlayer } from '../data';
+import { CLASSES, CROWD_MAX, ClassKey, ITEMS, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsPlayer } from '../data';
 import { findPath, GameMap, Npc, THEMES, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
@@ -708,7 +708,7 @@ export class World3D {
       if (heal) return cast(heal, SKILLS[heal].type === 'heal_target' ? this.room.sessionId : undefined);
     }
     // keep buffs up
-    const buff = mine.find((id) => (SKILLS[id].type === 'buff' || SKILLS[id].type === 'buff_target') && (this.autoBuffs.get(id) ?? 0) < t + 1000);
+    const buff = mine.find((id) => isBuffSkill(SKILLS[id]) && (this.autoBuffs.get(id) ?? 0) < t + 1000);
     if (buff) {
       this.autoBuffs.set(buff, t + 3000); // until the server's 'buff' message says how long
       return cast(buff, SKILLS[buff].type === 'buff_target' ? this.room.sessionId : undefined);
@@ -823,8 +823,9 @@ export class World3D {
       this.path = [];
     });
     on('healed', () => {
-      this.hooks.toast('ครูเพลง: พักเสียงสักหน่อยนะ (ฟื้น HP/SP เต็ม)', 'good');
+      this.hooks.toast('ครูเพลง: พักเสียงสักหน่อยนะ (ฟื้น HP/SP เต็ม + บัพทุกสกิลระดับสูงสุด)', 'good');
       this.sparkle(this.me, 0x9be0ff);
+      this.levelFx(this.me, '', 0xffd36b);
       sfx('heal');
     });
     on('chat', (msg: { id: string; text: string }) => this.bubble(msg.id, msg.text));
@@ -1311,7 +1312,7 @@ export class World3D {
     });
   }
 
-  private skillFx(msg: { by: string; skill: string; x: number; y: number; target?: string; fromX?: number; fromY?: number; hits: { m?: string; p?: string; dmg: number }[] }) {
+  private skillFx(msg: { by: string; skill: string; x: number; y: number; target?: string; allies?: string[]; fromX?: number; fromY?: number; hits: { m?: string; p?: string; dmg: number }[] }) {
     const skill = SKILLS[msg.skill];
     const a = this.players.get(msg.by);
     if (!skill) return;
@@ -1341,6 +1342,17 @@ export class World3D {
       this.burst(new THREE.Vector3(msg.x, 0.3, msg.y), color, 22, 4);
     } else if (skill.type === 'buff' && a) {
       this.levelFx(a, '', color);
+    } else if (skill.type === 'buff_party') {
+      // keyboardist buffs: the effect plays on everyone it reached (you and your party on this map)
+      for (const sid of msg.allies ?? [msg.by]) {
+        const t = this.players.get(sid);
+        if (!t) continue;
+        if (skill.fx) {
+          const lift = ({ shield: 0.15, tempo: 0.45 } as Record<string, number>)[skill.fx] ?? 0.02;
+          this.pixelFx(skill.fx, { at: () => new THREE.Vector3(t.x, lift, t.y) });
+        } else this.levelFx(t, '', color);
+        if (t !== a) this.burst(new THREE.Vector3(t.x, 1, t.y), color, 10);
+      }
     } else if (targetsPlayer(skill)) {
       // keyboardist support skills: a pixelfx effect that follows the player it landed on
       const t = this.players.get(msg.target ?? '') ?? a;
