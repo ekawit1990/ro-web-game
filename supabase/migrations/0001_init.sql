@@ -22,7 +22,10 @@ create table if not exists public.item_defs (
 alter table public.item_defs add column if not exists weight int not null default 1;
 alter table public.item_defs drop constraint if exists item_defs_type_check;
 alter table public.item_defs add constraint item_defs_type_check
-  check (type in ('consumable', 'loot', 'weapon', 'armor', 'head', 'accessory', 'shoes', 'earring'));
+  check (type in ('consumable', 'loot', 'card', 'weapon', 'armor', 'head', 'accessory', 'shoes', 'earring'));
+-- card slots on equipment; for cards, the equipment type they go into (see cardFits in src/data/index.ts)
+alter table public.item_defs add column if not exists slots int not null default 0;
+alter table public.item_defs add column if not exists card_slot text;
 
 create table if not exists public.monster_defs (
   id text primary key,
@@ -79,6 +82,9 @@ create table if not exists public.inventory (
   equipped boolean not null default false
 );
 create index if not exists inventory_char_idx on public.inventory (character_id);
+-- equipment only: + level from the refiner, and the cards inserted into it
+alter table public.inventory add column if not exists refine int not null default 0;
+alter table public.inventory add column if not exists cards text[] not null default '{}';
 
 -- บูรพา's storage: one per account (auth user), shared by all of that account's characters.
 -- Stackable items keep one row per item; each piece of equipment is its own row (qty 1).
@@ -89,6 +95,8 @@ create table if not exists public.account_storage (
   qty int not null check (qty > 0)
 );
 create index if not exists account_storage_user_idx on public.account_storage (user_id);
+alter table public.account_storage add column if not exists refine int not null default 0;
+alter table public.account_storage add column if not exists cards text[] not null default '{}';
 
 alter table public.class_defs enable row level security;
 alter table public.item_defs enable row level security;
@@ -443,13 +451,14 @@ begin
   end if;
   if r.qty = p_qty then delete from public.inventory where id = p_inv;
   else update public.inventory set qty = qty - p_qty where id = p_inv; end if;
-  if s_id is null then insert into public.account_storage (user_id, item_id, qty) values (c.user_id, r.item_id, p_qty);
+  if s_id is null then
+    insert into public.account_storage (user_id, item_id, qty, refine, cards) values (c.user_id, r.item_id, p_qty, r.refine, r.cards);
   else update public.account_storage set qty = qty + p_qty where id = s_id; end if;
 end $$;
 
 create or replace function public.storage_take(p_char uuid, p_row uuid, p_qty int) returns void
 language plpgsql security definer set search_path = public as $$
-declare c public.characters; s public.account_storage;
+declare c public.characters; s public.account_storage; t text;
 begin
   c := public._own_char(p_char);
   perform pg_advisory_xact_lock(hashtext('storage:' || c.user_id::text));
@@ -457,7 +466,74 @@ begin
   if not found or p_qty < 1 or p_qty > s.qty then raise exception 'ถอนไม่ได้'; end if;
   if s.qty = p_qty then delete from public.account_storage where id = p_row;
   else update public.account_storage set qty = qty - p_qty where id = p_row; end if;
-  perform public._add_item(p_char, s.item_id, p_qty);
+  select type into t from public.item_defs where id = s.item_id;
+  if t in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring') then
+    -- equipment keeps its + level and cards
+    insert into public.inventory (character_id, item_id, qty, refine, cards)
+      select p_char, s.item_id, 1, s.refine, s.cards from generate_series(1, p_qty);
+  else
+    perform public._add_item(p_char, s.item_id, p_qty);
+  end if;
+end $$;
+
+-- Monster cards (browser): put one card from the bag into a free card slot of a piece of equipment.
+-- The card is used up and can't be taken out again (like RO).
+create or replace function public.insert_card(p_char uuid, p_card uuid, p_equip uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare c public.characters; cr public.inventory; er public.inventory; ci public.item_defs; ei public.item_defs;
+begin
+  c := public._own_char(p_char);
+  select * into cr from public.inventory where id = p_card and character_id = p_char for update;
+  select * into er from public.inventory where id = p_equip and character_id = p_char for update;
+  if cr.id is null or er.id is null then raise exception 'ไม่พบไอเท็ม'; end if;
+  select * into ci from public.item_defs where id = cr.item_id;
+  select * into ei from public.item_defs where id = er.item_id;
+  if ci.type <> 'card' then raise exception 'ไอเท็มนี้ไม่ใช่การ์ด'; end if;
+  if not (ci.card_slot = ei.type or (ci.card_slot = 'head' and ei.type = 'earring')) then
+    raise exception 'การ์ดใบนี้เสียบในไอเท็มนี้ไม่ได้';
+  end if;
+  if coalesce(array_length(er.cards, 1), 0) >= ei.slots then raise exception 'ไม่มีช่องการ์ดว่าง'; end if;
+  if cr.qty = 1 then delete from public.inventory where id = p_card;
+  else update public.inventory set qty = qty - 1 where id = p_card; end if;
+  update public.inventory set cards = cards || cr.item_id where id = p_equip;
+end $$;
+
+-- Refiner NPC (browser). Numbers match REFINE in src/data/index.ts: 1 material + 100 z x next level;
+-- up to the safe level it always works, past it a failure destroys the item and its cards.
+create or replace function public.refine_item(p_char uuid, p_inv uuid) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  c public.characters; r public.inventory; it public.item_defs; nxt int; chance int; fee int; mat text; m public.inventory;
+  ok boolean;
+begin
+  c := public._own_char(p_char);
+  select * into r from public.inventory where id = p_inv and character_id = p_char for update;
+  if not found then raise exception 'ไม่พบไอเท็ม'; end if;
+  select * into it from public.item_defs where id = r.item_id;
+  if it.type not in ('weapon', 'armor', 'head', 'shoes', 'earring') then raise exception 'ไอเท็มนี้ตีบวกไม่ได้'; end if;
+  if r.refine >= 10 then raise exception 'ตีบวกสูงสุดแล้ว (+10)'; end if;
+  nxt := r.refine + 1;
+  if it.type = 'weapon' then
+    chance := (array[100, 100, 100, 100, 100, 70, 55, 40, 25, 15])[nxt]; mat := 'tuning_ore';
+  else
+    chance := (array[100, 100, 100, 100, 70, 55, 40, 30, 20, 10])[nxt]; mat := 'velvet_patch';
+  end if;
+  fee := 100 * nxt;
+  if c.zeny < fee then raise exception 'Zeny ไม่พอ (ค่าตีบวก % z)', fee; end if;
+  select * into m from public.inventory where character_id = p_char and item_id = mat for update limit 1;
+  if not found then
+    raise exception 'ไม่มี%', case when mat = 'tuning_ore' then 'หินจูนเสียง' else 'ผ้ากำมะหยี่ซับเสียง' end;
+  end if;
+  if m.qty = 1 then delete from public.inventory where id = m.id;
+  else update public.inventory set qty = qty - 1 where id = m.id; end if;
+  update public.characters set zeny = zeny - fee where id = p_char returning * into c;
+  ok := random() * 100 < chance;
+  if ok then
+    update public.inventory set refine = nxt where id = p_inv;
+  else
+    delete from public.inventory where id = p_inv;
+  end if;
+  return jsonb_build_object('ok', ok, 'refine', case when ok then nxt else r.refine end, 'character', public._char_json(c));
 end $$;
 
 -- บูรพา's warp (game server only): pay the fare and move in one step.
@@ -531,6 +607,8 @@ revoke execute on function public.sell_item(uuid, uuid, int) from public, anon;
 revoke execute on function public.set_equipped(uuid, uuid, boolean) from public, anon;
 revoke execute on function public.storage_put(uuid, uuid, int) from public, anon;
 revoke execute on function public.storage_take(uuid, uuid, int) from public, anon;
+revoke execute on function public.insert_card(uuid, uuid, uuid) from public, anon;
+revoke execute on function public.refine_item(uuid, uuid) from public, anon;
 grant execute on function public.create_character(text, text, int, int, int) to authenticated;
 grant execute on function public.start_job_quest(uuid) to authenticated;
 grant execute on function public.change_job(uuid, text) to authenticated;
@@ -541,6 +619,8 @@ grant execute on function public.sell_item(uuid, uuid, int) to authenticated;
 grant execute on function public.set_equipped(uuid, uuid, boolean) to authenticated;
 grant execute on function public.storage_put(uuid, uuid, int) to authenticated;
 grant execute on function public.storage_take(uuid, uuid, int) to authenticated;
+grant execute on function public.insert_card(uuid, uuid, uuid) to authenticated;
+grant execute on function public.refine_item(uuid, uuid) to authenticated;
 
 revoke execute on function public.report_kill(uuid, uuid, text) from public, anon, authenticated;
 revoke execute on function public.grant_reward(uuid, uuid, int, int, int, text[], boolean) from public, anon, authenticated;

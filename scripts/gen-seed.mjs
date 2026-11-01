@@ -10,8 +10,8 @@ const shop = [...data.shop, ...data.weaponShop];
 for (const [id, it] of Object.entries(data.items)) {
   const classes = it.classes ? `array[${it.classes.map(q).join(', ')}]` : 'null';
   lines.push(
-    `insert into public.item_defs (id, type, price, classes, in_shop, weight) values (${q(id)}, ${q(it.type)}, ${it.price}, ${classes}, ${shop.includes(id)}, ${it.weight})` +
-      ` on conflict (id) do update set type = excluded.type, price = excluded.price, classes = excluded.classes, in_shop = excluded.in_shop, weight = excluded.weight;`,
+    `insert into public.item_defs (id, type, price, classes, in_shop, weight, slots, card_slot) values (${q(id)}, ${q(it.type)}, ${it.price}, ${classes}, ${shop.includes(id)}, ${it.weight}, ${it.slots ?? 0}, ${it.card ? q(it.card.slot) : 'null'})` +
+      ` on conflict (id) do update set type = excluded.type, price = excluded.price, classes = excluded.classes, in_shop = excluded.in_shop, weight = excluded.weight, slots = excluded.slots, card_slot = excluded.card_slot;`,
   );
 }
 lines.push('');

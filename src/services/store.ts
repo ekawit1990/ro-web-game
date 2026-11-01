@@ -20,6 +20,13 @@ export interface RewardShare {
   quest: boolean;
 }
 
+/** What the refiner did: ok = the + went up; otherwise the item broke and is gone. */
+export interface RefineResult {
+  ok: boolean;
+  refine: number;
+  character: Character;
+}
+
 export interface TradeOffer {
   items: { inv: string; qty: number }[];
   zeny: number;
@@ -50,5 +57,9 @@ export interface GameStore {
   storagePut(charId: string, invId: string, qty: number): Promise<void>;
   /** Storage -> this character's bag. */
   storageTake(charId: string, rowId: string, qty: number): Promise<void>;
+  /** Puts a card from the bag into a free card slot of a piece of equipment (for good). */
+  insertCard(charId: string, cardInv: string, equipInv: string): Promise<void>;
+  /** One try at the refiner: costs a material and zeny; past the safe level a failure destroys the item. */
+  refineItem(charId: string, invId: string): Promise<RefineResult>;
   signOut(): Promise<void>;
 }

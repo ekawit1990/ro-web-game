@@ -127,6 +127,17 @@ export class Session {
     await this.after(this.char, true);
   }
 
+  async insertCard(cardInv: string, equipInv: string) {
+    await this.store.insertCard(this.char.id, cardInv, equipInv);
+    await this.after(this.char, true);
+  }
+
+  async refine(invId: string) {
+    const r = await this.store.refineItem(this.char.id, invId);
+    await this.after(r.character, true);
+    return r;
+  }
+
   /** The server applies the heal and answers with 'sync'. */
   use(invId: string) {
     this.link?.send('useItem', { invId });

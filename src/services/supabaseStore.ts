@@ -1,9 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Appearance, Character, ClassKey, InvItem, StatKey, StorageItem } from '../data';
-import type { GameStore } from './store';
+import type { GameStore, RefineResult } from './store';
 
 export const CHAR_COLUMNS =
   'id,name,cls,level,exp,job_level,job_exp,zeny,stat_points,skill_points,skills,job_quest,str,agi,vit,int,dex,luk,gender,hair,hair_color,face,hp,sp,map,pos_x,pos_y';
+
+/** refine + cards need the newer setup.sql; until it is re-run, fall back to the old columns. */
+export const INV_COLUMNS = 'id,item_id,qty,equipped,refine,cards';
+const OLD_INV_COLUMNS = 'id,item_id,qty,equipped';
+
+/** A character's bag, from a database with or without the refine/cards columns. */
+export async function selectInventory(sb: SupabaseClient, charId: string): Promise<InvItem[]> {
+  const res = await sb.from('inventory').select(INV_COLUMNS).eq('character_id', charId);
+  if (!res.error) return res.data as InvItem[];
+  return check(await sb.from('inventory').select(OLD_INV_COLUMNS).eq('character_id', charId)) as InvItem[];
+}
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
@@ -49,9 +60,7 @@ export class SupabaseStore implements GameStore {
   }
 
   async loadInventory(charId: string) {
-    return check(
-      await this.sb.from('inventory').select('id,item_id,qty,equipped').eq('character_id', charId),
-    ) as InvItem[];
+    return selectInventory(this.sb, charId);
   }
 
   async allocateStat(charId: string, stat: StatKey) {
@@ -83,7 +92,18 @@ export class SupabaseStore implements GameStore {
   }
 
   async loadStorage() {
+    const res = await this.sb.from('account_storage').select('id,item_id,qty,refine,cards').order('item_id');
+    if (!res.error) return res.data as StorageItem[];
     return check(await this.sb.from('account_storage').select('id,item_id,qty').order('item_id')) as StorageItem[];
+  }
+
+  async insertCard(charId: string, cardInv: string, equipInv: string) {
+    check(await this.sb.rpc('insert_card', { p_char: charId, p_card: cardInv, p_equip: equipInv }));
+  }
+
+  async refineItem(charId: string, invId: string) {
+    const r = check(await this.sb.rpc('refine_item', { p_char: charId, p_inv: invId })) as RefineResult;
+    return { ...r, character: clean(r.character as never) };
   }
 
   async storagePut(charId: string, invId: string, qty: number) {

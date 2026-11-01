@@ -1,6 +1,7 @@
 import {
-  CLASSES, CLASS_KEYS, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, SHOP, SKILLS, START_CLASS,
-  STAT_KEYS, STORAGE_SLOTS, StatKey, WEAPON_SHOP, expToNext, jobExpToNext, jobTown, skillSp, skillsOf, statCost,
+  CLASSES, CLASS_KEYS, CardBonus, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, REFINE, SHOP, SKILLS,
+  START_CLASS, STAT_KEYS, STORAGE_SLOTS, StatKey, WEAPON_SHOP, canRefine, cardFits, expToNext, itemLabel, jobExpToNext, jobTown,
+  refineBonus, refineChance, refineFee, refineMaterial, refineSafe, skillSp, skillsOf, statCost,
 } from '../data';
 import { THEMES, WARP_TOWNS, getMap, type GameMap, type Npc } from '../game/maps';
 import type { Session } from '../game/session';
@@ -9,7 +10,9 @@ import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
 
-type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party';
+type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine';
+/** A bag row, or what we know of someone else's (trade): the + level and cards travel with it. */
+type ItemRow = Pick<InvItem, 'refine' | 'cards'> & { qty?: number; equipped?: boolean };
 type Slot = { t: 's' | 'i'; id: string } | null;
 type InvTab = 'item' | 'equip' | 'etc';
 type ChatTab = 'all' | 'chat' | 'sys';
@@ -17,7 +20,7 @@ type ChatTab = 'all' | 'chat' | 'sys';
 interface TradeView {
   with: string;
   mine: { items: { inv: string; qty: number }[]; zeny: number };
-  theirs: { items: { item: string; qty: number }[]; zeny: number };
+  theirs: { items: { item: string; qty: number; refine?: number; cards?: string[] }[]; zeny: number };
   lockedMine: boolean; lockedTheirs: boolean; confirmedMine: boolean; confirmedTheirs: boolean;
 }
 
@@ -45,9 +48,22 @@ const STAT_HELP: Record<StatKey, string> = {
 const SLOT_LABEL: Record<string, string> = {
   head: 'หมวก', weapon: 'อาวุธ', armor: 'ชุด', accessory: 'เครื่องประดับ', shoes: 'รองเท้า', earring: 'หูฟัง',
 };
+const TYPE_LABEL: Record<string, string> = {
+  ...SLOT_LABEL, consumable: 'ของใช้', loot: 'ของสะสม / วัตถุดิบ', card: 'การ์ดมอนสเตอร์',
+};
+const CARD_SLOT_LABEL: Record<string, string> = { weapon: 'อาวุธ', armor: 'ชุด', head: 'หมวก / หูฟัง', shoes: 'รองเท้า', accessory: 'เครื่องประดับ' };
+const BONUS_LABEL: Record<keyof CardBonus, string> = {
+  str: 'Str', agi: 'Agi', vit: 'Vit', int: 'Int', dex: 'Dex', luk: 'Luk', atk: 'Atk', matk: 'Matk', def: 'Def', mdef: 'Mdef',
+  hit: 'Hit', flee: 'Flee', crit: 'Critical', aspd: 'Aspd', maxHp: 'MaxHP', maxSp: 'MaxSP', maxHpPct: 'MaxHP', maxSpPct: 'MaxSP',
+  atkPct: 'Atk', matkPct: 'Matk',
+};
+const PCT_BONUS = new Set(['aspd', 'maxHpPct', 'maxSpPct', 'atkPct', 'matkPct']);
+/** "Agi +1 · Aspd +3%" */
+export const bonusText = (b: CardBonus) =>
+  (Object.entries(b) as [keyof CardBonus, number][]).map(([k, v]) => `${BONUS_LABEL[k]} +${v}${PCT_BONUS.has(k) ? '%' : ''}`).join(' · ');
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
-  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250],
+  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80],
 };
 
 /** The RO-style windows over the game: Basic Info, Equipment+Status, Inventory, Skill Tree, hotkeys, minimap, chat. */
@@ -63,6 +79,10 @@ export class Hud implements WorldHooks {
   private shopKind: 'shop' | 'weapons' = 'shop';
   private shopTab: 'buy' | 'sell' = 'buy';
   private storageTab: 'put' | 'take' = 'put';
+  /** The item window: which bag row (or shop/storage item) it shows, and whether it's picking equipment for a card. */
+  private itemView: { inv?: string; item: string; row?: ItemRow; cardMode?: boolean } | null = null;
+  /** Card insert / risky refine wait for a second click on the same button. */
+  private armed = '';
   private map!: GameMap;
   private miniBase?: HTMLCanvasElement;
   private raf = 0;
@@ -111,6 +131,7 @@ export class Hud implements WorldHooks {
     this.closeWin('shop');
     this.closeWin('npc');
     this.closeWin('storage');
+    this.closeWin('refine');
     this.closeTrade();
     const name = this.root.querySelector('#mini-name');
     if (name) name.textContent = map.name;
@@ -325,9 +346,9 @@ export class Hud implements WorldHooks {
     const slot = (type: string) => {
       const row = this.s.equippedOf(type);
       const it = row ? ITEMS[row.item_id] : null;
-      return `<div class="eq-slot" data-unequip="${row?.id ?? ''}" title="${row ? 'ดับเบิลคลิกเพื่อถอด' : ''}">
+      return `<div class="eq-slot" data-unequip="${row?.id ?? ''}">
         ${it ? `<img src="${itemIcon(row!.item_id)}"/>` : '<span class="ph"></span>'}
-        <div><small>${SLOT_LABEL[type]}</small><b>${it ? escapeHtml(it.name) : '-'}</b></div></div>`;
+        <div><small>${SLOT_LABEL[type]}</small><b>${it ? escapeHtml(itemLabel(row!.item_id, row)) : '-'}</b></div></div>`;
     };
     const rows = STAT_KEYS.map((k) => {
       const cost = statCost(c[k]);
@@ -357,9 +378,16 @@ export class Hud implements WorldHooks {
     );
     b.querySelectorAll<HTMLElement>('[data-unequip]').forEach((el) => {
       if (!el.dataset.unequip) return;
-      const off = () => this.run(() => this.s.setEquipped(el.dataset.unequip!, false));
+      const row = this.s.inv.find((i) => i.id === el.dataset.unequip);
+      if (!row) return;
+      const off = () => this.run(() => this.s.setEquipped(row.id, false));
       el.addEventListener('dblclick', () => !lastTouch && off());
-      onTouchTap(el, () => {}, off);
+      el.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        this.openItem(row.item_id, row.id);
+      });
+      this.tooltip(el, () => this.itemTip(row.item_id, row) + '<div class="muted">ดับเบิลคลิก = ถอด · คลิกขวา = รายละเอียด</div>');
+      onTouchTap(el, () => this.openItem(row.item_id, row.id), off);
     });
   }
 
@@ -386,7 +414,7 @@ export class Hud implements WorldHooks {
     const rows = this.s.inv.filter((i) => this.tabOf(ITEMS[i.item_id]?.type) === this.invTab);
     const cells = rows
       .map((r) => `<div class="cell ${r.equipped ? 'on' : ''}" data-inv="${r.id}" draggable="true">
-        <img src="${itemIcon(r.item_id)}"/>${r.qty > 1 ? `<i>${r.qty}</i>` : ''}${r.equipped ? '<em>E</em>' : ''}</div>`)
+        <img src="${itemIcon(r.item_id)}"/>${r.qty > 1 ? `<i>${r.qty}</i>` : ''}${r.equipped ? '<em>E</em>' : ''}${r.refine ? `<u>+${r.refine}</u>` : ''}</div>`)
       .join('');
     const empty = Math.max(0, 24 - rows.length);
     b.innerHTML = `
@@ -394,7 +422,7 @@ export class Hud implements WorldHooks {
         .map((t) => `<button data-tab="${t}" class="${t === this.invTab ? 'on' : ''}">${{ item: 'ใช้ได้', equip: 'สวมใส่', etc: 'อื่นๆ' }[t]}</button>`)
         .join('')}</div>
       <div class="grid">${cells}${'<div class="cell"></div>'.repeat(empty)}</div>
-      <div class="inv-foot">${this.trade ? '<span class="hint">ดับเบิลคลิกไอเท็มเพื่อใส่ในหน้าต่างแลกเปลี่ยน</span>' : '<span class="hint">ดับเบิลคลิก = ใช้/สวมใส่ · ลากไปช่องปุ่มลัดได้</span>'}
+      <div class="inv-foot">${this.trade ? '<span class="hint">ดับเบิลคลิกไอเท็มเพื่อใส่ในหน้าต่างแลกเปลี่ยน</span>' : `<span class="hint">${lastTouch ? 'แตะ = ดูรายละเอียด · แตะสองครั้ง = ใช้/สวมใส่' : 'ดับเบิลคลิก = ใช้/สวมใส่ · คลิกขวา = รายละเอียด'}</span>`}
         <span>${Math.floor(this.s.derived.weight / 10)} / ${Math.floor(this.s.derived.maxWeight / 10)}</span></div>`;
     b.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((t) =>
       t.addEventListener('click', () => {
@@ -407,8 +435,12 @@ export class Hud implements WorldHooks {
       el.addEventListener('dblclick', () => !lastTouch && this.activateItem(row));
       this.tooltip(el, () => this.itemTip(row.item_id, row));
       el.addEventListener('dragstart', (e) => e.dataTransfer!.setData('text/plain', `i:${row.item_id}`));
+      el.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        this.openItem(row.item_id, row.id);
+      });
       const pickable = ITEMS[row.item_id]?.type === 'consumable' && !this.trade;
-      onTouchTap(el, () => pickable && this.pick({ t: 'i', id: row.item_id }), () => {
+      onTouchTap(el, () => (pickable ? this.pick({ t: 'i', id: row.item_id }) : !this.trade && this.openItem(row.item_id, row.id)), () => {
         this.pick(null);
         this.activateItem(row);
       });
@@ -419,24 +451,115 @@ export class Hud implements WorldHooks {
     const it = ITEMS[row.item_id];
     if (this.trade) return this.addToTrade(row);
     if (it.type === 'consumable') return this.s.use(row.id);
+    if (it.type === 'card') return this.openItem(row.item_id, row.id, true);
     if ((EQUIP_TYPES as string[]).includes(it.type)) this.run(() => this.s.setEquipped(row.id, !row.equipped));
   }
 
-  private itemTip(id: string, row?: InvItem) {
+  /** Everything about an item, RO-style: + level, card slots, stats with the refine bonus, cards, description. */
+  private itemTip(id: string, row?: ItemRow, full = false) {
     const it = ITEMS[id];
     if (!it) return '';
-    const parts: string[] = [];
-    if (it.atk) parts.push(`Atk +${it.atk}`);
-    if (it.matk) parts.push(`Matk +${it.matk}`);
-    if (it.def) parts.push(`Def +${it.def}`);
-    if (it.aspd) parts.push(`Aspd +${it.aspd}%`);
-    if (it.flee) parts.push(`Flee +${it.flee}`);
-    if (it.crit) parts.push(`Critical +${it.crit}`);
-    if (it.heal) parts.push(`ฟื้น HP ${it.heal}`);
-    if (it.sp) parts.push(`ฟื้น SP ${it.sp}`);
-    const classes = it.classes ? `<div class="muted">ใช้ได้: ${it.classes.map((c) => CLASSES[c].name).join(', ')}</div>` : '';
-    return `<b>${escapeHtml(it.name)}</b>${row && row.qty > 1 ? ` x${row.qty}` : ''}<div>${parts.join(' · ')}</div>${classes}
-      <div class="muted">น้ำหนัก ${it.weight / 10} · ราคา ${it.price}z</div>`;
+    const refine = row?.refine ?? 0;
+    const rb = refineBonus(it, refine);
+    const stat = (label: string, base: number | undefined, extra = 0, unit = '') =>
+      base || extra ? `<span>${label} <b>${(base ?? 0) + extra}${unit}</b>${extra ? ` <em class="up">(+${extra})</em>` : ''}</span>` : '';
+    const stats = [
+      stat('Atk', it.atk, rb.atk), stat('Matk', it.matk, rb.matk), stat('Def', it.def, rb.def), stat('Aspd', it.aspd, 0, '%'),
+      stat('Flee', it.flee), stat('Critical', it.crit),
+      it.heal ? `<span>ฟื้น HP <b>${it.heal}</b></span>` : '', it.sp ? `<span>ฟื้น SP <b>${it.sp}</b></span>` : '',
+    ].filter(Boolean).join('');
+    const lines: string[] = [];
+    const sub = [TYPE_LABEL[it.type] ?? it.type];
+    if (it.classes) sub.push(`ใช้ได้: ${it.classes.map((c) => CLASSES[c].name).join(', ')}`);
+    else if ((EQUIP_TYPES as string[]).includes(it.type)) sub.push('ทุกอาชีพ');
+    if (stats) lines.push(`<div class="it-stats">${stats}</div>`);
+    if (it.slots) {
+      const cards = row?.cards ?? [];
+      const slots = Array.from({ length: it.slots }, (_, i) => {
+        const c = cards[i] ? ITEMS[cards[i]] : null;
+        return c
+          ? `<div class="it-card on"><img src="${itemIcon(cards[i])}"/><span><b>${escapeHtml(c.name)}</b><small>${bonusText(c.card?.bonus ?? {})}</small></span></div>`
+          : '<div class="it-card"><span class="ph"></span><span class="muted">ช่องว่าง</span></div>';
+      });
+      lines.push(`<div class="it-sec">ช่องการ์ด ${cards.length} / ${it.slots}</div>${slots.join('')}`);
+    }
+    if (it.card) {
+      lines.push(`<div class="it-sec">เสียบใน: ${CARD_SLOT_LABEL[it.card.slot]}</div><div class="it-bonus">${bonusText(it.card.bonus)}</div>`);
+    }
+    if (canRefine(it)) {
+      lines.push(`<div class="muted">ตีบวกได้ถึง +${REFINE.max} (ปลอดภัยถึง +${refineSafe(it)}) · +1 = ${it.type === 'weapon' ? `Atk +${REFINE.weaponAtk}${it.matk ? ` Matk +${REFINE.weaponAtk}` : ''}` : `Def +${REFINE.armorDef}`}</div>`);
+    }
+    if (it.desc) lines.push(`<div class="it-desc">${escapeHtml(it.desc)}</div>`);
+    const qty = row?.qty && row.qty > 1 ? ` x${row.qty}` : '';
+    return `<div class="it-tip ${full ? 'full' : ''}">
+      <div class="it-head"><img src="${itemIcon(id)}"/><div><b class="${refine ? 'refined' : ''}">${escapeHtml(itemLabel(id, row))}${qty}</b>
+        <small>${sub.join(' · ')}</small></div></div>
+      ${lines.join('')}
+      <div class="muted it-foot">น้ำหนัก ${it.weight / 10} · ขายได้ ${Math.floor(it.price / 2).toLocaleString()} z${row?.equipped ? ' · <b>สวมอยู่</b>' : ''}</div></div>`;
+  }
+
+  /** The item window (right click / tap): full details plus what you can do with it. Cards pick their equipment here. */
+  private openItem(item: string, inv?: string, cardMode = false) {
+    const row = inv ? this.s.inv.find((i) => i.id === inv) : undefined;
+    this.itemView = { item, inv, row, cardMode: cardMode && ITEMS[item]?.type === 'card' };
+    this.armed = '';
+    this.win('item', 'รายละเอียดไอเท็ม', 'item');
+    this.lastSig.item = '';
+    this.renderItem();
+  }
+
+  private renderItem() {
+    const b = this.body('item');
+    const v = this.itemView;
+    if (!b || !v || !this.isOpen('item')) return;
+    const row = v.inv ? this.s.inv.find((i) => i.id === v.inv) : undefined;
+    if (v.inv && !row) return this.closeWin('item'); // used up, sold, broken…
+    const sig = JSON.stringify([v, row, this.armed, this.s.inv.filter((i) => ITEMS[i.item_id]?.slots).map((i) => [i.id, i.cards, i.equipped])]);
+    if (this.lastSig.item === sig) return;
+    this.lastSig.item = sig;
+    const it = ITEMS[v.item];
+    const btns: string[] = [];
+    let extra = '';
+    if (row && it.type === 'consumable') btns.push('<button class="ok" data-act="use">ใช้</button>');
+    if (row && (EQUIP_TYPES as string[]).includes(it.type)) {
+      btns.push(`<button class="ok" data-act="equip">${row.equipped ? 'ถอด' : 'สวมใส่'}</button>`);
+    }
+    if (row && it.type === 'card') {
+      if (!v.cardMode) btns.push('<button class="ok" data-act="card">เสียบการ์ด</button>');
+      else {
+        const fits = this.s.inv.filter((r) => cardFits(it, ITEMS[r.item_id]) && (r.cards?.length ?? 0) < (ITEMS[r.item_id].slots ?? 0));
+        extra = `<div class="it-sec">เลือกอุปกรณ์ที่จะเสียบ (เสียบแล้วถอดไม่ได้)</div>
+          <div class="it-pick">${fits.map((r) => `<button data-into="${r.id}" class="${this.armed === r.id ? 'armed' : ''}">
+            <img src="${itemIcon(r.item_id)}"/><span>${escapeHtml(itemLabel(r.item_id, r))}${r.equipped ? ' <em>(สวมอยู่)</em>' : ''}
+            <small>${this.armed === r.id ? 'กดอีกครั้งเพื่อยืนยัน' : `ช่องว่าง ${(ITEMS[r.item_id].slots ?? 0) - (r.cards?.length ?? 0)}`}</small></span></button>`).join('')
+            || `<p class="hint">ไม่มี${CARD_SLOT_LABEL[it.card!.slot]}ที่มีช่องการ์ดว่างในกระเป๋า</p>`}</div>`;
+      }
+    }
+    b.innerHTML = `${this.itemTip(v.item, row ?? v.row, true)}${extra}
+      <div class="npc-btns">${btns.join('')}<button class="close">ปิด</button></div>`;
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('item'));
+    b.querySelector('[data-act="use"]')?.addEventListener('click', () => row && this.s.use(row.id));
+    b.querySelector('[data-act="equip"]')?.addEventListener('click', () => row && this.run(() => this.s.setEquipped(row.id, !row.equipped)));
+    b.querySelector('[data-act="card"]')?.addEventListener('click', () => {
+      v.cardMode = true;
+      this.renderItem();
+    });
+    b.querySelectorAll<HTMLButtonElement>('[data-into]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.into!;
+        if (this.armed !== target) {
+          this.armed = target;
+          return this.renderItem();
+        }
+        this.armed = '';
+        const into = this.s.inv.find((r) => r.id === target);
+        void this.run(async () => {
+          await this.s.insertCard(row!.id, target);
+          sfx('levelup');
+          this.toast(`เสียบ${it.name}ใส่ ${into ? itemLabel(into.item_id, into) : ''} แล้ว`, 'good');
+          this.closeWin('item');
+        });
+      }));
   }
 
   // ------------------------------------------------------------ skills
@@ -860,15 +983,19 @@ export class Hud implements WorldHooks {
   talk(n: Npc) {
     if (n.id === 'jobs') return this.talkJobs(n);
     if (n.id === 'warper') return this.talkBurapa(n);
+    if (n.id === 'refiner') return this.talkRefiner(n);
     const text: Record<Npc['id'], string> = {
       shop: 'ยินดีต้อนรับจ้า~ มีน้ำดื่ม ยาฟื้นเสียง และเสื้อผ้าเท่ ๆ ให้เลือกเพียบ',
       weapons: 'เครื่องดนตรีดี ๆ ทั้งนั้น! เลือกให้เหมาะกับอาชีพของเจ้านะ',
       healer: 'เหนื่อยไหมจ๊ะ? ให้ครูช่วยพักเสียงให้ไหม (ฟื้น HP/SP เต็มฟรี)',
       jobs: '',
       warper: '',
+      refiner: '',
       guide: 'ยินดีต้อนรับสู่เมืองเมโลเดีย! เดินออกประตูทิศตะวันออกไปทุ่งเมโลดี้เพื่อล่ามอนสเตอร์\n'
         + '• คลิกพื้นเพื่อเดิน คลิกมอนสเตอร์เพื่อตี\n• Alt+Q สถานะ, Alt+E ไอเท็ม, Alt+S สกิล\n• F1-F9 หรือ 1-9 ใช้ปุ่มลัด\n'
         + '• คลิกผู้เล่นอื่นเพื่อแลกเปลี่ยนไอเท็มหรือเงิน\n'
+        + '• ช่างจูน ตีบวก ใกล้ไกด์: ตีบวกอาวุธ/ชุดให้แรงขึ้น · การ์ดมอนสเตอร์เสียบในอุปกรณ์ที่มีช่อง [1] [2]\n'
+        + '• คลิกขวาที่ไอเท็ม (มือถือ: แตะ) เพื่อดูรายละเอียด\n'
         + '• บูรพาข้างน้ำพุกลางเมือง: วาร์ปไปเมืองทะเลทรายตะโพน (เมืองมือกลอง) และฝากของในคลังกลางที่ทุกตัวละครใน ID ใช้ร่วมกัน',
     };
     const w = this.win('npc', escapeHtml(n.name), 'npc');
@@ -916,6 +1043,88 @@ export class Hud implements WorldHooks {
     });
   }
 
+  /** Refiner: +1…+10 for weapons and armour (RO's refining), and how monster cards work. */
+  private talkRefiner(n: Npc) {
+    this.win('npc', escapeHtml(n.name), 'npc');
+    const b = this.body('npc')!;
+    b.innerHTML = `<div class="npc-text">ข้ารับจูนเครื่องดนตรีและเสื้อผ้าให้แกร่งขึ้น! (ตีบวก +1 ถึง +${REFINE.max})<br>
+      • อาวุธใช้ <b>${ITEMS.tuning_ore.name}</b> ส่วนชุด หมวก หูฟัง รองเท้า ใช้ <b>${ITEMS.velvet_patch.name}</b> ครั้งละ 1 ชิ้น + ค่าแรง<br>
+      • อาวุธปลอดภัยถึง +${refineSafe(ITEMS.dagger)} อุปกรณ์อื่นถึง +${refineSafe(ITEMS.band_tshirt)} เกินจากนั้นถ้าพลาด <b>ไอเท็มจะแตกหาย</b> (การ์ดที่เสียบไว้หายด้วย)<br>
+      • การ์ดมอนสเตอร์: ดับเบิลคลิกการ์ดในกระเป๋า (มือถือ: แตะการ์ด) แล้วเลือกอุปกรณ์ที่มีช่องการ์ดว่าง</div>
+      <div class="npc-btns"><button class="ok" data-refine>ตีบวกอุปกรณ์</button><button class="close">ปิด</button></div>`;
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
+    b.querySelector('[data-refine]')!.addEventListener('click', () => {
+      this.closeWin('npc');
+      this.armed = '';
+      this.win('refine', `ตีบวก · ${escapeHtml(n.name)}`, 'shop refine');
+      this.lastSig.refine = '';
+      this.renderRefine();
+    });
+  }
+
+  private renderRefine() {
+    const b = this.body('refine');
+    if (!b || !this.isOpen('refine')) return;
+    const sig = JSON.stringify([this.s.inv, this.s.char.zeny, this.armed]);
+    if (this.lastSig.refine === sig) return;
+    this.lastSig.refine = sig;
+    const rows = this.s.inv.filter((r) => canRefine(ITEMS[r.item_id])).sort((a, c) => Number(c.equipped) - Number(a.equipped));
+    const mats = (['tuning_ore', 'velvet_patch'] as const).map((m) => `<span class="rf-mat"><img src="${itemIcon(m)}"/>${ITEMS[m].name} <b>${this.s.countItem(m)}</b>
+      <button class="buy" data-buy="${m}" title="ซื้อ 1 ชิ้น">ซื้อ ${ITEMS[m].price} z</button></span>`).join('');
+    const list = rows.map((r) => {
+      const it = ITEMS[r.item_id];
+      const cur = r.refine ?? 0;
+      if (cur >= REFINE.max) {
+        return `<div class="shop-row" data-item="${r.item_id}" data-row="${r.id}"><img src="${itemIcon(r.item_id)}"/><span>${escapeHtml(itemLabel(r.item_id, r))}</span><b>สูงสุดแล้ว</b></div>`;
+      }
+      const chance = refineChance(it, cur + 1);
+      const has = this.s.countItem(refineMaterial(it)) > 0;
+      const fee = refineFee(cur + 1);
+      const ok = has && this.s.char.zeny >= fee;
+      const armed = this.armed === r.id;
+      return `<div class="shop-row" data-item="${r.item_id}" data-row="${r.id}"><img src="${itemIcon(r.item_id)}"/>
+        <span>${escapeHtml(itemLabel(r.item_id, r))}${r.equipped ? ' <em class="muted">(สวมอยู่)</em>' : ''}
+          <small class="rf-info">+${cur} → +${cur + 1} · โอกาส <b class="${chance < 100 ? 'risk' : 'safe'}">${chance}%</b> · ${fee.toLocaleString()} z · ${ITEMS[refineMaterial(it)].name} 1</small></span>
+        <button class="${armed ? 'sell armed' : 'buy'}" data-go="${r.id}" ${ok ? '' : 'disabled'}>${armed ? 'ยืนยัน! เสี่ยงแตก' : 'ตีบวก'}</button></div>`;
+    }).join('');
+    b.innerHTML = `<div class="rf-mats">${mats}</div>
+      <div class="shop-list">${list || '<p class="hint">ไม่มีอุปกรณ์ที่ตีบวกได้ (เครื่องประดับตีบวกไม่ได้)</p>'}</div>
+      <div class="inv-foot"><span>Zeny <b>${this.s.char.zeny.toLocaleString()}</b></span><span class="hint">เกินระดับปลอดภัย ถ้าพลาดไอเท็มแตก</span></div>`;
+    b.querySelectorAll<HTMLButtonElement>('[data-buy]').forEach((btn) =>
+      btn.addEventListener('click', () => this.run(async () => {
+        await this.s.buy(btn.dataset.buy!, 1);
+        sfx('coin');
+      })));
+    b.querySelectorAll<HTMLElement>('[data-row]').forEach((el) => {
+      const row = this.s.inv.find((r) => r.id === el.dataset.row);
+      if (row) this.tooltip(el.querySelector('img')!, () => this.itemTip(row.item_id, row));
+    });
+    b.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        const row = this.s.inv.find((r) => r.id === btn.dataset.go);
+        if (!row) return;
+        const it = ITEMS[row.item_id];
+        const cur = row.refine ?? 0;
+        if (refineChance(it, cur + 1) < 100 && this.armed !== row.id) {
+          this.armed = row.id;
+          return this.renderRefine();
+        }
+        this.armed = '';
+        void this.run(async () => {
+          const r = await this.s.refine(row.id);
+          if (r.ok) {
+            sfx('levelup');
+            this.toast(`ตีบวกสำเร็จ! ${itemLabel(row.item_id, { refine: r.refine })}`, 'good');
+            this.line('good', `ตีบวกสำเร็จ: ${escapeHtml(itemLabel(row.item_id, { refine: r.refine }))}`);
+          } else {
+            sfx('death');
+            this.toast(`ตีบวกล้มเหลว… ${itemLabel(row.item_id, row)} แตกหายไปแล้ว`, 'bad');
+            this.line('bad', `ตีบวกล้มเหลว: ${escapeHtml(itemLabel(row.item_id, row))} แตกหายไป`);
+          }
+        });
+      }));
+  }
+
   private openStorage() {
     this.storageTab = 'put';
     this.win('storage', 'คลังกลาง (ใช้ร่วมทั้ง ID)', 'shop');
@@ -931,15 +1140,14 @@ export class Hud implements WorldHooks {
     const sig = JSON.stringify([this.storageTab, this.s.inv, this.s.storage]);
     if (this.lastSig.storage === sig) return;
     this.lastSig.storage = sig;
-    const row = (key: string, id: string, item: string, qty: number, btn: string) => {
-      const it = ITEMS[item];
+    const row = (key: string, id: string, item: string, qty: number, btn: string, r: ItemRow) => {
       return `<div class="shop-row" ${key}="${id}" data-item="${item}"><img src="${itemIcon(item)}"/>
-        <span>${escapeHtml(it?.name ?? item)} x${qty}</span><b></b>
+        <span>${escapeHtml(itemLabel(item, r))} x${qty}</span><b></b>
         <input type="number" min="1" max="${qty}" value="${qty}"/><button class="${key === 'data-put' ? 'buy' : 'sell'}">${btn}</button></div>`;
     };
     const rows = this.storageTab === 'put'
-      ? this.s.inv.filter((r) => !r.equipped).map((r) => row('data-put', r.id, r.item_id, r.qty, 'ฝาก'))
-      : this.s.storage.map((r) => row('data-take', r.id, r.item_id, r.qty, 'ถอน'));
+      ? this.s.inv.filter((r) => !r.equipped).map((r) => row('data-put', r.id, r.item_id, r.qty, 'ฝาก', r))
+      : this.s.storage.map((r) => row('data-take', r.id, r.item_id, r.qty, 'ถอน', r));
     b.innerHTML = `<div class="tabs"><button data-sg="put" class="${this.storageTab === 'put' ? 'on' : ''}">ฝากของ</button>
       <button data-sg="take" class="${this.storageTab === 'take' ? 'on' : ''}">ถอนของ</button></div>
       <div class="shop-list">${rows.join('') || `<p class="hint">${this.storageTab === 'put' ? 'ไม่มีของในกระเป๋าที่ฝากได้ (ของที่สวมอยู่ต้องถอดก่อน)' : 'คลังยังว่างอยู่'}</p>`}</div>
@@ -951,7 +1159,8 @@ export class Hud implements WorldHooks {
       }));
     b.querySelectorAll<HTMLElement>('.shop-row').forEach((el) => {
       const qty = () => Math.max(1, Math.floor(Number((el.querySelector('input') as HTMLInputElement).value) || 1));
-      this.tooltip(el.querySelector('img')!, () => this.itemTip(el.dataset.item!));
+      const src = el.dataset.put ? this.s.inv.find((r) => r.id === el.dataset.put) : this.s.storage.find((r) => r.id === el.dataset.take);
+      this.tooltip(el.querySelector('img')!, () => this.itemTip(el.dataset.item!, src));
       el.querySelector('button')!.addEventListener('click', () => this.run(async () => {
         if (el.dataset.put) await this.s.deposit(el.dataset.put, qty());
         else await this.s.withdraw(el.dataset.take!, qty());
@@ -1040,7 +1249,7 @@ export class Hud implements WorldHooks {
       : this.s.inv.filter((r) => !r.equipped).map((r) => {
         const it = ITEMS[r.item_id];
         return `<div class="shop-row" data-sell="${r.id}" data-item="${r.item_id}"><img src="${itemIcon(r.item_id)}"/>
-          <span>${escapeHtml(it.name)} x${r.qty}</span><b>${Math.floor(it.price / 2).toLocaleString()} z</b>
+          <span>${escapeHtml(itemLabel(r.item_id, r))} x${r.qty}</span><b>${Math.floor(it.price / 2).toLocaleString()} z</b>
           <input type="number" min="1" max="${r.qty}" value="${r.qty}"/><button class="sell">ขาย</button></div>`;
       });
     b.innerHTML = `<div class="tabs"><button data-st="buy" class="${this.shopTab === 'buy' ? 'on' : ''}">ซื้อ</button>
@@ -1055,7 +1264,10 @@ export class Hud implements WorldHooks {
     );
     b.querySelectorAll<HTMLElement>('.shop-row').forEach((row) => {
       const qty = () => Math.max(1, Math.floor(Number((row.querySelector('input') as HTMLInputElement).value) || 1));
-      this.tooltip(row.querySelector('img')!, () => this.itemTip(row.dataset.item!));
+      const src = row.dataset.sell ? this.s.inv.find((r) => r.id === row.dataset.sell) : undefined;
+      this.tooltip(row.querySelector('img')!, () => this.itemTip(row.dataset.item!, src));
+      // mobile: tap the icon for the item window (no hover there)
+      row.querySelector('img')!.addEventListener('click', () => lastTouch && this.openItem(row.dataset.item!, src?.id));
       row.querySelector('.buy')?.addEventListener('click', () =>
         this.run(async () => {
           await this.s.buy(row.dataset.item!, qty());
@@ -1118,11 +1330,14 @@ export class Hud implements WorldHooks {
     this.lastSig.inv = '';
     this.renderInv();
     const b = this.body('trade')!;
-    const grid = (items: { id: string; qty: number; inv?: string }[]) =>
-      items.map((i) => `<div class="cell" ${i.inv ? `data-remove="${i.inv}"` : ''} data-item="${i.id}"><img src="${itemIcon(i.id)}"/>${i.qty > 1 ? `<i>${i.qty}</i>` : ''}</div>`).join('')
+    const grid = (items: { id: string; qty: number; inv?: string; row?: ItemRow }[]) =>
+      items.map((i, n) => `<div class="cell" ${i.inv ? `data-remove="${i.inv}"` : `data-their="${n}"`} data-item="${i.id}"><img src="${itemIcon(i.id)}"/>${i.qty > 1 ? `<i>${i.qty}</i>` : ''}${i.row?.refine ? `<u>+${i.row.refine}</u>` : ''}</div>`).join('')
       + '<div class="cell"></div>'.repeat(Math.max(0, 5 - items.length));
-    const mine = t.mine.items.map((o) => ({ id: this.s.inv.find((r) => r.id === o.inv)?.item_id ?? '', qty: o.qty, inv: o.inv }));
-    const theirs = t.theirs.items.map((o) => ({ id: o.item, qty: o.qty }));
+    const mine = t.mine.items.map((o) => {
+      const r = this.s.inv.find((x) => x.id === o.inv);
+      return { id: r?.item_id ?? '', qty: o.qty, inv: o.inv, row: r };
+    });
+    const theirs = t.theirs.items.map((o) => ({ id: o.item, qty: o.qty, row: o as ItemRow }));
     const st = (locked: boolean, ok: boolean) => (ok ? '<em class="ok">ยืนยันแล้ว</em>' : locked ? '<em class="lock">OK</em>' : '<em>กำลังเลือก…</em>');
     b.innerHTML = `
       <div class="tr-side ${t.lockedTheirs ? 'locked' : ''}"><div class="tr-head"><b>${escapeHtml(t.with)}</b>${st(t.lockedTheirs, t.confirmedTheirs)}</div>
@@ -1143,7 +1358,11 @@ export class Hud implements WorldHooks {
     b.querySelectorAll<HTMLElement>('[data-remove]').forEach((el) =>
       el.addEventListener('click', () => !t.lockedMine && this.sendOffer(t.mine.items.filter((o) => o.inv !== el.dataset.remove), t.mine.zeny)),
     );
-    b.querySelectorAll<HTMLElement>('[data-item]').forEach((el) => el.dataset.item && this.tooltip(el, () => this.itemTip(el.dataset.item!)));
+    b.querySelectorAll<HTMLElement>('[data-item]').forEach((el) => {
+      if (!el.dataset.item) return;
+      const r = el.dataset.remove ? this.s.inv.find((x) => x.id === el.dataset.remove) : theirs[Number(el.dataset.their)]?.row;
+      this.tooltip(el, () => this.itemTip(el.dataset.item!, r));
+    });
     b.querySelector('#tr-lock')!.addEventListener('click', () => this.actions.send('tradeLock'));
     b.querySelector('#tr-go')!.addEventListener('click', () => this.actions.send('tradeConfirm'));
     b.querySelector('#tr-cancel')!.addEventListener('click', () => this.actions.send('tradeCancel'));
@@ -1359,8 +1578,8 @@ export class Hud implements WorldHooks {
       const t = tip();
       t.innerHTML = html();
       t.classList.remove('hidden');
-      t.style.left = `${Math.min(window.innerWidth - 230, e.clientX + 14)}px`;
-      t.style.top = `${Math.min(window.innerHeight - 120, e.clientY + 14)}px`;
+      t.style.left = `${Math.max(0, Math.min(window.innerWidth - t.offsetWidth - 4, e.clientX + 14))}px`;
+      t.style.top = `${Math.max(0, Math.min(window.innerHeight - t.offsetHeight - 4, e.clientY + 14))}px`;
     });
     el.addEventListener('pointerleave', () => tip().classList.add('hidden'));
     el.addEventListener('pointerdown', () => tip().classList.add('hidden'));
@@ -1423,6 +1642,8 @@ export class Hud implements WorldHooks {
     this.renderSkills();
     this.renderShop();
     this.renderStorage();
+    this.renderItem();
+    this.renderRefine();
     this.autoSlotSkills();
     this.renderHotbar();
   }
