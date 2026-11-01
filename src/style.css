@@ -267,7 +267,9 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 /* ---------- HUD bits ---------- */
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
 #hud > * { pointer-events: auto; }
-#hud > #toasts, #hud > .targeting, #hud > .buffs { pointer-events: none; }
+#hud > #toasts, #hud > .targeting, #hud > .buffs, #hud > .auto-badge { pointer-events: none; }
+.auto-badge { position: absolute; top: 34px; left: 50%; transform: translateX(-50%); background: rgba(31, 138, 58, 0.88); color: #fff; padding: 3px 14px; border-radius: 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 1px 4px rgba(0,0,0,0.35); animation: autoPulse 1.6s ease-in-out infinite; }
+@keyframes autoPulse { 50% { opacity: 0.65; } }
 .hotbar {
   position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%);
   display: flex; gap: 2px; padding: 3px; background: linear-gradient(#f7f9fc, #d7dfec); border: 1px solid #5d6f8f; border-radius: 4px;

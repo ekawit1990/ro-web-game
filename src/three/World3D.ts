@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, ClassKey, MONSTERS, SKILLS, SPAWNS, skillSp, skillsOf, targetsPlayer } from '../data';
+import { CLASSES, ClassKey, ITEMS, MONSTERS, SKILLS, SPAWNS, canUseSkill, skillPower, skillSp, skillsOf, targetsPlayer } from '../data';
 import { findPath, GameMap, Npc, THEMES, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
@@ -26,7 +26,14 @@ export interface WorldHooks {
   playerMenu(sessionId: string, name: string, x: number, y: number): void;
   death(dead: boolean): void;
   targeting(skillName: string | null): void;
+  /** /auto switched on or off (by the player, a manual move, death). */
+  autoChanged(on: boolean): void;
 }
+
+/** /auto: how far (tiles) the character looks for the next monster, and when it drinks a potion / heals. */
+const AUTO_RANGE = 12;
+const AUTO_POTION_HP = 0.35;
+const AUTO_HEAL_HP = 0.6;
 
 interface RemotePlayer {
   name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number; head: string; weapon: string; ear: string;
@@ -122,6 +129,14 @@ export class World3D {
   private pendingSkill: { id: string; target?: string } | null = null;
   private targetingSkill: string | null = null;
   private lastAttack = 0;
+  /** /auto: fight the nearest monsters with attacks and skills on its own. */
+  private auto = false;
+  private autoNext = 0;
+  private autoPotionAt = 0;
+  /** skill id -> performance.now() when /auto may cast it again */
+  private autoReady = new Map<string, number>();
+  /** buff skill id -> performance.now() when it wears off */
+  private autoBuffs = new Map<string, number>();
   private lastSend = 0;
   private sentX: number;
   private sentY: number;
@@ -526,6 +541,7 @@ export class World3D {
     if (ground) {
       this.target = null;
       this.pendingSkill = null;
+      if (this.auto) this.setAuto(false); // walking somewhere yourself takes back control
       this.walkTo(ground.x, ground.z);
     }
   }
@@ -609,6 +625,95 @@ export class World3D {
     return !!this.targetingSkill;
   }
 
+  /** /auto on or off; returns the new state. */
+  setAuto(on: boolean) {
+    this.auto = on && !this.dead;
+    this.autoNext = 0;
+    if (!this.auto) this.pendingSkill = null;
+    this.hooks.autoChanged(this.auto);
+    return this.auto;
+  }
+
+  isAuto() {
+    return this.auto;
+  }
+
+  /**
+   * One /auto decision (a few times a second): drink a potion when low, heal, keep buffs up,
+   * then pick the nearest monster and use the strongest ready skill, else plain attacks.
+   */
+  private autoStep() {
+    const t = performance.now();
+    if (t < this.autoNext) return;
+    this.autoNext = t + 250;
+    const s = this.session;
+    const me = this.me;
+    const d = s.derived;
+
+    if (s.hp < d.maxHp * AUTO_POTION_HP && t >= this.autoPotionAt) {
+      const pot = s.inv
+        .filter((i) => ITEMS[i.item_id]?.type === 'consumable' && ITEMS[i.item_id].heal)
+        .sort((a, b) => (ITEMS[b.item_id].heal ?? 0) - (ITEMS[a.item_id].heal ?? 0))[0];
+      if (pot) {
+        s.use(pot.id);
+        this.autoPotionAt = t + 1500;
+      }
+    }
+    if (this.pendingSkill || this.targetingSkill) return;
+
+    let m = this.target?.kind === 'monster' ? this.monsters.get(this.target.id) : undefined;
+    if (!m || m.dead) {
+      m = undefined;
+      let best = AUTO_RANGE;
+      for (const x of this.monsters.values()) {
+        const dist = Math.hypot(x.x - me.x, x.y - me.y);
+        if (!x.dead && dist < best && findPath(this.map, Math.floor(me.x), Math.floor(me.y), Math.floor(x.x), Math.floor(x.y))) {
+          best = dist;
+          m = x;
+        }
+      }
+      if (!m) return;
+      this.target = { kind: 'monster', id: m.id };
+      this.path = [];
+    }
+
+    const cls = s.char.cls;
+    const ready = (id: string) => {
+      const sk = SKILLS[id];
+      const lv = s.char.skills?.[id] ?? 0;
+      return lv > 0 && canUseSkill(sk, cls) && (this.autoReady.get(id) ?? 0) <= t && s.sp >= skillSp(sk, lv);
+    };
+    const cast = (id: string, target?: string) => {
+      this.autoReady.set(id, t + Math.max(SKILLS[id].cooldown ?? 1000, 800));
+      if (target) this.castAt(id, target);
+      else this.room.send('skill', { id });
+    };
+    const mine = Object.keys(s.char.skills ?? {}).filter((id) => SKILLS[id] && ready(id));
+    // heal yourself
+    if (s.hp < d.maxHp * AUTO_HEAL_HP) {
+      const heal = mine.find((id) => SKILLS[id].type === 'heal' || SKILLS[id].type === 'heal_target');
+      if (heal) return cast(heal, SKILLS[heal].type === 'heal_target' ? this.room.sessionId : undefined);
+    }
+    // keep buffs up
+    const buff = mine.find((id) => (SKILLS[id].type === 'buff' || SKILLS[id].type === 'buff_target') && (this.autoBuffs.get(id) ?? 0) < t + 1000);
+    if (buff) {
+      this.autoBuffs.set(buff, t + 3000); // until the server's 'buff' message says how long
+      return cast(buff, SKILLS[buff].type === 'buff_target' ? this.room.sessionId : undefined);
+    }
+    // the strongest ready attack skill
+    const lvOf = (id: string) => s.char.skills?.[id] ?? 0;
+    const near = Math.hypot(m.x - me.x, m.y - me.y);
+    const attack = mine
+      .filter((id) => {
+        const sk = SKILLS[id];
+        if (sk.type === 'aoe_self') return near <= (sk.radius ?? 2);
+        return sk.type === 'single' || sk.type === 'aoe';
+      })
+      .sort((a, b) => skillPower(SKILLS[b], lvOf(b)) * (SKILLS[b].hits ?? 1) - skillPower(SKILLS[a], lvOf(a)) * (SKILLS[a].hits ?? 1))[0];
+    if (attack) cast(attack, SKILLS[attack].type === 'aoe_self' ? undefined : m.id);
+    // otherwise updateMe() walks up and attacks the target as usual
+  }
+
   toggleSit() {
     if (!this.dead) this.room.send('sit'); // moving stands up again on the server
   }
@@ -661,7 +766,13 @@ export class World3D {
       }
       if (v === this.me && m && !m.dead && !this.target && !this.path.length) this.target = { kind: 'monster', id: m.id };
     });
-    on('skill', (msg) => this.skillFx(msg));
+    on('skill', (msg) => {
+      this.skillFx(msg);
+      if (msg.by === this.room.sessionId && SKILLS[msg.skill]) {
+        this.autoReady.set(msg.skill, performance.now() + (SKILLS[msg.skill].cooldown ?? 1000));
+      }
+    });
+    on('buff', (msg: { skill: string; seconds: number }) => this.autoBuffs.set(msg.skill, performance.now() + msg.seconds * 1000));
     on('fx', (msg: { kind: string; to: string }) => {
       const a = this.players.get(msg.to);
       if (!a) return;
@@ -810,6 +921,7 @@ export class World3D {
           this.dead = rp.dead;
           this.path = [];
           this.target = null;
+          if (rp.dead && this.auto) this.setAuto(false);
           this.hooks.death(rp.dead);
           if (rp.dead) sfx('death');
         }
@@ -854,6 +966,7 @@ export class World3D {
     if (this.dead) return;
     const speed = this.session.derived.moveSpeed / TILE_PX;
     const time = this.now;
+    if (this.auto) this.autoStep();
 
     if (this.target?.kind === 'monster') {
       const m = this.monsters.get(this.target.id);

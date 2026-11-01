@@ -133,6 +133,9 @@ export class Hud implements WorldHooks {
     this.closeWin('storage');
     this.closeWin('refine');
     this.closeTrade();
+    // a new map starts with /auto off
+    this.root.querySelector('#bi-auto')?.classList.remove('on');
+    this.root.querySelector('#auto-badge')?.remove();
     const name = this.root.querySelector('#mini-name');
     if (name) name.textContent = map.name;
   }
@@ -264,6 +267,7 @@ export class Hud implements WorldHooks {
         <button data-open="party" title="Alt+Z">ปาร์ตี้</button>
         <button data-open="map" title="Tab">แผนที่</button>
         <button data-open="sit" title="Insert">นั่ง</button>
+        <button data-open="auto" id="bi-auto" title="/auto · ตีและใช้สกิลอัตโนมัติ">ออโต้</button>
         <button data-open="option" title="Esc">ตั้งค่า</button>
       </div>
       </div>`;
@@ -278,6 +282,7 @@ export class Hud implements WorldHooks {
         const k = b.dataset.open!;
         if (k === 'map') this.root.querySelector('#minimap')!.classList.toggle('hidden');
         else if (k === 'sit') this.actions.scene()?.toggleSit();
+        else if (k === 'auto') this.toggleAuto();
         else this.toggle(k as WinId);
       }),
     );
@@ -862,7 +867,7 @@ export class Hud implements WorldHooks {
           <div class="chat-grip" title="ลากเพื่อยืด/หดหน้าต่างแชท">⇱</div>
         </div>
         <div id="chat-log" class="chat-log"></div>
-        <form id="chat-form"><input id="chat-input" placeholder="Enter เพื่อพิมพ์ · /p = แชทปาร์ตี้ · /sit = นั่ง" maxlength="120" autocomplete="off"/></form>
+        <form id="chat-form"><input id="chat-input" placeholder="Enter เพื่อพิมพ์ · /p = แชทปาร์ตี้ · /sit = นั่ง · /auto = ออโต้" maxlength="120" autocomplete="off"/></form>
       </div>`);
     this.chatResize();
     const input = this.root.querySelector('#chat-input') as HTMLInputElement;
@@ -873,6 +878,7 @@ export class Hud implements WorldHooks {
       input.blur();
       if (!text) return;
       if (text === '/sit') return this.actions.scene()?.toggleSit();
+      if (text === '/auto') return this.toggleAuto();
       this.actions.send('chat', { text });
     });
     this.root.querySelectorAll<HTMLButtonElement>('[data-ct]').forEach((b) =>
@@ -1533,6 +1539,23 @@ export class Hud implements WorldHooks {
     fx.oninput = () => setAudioPrefs({ sfx: Number(fx.value) / 100 });
     fx.onchange = () => sfx('hit'); // let them hear the new level
     mute.onchange = () => setAudioPrefs({ muted: mute.checked });
+  }
+
+  private toggleAuto() {
+    const w = this.actions.scene();
+    if (!w) return;
+    if (!w.isAuto() && this.map.safe) return this.toast('ในเมืองไม่มีมอนสเตอร์ ออกไปที่ทุ่งก่อนแล้วค่อยเปิดออโต้', 'bad');
+    w.setAuto(!w.isAuto());
+  }
+
+  /** /auto on/off: light up the button and say so (clicking the ground or dying also turns it off). */
+  autoChanged(on: boolean) {
+    this.root.querySelector('#bi-auto')?.classList.toggle('on', on);
+    this.root.querySelector('#auto-badge')?.remove();
+    if (on) {
+      this.root.insertAdjacentHTML('beforeend', '<div id="auto-badge" class="auto-badge">AUTO · ตีและใช้สกิลอัตโนมัติ</div>');
+      this.line('sys', 'เปิดออโต้: ตีมอนสเตอร์ใกล้ ๆ ใช้สกิลและยาเอง (พิมพ์ /auto อีกครั้ง หรือคลิกพื้นเพื่อหยุด)');
+    } else this.line('sys', 'ปิดออโต้แล้ว');
   }
 
   death(dead: boolean) {
