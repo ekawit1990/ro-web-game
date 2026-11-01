@@ -3,7 +3,7 @@ import {
   MONSTERS, SHOP, SKILLS, START_CLASS, STORAGE_SLOTS, StatKey, StorageItem, WEAPON_SHOP, expToNext, jobExpToNext, questCounts,
   statCost, statPointsAt,
 } from '../data';
-import type { GameStore, KillResult, TradeOffer } from './store';
+import type { GameStore, KillResult, RewardShare, TradeOffer } from './store';
 
 const KEY = 'music-land-save-v2';
 export const TOWN_SPAWN = { map: 'town', x: 48.5, y: 55.5 };
@@ -115,33 +115,40 @@ export class LocalStore implements GameStore {
   }
 
   async reportKill(charId: string, monster: string): Promise<KillResult> {
-    const c = this.char(charId);
     const m = MONSTERS[monster];
     if (!m) throw new Error('unknown monster');
-    const zeny = randInt(m.zeny[0], m.zeny[1]);
-    const drops = m.drops.filter(([, chance]) => Math.random() < chance).map(([id]) => id);
-    drops.forEach((d) => this.addItem(charId, d, 1));
-    c.zeny += zeny;
+    this.char(charId);
+    return this.grantReward(charId, {
+      exp: m.exp, jobExp: m.jobExp, zeny: randInt(m.zeny[0], m.zeny[1]),
+      items: m.drops.filter(([, chance]) => Math.random() < chance).map(([id]) => id), quest: questCounts(m),
+    });
+  }
+
+  /** Same as grant_reward() in SQL: one character's share of a kill (a whole kill when playing solo). */
+  async grantReward(charId: string, r: RewardShare): Promise<KillResult> {
+    const c = this.char(charId);
+    r.items.forEach((d) => this.addItem(charId, d, 1));
+    c.zeny += r.zeny;
     const startLevel = c.level;
     const startJob = c.job_level;
-    if (c.level < MAX_LEVEL) c.exp += m.exp;
+    if (c.level < MAX_LEVEL) c.exp += r.exp;
     while (c.level < MAX_LEVEL && c.exp >= expToNext(c.level)) {
       c.exp -= expToNext(c.level);
       c.level++;
       c.stat_points += statPointsAt(c.level);
     }
     if (c.level >= MAX_LEVEL) c.exp = 0;
-    if (c.job_level < MAX_JOB_LEVEL) c.job_exp += m.jobExp;
+    if (c.job_level < MAX_JOB_LEVEL) c.job_exp += r.jobExp;
     while (c.job_level < MAX_JOB_LEVEL && c.job_exp >= jobExpToNext(c.job_level)) {
       c.job_exp -= jobExpToNext(c.job_level);
       c.job_level++;
       c.skill_points++;
     }
     if (c.job_level >= MAX_JOB_LEVEL) c.job_exp = 0;
-    if (questCounts(m) && (c.job_quest ?? -1) >= 0 && c.job_quest < JOB_CHANGE.kills) c.job_quest++;
+    if (r.quest && (c.job_quest ?? -1) >= 0 && c.job_quest < JOB_CHANGE.kills) c.job_quest++;
     this.persist();
     return {
-      character: await this.getCharacter(charId), drops, zeny, exp: m.exp, jobExp: m.jobExp,
+      character: await this.getCharacter(charId), drops: [...r.items], zeny: r.zeny, exp: r.exp, jobExp: r.jobExp,
       leveledUp: c.level > startLevel, jobLeveledUp: c.job_level > startJob,
     };
   }

@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Character, InvItem } from '../../src/data/index.ts';
 import { LocalStore } from '../../src/services/localStore.ts';
-import type { KillResult, TradeOffer } from '../../src/services/store.ts';
+import type { KillResult, RewardShare, TradeOffer } from '../../src/services/store.ts';
 import { CHAR_COLUMNS } from '../../src/services/supabaseStore.ts';
 
 export interface Loaded {
@@ -17,6 +17,8 @@ export interface ServerDb {
   load(options: JoinOptions): Promise<Loaded>;
   reload(userId: string, charId: string, options?: JoinOptions): Promise<Omit<Loaded, 'userId'>>;
   reportKill(userId: string, charId: string, monster: string): Promise<KillResult>;
+  /** Gives one party member their share of a kill (the server already rolled and split it). */
+  grantReward(userId: string, charId: string, r: RewardShare): Promise<KillResult>;
   useItem(userId: string, charId: string, invId: string): Promise<string>;
   onDeath(userId: string, charId: string): Promise<Character>;
   saveState(userId: string, charId: string, s: SavedState): Promise<void>;
@@ -79,6 +81,12 @@ export class SupabaseDb implements ServerDb {
     return check(await this.sb.rpc('report_kill', { p_user: userId, p_char: charId, p_monster: monster })) as KillResult;
   }
 
+  async grantReward(userId: string, charId: string, r: RewardShare) {
+    return check(await this.sb.rpc('grant_reward', {
+      p_user: userId, p_char: charId, p_exp: r.exp, p_job_exp: r.jobExp, p_zeny: r.zeny, p_items: r.items, p_quest: r.quest,
+    })) as KillResult;
+  }
+
   async useItem(userId: string, charId: string, invId: string) {
     return check(await this.sb.rpc('use_item', { p_user: userId, p_char: charId, p_inv: invId })) as string;
   }
@@ -137,6 +145,10 @@ export class DevDb implements ServerDb {
 
   reportKill(_u: string, charId: string, monster: string) {
     return this.store.reportKill(charId, monster);
+  }
+
+  grantReward(_u: string, charId: string, r: RewardShare) {
+    return this.store.grantReward(charId, r);
   }
 
   useItem(_u: string, charId: string, invId: string) {

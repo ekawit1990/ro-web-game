@@ -2,11 +2,13 @@ import { Room, type Client } from 'colyseus';
 import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
   Buffs, CLASSES, Character, Derived, ITEMS, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
-  STAT_KEYS, buffBlocks, buffStats, canUseSkill, hitChance, monsterFlee, monsterHit, skillHeal, skillPower, skillSp, targetsPlayer,
+  STAT_KEYS, buffBlocks, buffStats, canUseSkill, hitChance, monsterFlee, monsterHit, questCounts, skillHeal, skillPower, skillSp,
+  targetsPlayer,
 } from '../../src/data/index.ts';
 import { GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
-import type { TradeOffer } from '../../src/services/store.ts';
+import type { RewardShare, TradeOffer } from '../../src/services/store.ts';
 import type { JoinOptions, Loaded, ServerDb } from './db.ts';
+import { Parties, type Party } from './party.ts';
 
 const TICK_MS = 50;
 const TILE_PX = 32; // moveSpeed is in pixels/second at this tile size
@@ -140,6 +142,18 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.onMessage('tradeLock', (c) => this.onTradeLock(c));
     this.onMessage('tradeConfirm', (c) => this.onTradeConfirm(c));
     this.onMessage('tradeCancel', (c) => this.cancelTrade(this.seats.get(c.sessionId)?.trade, 'ยกเลิกการแลกเปลี่ยน'));
+    // parties (see party.ts): `to` is a session id in this room, `id` a character id
+    this.onMessage('partyGet', (c) => this.party(c, (me) => Parties.refresh(me)));
+    this.onMessage('partyCreate', (c, msg: { name?: string }) => this.party(c, (me) => Parties.create(me, msg?.name)));
+    this.onMessage('partyInvite', (c, msg: { to?: string; name?: string }) => this.party(c, (me) => {
+      const charId = msg?.to ? this.seats.get(msg.to)?.char.id : undefined;
+      if (msg?.to && !charId) throw new Error('ผู้เล่นคนนี้ออกไปแล้ว');
+      Parties.invite(me, { charId, name: msg?.name });
+    }));
+    this.onMessage('partyRespond', (c, msg: { accept: boolean }) => this.party(c, (me) => Parties.respond(me, !!msg?.accept)));
+    this.onMessage('partyLeave', (c) => this.party(c, (me) => Parties.leave(me)));
+    this.onMessage('partyKick', (c, msg: { id: string }) => this.party(c, (me) => Parties.kick(me, msg?.id)));
+    this.onMessage('partyLeader', (c, msg: { id: string }) => this.party(c, (me) => Parties.setLeader(me, msg?.id)));
 
     this.setSimulationInterval((dt) => this.tick(dt), TICK_MS);
     this.clock.setInterval(() => this.regen(), 2000);
@@ -186,6 +200,10 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.seats.set(client.sessionId, seat);
     this.applyDerived(seat, p);
     client.send('welcome', { map: this.map.id, x, y });
+    Parties.online({
+      charId: c.id, sessionId: client.sessionId, roomId: this.roomId, map: this.map.id, client,
+      info: () => ({ name: seat.char.name, cls: seat.char.cls, level: seat.char.level, hp: p.hp, maxHp: p.maxHp, sp: p.sp, maxSp: p.maxSp, dead: p.dead }),
+    });
     this.broadcast('system', { text: `${c.name} เข้ามาใน${this.map.name}` }, { except: client });
   }
 
@@ -193,6 +211,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const seat = this.seats.get(client.sessionId);
     const p = this.state.players.get(client.sessionId);
     this.cancelTrade(seat?.trade, 'อีกฝ่ายออกจากแผนที่');
+    if (seat) Parties.offline(seat.char.id, client.sessionId);
     this.seats.delete(client.sessionId);
     this.state.players.delete(client.sessionId);
     for (const b of this.brains.values()) {
@@ -342,6 +361,12 @@ export class MapRoom extends Room<{ state: MapState }> {
     const text = cleanText(msg?.text, 120);
     if (!seat || !text || this.now - seat.lastChat < 700) return;
     seat.lastChat = this.now;
+    const party = /^(?:\/p(?:\s+|$)|%\s*)/i.exec(text);
+    if (party) {
+      const said = text.slice(party[0].length).trim();
+      if (said) this.party(c, (me) => Parties.chat(me, said));
+      return;
+    }
     this.broadcast('chat', { id: c.sessionId, name: seat.char.name, text });
   }
 
@@ -703,12 +728,27 @@ export class MapRoom extends Room<{ state: MapState }> {
   private killMonster(id: string, m: MonsterState, b: Brain) {
     m.dead = true;
     const def = MONSTERS[m.key];
-    // everyone who did at least 10% of the damage gets the full reward (party-friendly boss fights)
+    // Damage is added up per party (a solo player is their own group). Every group that did at least 10%
+    // gets a full reward: a solo player keeps it, a party splits it evenly between its members on this map.
     const total = [...b.damage.values()].reduce((s, v) => s + v, 0) || 1;
-    const winners = [...b.damage.entries()].filter(([, d]) => d / total >= 0.1).map(([sid]) => sid);
+    const groups = new Map<string, { party?: Party; sids: string[]; dmg: number }>();
+    for (const [sid, d] of b.damage) {
+      const seat = this.seats.get(sid);
+      if (!seat) continue;
+      const party = Parties.of(seat.char.id);
+      const key = party ? party.id : sid;
+      const g = groups.get(key) ?? { party, sids: [], dmg: 0 };
+      g.sids.push(sid);
+      g.dmg += d;
+      groups.set(key, g);
+    }
     b.damage.clear();
     b.target = null;
-    for (const sid of winners) this.reward(sid, m.key);
+    for (const g of groups.values()) {
+      if (g.dmg / total < 0.1) continue;
+      if (g.party) this.partyReward(g.party, m.key, new Set(g.sids));
+      else this.reward(g.sids[0], m.key);
+    }
 
     this.clock.setTimeout(() => {
       const spot = this.randomSpot(b.spawn);
@@ -719,13 +759,54 @@ export class MapRoom extends Room<{ state: MapState }> {
     if (def.boss) this.broadcast('system', { text: `${def.name} ถูกปราบแล้ว!` });
   }
 
-  private async reward(sid: string, monster: string) {
+  /**
+   * Even share: one monster's Base EXP, Job EXP and zeny are divided equally between the party members on this
+   * map who are still standing; each drop goes to the next member in turn (round-robin). EXP rounds up so
+   * nobody gets 0; zeny that doesn't divide evenly goes round the same way as the items.
+   */
+  private partyReward(party: Party, monster: string, hitters: Set<string>) {
+    const def = MONSTERS[monster];
+    const ids = new Set(party.members.map((m) => m.id));
+    const order = party.members.map((m) => m.id);
+    let sharers = [...this.seats.entries()]
+      .filter(([sid, s]) => ids.has(s.char.id) && !this.state.players.get(sid)?.dead)
+      .sort((a, b) => order.indexOf(a[1].char.id) - order.indexOf(b[1].char.id))
+      .map(([sid]) => sid);
+    if (!sharers.length) sharers = [...hitters].filter((sid) => this.seats.has(sid)).slice(0, 1);
+    if (sharers.length <= 1) {
+      if (sharers[0]) this.reward(sharers[0], monster);
+      return;
+    }
+    const n = sharers.length;
+    const items = def.drops.filter(([, chance]) => Math.random() < chance).map(([id]) => id);
+    const zeny = def.zeny[0] + Math.floor(Math.random() * (def.zeny[1] - def.zeny[0] + 1));
+    const shares: RewardShare[] = sharers.map((sid) => ({
+      exp: Math.ceil(def.exp / n), jobExp: Math.ceil(def.jobExp / n), zeny: Math.floor(zeny / n), items: [],
+      quest: hitters.has(sid) && questCounts(def),
+    }));
+    for (let i = 0; i < zeny % n; i++) shares[Parties.rotate(party, n)].zeny++;
+    const names = sharers.map((sid) => this.seats.get(sid)!.char.name);
+    for (const item of items) {
+      const who = Parties.rotate(party, n);
+      shares[who].items.push(item);
+      // everyone sees who got what
+      for (const [i, sid] of sharers.entries()) {
+        if (i !== who) this.seats.get(sid)!.client.send('system', { text: `[ปาร์ตี้] ${names[who]} ได้รับ ${ITEMS[item]?.name ?? item}` });
+      }
+    }
+    sharers.forEach((sid, i) => this.reward(sid, monster, shares[i], n));
+  }
+
+  /** Gives one player a kill: the whole monster (rolled by the database), or their party share. */
+  private async reward(sid: string, monster: string, share?: RewardShare, sharedBy = 1) {
     const seat = this.seats.get(sid);
     const p = this.state.players.get(sid);
     if (!seat || !p) return;
     try {
       const before = seat.char.job_quest ?? -1;
-      const r = await MapRoom.db.reportKill(seat.userId, seat.char.id, monster);
+      const r = share
+        ? await MapRoom.db.grantReward(seat.userId, seat.char.id, share)
+        : await MapRoom.db.reportKill(seat.userId, seat.char.id, monster);
       seat.char = { ...r.character };
       if (r.drops.length) seat.inv = (await MapRoom.db.reload(seat.userId, seat.char.id)).inv;
       this.applyDerived(seat, p);
@@ -744,10 +825,22 @@ export class MapRoom extends Room<{ state: MapState }> {
       }
       seat.client.send('reward', {
         monster, exp: r.exp, jobExp: r.jobExp, zeny: r.zeny, drops: r.drops, leveledUp: r.leveledUp, jobLeveledUp: r.jobLeveledUp,
+        shared: sharedBy,
       });
       seat.client.send('sync', { character: seat.char, inventory: seat.inv });
     } catch (e) {
       seat.client.send('error', { text: `บันทึกผลไม่ได้: ${(e as Error).message}` });
+    }
+  }
+
+  /** Runs a party action for this player; a refusal goes back as an error toast. */
+  private party(c: Client, fn: (charId: string) => void) {
+    const seat = this.seats.get(c.sessionId);
+    if (!seat) return;
+    try {
+      fn(seat.char.id);
+    } catch (e) {
+      c.send('error', { text: (e as Error).message });
     }
   }
 

@@ -147,6 +147,8 @@ async function play(char: Character): Promise<void> {
       progress(60, 70);
       resetAssets();
       world = new World3D(container, { session, room: r, map, hooks: hud, x: pos.x, y: pos.y });
+      hud.syncPartyWorld();
+      r.send('partyGet'); // the party window (and whose names to color) for this map
       const assets = setInterval(() => progress(70 + 30 * assetShare()), 100);
       await assetsIdle(15000);
       clearInterval(assets);
@@ -173,6 +175,9 @@ async function play(char: Character): Promise<void> {
       r.onMessage('tradeState', (m) => hud.tradeState(m));
       r.onMessage('tradeClosed', (m) => hud.tradeClosed(m.text));
       r.onMessage('tradeDone', (m) => hud.tradeDone(m.ok, m.text));
+      r.onMessage('party', (m) => hud.party(m));
+      r.onMessage('partyInvite', (m) => hud.partyInvite(m));
+      r.onMessage('partyChat', (m) => hud.partyChat(m.name, m.text));
       r.onMessage('warp', (m) => {
         if (room === r) enter(m.map).catch(fail);
       });
