@@ -199,7 +199,8 @@ export const CROWD_MAX = 8;
 export const skillsOf = (cls: ClassKey) => Object.entries(SKILLS).filter(([, s]) => s.cls === cls);
 /** Teen skills stay usable after the job change (like RO's basic skills). */
 export const canUseSkill = (s: SkillDef, cls: ClassKey) => s.cls === cls || s.cls === START_CLASS;
-export const skillSp = (s: SkillDef, lv: number) => (s.sp ? s.sp[0] + s.sp[1] * (lv - 1) : 0);
+/** SP a skill costs at level lv (whole SP, at least 1: Teen skills use fractional rates). */
+export const skillSp = (s: SkillDef, lv: number) => (s.sp ? Math.max(1, Math.round(s.sp[0] + s.sp[1] * (lv - 1))) : 0);
 export const skillPower = (s: SkillDef, lv: number) => (s.power ? s.power[0] + s.power[1] * (lv - 1) : 0);
 export const skillHeal = (s: SkillDef, lv: number) => (s.heal ? s.heal[0] + s.heal[1] * (lv - 1) : 0);
 const perLevel = (v: [number, number] | undefined, lv: number) => (v ? v[0] + v[1] * (lv - 1) : 0);

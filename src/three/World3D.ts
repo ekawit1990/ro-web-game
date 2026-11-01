@@ -8,7 +8,7 @@ import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setHat } from './models';
 import { COMBO_HIT, COMBO_TIME, animateRig, buildVrmCharacter } from './vrm';
 import { PHONE } from './device';
-import { sfx, sfxAttack, sfxSkill } from '../audio/sound';
+import { sfx, sfxAttack, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
@@ -128,6 +128,9 @@ export class World3D {
   private pitch = 0.9;
   private dist = 17;
   private camTarget = new THREE.Vector3();
+  /** Camera shake from your own big hits: seconds left and strength. */
+  private shakeT = 0;
+  private shakeAmp = 0;
 
   private me!: PlayerActor;
   private players = new Map<string, PlayerActor>();
@@ -867,6 +870,11 @@ export class World3D {
       this.camTarget.z + Math.cos(this.yaw) * Math.cos(this.pitch) * d,
     );
     this.camera.lookAt(this.camTarget);
+    if (this.shakeT > 0) {
+      this.shakeT = Math.max(0, this.shakeT - dt);
+      const k = this.shakeAmp * (this.shakeT / 0.35);
+      this.camera.position.add(new THREE.Vector3((Math.random() - 0.5) * k, (Math.random() - 0.5) * k, (Math.random() - 0.5) * k));
+    }
     this.sun.position.set(this.camTarget.x - 8, 14, this.camTarget.z + 6);
     this.sun.target.position.copy(this.camTarget);
     renderer!.render(this.scene, this.camera);
@@ -1314,22 +1322,21 @@ export class World3D {
         a.x = a.tx;
         a.y = a.ty;
       }
-      const color = new THREE.Color(CLASSES[skill.cls].color).getHex();
-      for (let i = 1; i <= 4; i++) {
-        const k = i / 5;
-        setTimeout(() => this.burst(new THREE.Vector3(msg.fromX! + (msg.x - msg.fromX!) * k, 0.4, msg.fromY! + (msg.y - msg.fromY!) * k), color, 5, 2), i * 30);
-      }
     }
     if (a && skill.scale === 'crowd') a.spin = 0.55;
     const color = new THREE.Color(CLASSES[skill.cls].color).getHex();
+    const bladeSkill = skill.cls === 'teen' && (skill.type === 'single' || skill.type === 'aoe_self');
     if (a) {
-      sfxSkill(skill.cls, skill.type, this.vol(a.x, a.y, a === this.me));
+      if (!bladeSkill) sfxSkill(skill.cls, skill.type, this.vol(a.x, a.y, a === this.me));
+      else this.bladeFx(a, msg, a === this.me);
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       this.face(a, msg.x, msg.y);
       a.attack = 1;
       a.combat = COMBAT_TIME;
     }
-    if (skill.type === 'aoe' || skill.type === 'aoe_self' || skill.type === 'heal') {
+    if (bladeSkill) {
+      // drawn by bladeFx
+    } else if (skill.type === 'aoe' || skill.type === 'aoe_self' || skill.type === 'heal') {
       this.ring(msg.x, msg.y, skill.radius ?? 1, color);
       this.burst(new THREE.Vector3(msg.x, 0.3, msg.y), color, 22, 4);
     } else if (skill.type === 'buff' && a) {
@@ -1343,8 +1350,6 @@ export class World3D {
         if (t !== a) this.burst(new THREE.Vector3(t.x, 1, t.y), color, 10);
       } else if (t && skill.type === 'heal_target') this.sparkle(t, 0x7dff9a);
       else if (t) this.levelFx(t, '', color);
-    } else if (skill.type === 'single' && a && skill.scale === 'distance') {
-      setTimeout(() => this.burst(new THREE.Vector3(msg.x, 0.7, msg.y), color, 16, 3), DASH_MS);
     } else if (skill.type === 'single' && a) {
       const glyph = CLASSES[skill.cls].projectile ? { note: '♪', chord: '♫', wave: '〰' }[CLASSES[skill.cls].projectile!] : '✦';
       for (let i = 0; i < Math.min(3, skill.hits ?? 1); i++) {
@@ -1367,6 +1372,191 @@ export class World3D {
           if (p) this.floatText(new THREE.Vector3(p.x, 1.8, p.y), `+${-h.dmg}`, 'heal');
         }
       }, 240 + i * 110);
+    });
+  }
+
+  // ------------------------------------------------------------ Teen blade skills
+
+  /** Teen attack skills: steel-white crescents, shockwaves and a "ฉับ!" instead of the generic skill burst. */
+  private bladeFx(a: PlayerActor, msg: { skill: string; x: number; y: number; fromX?: number; fromY?: number; hits: { m?: string; dmg: number }[] }, mine: boolean) {
+    const skill = SKILLS[msg.skill];
+    const vol = this.vol(a.x, a.y, mine);
+    const steel = 0xdff4ff;
+    const accent = new THREE.Color(CLASSES[skill.cls].color).getHex();
+    const hitAt = (id?: string) => {
+      const m = id ? this.monsters.get(id) : undefined;
+      return m ? new THREE.Vector3(m.x, m.rig.height * 0.5, m.y) : new THREE.Vector3(msg.x, 0.7, msg.y);
+    };
+    if (skill.scale === 'distance') {
+      // พุ่งแทง: a wind streak along the dash, then an X of crescents and a shockwave where the blade lands
+      const fx = msg.fromX ?? a.x;
+      const fy = msg.fromY ?? a.y;
+      this.streak(fx, fy, msg.x, msg.y, accent);
+      this.ring(fx, fy, 0.9, 0xffffff);
+      setTimeout(() => {
+        const at = hitAt(msg.hits[0]?.m);
+        sfxSlash(vol, true);
+        this.crescent(at, 0.75, 2.8, steel, 300);
+        this.crescent(at, -0.75, 2.8, accent, 340, 70);
+        this.glow(at, 0xffffff, 5, 260);
+        this.ring(at.x, at.z, 2.6, accent);
+        setTimeout(() => this.ring(at.x, at.z, 3.4, 0xffffff), 120);
+        this.burst(at, steel, 36, 7);
+        this.pixelFx('stab_hit', { at: () => at, scale: 3 });
+        this.floatText(at.clone().setY(at.y + 1.3), 'ฉับ!', 'shout', 800);
+        if (mine) this.shake(0.35);
+      }, DASH_MS);
+    } else if (skill.type === 'aoe_self') {
+      // หมุนตัวแทง: three rings of blades spinning up around you like a whirlwind, every monster gets cut
+      sfxWhirl(vol);
+      const r = skill.radius ?? 2;
+      for (let i = 0; i < 3; i++) this.whirlRing(a, 0.3 + i * 0.6, r * (0.9 + i * 0.25), i % 2 ? accent : steel, i * 70);
+      this.ring(a.x, a.y, r + 0.4, accent);
+      setTimeout(() => this.ring(a.x, a.y, r + 0.8, 0xffffff), 180);
+      this.burst(new THREE.Vector3(a.x, 0.4, a.y), steel, 40, 7);
+      this.glow(new THREE.Vector3(a.x, 1, a.y), 0xffffff, 4, 300);
+      if (mine) this.shake(0.25);
+      msg.hits.forEach((h, i) => {
+        if (!h.m) return;
+        setTimeout(() => {
+          const at = hitAt(h.m);
+          this.crescent(at, (i % 2 ? 1 : -1) * 0.6, 1.8, steel, 260);
+          this.pixelFx('stab_hit', { at: () => at, scale: 2 });
+        }, 200 + i * 110);
+      });
+    } else {
+      // ฟันฉับไว (and any other Teen single-target skill): a cut per hit, crossing
+      const n = Math.max(1, Math.min(3, skill.hits ?? 1));
+      for (let i = 0; i < n; i++) {
+        setTimeout(() => {
+          const at = hitAt(msg.hits[0]?.m);
+          sfxSlash(vol);
+          this.crescent(at, i % 2 ? -0.7 : 0.7, 2.1, i % 2 ? accent : steel, 260);
+          this.glow(at, 0xffffff, 3, 180);
+          this.burst(at, steel, 12, 4);
+          this.pixelFx('slash', { at: () => at.clone().setY(at.y * 0.6), scale: 2.2, flip: i % 2 === 1 });
+          if (mine && i === n - 1) this.shake(0.15);
+        }, 120 + i * 130);
+      }
+    }
+  }
+
+  private shake(amp: number) {
+    this.shakeAmp = this.shakeT > 0 ? Math.max(amp, this.shakeAmp) : amp;
+    this.shakeT = 0.35;
+  }
+
+  /** A tapered crescent (thick middle, sharp tips) facing the camera, tilted by `tilt` radians, that sweeps and fades. */
+  private crescent(at: THREE.Vector3, tilt: number, radius: number, color: number, ms: number, delay = 0) {
+    const geo = crescentGeometry(radius, radius * 0.28, Math.PI * 0.95);
+    const mats = [color, 0xffffff].map((c, i) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: i ? 0.9 : 0.85, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const g = new THREE.Group();
+    const outer = new THREE.Mesh(geo, mats[0]);
+    const core = new THREE.Mesh(crescentGeometry(radius * 0.97, radius * 0.08, Math.PI * 0.9), mats[1]);
+    g.add(outer, core);
+    g.position.copy(at);
+    g.visible = false;
+    this.scene.add(g);
+    let t = -delay / ms;
+    this.effects.push((dt) => {
+      t += (dt * 1000) / ms;
+      if (t < 0) return true;
+      g.visible = true;
+      g.quaternion.copy(this.camera.quaternion);
+      g.rotateZ(tilt - Math.PI * 0.45 + t * 1.2);
+      g.scale.setScalar(0.6 + Math.min(1, t) * 0.6);
+      mats[0].opacity = 0.85 * (1 - t);
+      mats[1].opacity = 0.9 * (1 - t);
+      if (t >= 1) {
+        this.scene.remove(g);
+        geo.dispose();
+        core.geometry.dispose();
+        mats.forEach((m) => m.dispose());
+      }
+      return t < 1;
+    });
+  }
+
+  /** A horizontal ring of blade arcs spinning round a player (หมุนตัวแทง). */
+  private whirlRing(a: PlayerActor, height: number, radius: number, color: number, delay: number) {
+    const geos = [0, 1, 2].map(() => crescentGeometry(radius, radius * 0.22, Math.PI * 0.55));
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+    const g = new THREE.Group();
+    geos.forEach((geo, i) => {
+      const m = new THREE.Mesh(geo, mat);
+      m.rotation.x = -Math.PI / 2;
+      m.rotation.order = 'YXZ';
+      m.rotation.y = (i * Math.PI * 2) / 3;
+      g.add(m);
+    });
+    g.visible = false;
+    this.scene.add(g);
+    let t = -delay / 650;
+    this.effects.push((dt) => {
+      t += dt / 0.65;
+      if (t < 0) return true;
+      g.visible = true;
+      g.position.set(a.rig.root.position.x, height + t * 0.4, a.rig.root.position.z);
+      g.rotation.y -= dt * 22;
+      g.scale.setScalar(0.5 + Math.min(1, t) * 0.7);
+      mat.opacity = 0.9 * Math.min(1, (1 - t) * 2);
+      if (t >= 1) {
+        this.scene.remove(g);
+        geos.forEach((geo) => geo.dispose());
+        mat.dispose();
+      }
+      return t < 1;
+    });
+  }
+
+  /** A wind streak on the ground and at chest height from (fx,fy) to (tx,ty): พุ่งแทง's trail. */
+  private streak(fx: number, fy: number, tx: number, ty: number, color: number) {
+    const len = Math.hypot(tx - fx, ty - fy);
+    if (len < 0.2) return;
+    const parts = [0.5, 1.0, 1.4].map((h, i) => {
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(len, i === 1 ? 0.5 : 0.18),
+        new THREE.MeshBasicMaterial({ color: i === 1 ? color : 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }),
+      );
+      m.position.set((fx + tx) / 2, h, (fy + ty) / 2);
+      m.rotation.order = 'YXZ';
+      m.rotation.y = -Math.atan2(ty - fy, tx - fx);
+      m.rotation.x = i === 1 ? -Math.PI / 2 : 0;
+      if (i === 1) m.position.y = 0.06;
+      this.scene.add(m);
+      return m;
+    });
+    for (let i = 1; i <= 6; i++) {
+      const k = i / 7;
+      setTimeout(() => this.burst(new THREE.Vector3(fx + (tx - fx) * k, 0.5, fy + (ty - fy) * k), 0xffffff, 4, 1.5), (i * DASH_MS) / 7);
+    }
+    let t = 0;
+    this.effects.push((dt) => {
+      t += dt / 0.45;
+      for (const m of parts) {
+        (m.material as THREE.MeshBasicMaterial).opacity = 0.8 * (1 - t);
+        m.scale.y = 1 - t * 0.7;
+      }
+      if (t >= 1) parts.forEach((m) => {
+        this.scene.remove(m);
+        m.geometry.dispose();
+        (m.material as THREE.Material).dispose();
+      });
+      return t < 1;
+    });
+  }
+
+  /** A quick bright flash (a big additive spark) at a hit. */
+  private glow(at: THREE.Vector3, color: number, size: number, ms: number) {
+    const s = this.sprite(sparkTexture(), size, color, true);
+    s.position.copy(at);
+    let t = 0;
+    this.effects.push((dt) => {
+      t += (dt * 1000) / ms;
+      s.scale.setScalar(size * (0.6 + t * 0.8));
+      s.material.opacity = Math.max(0, 1 - t);
+      if (t >= 1) this.scene.remove(s);
+      return t < 1;
     });
   }
 
@@ -1426,6 +1616,24 @@ export class World3D {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
   }
+}
+
+/** A crescent in the XY plane: an arc of `angle` radians, `width` thick at the middle, tapering to points. */
+function crescentGeometry(radius: number, width: number, angle: number) {
+  const n = 28;
+  const pos: number[] = [];
+  const idx: number[] = [];
+  for (let i = 0; i <= n; i++) {
+    const u = i / n;
+    const th = -angle / 2 + u * angle;
+    const w = width * Math.sin(Math.PI * u);
+    pos.push(Math.cos(th) * radius, Math.sin(th) * radius, 0, Math.cos(th) * (radius - w), Math.sin(th) * (radius - w), 0);
+    if (i < n) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  return g;
 }
 
 function lookKey(rp: RemotePlayer) {
