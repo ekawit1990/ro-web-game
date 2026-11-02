@@ -745,7 +745,7 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
     k = THREE.MathUtils.smoothstep(gear.draw, 0, 1);
   }
   const clsKey = rig.root.userData.cls as string;
-  // the Teen keeps the dagger in hand all the time; only the guard stance waits for a fight
+  // the Teen keeps the dagger in hand all the time; the guard stance only shows during an attack
   const knife = clsKey === 'teen' && armed;
   const moves = armed ? MOVES[clsKey] : undefined;
   const perform = !s.dead && !s.sitting ? s.perform ?? 0 : 0;
@@ -779,9 +779,10 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
   set('head', gear?.ik ? 0.14 * k : 0, 0, s.moving ? 0 : Math.sin(t * 1.3) * 0.04);
   rig.body.position.y = s.moving ? Math.abs(Math.sin(t * 11)) * 0.04 : 0;
 
-  if ((knife || (clsKey === 'drummer' && armed)) && k > 0 && !s.moving && !s.sitting && !s.dead) {
-    // guard stance: knees bent, feet apart, weight low
-    const g = k;
+  if ((knife || (clsKey === 'drummer' && armed)) && k > 0 && s.attack > 0 && !s.moving && !s.sitting && !s.dead) {
+    // guard stance, only while an attack plays (it eases in and out): knees bent, feet apart, weight low.
+    // Between attacks the character stands straight again straight away.
+    const g = k * Math.min(1, (1 - s.attack) / 0.12, s.attack / 0.12);
     for (const [n, v] of Object.entries(GUARD) as [VRMHumanBoneName, V3][]) {
       const r = b(n)?.rotation;
       if (r) r.set(r.x + v[0] * g, r.y + v[1] * g, r.z + v[2] * g);
