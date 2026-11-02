@@ -303,6 +303,24 @@ export function sfxWhirl(vol = 1) {
   tone(110, t + 0.45, 0.35, { type: 'sine', to: 40, gain: 0.4 * vol, release: 0.12 });
 }
 
+/**
+ * "ป๊าก!": a stick cracking on a snare, a sharp noise snap over a dry body thump. `big` is the final blow
+ * (a deeper thump and a ringing tail).
+ */
+export function sfxPak(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = big ? 1.4 : 1;
+  noise(t, 0.045, { gain: 0.7 * vol * k, type: 'highpass', freq: 2500, release: 0.02 });
+  noise(t, 0.09, { gain: 0.35 * vol * k, type: 'bandpass', freq: 1800, q: 0.9, release: 0.04 });
+  tone(big ? 210 : 280, t, 0.1, { type: 'triangle', to: big ? 90 : 160, gain: 0.45 * vol * k, release: 0.05 });
+  tone(1500, t, 0.03, { type: 'square', gain: 0.1 * vol * k, release: 0.02 });
+  if (big) {
+    noise(t + 0.02, 0.3, { gain: 0.25 * vol, type: 'bandpass', freq: 3200, q: 3, release: 0.15, wet: 0.35 });
+    tone(110, t, 0.18, { type: 'sine', to: 45, gain: 0.5 * vol, release: 0.08 });
+  }
+}
+
 /** A skill: a quick flourish on the class instrument, plus a whoosh/boom for area skills. */
 export function sfxSkill(cls: ClassKey, type: string, vol = 1) {
   if (!ready() || vol <= 0) return;

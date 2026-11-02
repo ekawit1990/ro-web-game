@@ -8,7 +8,7 @@ import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setHat } from './models';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { PHONE } from './device';
-import { sfx, sfxAttack, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
+import { sfx, sfxAttack, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
@@ -1555,9 +1555,14 @@ export class World3D {
     let numberGap = 110;
 
     if (id === 'snare_roll' && a) {
-      // 16 alternating stick hits in a blur, purple sparks flying, then a big accent
+      // 16 alternating stick hits in a blur with a purple aura round the drummer, each hit a "ป๊าก!",
+      // then a big accent and the total in yellow
       numbersFrom = 120;
       numberGap = 85;
+      const total = msg.hits.reduce((sum, h) => sum + h.dmg, 0);
+      this.aura(a, c, 1.5);
+      this.pillar(a.x, a.y, c, 0.9, 3);
+      this.ring(a.x, a.y, 1.8, c);
       for (let i = 0; i < 16; i++) {
         setTimeout(() => {
           a.combo = i % 2;
@@ -1565,13 +1570,15 @@ export class World3D {
           const at = target();
           this.crescent(at, (i % 2 ? 0.9 : -0.9) + (Math.random() - 0.5) * 0.6, 1.1 + Math.random() * 0.4, i % 3 ? c : 0xffffff, 150);
           this.burst(at, c, 4, 3);
-          if (i % 2) sfxAttack('drummer', vol * 0.8);
+          sfxPak(vol * 0.75);
+          if (i % 4 === 0) this.ring(a.x, a.y, 1.4, c);
           if (i === 15) {
             this.glow(at, c, 5, 320);
             this.ring(at.x, at.z, 2.2, c);
             this.burst(at, 0xffffff, 30, 6);
-            sfxSlash(vol, true);
+            sfxPak(vol, true);
             if (mine) this.shake(0.3);
+            if (total > 0) this.floatText(at.clone().setY(at.y + 1.9), String(total), 'total', 1800);
           }
         }, 60 + i * 85);
       }
@@ -1891,6 +1898,42 @@ export class World3D {
       this.glow(end, color, 4, 300);
       this.burst(end, color, 24, 5);
     }, dur * 1000);
+  }
+
+  /** A swirling aura round a player for `seconds`: a glowing haze plus sparks streaming up and spiralling. */
+  private aura(a: PlayerActor, color: number, seconds: number) {
+    const haze = this.sprite(sparkTexture(), 2.6, color, false);
+    haze.material.depthTest = false;
+    let t = 0;
+    let spawn = 0;
+    this.effects.push((dt) => {
+      t += dt;
+      const fade = Math.min(1, t / 0.15) * Math.min(1, (seconds - t) / 0.3);
+      haze.position.set(a.x, 0.95, a.y);
+      haze.scale.setScalar(2.4 + Math.sin(t * 14) * 0.15);
+      haze.material.opacity = Math.max(0, 0.55 * fade);
+      spawn += dt;
+      while (spawn > 0.03) {
+        spawn -= 0.03;
+        const s = this.sprite(sparkTexture(), 0.3, color, false);
+        const ang = Math.random() * Math.PI * 2;
+        const r = 0.5 + Math.random() * 0.3;
+        let f = 0;
+        this.effects.push((d2) => {
+          f += d2 / 0.7;
+          const an = ang + f * 4;
+          s.position.set(a.x + Math.cos(an) * r, 0.1 + f * 2.2, a.y + Math.sin(an) * r);
+          s.material.opacity = Math.max(0, 0.9 * (1 - f));
+          if (f >= 1) this.scene.remove(s);
+          return f < 1;
+        });
+      }
+      if (t >= seconds) {
+        this.scene.remove(haze);
+        return false;
+      }
+      return true;
+    });
   }
 
   /** A column of light rising out of the ground. */
