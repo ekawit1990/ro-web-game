@@ -692,12 +692,15 @@ const THROW: ComboKey[][] = [
 ];
 
 /** Each class's attack: its moves (one per attack, in turn) and how long one lasts in seconds. */
+/** Ends every move with a key that is back at the standing pose, so each attack lets go of the stance quickly. */
+const recover = (moves: ComboKey[][]): ComboKey[][] =>
+  moves.map((m) => [...m, { at: Math.min(0.95, Math.max(m[m.length - 1].at + 0.12, 0.8)), bones: {} }]);
 const MOVES: Record<string, { moves: ComboKey[][]; time: number }> = {
-  teen: { moves: COMBO, time: 0.55 },
-  drummer: { moves: DRUM, time: 0.3 },
-  guitarist: { moves: SWORD, time: 0.6 },
-  bassist: { moves: SWORD, time: 0.65 },
-  singer: { moves: THROW, time: 0.55 },
+  teen: { moves: recover(COMBO), time: 0.45 },
+  drummer: { moves: recover(DRUM), time: 0.28 },
+  guitarist: { moves: recover(SWORD), time: 0.5 },
+  bassist: { moves: recover(SWORD), time: 0.5 },
+  singer: { moves: recover(THROW), time: 0.45 },
 };
 const MOVE_BONES = [...new Set(Object.values(MOVES).flatMap((m) => m.moves.flat().flatMap((key) => Object.keys(key.bones))))] as VRMHumanBoneName[];
 /** Seconds one attack animation lasts (0 = the old quick arm swing). */
