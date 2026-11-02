@@ -8,12 +8,13 @@ import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setHat } from './models';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { PHONE } from './device';
-import { sfx, sfxAttack, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
+import { sfx, sfxAttack, sfxFak, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
 import { FxOptions, playFx, preloadFx } from './pixelfx';
+import { xSlashWave } from './xslash';
 
 /** Classes with their own attack moves in vrm.ts (the hit lands when the blow does). */
 const MOVE_CLASSES = new Set<ClassKey>(['drummer', 'guitarist', 'bassist', 'singer']);
@@ -1538,7 +1539,7 @@ export class World3D {
     const vol = a ? this.vol(a.x, a.y, mine) : 0;
     const isBuff = skill.type === 'buff' || skill.type === 'buff_party' || skill.type === 'buff_target';
     if (a) {
-      sfxSkill(skill.cls, skill.type, vol);
+      if (skill.shape !== 'x') sfxSkill(skill.cls, skill.type, vol); // คลื่นเสียงทำลาย has its own "ฟาก!"
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       if (skill.type !== 'aoe_self' && !isBuff) this.face(a, msg.x, msg.y);
       a.combat = COMBAT_TIME;
@@ -1620,8 +1621,23 @@ export class World3D {
       numbersFrom = 0;
       const fx = msg.fromX ?? a.x;
       const fy = msg.fromY ?? a.y;
-      this.wave(fx, fy, msg.dirX ?? 0, msg.dirY ?? 1, skill.length ?? 5, skill.speed ?? 5, skill.width ?? 1.5, c, skill.shape === 'x');
-      if (mine) this.shake(skill.shape === 'x' ? 0.2 : 0.35);
+      if (skill.shape === 'x') {
+        xSlashWave(
+          {
+            scene: this.scene,
+            camera: this.camera,
+            add: (e) => this.effects.push(e),
+            sparks: (at, color, n, speed) => this.burst(at, color, n, speed),
+            sound: (big) => sfxFak(vol, big),
+            shake: (amp) => mine && this.shake(amp),
+          },
+          fx, fy, msg.dirX ?? 0, msg.dirY ?? 1, skill.length ?? 5, skill.speed ?? 5, skill.width ?? 1.5, sparkTexture(),
+        );
+        if (mine) this.shake(0.2);
+      } else {
+        this.wave(fx, fy, msg.dirX ?? 0, msg.dirY ?? 1, skill.length ?? 5, skill.speed ?? 5, skill.width ?? 1.5, c, false);
+        if (mine) this.shake(0.35);
+      }
     } else if (id === 'root_note' && a) {
       // a straight-down chop: a tall green crescent, the ground cracks into a ring
       setTimeout(() => {
