@@ -26,7 +26,7 @@ const blendFor = (color: number) => (SOLID_FX.has(color) ? THREE.NormalBlending 
 
 const TILE_PX = 32; // derived.moveSpeed is pixels/second at this tile size (same as the server)
 const MOVE_SEND_MS = 100;
-const COMBAT_TIME = 5; // seconds the instrument stays in hand after an attack or skill
+const COMBAT_TIME = 0.8; // seconds the instrument stays in hand (and the fighting pose stays) after an attack or skill: stand again within a second
 
 export interface WorldHooks {
   system(text: string): void;
