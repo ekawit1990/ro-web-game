@@ -321,6 +321,28 @@ export function sfxPak(vol = 1, big = false, at = 0) {
   }
 }
 
+/**
+ * "ฟาก!": a heavy blade of sound tearing through the air. A breathy rising whoosh (the "ฟ"), then a hard crack
+ * with a short vowel-like body (the "าก") and a thump. `big` is the blast at the end: louder, with a deep boom
+ * and a ringing tail.
+ */
+export function sfxFak(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = big ? 1.35 : 1;
+  noise(t, 0.13, { gain: 0.32 * vol * k, type: 'bandpass', freq: 700, freqTo: 6000, q: 0.8, release: 0.04 });
+  const hit = t + 0.11;
+  noise(hit, 0.05, { gain: 0.8 * vol * k, type: 'highpass', freq: 2200, release: 0.02 });
+  noise(hit, 0.12, { gain: 0.5 * vol * k, type: 'bandpass', freq: 1100, q: 1.3, release: 0.05 });
+  tone(260, hit, 0.12, { type: 'sawtooth', to: 120, gain: 0.22 * vol * k, filter: 1400, filterTo: 400, q: 3, release: 0.05 });
+  tone(big ? 120 : 170, hit, 0.16, { type: 'sine', to: 45, gain: 0.55 * vol * k, release: 0.07 });
+  noise(hit + 0.03, 0.3, { gain: 0.16 * vol * k, type: 'bandpass', freq: 2600, q: 2.5, release: 0.12, wet: 0.45 });
+  if (big) {
+    tone(75, hit, 0.5, { type: 'sine', to: 28, gain: 0.5 * vol, release: 0.2 });
+    noise(hit, 0.45, { gain: 0.25 * vol, type: 'lowpass', freq: 600, freqTo: 120, release: 0.18, wet: 0.35 });
+  }
+}
+
 /** A skill: a quick flourish on the class instrument, plus a whoosh/boom for area skills. */
 export function sfxSkill(cls: ClassKey, type: string, vol = 1) {
   if (!ready() || vol <= 0) return;
