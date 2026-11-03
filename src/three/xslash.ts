@@ -395,9 +395,9 @@ function dust(ctx: XSlashCtx, x: number, z: number, n: number, spread: number) {
 }
 
 /** Light rays shooting out of a point in all directions (screen space). */
-function rays(ctx: XSlashCtx, at: THREE.Vector3, n: number, len: number) {
+function rays(ctx: XSlashCtx, at: THREE.Vector3, n: number, len: number, deep = false) {
   for (let i = 0; i < Math.max(1, Math.round(n)); i++) {
-    const s = sprite(ctx, ray(), i % 3 ? 0xd890ff : 0xffffff, true);
+    const s = deep && i % 3 ? sprite(ctx, ray(), 0x8a2be2, false) : sprite(ctx, ray(), i % 3 ? 0xd890ff : 0xffffff, true);
     s.center.set(0.5, 0);
     s.position.copy(at);
     s.material.depthTest = false;
@@ -774,5 +774,156 @@ export function doubleKickBlast(ctx: XSlashCtx, x: number, z: number, radius: nu
       if (i) dust(ctx, x, z, 6 * Q, 2.6);
       return false;
     });
+  });
+}
+
+// ------------------------------------------------------------ จังหวะส่ง
+
+let shardGeo: THREE.BufferGeometry | undefined;
+let shardMat: THREE.Material | undefined;
+
+/** Thin purple crystal shards bursting out of a hit. */
+function shards(ctx: XSlashCtx, at: THREE.Vector3, n: number, power: number) {
+  shardGeo ??= new THREE.OctahedronGeometry(1, 0);
+  shardMat ??= new THREE.MeshBasicMaterial({ color: 0x5a1aa8 });
+  const list = Array.from({ length: Math.max(1, Math.round(n)) }, () => {
+    const m = new THREE.Mesh(shardGeo, shardMat);
+    const s = 0.06 + Math.random() * 0.08;
+    m.scale.set(s * 0.5, s * 2.2, s * 0.5);
+    m.position.copy(at);
+    m.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+    ctx.scene.add(m);
+    const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.9, Math.random() - 0.5).normalize().multiplyScalar(power * (0.5 + Math.random()));
+    return { m, s: m.scale.clone(), v, spin: (Math.random() - 0.5) * 20 };
+  });
+  let t = 0;
+  const life = 0.8;
+  ctx.add((dt) => {
+    t += dt;
+    for (const r of list) {
+      r.v.y -= 9 * dt;
+      r.m.position.addScaledVector(r.v, dt);
+      r.m.rotation.x += r.spin * dt;
+      r.m.scale.copy(r.s).multiplyScalar(Math.max(0, Math.min(1, (life - t) / 0.25)));
+    }
+    if (t >= life) {
+      for (const r of list) ctx.scene.remove(r.m);
+      return false;
+    }
+    return true;
+  });
+}
+
+/** A flat strip of light lying along a dash: from (x0,z0) to (x1,z1) at height y, `w` wide. */
+function streakPlane(ctx: XSlashCtx, x0: number, z0: number, x1: number, z1: number, y: number, w: number, color: number, sec: number, delay: number, flat: boolean) {
+  const len = Math.hypot(x1 - x0, z1 - z0);
+  const geo = new THREE.PlaneGeometry(w, len);
+  const additive = color === 0xffffff;
+  const mat = new THREE.MeshBasicMaterial({ map: ray(), color, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending });
+  const m = new THREE.Mesh(geo, mat);
+  m.rotation.order = 'YXZ';
+  // the ray texture is bright at v=0 (local -y): point that end at the landing spot. Flat = lying on the
+  // ground; otherwise standing edge-up in the vertical plane through the path.
+  const yaw = Math.atan2(x1 - x0, z1 - z0);
+  if (flat) m.rotation.set(-Math.PI / 2, yaw, 0);
+  else m.rotation.set(0, yaw + Math.PI / 2, -Math.PI / 2);
+  m.position.set((x0 + x1) / 2, y, (z0 + z1) / 2);
+  ctx.scene.add(m);
+  let t = -delay;
+  ctx.add((dt) => {
+    t += dt;
+    if (t < 0) return true;
+    const k = t / sec;
+    mat.opacity = Math.max(0, k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85);
+    m.scale.x = 1 - k * 0.6;
+    if (k >= 1) {
+      dispose(ctx, m);
+      geo.dispose();
+      return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * จังหวะส่ง: the drummer shoots from (fx,fz) to (tx,tz) in `dashMs` like a purple comet: speed lines, an
+ * energy trail on the ground and a loop of light round the path, dust kicked up behind; at the target a
+ * starburst of rays, a ring on the ground, crystal shards and sparks. `big` = the x2 hit from hiding.
+ */
+export function sendOffDash(ctx: XSlashCtx, fx: number, fz: number, tx: number, tz: number, dashMs: number, big: boolean, glowTex: THREE.Texture) {
+  const len = Math.hypot(tx - fx, tz - fz);
+  if (len < 0.2) return;
+  const dx = (tx - fx) / len;
+  const dz = (tz - fz) / len;
+  const k = big ? 1.35 : 1;
+  const dash = dashMs / 1000;
+  ctx.sound(false);
+  // behind: dust and a little ring where the drummer pushed off
+  dust(ctx, fx, fz, 3 * Q + 1, 1.4);
+  shockRing(ctx, fx, fz, 1.6, 0.4);
+  // the trail: a wide glow on the ground and speed lines at different heights, a bit past the start
+  const bx = fx - dx * 1.2;
+  const bz = fz - dz * 1.2;
+  streakPlane(ctx, bx, bz, tx, tz, 0.06, 1.8 * k, 0x7a1fe0, 0.6, 0, true);
+  streakPlane(ctx, bx, bz, tx, tz, 0.08, 0.6 * k, 0xffffff, 0.45, 0, true);
+  const lines = Math.round(7 * Q) + 2;
+  for (let i = 0; i < lines; i++) {
+    const side = (Math.random() - 0.5) * 1.6;
+    const sx = -dz * side;
+    const sz = dx * side;
+    const back = 0.5 + Math.random() * 1.8;
+    streakPlane(ctx, bx - dx * back + sx, bz - dz * back + sz, tx - dx * 0.4 + sx, tz - dz * 0.4 + sz, 0.3 + Math.random() * 1.3, 0.08 + Math.random() * 0.12, [0x8a2be2, 0xb050ff, 0xffffff][i % 3], 0.45, Math.random() * dash * 0.6, false);
+  }
+  // a loop of light round the path: an oval ring stretched along the dash
+  const loop = groundPlane(shock(), 2);
+  loop.rotation.order = 'YXZ';
+  loop.rotation.set(-Math.PI / 2, Math.atan2(dx, dz), 0);
+  loop.position.set((fx + tx) / 2, 0.5, (fz + tz) / 2);
+  (loop.material as THREE.MeshBasicMaterial).color.set(0xa040ff);
+  ctx.scene.add(loop);
+  let lt = 0;
+  ctx.add((dt) => {
+    lt += dt;
+    const q = Math.min(1, lt / 0.25);
+    loop.scale.set(1.2 * k * (0.5 + q * 0.5), (len / 2 + 1) * (0.6 + q * 0.4), 1);
+    (loop.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - lt / 0.55);
+    if (lt >= 0.55) {
+      dispose(ctx, loop);
+      loop.geometry.dispose();
+      return false;
+    }
+    return true;
+  });
+  // the hit
+  let t = 0;
+  ctx.add((dt) => {
+    t += dt;
+    if (t < dash) return true;
+    const at = new THREE.Vector3(tx, 0.8, tz);
+    ctx.sound(true);
+    ctx.shake(0.3 * k);
+    const deep = sprite(ctx, glowTex, 0x7a1fe0, false);
+    deep.material.depthTest = false;
+    deep.renderOrder = 8;
+    deep.position.copy(at);
+    let dt2 = 0;
+    ctx.add((d) => {
+      dt2 += d / 0.45;
+      deep.scale.setScalar(3.6 * k * (0.6 + dt2 * 0.6));
+      deep.material.opacity = Math.max(0, 0.9 * (1 - dt2));
+      if (dt2 >= 1) {
+        dispose(ctx, deep);
+        return false;
+      }
+      return true;
+    });
+    flash(ctx, at, 4.5 * k, 0xb050ff, 0.4, glowTex);
+    flash(ctx, at, 2 * k, 0xffffff, 0.25, glowTex);
+    rays(ctx, at, 14 * Q + 2, 2.6 * k, true);
+    shockRing(ctx, tx, tz, 2.6 * k, 0.5);
+    shockRing(ctx, tx, tz, 1.6 * k, 0.4, 0.08);
+    shards(ctx, at, 10 * Q * k, 5);
+    ctx.sparks(at, 0xe8a0ff, Math.round(28 * Q * k), 7);
+    return false;
   });
 }

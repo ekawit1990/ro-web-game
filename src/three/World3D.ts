@@ -8,13 +8,13 @@ import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setHat } from './models';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { PHONE } from './device';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFwing, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
 import { FxOptions, playFx, preloadFx } from './pixelfx';
-import { doubleKickBlast, xSlashWave } from './xslash';
+import { doubleKickBlast, sendOffDash, xSlashWave } from './xslash';
 
 /** Classes with their own attack moves in vrm.ts (the hit lands when the blow does). */
 const MOVE_CLASSES = new Set<ClassKey>(['drummer', 'guitarist', 'bassist', 'singer']);
@@ -1539,7 +1539,7 @@ export class World3D {
     const vol = a ? this.vol(a.x, a.y, mine) : 0;
     const isBuff = skill.type === 'buff' || skill.type === 'buff_party' || skill.type === 'buff_target';
     if (a) {
-      if (skill.shape !== 'x' && id !== 'double_kick') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!"
+      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!"
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       if (skill.type !== 'aoe_self' && !isBuff) this.face(a, msg.x, msg.y);
       a.combat = COMBAT_TIME;
@@ -1600,23 +1600,22 @@ export class World3D {
         a.x, a.y, skill.radius ?? 5, sparkTexture(),
       );
     } else if ((id === 'send_off' || id === 'slide') && a) {
-      // dash: a streak along the way and an X of crescents where it lands (x2 = bigger, white-hot)
+      // dash like a purple comet ("ฟวิ้ง!") and a starburst where it lands (x2 = bigger)
       const fx = msg.fromX ?? a.x;
       const fy = msg.fromY ?? a.y;
-      this.streak(fx, fy, msg.x, msg.y, c);
-      this.ring(fx, fy, 1, c);
-      setTimeout(() => {
-        const at = target();
-        const big = msg.bonus ? 1.4 : 1;
-        sfxSlash(vol, true);
-        this.crescent(at, 0.75, 2.6 * big, 0xffffff, 300);
-        this.crescent(at, -0.75, 2.6 * big, c, 340, 60);
-        this.glow(at, msg.bonus ? 0xffffff : c, 5 * big, 280);
-        this.ring(at.x, at.z, 2.4 * big, c);
-        this.burst(at, c, 36, 7);
-        if (msg.bonus) this.floatText(at.clone().setY(at.y + 1.4), 'x2!!', 'shout', 900);
-        if (mine) this.shake(0.3 * big);
-      }, DASH_MS);
+      const at = target();
+      sendOffDash(
+        {
+          scene: this.scene,
+          camera: this.camera,
+          add: (e) => this.effects.push(e),
+          sparks: (p, color, n, speed) => this.burst(p, color, n, speed),
+          sound: (hit) => (hit ? sfxPak(vol, true) : sfxFwing(vol, !!msg.bonus)),
+          shake: (amp) => mine && this.shake(amp),
+        },
+        fx, fy, at.x, at.z, DASH_MS, !!msg.bonus, sparkTexture(),
+      );
+      if (msg.bonus) setTimeout(() => this.floatText(target().setY(at.y + 1.4), 'x2!!', 'shout', 900), DASH_MS);
     } else if (skill.type === 'line' && a) {
       numbersFrom = 0;
       const fx = msg.fromX ?? a.x;

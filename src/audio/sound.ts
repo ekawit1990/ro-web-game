@@ -358,6 +358,21 @@ export function sfxBoom(vol = 1, big = false, at = 0) {
   if (big) tone(60, t + 0.02, 0.7, { type: 'sine', to: 25, gain: 0.5 * vol, release: 0.25 });
 }
 
+/**
+ * "ฟวิ้ง!": a dash. A breathy rush of air (the "ฟ") that sweeps up into a bright ringing zing (the "วิ้ง"),
+ * a pitch that glides up and wobbles as it fades.
+ */
+export function sfxFwing(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = big ? 1.3 : 1;
+  noise(t, 0.16, { gain: 0.35 * vol * k, type: 'bandpass', freq: 600, freqTo: 7000, q: 0.8, release: 0.05 });
+  const z = t + 0.06;
+  tone(700, z, 0.32, { type: 'triangle', to: 2300, gain: 0.16 * vol * k, vibrato: 0.03, release: 0.12, wet: 0.45 });
+  tone(1400, z, 0.28, { type: 'sine', to: 4600, gain: 0.07 * vol * k, release: 0.1, wet: 0.4 });
+  noise(z + 0.05, 0.25, { gain: 0.12 * vol * k, type: 'bandpass', freq: 5000, q: 4, release: 0.12, wet: 0.4 });
+}
+
 /** A skill: a quick flourish on the class instrument, plus a whoosh/boom for area skills. */
 export function sfxSkill(cls: ClassKey, type: string, vol = 1) {
   if (!ready() || vol <= 0) return;
