@@ -8,13 +8,13 @@ import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setHat } from './models';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { PHONE } from './device';
-import { sfx, sfxAttack, sfxFak, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
 import { FxOptions, playFx, preloadFx } from './pixelfx';
-import { xSlashWave } from './xslash';
+import { doubleKickBlast, xSlashWave } from './xslash';
 
 /** Classes with their own attack moves in vrm.ts (the hit lands when the blow does). */
 const MOVE_CLASSES = new Set<ClassKey>(['drummer', 'guitarist', 'bassist', 'singer']);
@@ -1539,7 +1539,7 @@ export class World3D {
     const vol = a ? this.vol(a.x, a.y, mine) : 0;
     const isBuff = skill.type === 'buff' || skill.type === 'buff_party' || skill.type === 'buff_target';
     if (a) {
-      if (skill.shape !== 'x') sfxSkill(skill.cls, skill.type, vol); // คลื่นเสียงทำลาย has its own "ฟาก!"
+      if (skill.shape !== 'x' && id !== 'double_kick') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!"
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       if (skill.type !== 'aoe_self' && !isBuff) this.face(a, msg.x, msg.y);
       a.combat = COMBAT_TIME;
@@ -1587,18 +1587,18 @@ export class World3D {
       this.smoke(a.x, a.y, c);
       this.ring(a.x, a.y, 1.6, c);
     } else if (id === 'double_kick' && a) {
-      // two kick-drum thumps: two purple shockwaves rolling out 5 tiles
-      for (let i = 0; i < 2; i++) {
-        setTimeout(() => {
-          this.ring(a.x, a.y, skill.radius ?? 5, i ? 0xffffff : c);
-          this.ring(a.x, a.y, (skill.radius ?? 5) * 0.6, c);
-          this.burst(new THREE.Vector3(a.x, 0.3, a.y), c, 26, 6);
-          this.glow(new THREE.Vector3(a.x, 0.4, a.y), c, 4, 260);
-          sfx('hit', vol);
-          if (mine) this.shake(0.25);
-        }, i * 230);
-      }
-      this.pillar(a.x, a.y, c, 0.9, 3);
+      // two kick-drum stomps ("ตูม!"): magic circle, whirling music staves, a column of light, rising notes
+      doubleKickBlast(
+        {
+          scene: this.scene,
+          camera: this.camera,
+          add: (e) => this.effects.push(e),
+          sparks: (at, color, n, speed) => this.burst(at, color, n, speed),
+          sound: (big) => sfxBoom(vol, big),
+          shake: (amp) => mine && this.shake(amp),
+        },
+        a.x, a.y, skill.radius ?? 5, sparkTexture(),
+      );
     } else if ((id === 'send_off' || id === 'slide') && a) {
       // dash: a streak along the way and an X of crescents where it lands (x2 = bigger, white-hot)
       const fx = msg.fromX ?? a.x;
