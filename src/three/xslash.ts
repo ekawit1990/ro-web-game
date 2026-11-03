@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PHONE } from './device';
-import { canvasTexture } from './toon';
+import { canvasTexture, glyphTexture } from './toon';
 
 /**
  * คลื่นเสียงทำลาย: a big glowing purple X of two curved blades that flies along the ground, with a magic
@@ -29,6 +29,7 @@ let circleTex: THREE.Texture | undefined;
 let shockTex: THREE.Texture | undefined;
 let rayTex: THREE.Texture | undefined;
 let puffTex: THREE.Texture | undefined;
+let staffTex: THREE.Texture | undefined;
 let rockGeo: THREE.BufferGeometry | undefined;
 let rockMat: THREE.Material | undefined;
 const bladeGeos = new Map<string, THREE.BufferGeometry>();
@@ -555,5 +556,223 @@ export function xSlashWave(ctx: XSlashCtx, fx: number, fz: number, dx: number, d
       return false;
     }
     return true;
+  });
+}
+
+// ------------------------------------------------------------ กระเดื่องคู่
+
+/** A strip of music staff: five glowing lines with notes on them, fading at both ends (wraps round a ring). */
+function staff() {
+  return (staffTex ??= canvasTexture(PHONE ? 512 : 1024, 128, (c) => {
+    const w = PHONE ? 512 : 1024;
+    const k = w / 1024;
+    c.scale(k, 1);
+    const top = 34;
+    const gap = 14;
+    const notes = ['♪', '♫', '♬', '♩', '♪', '♫'];
+    const draw = (col: string, extra: number) => {
+      c.strokeStyle = col;
+      c.fillStyle = col;
+      c.lineWidth = 5 + extra;
+      for (let i = 0; i < 5; i++) {
+        c.beginPath();
+        c.moveTo(0, top + i * gap);
+        c.lineTo(1024, top + i * gap);
+        c.stroke();
+      }
+      // bar lines and notes sitting on the staff
+      for (let b = 0; b < 4; b++) c.fillRect(250 * b + 240 - extra / 2, top, 3 + extra, gap * 4);
+      c.font = 'bold 54px sans-serif';
+      c.textBaseline = 'middle';
+      c.lineWidth = 3 + extra;
+      for (let i = 0; i < 12; i++) {
+        const x = 30 + i * 82;
+        const y = top + ((i * 3) % 5) * gap + 4;
+        if (extra) c.strokeText(notes[i % notes.length], x, y);
+        else c.fillText(notes[i % notes.length], x, y);
+      }
+    };
+    c.shadowColor = '#a040ff';
+    c.shadowBlur = 12;
+    draw('rgba(110,20,200,0.95)', 6);
+    c.shadowColor = '#ffb0ff';
+    c.shadowBlur = 6;
+    draw('#fff2ff', 0);
+    // fade both ends
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.globalCompositeOperation = 'destination-in';
+    const f = c.createLinearGradient(0, 0, w, 0);
+    f.addColorStop(0, 'rgba(0,0,0,0)');
+    f.addColorStop(0.12, 'rgba(0,0,0,1)');
+    f.addColorStop(0.88, 'rgba(0,0,0,1)');
+    f.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = f;
+    c.fillRect(0, 0, w, 128);
+  }));
+}
+
+function staffMap() {
+  const t = staff();
+  t.wrapS = THREE.RepeatWrapping;
+  t.repeat.x = 2; // the ribbon is long: two strips of staff round it
+  return t;
+}
+
+/** A ribbon of music staff curving round (x,z), slightly tilted, spinning and opening out. */
+function staffRing(ctx: XSlashCtx, x: number, z: number, r: number, y: number, tilt: number, spin: number, sec: number, delay: number) {
+  const geo = new THREE.CylinderGeometry(r, r, 1.1, PHONE ? 32 : 56, 1, true, 0, Math.PI * 1.5);
+  const mats = [false, true].map(
+    (add) =>
+      new THREE.MeshBasicMaterial({ map: staffMap(), color: add ? 0xd070ff : 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending }),
+  );
+  const g = new THREE.Group();
+  for (const m of mats) g.add(new THREE.Mesh(geo, m));
+  const pivot = new THREE.Group();
+  pivot.position.set(x, y, z);
+  pivot.rotation.set(tilt, 0, tilt * 0.6);
+  pivot.add(g);
+  ctx.scene.add(pivot);
+  let t = -delay;
+  ctx.add((dt) => {
+    t += dt;
+    if (t < 0) return true;
+    const k = Math.min(1, t / 0.35);
+    g.rotation.y += spin * dt * (2.2 - k);
+    g.scale.set(0.45 + 0.55 * (1 - Math.pow(1 - k, 3)), 1, 0.45 + 0.55 * (1 - Math.pow(1 - k, 3)));
+    const fade = Math.min(k, Math.max(0, (sec - t) / 0.4));
+    mats[0].opacity = fade;
+    mats[1].opacity = 0.85 * fade;
+    if (t >= sec) {
+      dispose(ctx, pivot);
+      geo.dispose();
+      return false;
+    }
+    return true;
+  });
+}
+
+/** Dark-violet crescents lying on the ground, sweeping round the circle's edge. */
+function groundSwooshes(ctx: XSlashCtx, x: number, z: number, r: number, sec: number) {
+  const n = 3;
+  const geo = bladeGeometry(r * 1.6, r * 0.16);
+  const mat = new THREE.MeshBasicMaterial({ map: blade(), transparent: true, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
+  const g = new THREE.Group();
+  for (let i = 0; i < n; i++) {
+    const arm = new THREE.Group();
+    arm.rotation.y = (i / n) * Math.PI * 2;
+    const m = new THREE.Mesh(geo, mat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.x = r; // the blade bows round the circle
+    arm.add(m);
+    g.add(arm);
+  }
+  g.position.set(x, 0.07, z);
+  ctx.scene.add(g);
+  let t = 0;
+  ctx.add((dt) => {
+    t += dt;
+    const k = Math.min(1, t / 0.3);
+    g.rotation.y -= dt * (5 - 3.5 * k);
+    g.scale.setScalar(0.5 + 0.5 * (1 - Math.pow(1 - k, 3)));
+    mat.opacity = Math.max(0, Math.min(k * 1.5, (sec - t) / 0.4));
+    if (t >= sec) {
+      dispose(ctx, g);
+      return false;
+    }
+    return true;
+  });
+}
+
+/** A column of light shooting up from (x,z). */
+function lightPillar(ctx: XSlashCtx, x: number, z: number, height: number, sec: number) {
+  const parts = [
+    { c: 0xb050ff, w: 1.6 },
+    { c: 0xffffff, w: 0.5 },
+  ].map(({ c, w }) => {
+    const s = sprite(ctx, ray(), c, true);
+    s.center.set(0.5, 0);
+    s.position.set(x, 0, z);
+    s.renderOrder = 11;
+    return { s, w };
+  });
+  let t = 0;
+  ctx.add((dt) => {
+    t += dt;
+    const k = Math.min(1, t / 0.15);
+    for (const p of parts) {
+      p.s.scale.set(p.w * (1 + Math.sin(t * 30) * 0.08) * (1 - Math.max(0, t - sec * 0.5) / sec), height * k, 1);
+      p.s.material.opacity = Math.max(0, Math.min(1, (sec - t) / (sec * 0.5)));
+    }
+    if (t >= sec) {
+      dispose(ctx, ...parts.map((p) => p.s));
+      return false;
+    }
+    return true;
+  });
+}
+
+/** Big glowing music notes rising and drifting round the drummer. */
+function risingNotes(ctx: XSlashCtx, x: number, z: number, r: number, n: number) {
+  const glyphs = ['♪', '♫', '♬', '♩'];
+  for (let i = 0; i < n; i++) {
+    const s = sprite(ctx, glyphTexture(glyphs[i % 4], '#fbe8ff', 'rgba(150,40,240,0.9)'), 0xffffff, false);
+    s.renderOrder = 12;
+    const ang = (i / n) * Math.PI * 2 + Math.random() * 0.5;
+    const rad = r * (0.5 + Math.random() * 0.5);
+    const size = 0.5 + Math.random() * 0.45;
+    const life = 1.1 + Math.random() * 0.5;
+    let t = -Math.random() * 0.3;
+    ctx.add((dt) => {
+      t += dt;
+      if (t < 0) {
+        s.visible = false;
+        return true;
+      }
+      s.visible = true;
+      const k = t / life;
+      const a = ang + k * 1.2;
+      s.position.set(x + Math.cos(a) * rad * (0.6 + k * 0.4), 0.3 + k * 3.2, z + Math.sin(a) * rad * (0.6 + k * 0.4));
+      s.scale.setScalar(size * Math.min(1, t * 6));
+      s.material.opacity = Math.max(0, Math.min(1, (1 - k) * 2.5));
+      if (k >= 1) {
+        dispose(ctx, s);
+        return false;
+      }
+      return true;
+    });
+  }
+}
+
+/**
+ * กระเดื่องคู่: two kick-drum stomps. A magic circle opens under the drummer, music-staff ribbons whirl round,
+ * dark swooshes sweep the ground, a column of light shoots up and notes rise; each stomp ("ตูม!") sends a
+ * shockwave out to `radius` tiles.
+ */
+export function doubleKickBlast(ctx: XSlashCtx, x: number, z: number, radius: number, glowTex: THREE.Texture) {
+  const sec = 1.6;
+  magicCircle(ctx, x, z, radius * 0.62, sec);
+  groundSwooshes(ctx, x, z, radius * 0.8, sec * 0.85);
+  staffRing(ctx, x, z, radius * 0.62, 0.7, 0.12, 2.4, sec, 0);
+  staffRing(ctx, x, z, radius * 0.72, 1.5, -0.16, -1.8, sec - 0.1, 0.1);
+  if (!PHONE) staffRing(ctx, x, z, radius * 0.5, 2.2, 0.2, 3, sec - 0.2, 0.18);
+  lightPillar(ctx, x, z, 7, 1.0);
+  risingNotes(ctx, x, z, radius * 0.6, Math.round(12 * Q));
+  // the two stomps
+  [0, 0.23].forEach((at, i) => {
+    let t = -at;
+    let done = false;
+    ctx.add((dt) => {
+      t += dt;
+      if (t < 0 || done) return !done;
+      done = true;
+      ctx.sound(i === 1);
+      ctx.shake(i ? 0.35 : 0.25);
+      shockRing(ctx, x, z, radius + 0.5, 0.55);
+      shockRing(ctx, x, z, radius * 0.6, 0.45, 0.06);
+      flash(ctx, new THREE.Vector3(x, 0.5, z), 4 + i * 1.5, i ? 0xffffff : 0xc060ff, 0.35, glowTex);
+      ctx.sparks(new THREE.Vector3(x, 0.4, z), 0xe8a0ff, Math.round(22 * Q), 6);
+      if (i) dust(ctx, x, z, 6 * Q, 2.6);
+      return false;
+    });
   });
 }

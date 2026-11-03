@@ -343,6 +343,21 @@ export function sfxFak(vol = 1, big = false, at = 0) {
   }
 }
 
+/**
+ * "ตูม!": a kick drum the size of a cannon. A short click, a deep pitch-dropping body (the "ตู") and a rumbling
+ * low noise tail (the "ม"). `big` is the second, heavier stomp.
+ */
+export function sfxBoom(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = big ? 1.3 : 1;
+  noise(t, 0.02, { gain: 0.35 * vol * k, type: 'highpass', freq: 3000, release: 0.01 });
+  tone(big ? 150 : 170, t, 0.45, { type: 'sine', to: 32, gain: 0.85 * vol * k, release: 0.16 });
+  tone(big ? 300 : 340, t, 0.18, { type: 'triangle', to: 70, gain: 0.3 * vol * k, filter: 900, filterTo: 150, release: 0.06 });
+  noise(t, 0.6, { gain: 0.4 * vol * k, type: 'lowpass', freq: 900, freqTo: 80, release: 0.22, wet: 0.45 });
+  if (big) tone(60, t + 0.02, 0.7, { type: 'sine', to: 25, gain: 0.5 * vol, release: 0.25 });
+}
+
 /** A skill: a quick flourish on the class instrument, plus a whoosh/boom for area skills. */
 export function sfxSkill(cls: ClassKey, type: string, vol = 1) {
   if (!ready() || vol <= 0) return;
