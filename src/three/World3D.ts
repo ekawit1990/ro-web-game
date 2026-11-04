@@ -8,13 +8,13 @@ import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setHat } from './models';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { PHONE } from './device';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFwing, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
 import { FxOptions, playFx, preloadFx } from './pixelfx';
-import { doubleKickBlast, sendOffDash, xSlashWave } from './xslash';
+import { doubleKickBlast, sendOffDash, snareGhost, snareHit, snareStorm, xSlashWave } from './xslash';
 
 /** Classes with their own attack moves in vrm.ts (the hit lands when the blow does). */
 const MOVE_CLASSES = new Set<ClassKey>(['drummer', 'guitarist', 'bassist', 'singer']);
@@ -1539,7 +1539,7 @@ export class World3D {
     const vol = a ? this.vol(a.x, a.y, mine) : 0;
     const isBuff = skill.type === 'buff' || skill.type === 'buff_party' || skill.type === 'buff_target';
     if (a) {
-      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!"
+      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       if (skill.type !== 'aoe_self' && !isBuff) this.face(a, msg.x, msg.y);
       a.combat = COMBAT_TIME;
@@ -1556,31 +1556,34 @@ export class World3D {
     let numberGap = 110;
 
     if (id === 'snare_roll' && a) {
-      // 16 alternating stick hits in a blur with a purple aura round the drummer, each hit a "ป๊าก!",
-      // then a big accent and the total in yellow
+      // a storm of violet blades whirling round the drummer ("ฟริ้ง!"), afterimages lunging in from both sides,
+      // 16 starbursts on the target and a big one at the end with the total in yellow
       numbersFrom = 120;
       numberGap = 85;
       const total = msg.hits.reduce((sum, h) => sum + h.dmg, 0);
-      this.aura(a, c, 1.5);
-      this.pillar(a.x, a.y, c, 0.9, 3);
-      this.ring(a.x, a.y, 1.8, c);
+      const ctx = {
+        scene: this.scene,
+        camera: this.camera,
+        add: (e: Effect) => this.effects.push(e),
+        sparks: (p: THREE.Vector3, color: number, n: number, speed: number) => this.burst(p, color, n, speed),
+        sound: (big: boolean) => sfxFring(vol, big),
+        shake: (amp: number) => mine && this.shake(amp),
+      };
+      const glow = sparkTexture();
+      snareStorm(ctx, a.x, a.y, 1.75, glow);
+      const ghostEvery = PHONE ? 4 : 2;
       for (let i = 0; i < 16; i++) {
         setTimeout(() => {
           a.combo = i % 2;
           a.attack = 1;
           const at = target();
-          this.crescent(at, (i % 2 ? 0.9 : -0.9) + (Math.random() - 0.5) * 0.6, 1.1 + Math.random() * 0.4, i % 3 ? c : 0xffffff, 150);
-          this.burst(at, c, 4, 3);
-          sfxPak(vol * 0.75);
-          if (i % 4 === 0) this.ring(a.x, a.y, 1.4, c);
-          if (i === 15) {
-            this.glow(at, c, 5, 320);
-            this.ring(at.x, at.z, 2.2, c);
-            this.burst(at, 0xffffff, 30, 6);
-            sfxPak(vol, true);
-            if (mine) this.shake(0.3);
-            if (total > 0) this.floatText(at.clone().setY(at.y + 1.9), String(total), 'total', 1800);
+          snareHit(ctx, at, i === 15, glow);
+          if (i % 4 === 2 && i < 15) sfxFring(vol * 0.3);
+          if (i % ghostEvery === 1 && !a.dead && this.players.get(a.id) === a) {
+            const side = (i % 4 === 1 ? 1 : -1) * (0.9 + Math.random() * 1.1);
+            snareGhost(ctx, a.rig.root, a.x, a.y, at.x, at.z, side, 0.9 + Math.random() * 0.6);
           }
+          if (i === 15 && total > 0) this.floatText(at.clone().setY(at.y + 1.9), String(total), 'total', 1800);
         }, 60 + i * 85);
       }
     } else if (id === 'ghost_exit' && a) {

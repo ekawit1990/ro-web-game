@@ -373,6 +373,29 @@ export function sfxFwing(vol = 1, big = false, at = 0) {
   noise(z + 0.05, 0.25, { gain: 0.12 * vol * k, type: 'bandpass', freq: 5000, q: 4, release: 0.12, wet: 0.4 });
 }
 
+/**
+ * "ฟริ้ง!": a storm of blades. A breathy rush (the "ฟ"), a quick fluttering roll of little stick-like ticks
+ * (the rolled "ร"), then a bright metallic ring that shimmers as it fades (the "ิ้ง"). `big` is the last accent:
+ * louder, with a low thump under it and a longer ring.
+ */
+export function sfxFring(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = big ? 1.3 : 1;
+  noise(t, 0.14, { gain: 0.3 * vol * k, type: 'bandpass', freq: 800, freqTo: 6500, q: 0.8, release: 0.04 });
+  for (let i = 0; i < 5; i++) noise(t + 0.05 + i * 0.022, 0.018, { gain: (0.32 - i * 0.03) * vol * k, type: 'bandpass', freq: 2600 + i * 250, q: 1.6, release: 0.01 });
+  const z = t + 0.15;
+  const ring = big ? 0.75 : 0.5;
+  tone(1760, z, ring, { type: 'triangle', to: 2350, gain: 0.15 * vol * k, vibrato: 0.012, release: ring / 2.5, wet: 0.5 });
+  tone(3520, z, ring * 0.8, { type: 'sine', to: 4700, gain: 0.08 * vol * k, release: ring / 3, wet: 0.5 });
+  tone(5270, z, ring * 0.5, { type: 'sine', gain: 0.04 * vol * k, release: ring / 4, wet: 0.4 });
+  noise(z, 0.25, { gain: 0.12 * vol * k, type: 'bandpass', freq: 7000, q: 5, release: 0.12, wet: 0.4 });
+  if (big) {
+    tone(130, t + 0.12, 0.3, { type: 'sine', to: 45, gain: 0.5 * vol, release: 0.12 });
+    noise(t + 0.12, 0.06, { gain: 0.5 * vol, type: 'highpass', freq: 2400, release: 0.02 });
+  }
+}
+
 /** A skill: a quick flourish on the class instrument, plus a whoosh/boom for area skills. */
 export function sfxSkill(cls: ClassKey, type: string, vol = 1) {
   if (!ready() || vol <= 0) return;
