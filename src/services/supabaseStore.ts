@@ -106,6 +106,18 @@ export class SupabaseStore implements GameStore {
     return { ...r, character: clean(r.character as never) };
   }
 
+  async resetStats(charId: string) {
+    return clean(check(await this.sb.rpc('reset_stats', { p_char: charId })));
+  }
+
+  async resetSkills(charId: string) {
+    return clean(check(await this.sb.rpc('reset_skills', { p_char: charId })));
+  }
+
+  async removeCards(charId: string, invId: string) {
+    return clean(check(await this.sb.rpc('remove_cards', { p_char: charId, p_inv: invId })));
+  }
+
   async storagePut(charId: string, invId: string, qty: number) {
     check(await this.sb.rpc('storage_put', { p_char: charId, p_inv: invId, p_qty: qty }));
   }

@@ -84,6 +84,9 @@ export type CardBonus = Partial<Record<StatKey | 'atk' | 'matk' | 'def' | 'mdef'
 export const cardFits = (card: ItemDef | undefined, equip: ItemDef | undefined) =>
   !!card?.card && !!equip && (card.card.slot === equip.type || (card.card.slot === 'head' && equip.type === 'earring'));
 
+/** Zeny the reset NPC and the card remover charge. Must match reset_stats / reset_skills / remove_cards in SQL. */
+export const SERVICE_FEE = { resetStats: 10000, resetSkills: 10000, removeCards: 10000 };
+
 /**
  * Refining at the refiner NPC (RO-style). Each try costs 1 material and `fee * next level` zeny.
  * Up to the safe level it always works; past it, a failure destroys the item (and its cards).

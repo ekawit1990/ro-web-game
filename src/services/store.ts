@@ -57,9 +57,15 @@ export interface GameStore {
   storagePut(charId: string, invId: string, qty: number): Promise<void>;
   /** Storage -> this character's bag. */
   storageTake(charId: string, rowId: string, qty: number): Promise<void>;
-  /** Puts a card from the bag into a free card slot of a piece of equipment (for good). */
+  /** Puts a card from the bag into a free card slot of a piece of equipment (the card remover NPC can take it out again). */
   insertCard(charId: string, cardInv: string, equipInv: string): Promise<void>;
   /** One try at the refiner: costs a material and zeny; past the safe level a failure destroys the item. */
   refineItem(charId: string, invId: string): Promise<RefineResult>;
+  /** Reset NPC: every stat back to 1 with the points refunded (SERVICE_FEE.resetStats zeny). */
+  resetStats(charId: string): Promise<Character>;
+  /** Reset NPC: every learned skill back to Lv 0 with the points refunded (SERVICE_FEE.resetSkills zeny). */
+  resetSkills(charId: string): Promise<Character>;
+  /** Card remover: every card in one piece of equipment back into the bag (SERVICE_FEE.removeCards zeny). */
+  removeCards(charId: string, invId: string): Promise<Character>;
   signOut(): Promise<void>;
 }

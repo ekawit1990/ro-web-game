@@ -1,7 +1,7 @@
 import {
-  CLASSES, CLASS_KEYS, CardBonus, MONSTERS, SPAWNS, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, REFINE, SHOP, SKILLS,
+  CLASSES, CLASS_KEYS, CardBonus, MONSTERS, SPAWNS, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, REFINE, SERVICE_FEE, SHOP, SKILLS,
   START_CLASS, STAT_KEYS, STORAGE_SLOTS, StatKey, WEAPON_SHOP, canRefine, cardFits, expToNext, itemLabel, jobExpToNext, jobTown,
-  refineBonus, refineChance, refineFee, refineMaterial, refineSafe, skillSp, skillsOf, statCost,
+  refineBonus, refineChance, refineFee, refineMaterial, refineSafe, skillSp, skillsOf, statCost, statRefund,
 } from '../data';
 import { THEMES, WARP_TOWNS, getMap, type GameMap, type Npc } from '../game/maps';
 import type { Session } from '../game/session';
@@ -10,7 +10,7 @@ import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
 
-type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'worldmap';
+type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap';
 /** A bag row, or what we know of someone else's (trade): the + level and cards travel with it. */
 type ItemRow = Pick<InvItem, 'refine' | 'cards'> & { qty?: number; equipped?: boolean };
 type Slot = { t: 's' | 'i'; id: string } | null;
@@ -63,7 +63,7 @@ export const bonusText = (b: CardBonus) =>
   (Object.entries(b) as [keyof CardBonus, number][]).map(([k, v]) => `${BONUS_LABEL[k]} +${v}${PCT_BONUS.has(k) ? '%' : ''}`).join(' · ');
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
-  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], worldmap: [-1, 40],
+  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40],
 };
 
 /** The RO-style windows over the game: Basic Info, Equipment+Status, Inventory, Skill Tree, hotkeys, minimap, chat. */
@@ -132,6 +132,7 @@ export class Hud implements WorldHooks {
     this.closeWin('npc');
     this.closeWin('storage');
     this.closeWin('refine');
+    this.closeWin('uncard');
     this.closeWin('worldmap');
     this.closeTrade();
     // a new map starts with /auto off
@@ -534,7 +535,7 @@ export class Hud implements WorldHooks {
       if (!v.cardMode) btns.push('<button class="ok" data-act="card">เสียบการ์ด</button>');
       else {
         const fits = this.s.inv.filter((r) => cardFits(it, ITEMS[r.item_id]) && (r.cards?.length ?? 0) < (ITEMS[r.item_id].slots ?? 0));
-        extra = `<div class="it-sec">เลือกอุปกรณ์ที่จะเสียบ (เสียบแล้วถอดไม่ได้)</div>
+        extra = `<div class="it-sec">เลือกอุปกรณ์ที่จะเสียบ (ถอดคืนได้ที่ช่างถอดการ์ด ${SERVICE_FEE.removeCards.toLocaleString()} z)</div>
           <div class="it-pick">${fits.map((r) => `<button data-into="${r.id}" class="${this.armed === r.id ? 'armed' : ''}">
             <img src="${itemIcon(r.item_id)}"/><span>${escapeHtml(itemLabel(r.item_id, r))}${r.equipped ? ' <em>(สวมอยู่)</em>' : ''}
             <small>${this.armed === r.id ? 'กดอีกครั้งเพื่อยืนยัน' : `ช่องว่าง ${(ITEMS[r.item_id].slots ?? 0) - (r.cards?.length ?? 0)}`}</small></span></button>`).join('')
@@ -1120,6 +1121,8 @@ export class Hud implements WorldHooks {
     if (n.id === 'jobs') return this.talkJobs(n);
     if (n.id === 'warper') return this.talkBurapa(n);
     if (n.id === 'refiner') return this.talkRefiner(n);
+    if (n.id === 'reset') return this.talkReset(n);
+    if (n.id === 'uncard') return this.talkUncard(n);
     const text: Record<Npc['id'], string> = {
       shop: 'ยินดีต้อนรับจ้า~ มีน้ำดื่ม ยาฟื้นเสียง และเสื้อผ้าเท่ ๆ ให้เลือกเพียบ',
       weapons: 'เครื่องดนตรีดี ๆ ทั้งนั้น! เลือกให้เหมาะกับอาชีพของเจ้านะ',
@@ -1127,10 +1130,13 @@ export class Hud implements WorldHooks {
       jobs: '',
       warper: '',
       refiner: '',
+      reset: '',
+      uncard: '',
       guide: 'ยินดีต้อนรับสู่เมืองเมโลเดีย! เดินออกประตูทิศตะวันออกไปทุ่งเมโลดี้เพื่อล่ามอนสเตอร์\n'
         + '• คลิกพื้นเพื่อเดิน คลิกมอนสเตอร์เพื่อตี\n• Alt+Q สถานะ, Alt+E ไอเท็ม, Alt+S สกิล\n• F1-F9 หรือ 1-9 ใช้ปุ่มลัด\n'
         + '• คลิกผู้เล่นอื่นเพื่อแลกเปลี่ยนไอเท็มหรือเงิน\n'
         + '• ช่างจูน ตีบวก ใกล้ไกด์: ตีบวกอาวุธ/ชุดให้แรงขึ้น · การ์ดมอนสเตอร์เสียบในอุปกรณ์ที่มีช่อง [1] [2]\n'
+        + '• ช่างถอดการ์ด ข้างช่างจูน: ถอดการ์ดออกจากอุปกรณ์คืนเข้ากระเป๋า · ครูเริ่มใหม่ ฝั่งขวา: รีเซ็ตสเตตัส/สกิล\n'
         + '• คลิกขวาที่ไอเท็ม (มือถือ: แตะ) เพื่อดูรายละเอียด\n'
         + '• บูรพาข้างน้ำพุกลางเมือง: วาร์ปไปเมืองทะเลทรายตะโพน (เมืองมือกลอง) และฝากของในคลังกลางที่ทุกตัวละครใน ID ใช้ร่วมกัน',
     };
@@ -1257,6 +1263,97 @@ export class Hud implements WorldHooks {
             this.toast(`ตีบวกล้มเหลว… ${itemLabel(row.item_id, row)} แตกหายไปแล้ว`, 'bad');
             this.line('bad', `ตีบวกล้มเหลว: ${escapeHtml(itemLabel(row.item_id, row))} แตกหายไป`);
           }
+        });
+      }));
+  }
+
+  /** Reset NPC: Status back to 1 / Skills back to Lv 0, points refunded, SERVICE_FEE zeny each. Press twice to confirm. */
+  private talkReset(n: Npc, armed = '') {
+    this.win('npc', escapeHtml(n.name), 'npc');
+    const b = this.body('npc')!;
+    const c = this.s.char;
+    const statBack = STAT_KEYS.reduce((sum, k) => sum + statRefund(c[k]), 0);
+    const skillBack = Object.values(c.skills ?? {}).reduce((sum, lv) => sum + Math.max(0, lv), 0);
+    const btn = (key: 'stats' | 'skills', label: string, fee: number, can: boolean) => {
+      const on = armed === key;
+      return `<button class="ok ${on ? 'armed' : ''}" data-reset="${key}" ${can && c.zeny >= fee ? '' : 'disabled'}>${on ? `ยืนยัน! จ่าย ${fee.toLocaleString()} z` : `${label} (${fee.toLocaleString()} z)`}</button>`;
+    };
+    b.innerHTML = `<div class="npc-text">อยากเริ่มแจกแต้มใหม่หรือ? ข้าช่วยได้ แต่มีค่าบริการนะ<br>
+      • <b>รีเซ็ต Status</b>: STR AGI VIT INT DEX LUK กลับเป็น 1 ทั้งหมด ได้แต้มคืน <b>${statBack}</b> แต้ม (รวมเป็น ${c.stat_points + statBack})<br>
+      • <b>รีเซ็ต Skill</b>: สกิลที่เรียนไว้กลับเป็น Lv 0 ทั้งหมด ได้แต้มสกิลคืน <b>${skillBack}</b> แต้ม (รวมเป็น ${c.skill_points + skillBack}) ปุ่มลัดสกิลจะถูกล้าง<br>
+      • ตอนนี้มี ${c.zeny.toLocaleString()} z</div>
+      <div class="npc-btns job-btns">${btn('stats', 'รีเซ็ต Status', SERVICE_FEE.resetStats, statBack > 0)}${btn('skills', 'รีเซ็ต Skill', SERVICE_FEE.resetSkills, skillBack > 0)}<button class="close">ปิด</button></div>`;
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
+    b.querySelectorAll<HTMLButtonElement>('[data-reset]').forEach((el) =>
+      el.addEventListener('click', () => {
+        const key = el.dataset.reset!;
+        if (armed !== key) return this.talkReset(n, key);
+        void this.run(async () => {
+          if (key === 'stats') await this.s.resetStats();
+          else await this.s.resetSkills();
+          sfx('levelup');
+          const what = key === 'stats' ? `Status กลับเป็น 1 ได้แต้มคืน ${statBack} แต้ม (Alt+Q)` : `Skill กลับเป็น Lv 0 ได้แต้มคืน ${skillBack} แต้ม (Alt+S)`;
+          this.toast(`รีเซ็ตแล้ว! ${what}`, 'good');
+          this.line('good', `รีเซ็ตแล้ว: ${escapeHtml(what)} · จ่าย ${(key === 'stats' ? SERVICE_FEE.resetStats : SERVICE_FEE.resetSkills).toLocaleString()} z`);
+        }).then(() => { if (this.isOpen('npc')) this.talkReset(n); });
+      }));
+  }
+
+  /** Card remover: every card in one piece of equipment goes back to the bag for SERVICE_FEE.removeCards zeny. */
+  private talkUncard(n: Npc) {
+    this.win('npc', escapeHtml(n.name), 'npc');
+    const b = this.body('npc')!;
+    b.innerHTML = `<div class="npc-text">เสียบการ์ดผิดชิ้นหรือ? ข้าแกะออกให้ได้ ไม่มีวันพัง<br>
+      • ถอด<b>การ์ดทุกใบ</b>ในอุปกรณ์ชิ้นที่เลือก คืนเข้ากระเป๋า อุปกรณ์และค่าตีบวกยังอยู่ครบ<br>
+      • ค่าบริการ <b>${SERVICE_FEE.removeCards.toLocaleString()} z</b> ต่อชิ้น</div>
+      <div class="npc-btns"><button class="ok" data-uncard>เลือกอุปกรณ์</button><button class="close">ปิด</button></div>`;
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
+    b.querySelector('[data-uncard]')!.addEventListener('click', () => {
+      this.closeWin('npc');
+      this.armed = '';
+      this.win('uncard', `ถอดการ์ด · ${escapeHtml(n.name)}`, 'shop refine');
+      this.lastSig.uncard = '';
+      this.renderUncard();
+    });
+  }
+
+  private renderUncard() {
+    const b = this.body('uncard');
+    if (!b || !this.isOpen('uncard')) return;
+    const sig = JSON.stringify([this.s.inv, this.s.char.zeny, this.armed]);
+    if (this.lastSig.uncard === sig) return;
+    this.lastSig.uncard = sig;
+    const fee = SERVICE_FEE.removeCards;
+    const rows = this.s.inv.filter((r) => (r.cards?.length ?? 0) > 0).sort((a, c) => Number(c.equipped) - Number(a.equipped));
+    const list = rows.map((r) => {
+      const armed = this.armed === r.id;
+      const names = (r.cards ?? []).map((id) => ITEMS[id]?.name ?? id).join(', ');
+      return `<div class="shop-row" data-item="${r.item_id}" data-row="${r.id}"><img src="${itemIcon(r.item_id)}"/>
+        <span>${escapeHtml(itemLabel(r.item_id, r))}${r.equipped ? ' <em class="muted">(สวมอยู่)</em>' : ''}
+          <small class="rf-info">${escapeHtml(names)}</small></span>
+        <button class="${armed ? 'sell armed' : 'buy'}" data-go="${r.id}" ${this.s.char.zeny >= fee ? '' : 'disabled'}>${armed ? 'ยืนยัน' : 'ถอดการ์ด'}</button></div>`;
+    }).join('');
+    b.innerHTML = `<div class="shop-list">${list || '<p class="hint">ไม่มีอุปกรณ์ที่เสียบการ์ดไว้ในกระเป๋า</p>'}</div>
+      <div class="inv-foot"><span>Zeny <b>${this.s.char.zeny.toLocaleString()}</b></span><span class="hint">ค่าถอด ${fee.toLocaleString()} z ต่อชิ้น · กด 2 ครั้งเพื่อยืนยัน</span></div>`;
+    b.querySelectorAll<HTMLElement>('[data-row]').forEach((el) => {
+      const row = this.s.inv.find((r) => r.id === el.dataset.row);
+      if (row) this.tooltip(el.querySelector('img')!, () => this.itemTip(row.item_id, row));
+    });
+    b.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        const row = this.s.inv.find((r) => r.id === btn.dataset.go);
+        if (!row) return;
+        if (this.armed !== row.id) {
+          this.armed = row.id;
+          return this.renderUncard();
+        }
+        this.armed = '';
+        const n = row.cards?.length ?? 0;
+        void this.run(async () => {
+          await this.s.removeCards(row.id);
+          sfx('item');
+          this.toast(`ถอดการ์ด ${n} ใบออกจาก ${itemLabel(row.item_id, { refine: row.refine })} แล้ว`, 'good');
+          this.line('good', `ถอดการ์ด ${n} ใบคืนเข้ากระเป๋า · จ่าย ${fee.toLocaleString()} z`);
         });
       }));
   }
@@ -1798,6 +1895,7 @@ export class Hud implements WorldHooks {
     this.renderStorage();
     this.renderItem();
     this.renderRefine();
+    this.renderUncard();
     this.autoSlotSkills();
     this.renderHotbar();
   }

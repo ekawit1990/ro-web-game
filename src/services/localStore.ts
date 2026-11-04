@@ -2,7 +2,7 @@ import {
   Appearance, CLASSES, CLASS_KEYS, Character, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL,
   MONSTERS, REFINE, SHOP, SKILLS, START_CLASS, STORAGE_SLOTS, StatKey, StorageItem, WEAPON_SHOP, canRefine, cardFits, expToNext,
   jobExpToNext, questCounts, refineChance, refineFee, refineMaterial, statCost, statPointsAt,
-  STAT_KEYS, statRefund,
+  SERVICE_FEE, STAT_KEYS, statRefund,
 } from '../data';
 import type { GameStore, KillResult, RefineResult, RewardShare, TradeOffer } from './store';
 
@@ -339,6 +339,50 @@ export class LocalStore implements GameStore {
     else inv.splice(inv.indexOf(row), 1);
     this.persist();
     return { ok, refine: ok ? cur + 1 : cur, character: await this.getCharacter(charId) };
+  }
+
+  /** Same rules as reset_stats() in SQL. */
+  async resetStats(charId: string) {
+    const c = this.char(charId);
+    if (STAT_KEYS.every((k) => c[k] === 1)) throw new Error('สเตตัสเป็น 1 ทั้งหมดอยู่แล้ว');
+    const fee = SERVICE_FEE.resetStats;
+    if (c.zeny < fee) throw new Error(`Zeny ไม่พอ (ค่ารีเซ็ต ${fee} z)`);
+    let back = 0;
+    for (const k of STAT_KEYS) { back += statRefund(c[k]); c[k] = 1; }
+    c.stat_points += back;
+    c.zeny -= fee;
+    this.persist();
+    return this.getCharacter(charId);
+  }
+
+  /** Same rules as reset_skills() in SQL. */
+  async resetSkills(charId: string) {
+    const c = this.char(charId);
+    const back = Object.values(c.skills ?? {}).reduce((s, lv) => s + Math.max(0, lv), 0);
+    if (back === 0) throw new Error('ยังไม่ได้เรียนสกิลเลย');
+    const fee = SERVICE_FEE.resetSkills;
+    if (c.zeny < fee) throw new Error(`Zeny ไม่พอ (ค่ารีเซ็ต ${fee} z)`);
+    c.skill_points += back;
+    c.skills = {};
+    c.zeny -= fee;
+    this.persist();
+    return this.getCharacter(charId);
+  }
+
+  /** Same rules as remove_cards() in SQL. */
+  async removeCards(charId: string, invId: string) {
+    const c = this.char(charId);
+    const row = this.inv(charId).find((i) => i.id === invId);
+    if (!row) throw new Error('ไม่พบไอเท็ม');
+    const cards = row.cards ?? [];
+    if (!cards.length) throw new Error('ไอเท็มนี้ไม่มีการ์ด');
+    const fee = SERVICE_FEE.removeCards;
+    if (c.zeny < fee) throw new Error(`Zeny ไม่พอ (ค่าถอดการ์ด ${fee} z)`);
+    c.zeny -= fee;
+    row.cards = [];
+    for (const card of cards) this.addItem(charId, card, 1);
+    this.persist();
+    return this.getCharacter(charId);
   }
 
   /** บูรพา's warp: pay and move, same as pay_warp() in SQL. */

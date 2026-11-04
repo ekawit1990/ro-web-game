@@ -138,6 +138,18 @@ export class Session {
     return r;
   }
 
+  async resetStats() {
+    await this.after(await this.store.resetStats(this.char.id), false);
+  }
+
+  async resetSkills() {
+    await this.after(await this.store.resetSkills(this.char.id), false);
+  }
+
+  async removeCards(invId: string) {
+    await this.after(await this.store.removeCards(this.char.id, invId), true);
+  }
+
   /** The server applies the heal and answers with 'sync'. */
   use(invId: string) {
     this.link?.send('useItem', { invId });
