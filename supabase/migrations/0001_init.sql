@@ -490,7 +490,7 @@ begin
 end $$;
 
 -- Monster cards (browser): put one card from the bag into a free card slot of a piece of equipment.
--- The card is used up and can't be taken out again (like RO).
+-- The card is used up; only the card remover NPC (remove_cards) can take it out again.
 create or replace function public.insert_card(p_char uuid, p_card uuid, p_equip uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare c public.characters; cr public.inventory; er public.inventory; ci public.item_defs; ei public.item_defs;
@@ -547,6 +547,57 @@ begin
     delete from public.inventory where id = p_inv;
   end if;
   return jsonb_build_object('ok', ok, 'refine', case when ok then nxt else r.refine end, 'character', public._char_json(c));
+end $$;
+
+-- Reset NPC (browser). Fees match SERVICE_FEE in src/data/index.ts.
+-- Status reset: every stat back to 1 and all the points they were worth refunded (same sum as the job change).
+create or replace function public.reset_stats(p_char uuid) returns public.characters
+language plpgsql security definer set search_path = public as $$
+declare c public.characters; fee constant int := 10000;
+begin
+  c := public._own_char(p_char);
+  if c.str = 1 and c.agi = 1 and c.vit = 1 and c."int" = 1 and c.dex = 1 and c.luk = 1 then
+    raise exception 'สเตตัสเป็น 1 ทั้งหมดอยู่แล้ว';
+  end if;
+  if c.zeny < fee then raise exception 'Zeny ไม่พอ (ค่ารีเซ็ต % z)', fee; end if;
+  update public.characters set zeny = zeny - fee,
+    stat_points = stat_points + public._stat_refund(str) + public._stat_refund(agi) + public._stat_refund(vit)
+      + public._stat_refund("int") + public._stat_refund(dex) + public._stat_refund(luk),
+    str = 1, agi = 1, vit = 1, "int" = 1, dex = 1, luk = 1
+    where id = p_char returning * into c;
+  return c;
+end $$;
+
+-- Skill reset: every learned skill back to Lv 0 and its points refunded.
+create or replace function public.reset_skills(p_char uuid) returns public.characters
+language plpgsql security definer set search_path = public as $$
+declare c public.characters; fee constant int := 10000; back int;
+begin
+  c := public._own_char(p_char);
+  select coalesce(sum(greatest(0, e.value::int)), 0) into back from jsonb_each_text(c.skills) e;
+  if back = 0 then raise exception 'ยังไม่ได้เรียนสกิลเลย'; end if;
+  if c.zeny < fee then raise exception 'Zeny ไม่พอ (ค่ารีเซ็ต % z)', fee; end if;
+  update public.characters set zeny = zeny - fee, skill_points = skill_points + back, skills = '{}'::jsonb
+    where id = p_char returning * into c;
+  return c;
+end $$;
+
+-- Card remover NPC (browser): takes every card out of one piece of equipment and puts them back in the bag.
+create or replace function public.remove_cards(p_char uuid, p_inv uuid) returns public.characters
+language plpgsql security definer set search_path = public as $$
+declare c public.characters; r public.inventory; fee constant int := 10000; card text;
+begin
+  c := public._own_char(p_char);
+  select * into r from public.inventory where id = p_inv and character_id = p_char for update;
+  if not found then raise exception 'ไม่พบไอเท็ม'; end if;
+  if coalesce(array_length(r.cards, 1), 0) = 0 then raise exception 'ไอเท็มนี้ไม่มีการ์ด'; end if;
+  if c.zeny < fee then raise exception 'Zeny ไม่พอ (ค่าถอดการ์ด % z)', fee; end if;
+  update public.characters set zeny = zeny - fee where id = p_char returning * into c;
+  update public.inventory set cards = '{}' where id = p_inv;
+  foreach card in array r.cards loop
+    perform public._add_item(p_char, card, 1);
+  end loop;
+  return c;
 end $$;
 
 -- บูรพา's warp (game server only): pay the fare and move in one step.
@@ -622,6 +673,9 @@ revoke execute on function public.storage_put(uuid, uuid, int) from public, anon
 revoke execute on function public.storage_take(uuid, uuid, int) from public, anon;
 revoke execute on function public.insert_card(uuid, uuid, uuid) from public, anon;
 revoke execute on function public.refine_item(uuid, uuid) from public, anon;
+revoke execute on function public.reset_stats(uuid) from public, anon;
+revoke execute on function public.reset_skills(uuid) from public, anon;
+revoke execute on function public.remove_cards(uuid, uuid) from public, anon;
 grant execute on function public.create_character(text, text, int, int, int) to authenticated;
 grant execute on function public.start_job_quest(uuid) to authenticated;
 grant execute on function public.change_job(uuid, text) to authenticated;
@@ -634,6 +688,9 @@ grant execute on function public.storage_put(uuid, uuid, int) to authenticated;
 grant execute on function public.storage_take(uuid, uuid, int) to authenticated;
 grant execute on function public.insert_card(uuid, uuid, uuid) to authenticated;
 grant execute on function public.refine_item(uuid, uuid) to authenticated;
+grant execute on function public.reset_stats(uuid) to authenticated;
+grant execute on function public.reset_skills(uuid) to authenticated;
+grant execute on function public.remove_cards(uuid, uuid) to authenticated;
 
 revoke execute on function public.report_kill(uuid, uuid, text) from public, anon, authenticated;
 revoke execute on function public.grant_reward(uuid, uuid, int, int, int, text[], boolean) from public, anon, authenticated;
