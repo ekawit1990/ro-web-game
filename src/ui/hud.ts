@@ -1306,9 +1306,9 @@ export class Hud implements WorldHooks {
     b.innerHTML = `<div class="npc-text">เสียบการ์ดผิดชิ้นหรือ? ข้าแกะออกให้ได้ ไม่มีวันพัง<br>
       • ถอด<b>การ์ดทุกใบ</b>ในอุปกรณ์ชิ้นที่เลือก คืนเข้ากระเป๋า อุปกรณ์และค่าตีบวกยังอยู่ครบ<br>
       • ค่าบริการ <b>${SERVICE_FEE.removeCards.toLocaleString()} z</b> ต่อชิ้น</div>
-      <div class="npc-btns"><button class="ok" data-open>เลือกอุปกรณ์</button><button class="close">ปิด</button></div>`;
+      <div class="npc-btns"><button class="ok" data-uncard>เลือกอุปกรณ์</button><button class="close">ปิด</button></div>`;
     b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
-    b.querySelector('[data-open]')!.addEventListener('click', () => {
+    b.querySelector('[data-uncard]')!.addEventListener('click', () => {
       this.closeWin('npc');
       this.armed = '';
       this.win('uncard', `ถอดการ์ด · ${escapeHtml(n.name)}`, 'shop refine');
