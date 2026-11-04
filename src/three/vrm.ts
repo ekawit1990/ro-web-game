@@ -169,6 +169,29 @@ function shareResources(file: string, scene: THREE.Object3D) {
   }
 }
 
+/**
+ * Frees a preview-only character: its GPU copies and the model's shared copy. The phone creator calls this after
+ * drawing each model, so flipping through dozens of them doesn't pile them all up in memory (iOS reloads the page).
+ * Only for rigs no live world uses: disposing a shared mesh makes every renderer upload it again.
+ */
+export function releaseVrm(rig: CharRig) {
+  const file = rig.root.userData.vrmFile as string | undefined;
+  if (!file) return;
+  shared.delete(file);
+  buffers.delete(file);
+  rig.root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    m.geometry.dispose();
+    for (const mat of ([] as THREE.Material[]).concat(m.material)) {
+      const u = (mat as THREE.ShaderMaterial).uniforms;
+      if (u) for (const k of Object.keys(u)) (u[k].value as THREE.Texture)?.isTexture && (u[k].value as THREE.Texture).dispose();
+      for (const v of Object.values(mat)) (v as THREE.Texture)?.isTexture && (v as THREE.Texture).dispose();
+      mat.dispose();
+    }
+  });
+}
+
 /** `.vrm.gz` files are gzipped (a VRoid model shrinks ~4x); a host may already have decoded them, so check the magic bytes. */
 async function gunzip(buf: ArrayBuffer): Promise<ArrayBuffer> {
   const head = new Uint8Array(buf, 0, 2);
@@ -247,6 +270,7 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
     legR: g(bone('rightUpperLeg')), hatSlot, hat: '', earSlot, ear: '', height: HEIGHT, vrm,
   };
   rig.root.userData.vrmFace = EXPRESSIONS[look.face] ?? 'neutral';
+  rig.root.userData.vrmFile = file;
   if (look.cls) rig.root.userData.gear = attachInstrument(vrm, look.cls, 1 / (HEIGHT / h), v0);
   rig.root.userData.cls = look.cls;
   setHat(rig, hat);

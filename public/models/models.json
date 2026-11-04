@@ -5,7 +5,20 @@
   "avatar_n.vrm.gz",
   "avatar_p.vrm.gz",
   "avatar_r.vrm.gz",
-  "avatar_v.vrm.gz"
+  "avatar_v.vrm.gz",
+  "hub_1292382841793082181.vrm.gz",
+  "hub_1895101762715499275.vrm.gz",
+  "hub_207710935336237648.vrm.gz",
+  "hub_2357013225090354220.vrm.gz",
+  "hub_3425491812101364740.vrm.gz",
+  "hub_3635028656775800209.vrm.gz",
+  "hub_3675109917025159411.vrm.gz",
+  "hub_5351321668046832234.vrm.gz",
+  "hub_6370431923836766206.vrm.gz",
+  "hub_6760953917734017824.vrm.gz",
+  "hub_7185862033116711190.vrm.gz",
+  "hub_7643054104406740418.vrm.gz",
+  "hub_9089159310965215321.vrm.gz"
  ],
  "f": [
   "avatar_a.vrm.gz",
@@ -22,7 +35,21 @@
   "avatar_o.vrm.gz",
   "avatar_q.vrm.gz",
   "avatar_s.vrm.gz",
-  "avatar_u.vrm.gz"
+  "avatar_u.vrm.gz",
+  "hub_1204999165323567084.vrm.gz",
+  "hub_2677677015271245663.vrm.gz",
+  "hub_3568652502349812865.vrm.gz",
+  "hub_4360835510799003378.vrm.gz",
+  "hub_4782566278761081075.vrm.gz",
+  "hub_5690907647172776179.vrm.gz",
+  "hub_61121190575213457.vrm.gz",
+  "hub_6782942892762570203.vrm.gz",
+  "hub_7569961834217150822.vrm.gz",
+  "hub_7724651398025574026.vrm.gz",
+  "hub_7872617533467124013.vrm.gz",
+  "hub_7931905149146643613.vrm.gz",
+  "hub_8755100585825430042.vrm.gz",
+  "hub_9196507926128616617.vrm.gz"
  ],
  "tintHair": false
 }
