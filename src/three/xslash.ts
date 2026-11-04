@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { PHONE } from './device';
 import { canvasTexture, glyphTexture } from './toon';
 
@@ -925,5 +926,271 @@ export function sendOffDash(ctx: XSlashCtx, fx: number, fz: number, tx: number, 
     shards(ctx, at, 10 * Q * k, 5);
     ctx.sparks(at, 0xe8a0ff, Math.round(28 * Q * k), 7);
     return false;
+  });
+}
+
+// ------------------------------------------------------------ รัวสแนร์
+
+let stormTex: THREE.Texture | undefined;
+const arcGeos = new Map<string, THREE.BufferGeometry>();
+
+/**
+ * Across a storm blade: clear -> deep violet rim -> purple -> white-hot core -> pale cyan -> blue edge -> clear.
+ * Along it: a sharp bright head at u=1 and a long tail fading to nothing at u=0.
+ */
+function stormBlade() {
+  return (stormTex ??= canvasTexture(512, 64, (c) => {
+    const g = c.createLinearGradient(0, 0, 0, 64);
+    g.addColorStop(0, 'rgba(40,0,90,0)');
+    g.addColorStop(0.1, 'rgba(55,8,120,0.8)');
+    g.addColorStop(0.3, 'rgba(140,40,235,0.95)');
+    g.addColorStop(0.48, 'rgba(240,150,255,1)');
+    g.addColorStop(0.58, 'rgba(255,255,255,1)');
+    g.addColorStop(0.7, 'rgba(170,230,255,1)');
+    g.addColorStop(0.82, 'rgba(70,140,255,0.85)');
+    g.addColorStop(1, 'rgba(40,80,255,0)');
+    c.fillStyle = g;
+    c.fillRect(0, 0, 512, 64);
+    for (let i = 0; i < 22; i++) {
+      c.strokeStyle = `rgba(255,255,255,${0.2 + Math.random() * 0.45})`;
+      c.lineWidth = 1 + Math.random() * 1.5;
+      const y = 14 + Math.random() * 36;
+      const x = Math.random() * 420;
+      c.beginPath();
+      c.moveTo(x, y);
+      c.lineTo(x + 50 + Math.random() * 90, y + (Math.random() - 0.5) * 4);
+      c.stroke();
+    }
+    c.globalCompositeOperation = 'destination-in';
+    const f = c.createLinearGradient(0, 0, 512, 0);
+    f.addColorStop(0, 'rgba(0,0,0,0)');
+    f.addColorStop(0.55, 'rgba(0,0,0,0.75)');
+    f.addColorStop(0.93, 'rgba(0,0,0,1)');
+    f.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = f;
+    c.fillRect(0, 0, 512, 64);
+  }));
+}
+
+/** A flat arc strip lying in the XZ plane round the origin: radius `r`, `w` wide, `arc` radians long, tapered at the tail. */
+function arcGeometry(r: number, w: number, arc: number) {
+  const key = `${r.toFixed(2)}_${w.toFixed(2)}_${arc.toFixed(2)}`;
+  const old = arcGeos.get(key);
+  if (old) return old;
+  const n = PHONE ? 24 : 48;
+  const pos: number[] = [];
+  const uv: number[] = [];
+  const idx: number[] = [];
+  for (let i = 0; i <= n; i++) {
+    const u = i / n;
+    const th = u * arc;
+    const ww = w * (0.25 + 0.75 * Math.pow(u, 0.6)) * (u > 0.94 ? (1 - u) / 0.06 * 0.6 + 0.4 : 1);
+    for (const [rr, v] of [[r + ww / 2, 1], [r - ww / 2, 0]] as const) {
+      pos.push(Math.cos(th) * rr, 0, -Math.sin(th) * rr);
+      uv.push(u, v);
+    }
+    if (i < n) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  arcGeos.set(key, g);
+  return g;
+}
+
+/**
+ * One blade of the storm: an arc whirling round (x,z) on a tilted orbit, head first (counter-clockwise from
+ * above), a solid pass so the deep violet shows on light ground plus an additive pass for the glow.
+ */
+function stormArc(ctx: XSlashCtx, x: number, y: number, z: number, r: number, w: number, arc: number, tiltX: number, tiltZ: number, spin: number, sec: number, delay: number) {
+  const geo = arcGeometry(r, w, arc);
+  const solid = new THREE.MeshBasicMaterial({ map: stormBlade(), transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
+  const glow = new THREE.MeshBasicMaterial({ map: stormBlade(), color: 0xc890ff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+  const spinner = new THREE.Group();
+  for (const m of [solid, glow]) {
+    const mesh = new THREE.Mesh(geo, m);
+    mesh.renderOrder = 7;
+    spinner.add(mesh);
+  }
+  spinner.rotation.y = Math.random() * Math.PI * 2;
+  const squash = 0.6 + Math.random() * 0.4; // an oval orbit
+  const pivot = new THREE.Group();
+  pivot.position.set(x, y, z);
+  pivot.rotation.set(tiltX, 0, tiltZ);
+  pivot.scale.set(1, 1, squash);
+  pivot.add(spinner);
+  ctx.scene.add(pivot);
+  let t = -delay;
+  ctx.add((dt) => {
+    t += dt;
+    if (t < 0) return true;
+    const k = Math.min(1, t / 0.22);
+    spinner.rotation.y += spin * dt;
+    const s = 0.55 + 0.45 * (1 - Math.pow(1 - k, 3));
+    spinner.scale.set(s, 1, s);
+    const fade = Math.min(k, Math.max(0, (sec - t) / 0.35));
+    solid.opacity = fade;
+    glow.opacity = 0.55 * fade;
+    if (t >= sec) {
+      dispose(ctx, pivot);
+      return false;
+    }
+    return true;
+  });
+}
+
+/** A soft violet wash on the ground under the storm. */
+function groundGlow(ctx: XSlashCtx, x: number, z: number, r: number, sec: number, glowTex: THREE.Texture) {
+  const m = groundPlane(glowTex, r * 2, true);
+  (m.material as THREE.MeshBasicMaterial).color.set(0x6a28e0);
+  m.position.set(x, 0.04, z);
+  ctx.scene.add(m);
+  let t = 0;
+  ctx.add((dt) => {
+    t += dt;
+    (m.material as THREE.MeshBasicMaterial).opacity = 0.45 * Math.min(1, t / 0.2, Math.max(0, (sec - t) / 0.4));
+    if (t >= sec) {
+      dispose(ctx, m);
+      m.geometry.dispose();
+      return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * รัวสแนร์, the storm: violet-and-blue blades whirling round the drummer at (x,z) on tilted orbits, swooshes on
+ * the ground and a violet glow, for `sec` seconds. The hits and the afterimages come from snareHit / snareGhost.
+ */
+export function snareStorm(ctx: XSlashCtx, x: number, z: number, sec: number, glowTex: THREE.Texture) {
+  ctx.sound(false);
+  const n = PHONE ? 5 : 9;
+  for (let i = 0; i < n; i++) {
+    const r = 1.3 + (i % 5) * 0.5 + Math.random() * 0.3;
+    const tilt = 0.25 + Math.random() * 0.5;
+    const dir = Math.random() * Math.PI * 2;
+    const arc = Math.PI * (0.45 + Math.random() * 0.4);
+    stormArc(ctx, x, 0.4 + Math.random() * 1.1, z, r, 0.18 + Math.random() * 0.3, arc, Math.cos(dir) * tilt, Math.sin(dir) * tilt, 8 + Math.random() * 5, sec - (i % 4) * 0.06, (i % 4) * 0.06);
+  }
+  groundSwooshes(ctx, x, z, 2.4, sec);
+  groundGlow(ctx, x, z, 3.4, sec, glowTex);
+  shockRing(ctx, x, z, 3, 0.45);
+}
+
+/** One stick hit landing at `at`: a little starburst; `big` = the last accent (rays, shards, rings, a bigger bang). */
+export function snareHit(ctx: XSlashCtx, at: THREE.Vector3, big: boolean, glowTex: THREE.Texture) {
+  const j = new THREE.Vector3((Math.random() - 0.5) * 0.7, (Math.random() - 0.3) * 0.6, (Math.random() - 0.5) * 0.7);
+  const p = at.clone().add(big ? new THREE.Vector3() : j);
+  if (!big) {
+    flash(ctx, p, 2 + Math.random() * 0.8, Math.random() < 0.5 ? 0xb050ff : 0x7fb0ff, 0.22, glowTex);
+    flash(ctx, p, 0.9, 0xffffff, 0.15, glowTex);
+    rays(ctx, p, 5 * Q + 2, 1.4 + Math.random() * 0.8, true);
+    ctx.sparks(p, Math.random() < 0.3 ? 0xffc860 : 0xe8a0ff, Math.round(6 * Q) + 1, 4);
+    return;
+  }
+  ctx.sound(true);
+  ctx.shake(0.32);
+  const deep = sprite(ctx, glowTex, 0x6a18d0, false);
+  deep.material.depthTest = false;
+  deep.renderOrder = 8;
+  deep.position.copy(p);
+  let t = 0;
+  ctx.add((dt) => {
+    t += dt / 0.5;
+    deep.scale.setScalar(4.2 * (0.6 + t * 0.6));
+    deep.material.opacity = Math.max(0, 0.9 * (1 - t));
+    if (t >= 1) {
+      dispose(ctx, deep);
+      return false;
+    }
+    return true;
+  });
+  flash(ctx, p, 5.5, 0xb050ff, 0.45, glowTex);
+  flash(ctx, p, 2.4, 0xffffff, 0.3, glowTex);
+  flash(ctx, p, 1.6, 0xffc060, 0.25, glowTex);
+  rays(ctx, p, 18 * Q + 3, 3.2, true);
+  shockRing(ctx, at.x, at.z, 2.8, 0.5);
+  shockRing(ctx, at.x, at.z, 1.7, 0.4, 0.08);
+  shards(ctx, p, 12 * Q, 5);
+  ctx.sparks(p, 0xe8a0ff, Math.round(26 * Q), 7);
+  ctx.sparks(p, 0xffc860, Math.round(10 * Q), 6);
+}
+
+/**
+ * An afterimage of the drummer: a see-through violet copy of `src` (the character, frozen in its pose right now)
+ * that pops up `side` tiles beside (x,z), lunges `reach` tiles towards (tx,tz) and fades. The copy shares the
+ * model's geometry and textures, so it costs no extra GPU memory.
+ */
+export function snareGhost(ctx: XSlashCtx, src: THREE.Object3D, x: number, z: number, tx: number, tz: number, side: number, reach: number) {
+  // Object3D.clone copies userData through JSON, and the character keeps itself (and its gear) in there
+  const saved: [THREE.Object3D, Record<string, unknown>][] = [];
+  src.traverse((o) => {
+    saved.push([o, o.userData]);
+    o.userData = {};
+  });
+  let ghost: THREE.Object3D;
+  try {
+    ghost = skeletonClone(src);
+  } finally {
+    for (const [o, u] of saved) o.userData = u;
+  }
+  const originals: THREE.Object3D[] = [];
+  src.traverse((o) => originals.push(o));
+  const mats: THREE.MeshBasicMaterial[] = [];
+  const own = new Map<THREE.Material, THREE.MeshBasicMaterial>();
+  let i = 0;
+  ghost.traverse((o) => {
+    const from = originals[i++];
+    o.userData.noOutline = true;
+    if (!(o as THREE.Mesh).isMesh) {
+      if ((o as THREE.Sprite).isSprite || (o as THREE.Line).isLine || (o as THREE.Points).isPoints) o.visible = false;
+      return;
+    }
+    const mesh = o as THREE.Mesh;
+    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const hidden = !from?.visible || list.every((m) => !m.visible || m.blending === THREE.AdditiveBlending || (m.transparent && m.opacity < 0.05));
+    if (hidden) {
+      mesh.visible = false;
+      return;
+    }
+    const swap = list.map((m) => {
+      let g = own.get(m);
+      if (!g) {
+        const map = (m as THREE.MeshBasicMaterial).map ?? null;
+        g = new THREE.MeshBasicMaterial({ map, color: map ? 0xa070ff : 0x7a40e0, transparent: true, opacity: 0, side: m.side, depthWrite: false });
+        own.set(m, g);
+        mats.push(g);
+      }
+      return g;
+    });
+    mesh.material = Array.isArray(mesh.material) ? swap : swap[0];
+    mesh.renderOrder = 6;
+  });
+  const len = Math.hypot(tx - x, tz - z) || 1;
+  const dx = (tx - x) / len;
+  const dz = (tz - z) / len;
+  const sx = x - dz * side - dx * 0.4;
+  const sz = z + dx * side - dz * 0.4;
+  ghost.position.set(sx, src.position.y, sz);
+  ghost.rotation.set(0, Math.atan2(dx, dz), 0);
+  ctx.scene.add(ghost);
+  // a streak behind it as it lunges
+  streakPlane(ctx, sx - dx * 0.8, sz - dz * 0.8, sx + dx * reach, sz + dz * reach, 0.7, 0.18, side > 0 ? 0xb050ff : 0x6fa8ff, 0.3, 0, false);
+  let t = 0;
+  const life = 0.5;
+  ctx.add((dt) => {
+    t += dt;
+    const k = Math.min(1, t / life);
+    const ease = 1 - Math.pow(1 - Math.min(1, t / 0.18), 3);
+    ghost.position.set(sx + dx * reach * ease, src.position.y, sz + dz * reach * ease);
+    const op = 0.6 * Math.min(1, t / 0.05) * (1 - k);
+    for (const m of mats) m.opacity = op;
+    if (k >= 1) {
+      ctx.scene.remove(ghost);
+      for (const m of mats) m.dispose();
+      return false;
+    }
+    return true;
   });
 }
