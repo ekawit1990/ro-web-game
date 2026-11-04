@@ -1,7 +1,7 @@
 import { ITEMS } from '../data';
 import * as THREE from 'three';
 import { buildCharacter, setEar, type CharRig, type Look } from '../three/models';
-import { animateRig, buildVrmCharacter } from '../three/vrm';
+import { animateRig, buildVrmCharacter, releaseVrm } from '../three/vrm';
 
 const cache = new Map<string, string>();
 
@@ -86,13 +86,15 @@ export function itemIcon(id: string): string {
 let preview: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null = null;
 
 /** Renders a 3D character (with optional hat) onto a 2D canvas: creator preview, character slots, equipment window.
- *  Draws the built-in character at once, then the VRoid model on top when one is configured. */
-export function drawLook(cv: HTMLCanvasElement, look: Look, dir: 'f' | 'b' | number = 'f', hat?: string, vrm = true, armed = true, ear = '') {
+ *  Draws the built-in character at once, then the VRoid model on top when one is configured.
+ *  `free`: drop the model from memory once drawn (only where no game world is running, e.g. the creator). */
+export function drawLook(cv: HTMLCanvasElement, look: Look, dir: 'f' | 'b' | number = 'f', hat?: string, vrm = true, armed = true, ear = '', free = false) {
   const token = String(Math.random());
   cv.dataset.look = token;
   render(cv, buildCharacter(look, hat), dir, armed, ear);
   if (vrm) buildVrmCharacter(look, hat).then((rig) => {
     if (rig && cv.dataset.look === token) render(cv, rig, dir, armed, ear);
+    if (rig && free) releaseVrm(rig);
   });
 }
 

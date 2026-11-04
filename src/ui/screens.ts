@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { Appearance, CLASSES, Character, ClassKey, FACES, HAIR_COLORS, HAIR_STYLES, JOB_CHANGE, START_CLASS } from '../data';
 import type { GameStore } from '../services/store';
 import { drawLook } from './icons';
+import { PHONE } from '../three/device';
 import { vrmModelCount } from '../three/vrm';
 import { USERNAME_RE, authEmail, normalizePhone, normalizeUsername } from '../data/account';
 
@@ -268,7 +269,7 @@ function createScreen(store: GameStore): Promise<boolean> {
       $('val-hair').textContent = `${look.hair + 1} / ${styles}`;
     });
   const draw = () => {
-    drawLook(cv, look, dir);
+    drawLook(cv, look, dir, undefined, true, true, '', PHONE); // phones: don't keep every model flipped past
     $('val-hair').textContent = `${look.hair + 1} / ${styles}`;
     $('val-face').textContent = `${look.face + 1} / ${FACES}`;
     document.querySelectorAll('[data-gender]').forEach((b) => b.classList.toggle('on', (b as HTMLElement).dataset.gender === look.gender));
