@@ -73,6 +73,12 @@ export interface ItemDef {
   slots?: number;
   /** Monster cards: which equipment they go into and what they give. */
   card?: { slot: CardSlot; bonus: CardBonus };
+  /** Outfits (armor): the VRoid model (public/models/<vrm>) the character turns into while wearing it. */
+  vrm?: string;
+  /** Only this gender can wear it (outfits: the model's body). Must match set_equipped() in SQL. */
+  gender?: Gender;
+  /** Stats the item itself gives while worn (outfits), added like a card's. */
+  bonus?: CardBonus;
 }
 
 /** Where a card can go. 'head' cards fit hats and headphones alike. */
@@ -233,6 +239,16 @@ export const SKILLS = raw.skills as unknown as Record<string, SkillDef>;
 export const MAX_LEVEL = raw.levels.maxLevel;
 export const MAX_JOB_LEVEL = raw.levels.maxJobLevel;
 
+/** The outfit model a character is wearing ('' = their own model), from the equipped armor. */
+export const outfitOf = (armorId: string | undefined) => (armorId && ITEMS[armorId]?.vrm) || '';
+/** Can this character put the item on? (class and gender limits; set_equipped() in SQL checks the same) */
+export function wearBlock(it: ItemDef | undefined, c: { cls: ClassKey; gender: Gender }): string {
+  if (!it) return 'ไม่พบไอเท็ม';
+  if (it.classes && !it.classes.includes(c.cls)) return 'อาชีพนี้ใช้ไม่ได้';
+  if (it.gender && it.gender !== c.gender) return it.gender === 'f' ? 'ชุดนี้สำหรับตัวละครหญิง' : 'ชุดนี้สำหรับตัวละครชาย';
+  return '';
+}
+
 /** หมุนตัวแทง counts at most this many monsters around you. */
 export const CROWD_MAX = 8;
 
@@ -387,6 +403,7 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
     maxHp: 0, maxSp: 0, maxHpPct: 0, maxSpPct: 0, atkPct: 0, matkPct: 0,
   };
   for (const row of worn) {
+    for (const [k, v] of Object.entries(ITEMS[row.item_id].bonus ?? {}) as [keyof CardBonus, number][]) card[k] += v;
     for (const id of row.cards ?? []) {
       for (const [k, v] of Object.entries(ITEMS[id]?.card?.bonus ?? {}) as [keyof CardBonus, number][]) card[k] += v;
     }

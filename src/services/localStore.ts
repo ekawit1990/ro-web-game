@@ -1,6 +1,6 @@
 import {
   Appearance, CLASSES, CLASS_KEYS, Character, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL,
-  MONSTERS, REFINE, SHOP, SKILLS, START_CLASS, STORAGE_SLOTS, StatKey, StorageItem, WEAPON_SHOP, canRefine, cardFits, expToNext,
+  MONSTERS, REFINE, SHOP, SKILLS, START_CLASS, STORAGE_SLOTS, StatKey, StorageItem, WEAPON_SHOP, canRefine, cardFits, expToNext, wearBlock,
   jobExpToNext, questCounts, refineChance, refineFee, refineMaterial, statCost, statPointsAt,
   SERVICE_FEE, STAT_KEYS, statRefund,
 } from '../data';
@@ -258,7 +258,8 @@ export class LocalStore implements GameStore {
     if (!row) throw new Error('ไม่พบไอเท็ม');
     const item = ITEMS[row.item_id];
     if (!isEquipment(row.item_id)) throw new Error('สวมใส่ไม่ได้');
-    if (equipped && item.classes && !item.classes.includes(c.cls)) throw new Error('อาชีพนี้ใช้ไม่ได้');
+    const block = equipped ? wearBlock(item, c) : '';
+    if (block) throw new Error(block);
     if (equipped) inv.forEach((i) => { if (i.equipped && ITEMS[i.item_id].type === item.type) i.equipped = false; });
     row.equipped = equipped;
     this.persist();

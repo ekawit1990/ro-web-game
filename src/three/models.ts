@@ -10,6 +10,8 @@ import { canvasTexture, mesh, outline, shade, shadows, toon } from './toon';
 export interface Look extends Appearance {
   cls?: ClassKey;
   body?: string; // NPC outfit colour
+  /** Worn outfit: a VRoid model file that replaces the character's own model (see ItemDef.vrm). */
+  outfit?: string;
 }
 
 export interface CharRig {

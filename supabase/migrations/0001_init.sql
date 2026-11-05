@@ -26,6 +26,8 @@ alter table public.item_defs add constraint item_defs_type_check
 -- card slots on equipment; for cards, the equipment type they go into (see cardFits in src/data/index.ts)
 alter table public.item_defs add column if not exists slots int not null default 0;
 alter table public.item_defs add column if not exists card_slot text;
+-- outfits (VRoid models) only fit one gender: 'm' / 'f' (null = anyone). See wearBlock in src/data/index.ts
+alter table public.item_defs add column if not exists gender text;
 
 create table if not exists public.monster_defs (
   id text primary key,
@@ -337,6 +339,9 @@ begin
   if it.type not in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring') then raise exception 'สวมใส่ไม่ได้'; end if;
   if p_equipped and it.classes is not null and not (c.cls = any (it.classes)) then
     raise exception 'อาชีพนี้ใช้ไม่ได้';
+  end if;
+  if p_equipped and it.gender is not null and c.gender <> it.gender then
+    raise exception '%', case when it.gender = 'f' then 'ชุดนี้สำหรับตัวละครหญิง' else 'ชุดนี้สำหรับตัวละครชาย' end;
   end if;
   if p_equipped then
     update public.inventory inv set equipped = false

@@ -208,7 +208,7 @@ const EXPRESSIONS = ['neutral', 'happy', 'angry', 'relaxed'];
 /** Loads a VRM character for this look, or null when no model is configured / it fails. */
 export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig | null> {
   const cat = await vrmCatalog();
-  const file = cat && modelFor(cat, look);
+  const file = cat && (look.outfit || modelFor(cat, look));
   if (!file) return null;
   let vrm: VRM;
   try {
@@ -237,7 +237,7 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
   vrm.scene.position.y = -box.min.y * (HEIGHT / h);
 
   // hair colour: tint materials named like VRoid's hair materials
-  if (cat!.tintHair !== false) {
+  if (cat!.tintHair !== false && !look.outfit) {
     const col = new THREE.Color(HAIR_COLORS[look.hair_color] ?? HAIR_COLORS[0]);
     vrm.scene.traverse((o) => {
       const mats = ((o as THREE.Mesh).material ? ([] as THREE.Material[]).concat((o as THREE.Mesh).material) : []) as (THREE.Material & { color?: THREE.Color })[];
@@ -245,8 +245,8 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
     });
   }
 
-  // players all wear the same armour (NPCs keep their own clothes)
-  if (!look.body) {
+  // players all wear the same armour (NPCs keep their own clothes; an outfit is the model's own clothes)
+  if (!look.body && !look.outfit) {
     try {
       dressArmour(vrm, root);
     } catch (e) {
