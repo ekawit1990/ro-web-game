@@ -34,7 +34,7 @@ const TINTS: Partial<Record<Theme, Record<string, number>>> = {
   inferno: { NormalTree_Bark: 0x2e2422, Rock: 0x4a3834 },
   beach: { Grass: 0xb8d878, None: 0xa8c868 },
   cave: { Rock: 0x8078a8 },
-  deadwood: { Grass: 0x8a8a5a, None: 0x7a7a52, NormalTree_Bark: 0x6a6070, BirchTree_Leaves: 0x9a9070 },
+  deadwood: { Grass: 0x8a8a5a, None: 0x7a7a52, NormalTree_Bark: 0xa098a8, BirchTree_Leaves: 0x9a9070 },
   ruins: { Grass: 0x8aa070, None: 0x7a9060, NormalTree_Bark: 0x6a6258, BirchTree_Leaves: 0x9aa070 },
   desert: { Grass: 0xd9c27a, None: 0xc9b46a },
 };

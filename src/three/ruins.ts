@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { GameMap, Obj } from '../game/maps';
 import { sparkTexture } from './toon';
-import { PHONE } from './device';
 
 /**
  * Code-built scenery for the newer maps: the ruined castle town (broken walls, roofless houses, columns,
@@ -242,31 +241,6 @@ function crystals(map: GameMap): THREE.Group | null {
   return g;
 }
 
-// ---------------------------------------------------------------- mist
-
-/** Low drifting mist for the haunted maps. */
-function mist(map: GameMap, color: number) {
-  const n = PHONE ? 40 : 90;
-  const r = rngFor(map.w * 17 + 5);
-  const geo = new THREE.BufferGeometry();
-  const pos = new Float32Array(n * 3);
-  const base: [number, number, number][] = [];
-  for (let i = 0; i < n; i++) base.push([r() * map.w, 0.4 + r() * 0.6, r() * map.h]);
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ map: sparkTexture(), color, size: 9, transparent: true, opacity: 0.16, depthWrite: false }));
-  pts.frustumCulled = false;
-  pts.userData.tick = (t: number) => {
-    for (let i = 0; i < n; i++) {
-      const [x, y, z] = base[i];
-      pos[i * 3] = x + Math.sin(t * 0.07 + i) * 3;
-      pos[i * 3 + 1] = y;
-      pos[i * 3 + 2] = z + Math.cos(t * 0.05 + i * 1.7) * 3;
-    }
-    geo.attributes.position.needsUpdate = true;
-  };
-  return pts;
-}
-
 // ---------------------------------------------------------------- the map
 
 export function buildRuinProps(map: GameMap): THREE.Group | null {
@@ -285,6 +259,5 @@ export function buildRuinProps(map: GameMap): THREE.Group | null {
   if (stone) g.add(stone);
   const c = crystals(map);
   if (c) g.add(c);
-  if (map.theme === 'deadwood' || map.theme === 'ruins') g.add(mist(map, map.theme === 'ruins' ? 0xb8a8d8 : 0xa8b098));
   return g.children.length ? g : null;
 }

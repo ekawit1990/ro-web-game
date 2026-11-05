@@ -26,12 +26,12 @@ export const MOODS: Record<Theme, Mood> = {
   marsh: { ...base, sun: 0xf6efd2, sunI: 2.2, elev: 34, sky: 0xc4d2c0, ground: 0x5a6440, exposure: 1.08, rim: [0.26, 0.3, 0.26] },
   canyon: { ...base, sun: 0xffcf95, sunI: 3.0, elev: 30, sky: 0xb8c8ff, ground: 0xa06a40, skyI: 1.1, rim: [0.4, 0.3, 0.22] },
   snow: { ...base, sun: 0xfff6ec, sunI: 2.2, elev: 32, sky: 0xc8dcff, ground: 0x9aa8c0, skyI: 1.2, exposure: 1.0, rim: [0.28, 0.32, 0.4] },
-  volcano: { ...base, sun: 0xff9a5a, sunI: 2.6, elev: 34, sky: 0x9a7aa0, ground: 0x7a3020, skyI: 1.2, exposure: 1.15, rim: [0.5, 0.25, 0.15] },
+  volcano: { ...base, sun: 0xffa060, sunI: 2.8, elev: 34, sky: 0xa888a8, ground: 0x8a3a20, skyI: 1.4, exposure: 1.2, rim: [0.5, 0.25, 0.15] },
   desert: { ...base, sun: 0xffd8a0, sunI: 3.0, elev: 32, sky: 0xa8bcff, ground: 0xc89050, skyI: 1.05, exposure: 1.15, rim: [0.42, 0.32, 0.24] },
-  inferno: { ...base, sun: 0xff7a3a, sunI: 2.3, elev: 30, sky: 0x8a5a7a, ground: 0x8a2a10, skyI: 1.15, exposure: 1.18, rim: [0.6, 0.24, 0.1] },
+  inferno: { ...base, sun: 0xff8a4a, sunI: 2.6, elev: 30, sky: 0x9a6a8a, ground: 0x9a3a18, skyI: 1.35, exposure: 1.2, rim: [0.6, 0.24, 0.1] },
   beach: { ...base, sun: 0xfff2d8, sunI: 2.8, elev: 44, sky: 0xbfe4ff, ground: 0xd8c08a, skyI: 1.25, exposure: 1.12, rim: [0.3, 0.32, 0.34] },
-  cave: { ...base, sun: 0xa8b8ff, sunI: 1.5, elev: 55, sky: 0x8a7ad0, ground: 0x2a6a7a, skyI: 1.35, exposure: 1.2, rim: [0.3, 0.45, 0.6] },
-  deadwood: { ...base, sun: 0xd8c8e8, sunI: 1.9, elev: 28, sky: 0xa898b8, ground: 0x4a4436, skyI: 1.2, exposure: 1.1, rim: [0.36, 0.3, 0.42] },
+  cave: { ...base, sun: 0xc0ccff, sunI: 2.3, elev: 55, sky: 0xa898e8, ground: 0x3a7a8a, skyI: 1.7, exposure: 1.25, rim: [0.3, 0.45, 0.6] },
+  deadwood: { ...base, sun: 0xe8dcf0, sunI: 2.4, elev: 30, sky: 0xb8a8c8, ground: 0x5a5444, skyI: 1.45, exposure: 1.18, rim: [0.36, 0.3, 0.42] },
   ruins: { ...base, sun: 0xffd2b0, sunI: 2.1, elev: 22, sky: 0xa8a8c8, ground: 0x5a5648, skyI: 1.2, exposure: 1.12, rim: [0.42, 0.34, 0.4] },
 };
 

@@ -147,9 +147,9 @@ function recolour(obj: THREE.Object3D, key: string, tint?: string, glow?: string
         sh.fragmentShader = sh.fragmentShader
           .replace('#include <common>', '#include <common>\nuniform vec3 uTint; uniform vec3 uGlow;')
           .replace('#include <map_fragment>', `#include <map_fragment>
-            ${tint ? 'float lum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)); diffuseColor.rgb = mix(diffuseColor.rgb, uTint * clamp(0.35 + lum * 1.3, 0.0, 1.5), 0.85);' : ''}`)
+            ${tint ? 'float lum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)); diffuseColor.rgb = mix(diffuseColor.rgb, uTint * clamp(0.25 + lum * 1.4, 0.0, 1.5), 0.75);' : ''}`)
           .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-            totalEmissiveRadiance += uGlow * 0.55;`);
+            totalEmissiveRadiance += uGlow * 0.1;`);
       };
       mat.customProgramCacheKey = () => `monster-recolour-${tint ? 1 : 0}`;
       recoloured.set(id, mat);

@@ -186,6 +186,7 @@ function coneGeometry(R: number, H: number) {
     pts.push(new THREE.Vector2(r, H * (1 - t) ** 1.25));
   }
   pts.push(new THREE.Vector2(R + 0.6, -0.05));
+  pts.reverse(); // the lathe faces outwards when the profile runs from the foot up
   const g = new THREE.LatheGeometry(pts, PHONE ? 40 : 64);
   // rugged: push vertices in and out by a little noise (not the rim's inner lip)
   const pos = g.attributes.position as THREE.BufferAttribute;
@@ -457,7 +458,7 @@ export function paintBasalt(c: CanvasRenderingContext2D, m: GameMap, T: number) 
     h = Math.imul(h ^ (h >>> 13), 1274126177);
     return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
   };
-  const glowAt = (gx: number, gy: number) => hash(gx, gy, 9) < 0.42; // which plate borders run hot
+  const glowAt = (gx: number, gy: number) => hash(gx, gy, 9) < 0.2; // which plate borders run hot
   // jitter of every plate centre, looked up instead of hashed per pixel
   const CW = Math.ceil(m.w / cell) + 3, CH = Math.ceil(m.h / cell) + 3;
   const jx = new Float32Array(CW * CH), jy = new Float32Array(CW * CH), shadeP = new Float32Array(CW * CH);
@@ -471,7 +472,12 @@ export function paintBasalt(c: CanvasRenderingContext2D, m: GameMap, T: number) 
     for (let px = 0; px < W; px++) {
       const tx = (px / T) | 0;
       const gr = m.ground[ty][tx];
-      if (gr === G.Water) continue;
+      if (gr === G.Water) {
+        // under the lava surface: dark hot rock, so the lava's soft edge doesn't show orange squares
+        const k = (py * W + px) * 4;
+        d[k] = 70; d[k + 1] = 26; d[k + 2] = 14;
+        continue;
+      }
       const u = (px + 0.5) / T / cell, v = (py + 0.5) / T / cell;
       const iu = Math.floor(u), iv = Math.floor(v);
       let d1 = 9, d2 = 9, n1u = 0, n1v = 0, n2u = 0, n2v = 0;
@@ -489,7 +495,7 @@ export function paintBasalt(c: CanvasRenderingContext2D, m: GameMap, T: number) 
       // each plate a little lighter or darker, a lit top edge
       const plate = shadeP[(n1v + 1) * CW + n1u + 1];
       let r = d[k] * plate, g = d[k + 1] * plate, b = d[k + 2] * plate;
-      const seamW = gr === G.Dirt ? 0.03 : 0.06;
+      const seamW = gr === G.Dirt ? 0.025 : 0.045;
       if (edge < seamW) {
         const hot = glowAt(Math.min(n1u, n2u) * 7 + Math.max(n1u, n2u), Math.min(n1v, n2v) * 7 + Math.max(n1v, n2v)) && gr !== G.Dirt;
         const t = 1 - edge / seamW;
@@ -525,7 +531,16 @@ export function paintBasalt(c: CanvasRenderingContext2D, m: GameMap, T: number) 
       gd[i] *= hot; gd[i + 1] *= hot * 0.8; gd[i + 2] *= hot * 0.4;
     }
     gc.putImageData(gi, 0, 0);
-    gc.filter = 'blur(2px)';
+    gc.fillStyle = 'rgba(255,90,10,0.35)'; // the lava glows softly onto its shore
+    for (let y = 0; y < m.h; y++) {
+      for (let x = 0; x < m.w; x++) {
+        if (m.ground[y][x] !== G.Water) continue;
+        gc.beginPath();
+        gc.arc((x + 0.5) * S, (y + 0.5) * S, S * 0.9, 0, Math.PI * 2);
+        gc.fill();
+      }
+    }
+    gc.filter = 'blur(4px)';
     gc.globalCompositeOperation = 'lighter';
     gc.drawImage(gc.canvas, 0, 0);
     gc.filter = 'none';
