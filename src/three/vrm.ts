@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { rimNow, setRim } from './look';
 import { VRM, VRMLoaderPlugin, VRMUtils, type VRMHumanBoneName } from '@pixiv/three-vrm';
 import { HAIR_COLORS, type ClassKey } from '../data';
 import { animateCharacter, buildDagger, setHat, type CharRig, type Look } from './models';
@@ -252,6 +253,7 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
       console.warn('could not fit the armour', e);
     }
   }
+  setRim(root, rimNow());
 
   const bone = (n: VRMHumanBoneName) => vrm.humanoid.getNormalizedBoneNode(n);
   const g = (o: THREE.Object3D | null) => (o ?? new THREE.Group()) as THREE.Group;

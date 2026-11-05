@@ -13,6 +13,7 @@ import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
+import { MOODS, sunDir, useRim } from './look';
 import { FxOptions, playFx, preloadFx } from './pixelfx';
 import { doubleKickBlast, sendOffDash, snareGhost, snareHit, snareStorm, xSlashWave } from './xslash';
 
@@ -127,6 +128,9 @@ type Effect = (dt: number) => boolean; // false = finished
 // one WebGL renderer for the whole session (map switches only swap the scene)
 let renderer: THREE.WebGLRenderer | null = null;
 
+/** Closest camera zoom (the wheel / pinch range is MIN_ZOOM..28). */
+const MIN_ZOOM = 3.2;
+
 export class World3D {
   private session: Session;
   private room: Room;
@@ -138,6 +142,7 @@ export class World3D {
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(40, 1, 0.1, 300);
   private sun = new THREE.DirectionalLight(0xffffff, 2.2);
+  private sunOffset = new THREE.Vector3(-8, 14, 6);
   private ray = new THREE.Raycaster();
   private clock = new THREE.Clock();
   private raf = 0;
@@ -263,15 +268,22 @@ export class World3D {
   private buildScene() {
     this.scene.background = new THREE.Color(THEMES[this.map.theme].sky);
     this.scene.fog = new THREE.Fog(this.scene.background, 42, 105);
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7a50, 1.55));
-    this.sun.position.set(-8, 14, 6);
+    const mood = MOODS[this.map.theme];
+    renderer!.toneMapping = THREE.NeutralToneMapping;
+    renderer!.toneMappingExposure = mood.exposure;
+    useRim(mood.rim);
+    this.scene.add(new THREE.HemisphereLight(mood.sky, mood.ground, mood.skyI));
+    this.sun.color.set(mood.sun);
+    this.sun.intensity = mood.sunI;
+    this.sunOffset.copy(sunDir(mood)).multiplyScalar(30);
+    this.sun.position.copy(this.sunOffset);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.setScalar(PHONE ? 1024 : 2048);
     const sc = this.sun.shadow.camera;
     sc.left = sc.bottom = -18;
     sc.right = sc.top = 18;
     sc.near = 1;
-    sc.far = 60;
+    sc.far = 75;
     this.sun.shadow.bias = -0.0005;
     this.sun.shadow.normalBias = 0.02;
     this.scene.add(this.sun, this.sun.target);
@@ -480,7 +492,7 @@ export class World3D {
         p.y = e.clientY;
         if (pinch && touches.size >= 2) {
           const now = two();
-          this.dist = Math.max(7, Math.min(28, pinch.dist * (pinch.span / now.span)));
+          this.dist = Math.max(MIN_ZOOM, Math.min(28, pinch.dist * (pinch.span / now.span)));
           this.yaw = pinch.yaw - (now.angle - pinch.angle);
         } else if (tap && touches.size === 1) {
           const dx = e.clientX - tap.x;
@@ -520,7 +532,7 @@ export class World3D {
     }, sig);
     cv.addEventListener('wheel', (e) => {
       e.preventDefault();
-      this.dist = Math.max(7, Math.min(28, this.dist + Math.sign(e.deltaY) * 1.2));
+      this.dist = Math.max(MIN_ZOOM, Math.min(28, this.dist + Math.sign(e.deltaY) * 1.2));
     }, { ...sig, passive: false });
   }
 
@@ -923,12 +935,15 @@ export class World3D {
     this.effects = kept.concat(this.effects);
 
     // camera follows the player
-    this.camTarget.lerp(new THREE.Vector3(this.me.x, 0.8, this.me.y), Math.min(1, dt * 8));
+    // zoomed in past the usual range, the camera drops lower and looks at the chest: a closer, over-the-shoulder view
     const d = this.dist;
+    const near = THREE.MathUtils.smoothstep(d, MIN_ZOOM, 9);
+    const pitch = THREE.MathUtils.lerp(0.32, this.pitch, near);
+    this.camTarget.lerp(new THREE.Vector3(this.me.x, THREE.MathUtils.lerp(1.15, 0.8, near), this.me.y), Math.min(1, dt * 8));
     this.camera.position.set(
-      this.camTarget.x + Math.sin(this.yaw) * Math.cos(this.pitch) * d,
-      this.camTarget.y + Math.sin(this.pitch) * d,
-      this.camTarget.z + Math.cos(this.yaw) * Math.cos(this.pitch) * d,
+      this.camTarget.x + Math.sin(this.yaw) * Math.cos(pitch) * d,
+      this.camTarget.y + Math.sin(pitch) * d,
+      this.camTarget.z + Math.cos(this.yaw) * Math.cos(pitch) * d,
     );
     this.camera.lookAt(this.camTarget);
     if (this.shakeT > 0) {
@@ -936,7 +951,7 @@ export class World3D {
       const k = this.shakeAmp * (this.shakeT / 0.35);
       this.camera.position.add(new THREE.Vector3((Math.random() - 0.5) * k, (Math.random() - 0.5) * k, (Math.random() - 0.5) * k));
     }
-    this.sun.position.set(this.camTarget.x - 8, 14, this.camTarget.z + 6);
+    this.sun.position.copy(this.camTarget).add(this.sunOffset);
     this.sun.target.position.copy(this.camTarget);
     renderer!.render(this.scene, this.camera);
     this.updateOverlay();
