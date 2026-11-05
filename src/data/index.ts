@@ -75,6 +75,8 @@ export interface ItemDef {
   card?: { slot: CardSlot; bonus: CardBonus };
   /** Outfits (armor): the VRoid model (public/models/<vrm>) the character turns into while wearing it. */
   vrm?: string;
+  /** Hats from a VRoid model: the hair part (material name) taken off `vrm` and put on the wearer's head. */
+  part?: string;
   /** Only this gender can wear it (outfits: the model's body). Must match set_equipped() in SQL. */
   gender?: Gender;
   /** Stats the item itself gives while worn (outfits), added like a card's. */
@@ -239,8 +241,10 @@ export const SKILLS = raw.skills as unknown as Record<string, SkillDef>;
 export const MAX_LEVEL = raw.levels.maxLevel;
 export const MAX_JOB_LEVEL = raw.levels.maxJobLevel;
 
-/** The outfit model a character is wearing ('' = their own model), from the equipped armor. */
-export const outfitOf = (armorId: string | undefined) => (armorId && ITEMS[armorId]?.vrm) || '';
+/** The outfit a character is wearing, from the equipped armor: its item id when it is a VRoid outfit, else ''. */
+export const outfitOf = (armorId: string | undefined) => (armorId && ITEMS[armorId]?.vrm && ITEMS[armorId].type === 'armor' ? armorId : '');
+/** A hat taken from a VRoid model (drawn by grafting it onto the character's model), or ''. */
+export const vrmHatOf = (headId: string | undefined) => (headId && ITEMS[headId]?.part ? headId : '');
 /** Can this character put the item on? (class and gender limits; set_equipped() in SQL checks the same) */
 export function wearBlock(it: ItemDef | undefined, c: { cls: ClassKey; gender: Gender }): string {
   if (!it) return 'ไม่พบไอเท็ม';

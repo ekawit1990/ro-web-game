@@ -484,7 +484,8 @@ export class Hud implements WorldHooks {
     if (it.bonus) lines.push(`<div class="it-bonus">${bonusText(it.bonus)}</div>`);
     if (it.vrm) {
       const from = Object.values(MONSTERS).filter((m) => m.drops.some(([d]) => d === id)).map((m) => `${m.name}${m.boss ? ' (บอส)' : ''}`);
-      lines.push(`<div class="muted">👗 ใส่แล้วตัวละครเปลี่ยนเป็นชุดนี้ทั้งตัว · ไม่มีขายในร้าน${from.length ? ` · ดร็อปจาก ${escapeHtml(from.join(', '))}` : ''}</div>`);
+      const what = it.type === 'armor' ? '👗 ใส่แล้วเปลี่ยนเสื้อผ้าทั้งชุด (หน้าและผมยังเป็นของเรา)' : '🎩 ใส่แล้วเห็นบนหัวตัวละคร';
+      lines.push(`<div class="muted">${what} · ไม่มีขายในร้าน${from.length ? ` · ดร็อปจาก ${escapeHtml(from.join(', '))}` : ''}</div>`);
     }
     if (it.slots) {
       const cards = row?.cards ?? [];

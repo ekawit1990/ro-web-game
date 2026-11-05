@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, CROWD_MAX, ClassKey, ITEMS, MAX_LEVEL, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf } from '../data';
+import { CLASSES, CROWD_MAX, ClassKey, ITEMS, MAX_LEVEL, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf, vrmHatOf } from '../data';
 import { findPath, GameMap, Npc, THEMES, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
@@ -2398,7 +2398,7 @@ function crescentGeometry(radius: number, width: number, angle: number) {
 }
 
 function lookKey(rp: RemotePlayer) {
-  return `${rp.cls}_${rp.gender}_${rp.hair}_${rp.hairColor}_${rp.face}_${outfitOf(rp.body)}`;
+  return `${rp.cls}_${rp.gender}_${rp.hair}_${rp.hairColor}_${rp.face}_${outfitOf(rp.body)}_${vrmHatOf(rp.head)}`;
 }
 
 /** What a player looks like: their own appearance, or the model of the outfit they wear. */
