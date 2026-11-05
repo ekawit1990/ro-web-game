@@ -31,6 +31,58 @@ export interface StorageItem {
   cards?: string[];
 }
 
+// ---------------------------------------------------------------- elements (RO-style, our own numbers)
+
+/**
+ * Every attack has an element and every monster (and your armour) has a defence element with a level 1-4.
+ * The table says how much damage an attack element does to a defence element at level 1; higher levels
+ * push the number further from 100 (see elementMult). Must match nothing in SQL: only the game server uses it.
+ */
+export type Element = 'neutral' | 'water' | 'earth' | 'fire' | 'wind' | 'poison' | 'holy' | 'shadow' | 'ghost' | 'undead';
+export const ELEMENT_KEYS: Element[] = ['neutral', 'water', 'earth', 'fire', 'wind', 'poison', 'holy', 'shadow', 'ghost', 'undead'];
+export const ELEMENTS: Record<Element, { name: string; icon: string; color: string }> = {
+  neutral: { name: 'ไม่มีธาตุ', icon: '⚪', color: '#c9c9c9' },
+  water: { name: 'น้ำ', icon: '💧', color: '#4fa3ff' },
+  earth: { name: 'ดิน', icon: '🪨', color: '#b8894f' },
+  fire: { name: 'ไฟ', icon: '🔥', color: '#ff6a2a' },
+  wind: { name: 'ลม', icon: '🌪️', color: '#7be07b' },
+  poison: { name: 'พิษ', icon: '☠️', color: '#a35bd6' },
+  holy: { name: 'ศักดิ์สิทธิ์', icon: '✨', color: '#ffe27a' },
+  shadow: { name: 'มืด', icon: '🌑', color: '#6b5a8e' },
+  ghost: { name: 'วิญญาณ', icon: '👻', color: '#b9a8ff' },
+  undead: { name: 'อมตะ', icon: '💀', color: '#8c9a7a' },
+};
+/** Damage % of [attack][defence] at defence level 1; anything not listed is 100. */
+const ELEMENT_TABLE: Partial<Record<Element, Partial<Record<Element, number>>>> = {
+  neutral: { ghost: 25 },
+  water: { water: 25, fire: 175, wind: 50, earth: 100, undead: 110 },
+  earth: { earth: 25, wind: 175, fire: 50, water: 100 },
+  fire: { fire: 25, earth: 175, water: 50, undead: 125 },
+  wind: { wind: 25, water: 175, earth: 50 },
+  poison: { poison: 0, undead: 50, ghost: 50, shadow: 50, holy: 75 },
+  holy: { holy: 0, shadow: 150, undead: 150, ghost: 100, neutral: 100 },
+  shadow: { shadow: 0, holy: 150, undead: 25, ghost: 100 },
+  ghost: { neutral: 25, ghost: 150, undead: 100 },
+  undead: { undead: 0, holy: 150, shadow: 25 },
+};
+/**
+ * Damage multiplier (1 = 100%) for an attack element hitting a defence element of level `lv` (1-4).
+ * Each level past 1 moves the number another 30% further from 100: fire on earth 175 / 197 / 220 / 242 (capped 200),
+ * neutral on ghost 25 / 2 / 0 … but never below 10% unless the table says 0 (immune).
+ */
+export function elementMult(atk: Element = 'neutral', def: Element = 'neutral', lv = 1): number {
+  const base = ELEMENT_TABLE[atk]?.[def] ?? 100;
+  if (base === 0) return 0;
+  const v = 100 + (base - 100) * (1 + 0.3 * (Math.max(1, Math.min(4, lv)) - 1));
+  return Math.max(10, Math.min(200, v)) / 100;
+}
+/** "🔥 ไฟ 2" */
+export const elementLabel = (el: Element = 'neutral', lv?: number) => `${ELEMENTS[el].icon} ${ELEMENTS[el].name}${lv ? ` ${lv}` : ''}`;
+/** A monster's defence element and its level. */
+export const monsterElement = (m: MonsterDef): [Element, number] => m.element ?? ['neutral', 1];
+/** How long an element converter (น้ำมันเปลวไฟ…) puts its element on your weapon. */
+export const ENDOW_SEC = 600;
+
 export interface ClassDef {
   name: string;
   desc: string;
@@ -72,7 +124,7 @@ export interface ItemDef {
   /** Card slots on a piece of equipment (RO's [1], [2]). */
   slots?: number;
   /** Monster cards: which equipment they go into and what they give. */
-  card?: { slot: CardSlot; bonus: CardBonus };
+  card?: { slot: CardSlot; bonus: CardBonus; element?: Element };
   /** Outfits (armor): the VRoid model (public/models/<vrm>) the character turns into while wearing it. */
   vrm?: string;
   /** Hats from a VRoid model: the hair part (material name) taken off `vrm` and put on the wearer's head. */
@@ -81,6 +133,10 @@ export interface ItemDef {
   gender?: Gender;
   /** Stats the item itself gives while worn (outfits), added like a card's. */
   bonus?: CardBonus;
+  /** Weapons: the element of your attacks. Armour: your defence element. */
+  element?: Element;
+  /** Element converters (consumables): put this element on your weapon for ENDOW_SEC seconds. */
+  endow?: Element;
 }
 
 /** Where a card can go. 'head' cards fit hats and headphones alike. */
@@ -108,7 +164,10 @@ export const REFINE = {
     other: [100, 100, 100, 100, 70, 55, 40, 30, 20, 10],
   },
   fee: 100,
+  /** +1 … +lowMax use the low materials (drops from Lv 10-30 monsters), past that the high ones (Lv 40-99). */
+  lowMax: 4,
   material: { weapon: 'tuning_ore', other: 'velvet_patch' },
+  highMaterial: { weapon: 'pure_tuning_ore', other: 'gold_velvet' },
   /** per + : weapons Atk (and Matk if the weapon has Matk), the rest Def */
   weaponAtk: 3,
   armorDef: 1,
@@ -118,7 +177,9 @@ export const canRefine = (it: ItemDef | undefined) => !!it && ['weapon', 'armor'
 const refineKind = (it: ItemDef) => (it.type === 'weapon' ? 'weapon' : 'other');
 export const refineChance = (it: ItemDef, toLevel: number) => REFINE.chance[refineKind(it)][toLevel - 1] ?? 0;
 export const refineSafe = (it: ItemDef) => REFINE.chance[refineKind(it)].filter((c) => c === 100).length;
-export const refineMaterial = (it: ItemDef) => REFINE.material[refineKind(it)];
+/** The material for refining `it` up to `toLevel`. */
+export const refineMaterial = (it: ItemDef, toLevel: number) =>
+  (toLevel <= REFINE.lowMax ? REFINE.material : REFINE.highMaterial)[refineKind(it)];
 export const refineFee = (toLevel: number) => REFINE.fee * toLevel;
 /** Atk/Matk/Def an item gets from its + level. */
 export function refineBonus(it: ItemDef, refine: number) {
@@ -152,6 +213,12 @@ export interface MonsterDef {
   shape?: string;
   /** Rigged model in public/models/monsters/ that replaces the drawn body once loaded. */
   model?: string;
+  /** Recolours the model (a model shared by several monsters): its shading in this colour. */
+  tint?: string;
+  /** Glows in this colour (lava, crystals, ghosts). */
+  glow?: string;
+  /** Defence element and its level (1-4); also the element of its attacks. Missing = neutral 1. */
+  element?: [Element, number];
   drops: [string, number][];
 }
 
@@ -229,6 +296,8 @@ export interface SkillDef {
   scale?: 'distance' | 'crowd';
   /** Baked pixelfx sheet (public/fx/<fx>.png) played when the skill lands. */
   fx?: string;
+  /** The skill's own element; missing = the element of your weapon (or a converter on it). */
+  element?: Element;
 }
 
 export const CLASSES = raw.classes as Record<ClassKey, ClassDef>;
@@ -266,8 +335,10 @@ export const isBuffSkill = (s: SkillDef) => !!s.buff && (s.type === 'buff' || s.
  * reflecting damage, which only make sense for the class that owns them.
  */
 export const isHealerBuff = (s: SkillDef) => isBuffSkill(s) && !s.buff!.guardPct && !s.buff!.reflectPct;
+/** Every skill costs this share of its listed SP (halved 2026-11-05). */
+export const SP_COST_RATE = 0.5;
 /** SP a skill costs at level lv (whole SP, at least 1: Teen skills use fractional rates). */
-export const skillSp = (s: SkillDef, lv: number) => (s.sp ? Math.max(1, Math.round(s.sp[0] + s.sp[1] * (lv - 1))) : 0);
+export const skillSp = (s: SkillDef, lv: number) => (s.sp ? Math.max(1, Math.round((s.sp[0] + s.sp[1] * (lv - 1)) * SP_COST_RATE)) : 0);
 export const skillPower = (s: SkillDef, lv: number) => (s.power ? s.power[0] + s.power[1] * (lv - 1) : 0);
 export const skillHeal = (s: SkillDef, lv: number) => (s.heal ? s.heal[0] + s.heal[1] * (lv - 1) : 0);
 const perLevel = (v: [number, number] | undefined, lv: number) => (v ? v[0] + v[1] * (lv - 1) : 0);
@@ -377,6 +448,8 @@ export interface Buffs {
   fleePct?: number;
   /** Extra STR/AGI/... from buffs (shown as +N in the status window). */
   stats?: Partial<Stats>;
+  /** An element converter on your weapon (overrides the weapon's own element). */
+  endow?: Element;
 }
 
 export interface Derived {
@@ -396,7 +469,13 @@ export interface Derived {
   maxWeight: number;
   /** Stat bonuses from buffs, already counted in the numbers above. */
   bonus?: Partial<Stats>;
+  /** Element of your attacks (weapon, or a converter on it) and your defence element (armour or a card in it). */
+  atkElement?: Element;
+  defElement?: Element;
 }
+
+/** Walking speed multiplier (10% slower since 2026-11-05). */
+export const WALK_RATE = 0.9;
 
 export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Derived {
   const c = { ...base };
@@ -453,11 +532,26 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
     crit: Math.floor(1 + c.luk * 0.3 + c.dex * 0.1) + sum('crit') + card.crit,
     aspd: Math.min(190, Math.floor(200 - attackDelay / 20)),
     attackDelay,
-    moveSpeed: 150 + Math.min(60, c.agi * 2),
+    moveSpeed: Math.round((150 + Math.min(60, c.agi * 2)) * WALK_RATE),
     weight: inv.reduce((s, i) => s + (ITEMS[i.item_id]?.weight ?? 0) * i.qty, 0),
     maxWeight: 2000 + c.str * 30,
     bonus,
+    atkElement: buffs.endow ?? weaponElement(worn),
+    defElement: armorElement(worn),
   };
+}
+
+/** The element of the weapon you hold (neutral without one). */
+function weaponElement(worn: InvItem[]): Element {
+  const w = worn.find((r) => ITEMS[r.item_id].type === 'weapon');
+  return (w && ITEMS[w.item_id].element) || 'neutral';
+}
+/** Your defence element: a card in your armour that has one, else the armour's own, else neutral. */
+function armorElement(worn: InvItem[]): Element {
+  const a = worn.find((r) => ITEMS[r.item_id].type === 'armor');
+  if (!a) return 'neutral';
+  for (const id of a.cards ?? []) if (ITEMS[id]?.card?.element) return ITEMS[id].card!.element!;
+  return ITEMS[a.item_id].element ?? 'neutral';
 }
 
 /** Chance (0..1) that an attack with `hit` lands on a target of `level`/`flee`. */

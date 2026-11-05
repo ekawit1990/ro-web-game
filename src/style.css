@@ -509,3 +509,14 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
   .wm-wrap { flex-direction: column; }
   #wm-cv { width: 100%; }
 }
+
+/* elements: "weak!" / "resists" over your hits, the monster's element next to its level */
+.wf.el-up { font-family: 'Kanit', sans-serif; font-size: 15px; color: #ffcf4a; width: 120px; margin-left: -60px; -webkit-text-stroke: 0; text-shadow: 0 0 3px #7a2a00, 0 0 3px #7a2a00; }
+.wf.el-down { font-family: 'Kanit', sans-serif; font-size: 14px; color: #b9c4d6; width: 120px; margin-left: -60px; -webkit-text-stroke: 0; text-shadow: 0 0 3px #1a2233, 0 0 3px #1a2233; }
+.el { font-size: 0.85em; opacity: 0.95; }
+.el-tag { display: inline-block; padding: 0 5px; border-radius: 8px; font-size: 11px; color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); }
+.el-chart { overflow-x: auto; margin: 6px 0; }
+.el-chart table { border-collapse: collapse; font-size: 11px; margin: 0 auto; }
+.el-chart th, .el-chart td { padding: 2px 4px; text-align: center; border: 1px solid rgba(120, 140, 180, 0.35); }
+.el-chart td.hi { color: #d84315; font-weight: bold; }
+.el-chart td.lo { color: #5c6bc0; }

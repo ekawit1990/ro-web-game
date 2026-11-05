@@ -949,7 +949,7 @@
    "price": 150,
    "color": "#c9a227",
    "weight": 2,
-   "desc": "หินแร่ที่สั่นตรงคีย์พอดี ช่างตีบวกใช้ตีบวกอาวุธ (ใช้ 1 ก้อนต่อครั้ง)"
+   "desc": "หินแร่ที่สั่นตรงคีย์พอดี ใช้ตีบวกอาวุธ +1 ถึง +4 (ใช้ 1 ก้อนต่อครั้ง) · ไม่มีขาย ดร็อปจากมอนสเตอร์ Lv 10-30"
   },
   "velvet_patch": {
    "name": "ผ้ากำมะหยี่ซับเสียง",
@@ -957,7 +957,7 @@
    "price": 150,
    "color": "#7e57c2",
    "weight": 2,
-   "desc": "ผ้ากำมะหยี่หนานุ่ม ช่างตีบวกใช้ตีบวกชุด หมวก หูฟัง และรองเท้า (ใช้ 1 ผืนต่อครั้ง)"
+   "desc": "ผ้ากำมะหยี่หนานุ่ม ใช้ตีบวกชุด หมวก หูฟัง รองเท้า +1 ถึง +4 (ใช้ 1 ผืนต่อครั้ง) · ไม่มีขาย ดร็อปจากมอนสเตอร์ Lv 10-30"
   },
   "card_jelly": {
    "name": "การ์ดเจลลี่โน้ต",
@@ -2578,6 +2578,999 @@
    },
    "slots": 1,
    "desc": "แว่นกรอบบางสีเงิน ดูเป็นวาทยกรมืออาชีพ (ไอเท็มจากโมเดล VRoid ไม่มีขายในร้าน)"
+  },
+  "pure_tuning_ore": {
+   "name": "หินจูนเสียงบริสุทธิ์",
+   "type": "loot",
+   "price": 600,
+   "color": "#7fe3ff",
+   "weight": 2,
+   "desc": "หินจูนเสียงที่ใสจนสั่นได้ทุกคีย์ ใช้ตีบวกอาวุธ +5 ถึง +10 (ใช้ 1 ก้อนต่อครั้ง) · ไม่มีขาย ดร็อปจากมอนสเตอร์ Lv 40-99"
+  },
+  "gold_velvet": {
+   "name": "ผ้ากำมะหยี่ทองซับเสียง",
+   "type": "loot",
+   "price": 600,
+   "color": "#ffca28",
+   "weight": 2,
+   "desc": "ผ้ากำมะหยี่ปักดิ้นทอง เก็บเสียงได้เงียบสนิท ใช้ตีบวกชุด หมวก หูฟัง รองเท้า +5 ถึง +10 · ไม่มีขาย ดร็อปจากมอนสเตอร์ Lv 40-99"
+  },
+  "flame_oil": {
+   "name": "น้ำมันเปลวไฟ",
+   "type": "consumable",
+   "price": 400,
+   "color": "#ff6a2a",
+   "weight": 3,
+   "endow": "fire",
+   "desc": "ทาบนอาวุธแล้วโจมตีเป็นธาตุไฟ 10 นาที แรงกับธาตุดินและอมตะ"
+  },
+  "frost_powder": {
+   "name": "ผงน้ำแข็งใส",
+   "type": "consumable",
+   "price": 400,
+   "color": "#4fa3ff",
+   "weight": 3,
+   "endow": "water",
+   "desc": "โรยบนอาวุธแล้วโจมตีเป็นธาตุน้ำ 10 นาที แรงกับธาตุไฟ"
+  },
+  "rock_sand": {
+   "name": "ทรายหินผา",
+   "type": "consumable",
+   "price": 400,
+   "color": "#b8894f",
+   "weight": 3,
+   "endow": "earth",
+   "desc": "ถูบนอาวุธแล้วโจมตีเป็นธาตุดิน 10 นาที แรงกับธาตุลม"
+  },
+  "storm_feather": {
+   "name": "ขนนกพายุ",
+   "type": "consumable",
+   "price": 400,
+   "color": "#7be07b",
+   "weight": 3,
+   "endow": "wind",
+   "desc": "ผูกกับอาวุธแล้วโจมตีเป็นธาตุลม 10 นาที แรงกับธาตุน้ำ"
+  },
+  "holy_water": {
+   "name": "น้ำมนต์โน้ตทอง",
+   "type": "consumable",
+   "price": 400,
+   "color": "#ffe27a",
+   "weight": 3,
+   "endow": "holy",
+   "desc": "พรมบนอาวุธแล้วโจมตีเป็นธาตุศักดิ์สิทธิ์ 10 นาที แรงกับธาตุมืดและอมตะ"
+  },
+  "crystal_dagger": {
+   "type": "weapon",
+   "price": 3000,
+   "weight": 70,
+   "slots": 1,
+   "name": "มีดคริสตัลก้อง",
+   "atk": 58,
+   "classes": [
+    "teen"
+   ],
+   "element": "water",
+   "color": "#9be7ff",
+   "desc": "มีดสั้นคริสตัลจากถ้ำเสียงก้อง เย็นเฉียบ โจมตีเป็นธาตุน้ำ"
+  },
+  "banshee_mic": {
+   "type": "weapon",
+   "price": 3000,
+   "weight": 70,
+   "slots": 1,
+   "name": "ไมค์บันชีกรีดร้อง",
+   "atk": 82,
+   "classes": [
+    "singer"
+   ],
+   "element": "ghost",
+   "color": "#d1c4e9",
+   "desc": "ไมค์ที่ขังเสียงกรีดร้องของบันชี โจมตีเป็นธาตุวิญญาณ"
+  },
+  "inferno_guitar": {
+   "type": "weapon",
+   "price": 3000,
+   "weight": 70,
+   "slots": 1,
+   "name": "กีตาร์นรกลาวา",
+   "atk": 95,
+   "classes": [
+    "guitarist"
+   ],
+   "element": "fire",
+   "color": "#ff5722",
+   "desc": "กีตาร์ที่หลอมจากหินลาวา สายร้อนจนเรืองแสง โจมตีเป็นธาตุไฟ"
+  },
+  "thunder_sticks": {
+   "type": "weapon",
+   "price": 3000,
+   "weight": 70,
+   "slots": 1,
+   "name": "ไม้กลองสายฟ้า",
+   "atk": 86,
+   "classes": [
+    "drummer"
+   ],
+   "element": "wind",
+   "color": "#b2ff59",
+   "desc": "ไม้กลองที่ฟ้าผ่าลงกลางพายุ ตีเร็วจนเกิดลม โจมตีเป็นธาตุลม"
+  },
+  "kraken_bass": {
+   "type": "weapon",
+   "price": 3000,
+   "weight": 70,
+   "slots": 1,
+   "name": "เบสหนวดคราเคน",
+   "atk": 84,
+   "classes": [
+    "bassist"
+   ],
+   "element": "water",
+   "color": "#26c6da",
+   "desc": "เบสที่สายทำจากหนวดหมึกยักษ์ ทุ้มลึกเหมือนใต้ทะเล โจมตีเป็นธาตุน้ำ"
+  },
+  "cathedral_organ": {
+   "type": "weapon",
+   "price": 3000,
+   "weight": 70,
+   "slots": 1,
+   "name": "ออร์แกนวิหารร้าง",
+   "atk": 30,
+   "matk": 98,
+   "classes": [
+    "keyboardist"
+   ],
+   "element": "holy",
+   "color": "#fff3c4",
+   "desc": "คีย์บอร์ดจากออร์แกนในวิหารเก่า เสียงศักดิ์สิทธิ์ โจมตีเป็นธาตุศักดิ์สิทธิ์"
+  },
+  "magma_plate": {
+   "name": "เกราะแมกมาเมทัล",
+   "type": "armor",
+   "price": 2500,
+   "color": "#ff7043",
+   "weight": 90,
+   "slots": 1,
+   "element": "fire",
+   "desc": "เกราะหินแมกมาที่ยังอุ่นอยู่ สวมแล้วตัวเป็นธาตุไฟ (โดนไฟเบาลงมาก แต่แพ้น้ำ)",
+   "def": 14
+  },
+  "crab_shell": {
+   "name": "กระดองปูลาวา",
+   "type": "loot",
+   "price": 198,
+   "color": "#ff7a2e",
+   "weight": 1,
+   "desc": "กระดองแข็งที่ยังมีลาวาไหลในร่อง"
+  },
+  "card_lava_crablet": {
+   "name": "การ์ดปูลาวาจิ๋ว",
+   "type": "card",
+   "price": 1500,
+   "color": "#ff7a2e",
+   "weight": 1,
+   "desc": "กระดองแข็งที่ยังมีลาวาไหลในร่อง · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "def": 3,
+     "maxHp": 150
+    }
+   }
+  },
+  "synth_gel": {
+   "name": "เจลซินธ์",
+   "type": "loot",
+   "price": 186,
+   "color": "#7fe8ff",
+   "weight": 1,
+   "desc": "เจลใสที่สั่นเป็นเสียงซินธ์"
+  },
+  "card_sea_jelly": {
+   "name": "การ์ดแมงกะพรุนซินธ์",
+   "type": "card",
+   "price": 1500,
+   "color": "#7fe8ff",
+   "weight": 1,
+   "desc": "เจลใสที่สั่นเป็นเสียงซินธ์ · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "int": 2,
+     "maxSp": 40
+    }
+   }
+  },
+  "conch_shell": {
+   "name": "เปลือกหอยสังข์",
+   "type": "loot",
+   "price": 192,
+   "color": "#ffb36b",
+   "weight": 1,
+   "desc": "หอยสังข์เป่าแล้วได้ยินเสียงเบส"
+  },
+  "card_conch_fish": {
+   "name": "การ์ดปลาหอยสังข์บีท",
+   "type": "card",
+   "price": 1500,
+   "color": "#ffb36b",
+   "weight": 1,
+   "desc": "หอยสังข์เป่าแล้วได้ยินเสียงเบส · เสียบได้ในช่องการ์ดของหมวก/หูฟัง เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "head",
+    "bonus": {
+     "vit": 2,
+     "mdef": 2
+    }
+   }
+  },
+  "gull_feather": {
+   "name": "ขนนกนางนวล",
+   "type": "loot",
+   "price": 204,
+   "color": "#f2f7ff",
+   "weight": 1,
+   "desc": "ขนนกขาวที่หอบเสียงคลื่นมาด้วย"
+  },
+  "card_gull": {
+   "name": "การ์ดนกนางนวลเสียงแหลม",
+   "type": "card",
+   "price": 1500,
+   "color": "#f2f7ff",
+   "weight": 1,
+   "desc": "ขนนกขาวที่หอบเสียงคลื่นมาด้วย · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "agi": 2,
+     "flee": 3
+    }
+   }
+  },
+  "reggae_skin": {
+   "name": "หนังกบเร็กเก้",
+   "type": "loot",
+   "price": 210,
+   "color": "#3fd0c0",
+   "weight": 1,
+   "desc": "หนังกบลายเขียวเหลืองแดง"
+  },
+  "card_surf_frog": {
+   "name": "การ์ดกบโต้คลื่นเร็กเก้",
+   "type": "card",
+   "price": 1500,
+   "color": "#3fd0c0",
+   "weight": 1,
+   "desc": "หนังกบลายเขียวเหลืองแดง · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้ · เสียบในชุดแล้วตัวเป็นธาตุน้ำ",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "vit": 2,
+     "maxHpPct": 4
+    },
+    "element": "water"
+   }
+  },
+  "dj_ink": {
+   "name": "หมึกดีเจ",
+   "type": "loot",
+   "price": 222,
+   "color": "#5c7cff",
+   "weight": 1,
+   "desc": "หมึกที่สาดออกมาเป็นจังหวะสแครช"
+  },
+  "card_storm_squid": {
+   "name": "การ์ดหมึกพายุดีเจ",
+   "type": "card",
+   "price": 1500,
+   "color": "#5c7cff",
+   "weight": 1,
+   "desc": "หมึกที่สาดออกมาเป็นจังหวะสแครช · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "dex": 2,
+     "hit": 5
+    }
+   }
+  },
+  "coral_piece": {
+   "name": "กิ่งปะการังเบส",
+   "type": "loot",
+   "price": 234,
+   "color": "#ff7f8a",
+   "weight": 1,
+   "desc": "ปะการังแข็งที่ก้องเสียงต่ำ"
+  },
+  "card_coral_golem": {
+   "name": "การ์ดปะการังเบสหนัก",
+   "type": "card",
+   "price": 1500,
+   "color": "#ff7f8a",
+   "weight": 1,
+   "desc": "ปะการังแข็งที่ก้องเสียงต่ำ · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้ · เสียบในชุดแล้วตัวเป็นธาตุดิน",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "def": 3,
+     "vit": 1
+    },
+    "element": "earth"
+   }
+  },
+  "kraken_tentacle": {
+   "name": "หนวดราชันย์หมึก",
+   "type": "loot",
+   "price": 1350,
+   "color": "#7a5cff",
+   "weight": 5,
+   "desc": "หนวดหมึกยักษ์ ยังดิ้นตามจังหวะเพลง"
+  },
+  "card_kraken": {
+   "name": "การ์ดราชันย์หมึกยักษ์ซาวด์เวฟ",
+   "type": "card",
+   "price": 5000,
+   "color": "#7a5cff",
+   "weight": 1,
+   "desc": "หนวดหมึกยักษ์ ยังดิ้นตามจังหวะเพลง (บอส) · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "vit": 3,
+     "maxHpPct": 8
+    }
+   }
+  },
+  "crystal_wing": {
+   "name": "ปีกคริสตัล",
+   "type": "loot",
+   "price": 246,
+   "color": "#9fe8ff",
+   "weight": 1,
+   "desc": "ปีกใสเหมือนแก้ว กระพือแล้วเสียงก้อง"
+  },
+  "card_crystal_bat": {
+   "name": "การ์ดค้างคาวคริสตัลก้อง",
+   "type": "card",
+   "price": 1500,
+   "color": "#9fe8ff",
+   "weight": 1,
+   "desc": "ปีกใสเหมือนแก้ว กระพือแล้วเสียงก้อง · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "agi": 3
+    }
+   }
+  },
+  "echo_gel": {
+   "name": "เมือกเสียงสะท้อน",
+   "type": "loot",
+   "price": 258,
+   "color": "#b06bff",
+   "weight": 1,
+   "desc": "เมือกพิษที่พูดอะไรใส่ก็ตอบกลับ"
+  },
+  "card_echo_slime": {
+   "name": "การ์ดสไลม์เสียงสะท้อน",
+   "type": "card",
+   "price": 1500,
+   "color": "#b06bff",
+   "weight": 1,
+   "desc": "เมือกพิษที่พูดอะไรใส่ก็ตอบกลับ · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "atk": 8,
+     "crit": 2
+    }
+   }
+  },
+  "amethyst": {
+   "name": "อเมทิสต์ก้องกังวาน",
+   "type": "loot",
+   "price": 276,
+   "color": "#c38bff",
+   "weight": 1,
+   "desc": "อัญมณีม่วงที่สั่นเป็นโน้ตเบส"
+  },
+  "card_gem_golem": {
+   "name": "การ์ดโกเลมอัญมณีเบส",
+   "type": "card",
+   "price": 1500,
+   "color": "#c38bff",
+   "weight": 1,
+   "desc": "อัญมณีม่วงที่สั่นเป็นโน้ตเบส · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้ · เสียบในชุดแล้วตัวเป็นธาตุดิน",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "def": 4,
+     "mdef": 2
+    },
+    "element": "earth"
+   }
+  },
+  "miner_lamp": {
+   "name": "ตะเกียงคนขุดแร่",
+   "type": "loot",
+   "price": 288,
+   "color": "#8f9aa8",
+   "weight": 1,
+   "desc": "ตะเกียงเก่าที่ยังติดอยู่"
+  },
+  "card_cave_orc": {
+   "name": "การ์ดออร์คขุดแร่กลองศึก",
+   "type": "card",
+   "price": 1500,
+   "color": "#8f9aa8",
+   "weight": 1,
+   "desc": "ตะเกียงเก่าที่ยังติดอยู่ · เสียบได้ในช่องการ์ดของหมวก/หูฟัง เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "head",
+    "bonus": {
+     "str": 2,
+     "dex": 1
+    }
+   }
+  },
+  "glow_spore": {
+   "name": "สปอร์เรืองแสง",
+   "type": "loot",
+   "price": 300,
+   "color": "#7dff8a",
+   "weight": 1,
+   "desc": "สปอร์ที่ส่องแสงเป็นจังหวะ"
+  },
+  "card_glow_mush": {
+   "name": "การ์ดเห็ดเรืองแสงไซคีเดลิก",
+   "type": "card",
+   "price": 1500,
+   "color": "#7dff8a",
+   "weight": 1,
+   "desc": "สปอร์ที่ส่องแสงเป็นจังหวะ · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "int": 2,
+     "dex": 2
+    }
+   }
+  },
+  "shadow_shuriken": {
+   "name": "ดาวกระจายเงา",
+   "type": "loot",
+   "price": 318,
+   "color": "#3a3a5a",
+   "weight": 1,
+   "desc": "ดาวกระจายคริสตัลดำ"
+  },
+  "card_shadow_ninja": {
+   "name": "การ์ดนินจาเงาคริสตัล",
+   "type": "card",
+   "price": 1500,
+   "color": "#3a3a5a",
+   "weight": 1,
+   "desc": "ดาวกระจายคริสตัลดำ · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "agi": 2,
+     "crit": 4
+    }
+   }
+  },
+  "echo_crown": {
+   "name": "มงกุฎคริสตัลก้อง",
+   "type": "loot",
+   "price": 1740,
+   "color": "#a8e6ff",
+   "weight": 5,
+   "desc": "มงกุฎที่ก้องเสียงไปทั้งถ้ำ"
+  },
+  "card_crystal_king": {
+   "name": "การ์ดราชาคริสตัลเสียงก้อง",
+   "type": "card",
+   "price": 5000,
+   "color": "#a8e6ff",
+   "weight": 1,
+   "desc": "มงกุฎที่ก้องเสียงไปทั้งถ้ำ (บอส) · เสียบได้ในช่องการ์ดของหมวก/หูฟัง เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "head",
+    "bonus": {
+     "int": 3,
+     "dex": 3,
+     "maxSpPct": 8
+    }
+   }
+  },
+  "lost_note": {
+   "name": "โน้ตหลงทาง",
+   "type": "loot",
+   "price": 312,
+   "color": "#a8ffcf",
+   "weight": 1,
+   "desc": "โน้ตที่หลุดจากเพลงที่ไม่มีใครร้องจบ"
+  },
+  "card_wisp": {
+   "name": "การ์ดผีไฟโน้ตหลง",
+   "type": "card",
+   "price": 1500,
+   "color": "#a8ffcf",
+   "weight": 1,
+   "desc": "โน้ตที่หลุดจากเพลงที่ไม่มีใครร้องจบ · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "luk": 3,
+     "crit": 2
+    }
+   }
+  },
+  "bone_mic": {
+   "name": "ไมค์กระดูก",
+   "type": "loot",
+   "price": 330,
+   "color": "#5a5070",
+   "weight": 1,
+   "desc": "ไมค์จิ๋วที่ทำจากกระดูกอีกา"
+  },
+  "card_crow_skull": {
+   "name": "การ์ดอีกาโครงกระดูกแร็พ",
+   "type": "card",
+   "price": 1500,
+   "color": "#5a5070",
+   "weight": 1,
+   "desc": "ไมค์จิ๋วที่ทำจากกระดูกอีกา · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "atk": 10,
+     "hit": 3
+    }
+   }
+  },
+  "rotten_root": {
+   "name": "รากไม้ผุ",
+   "type": "loot",
+   "price": 342,
+   "color": "#7a6a4a",
+   "weight": 1,
+   "desc": "รากไม้ดำที่ยังร้องเพลงเศร้า"
+  },
+  "card_rot_alien": {
+   "name": "การ์ดต้นไม้ผีพิษร้องโหยหวน",
+   "type": "card",
+   "price": 1500,
+   "color": "#7a6a4a",
+   "weight": 1,
+   "desc": "รากไม้ดำที่ยังร้องเพลงเศร้า · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้ · เสียบในชุดแล้วตัวเป็นธาตุพิษ",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "vit": 3
+    },
+    "element": "poison"
+   }
+  },
+  "zombie_fur": {
+   "name": "ขนเยติซอมบี้",
+   "type": "loot",
+   "price": 354,
+   "color": "#9aa88a",
+   "weight": 1,
+   "desc": "ขนเยติที่เน่าแต่ยังนุ่ม"
+  },
+  "card_zombie_yeti": {
+   "name": "การ์ดเยติซอมบี้แจ๊ส",
+   "type": "card",
+   "price": 1500,
+   "color": "#9aa88a",
+   "weight": 1,
+   "desc": "ขนเยติที่เน่าแต่ยังนุ่ม · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้ · เสียบในชุดแล้วตัวเป็นธาตุอมตะ",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "maxHpPct": 6
+    },
+    "element": "undead"
+   }
+  },
+  "funeral_score": {
+   "name": "โน้ตเพลงศพ",
+   "type": "loot",
+   "price": 366,
+   "color": "#4a2a6a",
+   "weight": 1,
+   "desc": "โน้ตเพลงที่เขียนด้วยหมึกดำ"
+  },
+  "card_bog_witch": {
+   "name": "การ์ดแม่มดหนองเพลงศพ",
+   "type": "card",
+   "price": 1500,
+   "color": "#4a2a6a",
+   "weight": 1,
+   "desc": "โน้ตเพลงที่เขียนด้วยหมึกดำ · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "matk": 14,
+     "int": 1
+    }
+   }
+  },
+  "death_bone": {
+   "name": "กระดูกเดธเมทัล",
+   "type": "loot",
+   "price": 378,
+   "color": "#e8e0c8",
+   "weight": 1,
+   "desc": "กระดูกที่สลักลายสายฟ้า"
+  },
+  "card_bone_dino": {
+   "name": "การ์ดไดโนกระดูกเดธเมทัล",
+   "type": "card",
+   "price": 1500,
+   "color": "#e8e0c8",
+   "weight": 1,
+   "desc": "กระดูกที่สลักลายสายฟ้า · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "str": 2,
+     "atk": 8
+    }
+   }
+  },
+  "banshee_veil": {
+   "name": "ผ้าคลุมบันชี",
+   "type": "loot",
+   "price": 2040,
+   "color": "#e8e0ff",
+   "weight": 5,
+   "desc": "ผ้าคลุมขาวที่ยังกรีดร้องเบา ๆ"
+  },
+  "card_banshee_queen": {
+   "name": "การ์ดราชินีบันชีเสียงกรีดร้อง",
+   "type": "card",
+   "price": 5000,
+   "color": "#e8e0ff",
+   "weight": 1,
+   "desc": "ผ้าคลุมขาวที่ยังกรีดร้องเบา ๆ (บอส) · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้ · เสียบในชุดแล้วตัวเป็นธาตุวิญญาณ",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "flee": 6,
+     "maxSpPct": 6
+    },
+    "element": "ghost"
+   }
+  },
+  "opera_mask": {
+   "name": "หน้ากากโอเปร่า",
+   "type": "loot",
+   "price": 396,
+   "color": "#dfe8ff",
+   "weight": 1,
+   "desc": "หน้ากากครึ่งหน้าของนักร้องที่หายไป"
+  },
+  "card_opera_phantom": {
+   "name": "การ์ดวิญญาณนักร้องโอเปร่า",
+   "type": "card",
+   "price": 1500,
+   "color": "#dfe8ff",
+   "weight": 1,
+   "desc": "หน้ากากครึ่งหน้าของนักร้องที่หายไป · เสียบได้ในช่องการ์ดของหมวก/หูฟัง เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "head",
+    "bonus": {
+     "int": 3,
+     "mdef": 3
+    }
+   }
+  },
+  "rusty_crest": {
+   "name": "ตราอัศวินขึ้นสนิม",
+   "type": "loot",
+   "price": 414,
+   "color": "#9aa4b0",
+   "weight": 1,
+   "desc": "ตราประจำตระกูลของอัศวินเก่า"
+  },
+  "card_hollow_knight": {
+   "name": "การ์ดอัศวินเกราะไร้ร่าง",
+   "type": "card",
+   "price": 1500,
+   "color": "#9aa4b0",
+   "weight": 1,
+   "desc": "ตราประจำตระกูลของอัศวินเก่า · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้ · เสียบในชุดแล้วตัวเป็นธาตุอมตะ",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "def": 5,
+     "vit": 1
+    },
+    "element": "undead"
+   }
+  },
+  "bell_clapper": {
+   "name": "ลูกตุ้มระฆัง",
+   "type": "loot",
+   "price": 426,
+   "color": "#8a8a90",
+   "weight": 1,
+   "desc": "ลูกตุ้มระฆังหินที่ตีแล้วดังทั้งเมือง"
+  },
+  "card_bell_gargoyle": {
+   "name": "การ์ดการ์กอยล์ระฆังโบสถ์",
+   "type": "card",
+   "price": 1500,
+   "color": "#8a8a90",
+   "weight": 1,
+   "desc": "ลูกตุ้มระฆังหินที่ตีแล้วดังทั้งเมือง · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "vit": 2,
+     "def": 2
+    }
+   }
+  },
+  "march_drum": {
+   "name": "กลองเดินแถวผุพัง",
+   "type": "loot",
+   "price": 438,
+   "color": "#e0dccf",
+   "weight": 1,
+   "desc": "กลองสแนร์เก่าของวงโยธวาทิตผี"
+  },
+  "card_skull_bandsman": {
+   "name": "การ์ดทหารกะโหลกวงโยธวาทิต",
+   "type": "card",
+   "price": 1500,
+   "color": "#e0dccf",
+   "weight": 1,
+   "desc": "กลองสแนร์เก่าของวงโยธวาทิตผี · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "atk": 12,
+     "aspd": 3
+    }
+   }
+  },
+  "dark_hymnal": {
+   "name": "หนังสือเพลงสวดมืด",
+   "type": "loot",
+   "price": 456,
+   "color": "#2a2030",
+   "weight": 1,
+   "desc": "หนังสือเพลงสวดที่อ่านกลับหลัง"
+  },
+  "card_dark_bishop": {
+   "name": "การ์ดบาทหลวงมืดเพลงสวด",
+   "type": "card",
+   "price": 1500,
+   "color": "#2a2030",
+   "weight": 1,
+   "desc": "หนังสือเพลงสวดที่อ่านกลับหลัง · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "int": 3,
+     "matkPct": 4
+    }
+   }
+  },
+  "angel_bell": {
+   "name": "ระฆังทองเทวดา",
+   "type": "loot",
+   "price": 468,
+   "color": "#ffe27a",
+   "weight": 1,
+   "desc": "ระฆังเล็กที่สั่นแล้วใจสงบ"
+  },
+  "card_bell_angel": {
+   "name": "การ์ดเทวดาระฆังทอง",
+   "type": "card",
+   "price": 1500,
+   "color": "#ffe27a",
+   "weight": 1,
+   "desc": "ระฆังเล็กที่สั่นแล้วใจสงบ · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "luk": 2,
+     "maxSp": 60,
+     "mdef": 2
+    }
+   }
+  },
+  "phantom_crown": {
+   "name": "มงกุฎราชาไร้บัลลังก์",
+   "type": "loot",
+   "price": 2460,
+   "color": "#5a3a7a",
+   "weight": 5,
+   "desc": "มงกุฎที่ไม่มีใครกล้าสวม"
+  },
+  "card_phantom_king": {
+   "name": "การ์ดราชาไร้บัลลังก์แห่งโอเปร่า",
+   "type": "card",
+   "price": 5000,
+   "color": "#5a3a7a",
+   "weight": 1,
+   "desc": "มงกุฎที่ไม่มีใครกล้าสวม (บอส) · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้ · เสียบในชุดแล้วตัวเป็นธาตุอมตะ",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "str": 3,
+     "vit": 3,
+     "maxHpPct": 10
+    },
+    "element": "undead"
+   }
+  },
+  "lava_carapace": {
+   "name": "เกราะปูลาวา",
+   "type": "loot",
+   "price": 486,
+   "color": "#ff6a1e",
+   "weight": 1,
+   "desc": "กระดองหนามที่ร้อนจนจับไม่ได้"
+  },
+  "card_lava_crab": {
+   "name": "การ์ดปูลาวาเกราะหนาม",
+   "type": "card",
+   "price": 1500,
+   "color": "#ff6a1e",
+   "weight": 1,
+   "desc": "กระดองหนามที่ร้อนจนจับไม่ได้ · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้ · เสียบในชุดแล้วตัวเป็นธาตุไฟ",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "def": 6
+    },
+    "element": "fire"
+   }
+  },
+  "boiling_gel": {
+   "name": "เจลแมกมาเดือด",
+   "type": "loot",
+   "price": 504,
+   "color": "#ff8a1e",
+   "weight": 1,
+   "desc": "เจลร้อนที่ยังเดือดปุด ๆ"
+  },
+  "card_magma_slime": {
+   "name": "การ์ดสไลม์แมกมาเดือด",
+   "type": "card",
+   "price": 1500,
+   "color": "#ff8a1e",
+   "weight": 1,
+   "desc": "เจลร้อนที่ยังเดือดปุด ๆ · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "atk": 14
+    }
+   }
+  },
+  "hellfire_fang": {
+   "name": "เขี้ยวเพลิงนรก",
+   "type": "loot",
+   "price": 516,
+   "color": "#b0201a",
+   "weight": 1,
+   "desc": "เขี้ยวที่ลุกเป็นไฟเมื่อคำราม"
+  },
+  "card_hell_hound": {
+   "name": "การ์ดหมาเพลิงนรกแบล็กเมทัล",
+   "type": "card",
+   "price": 1500,
+   "color": "#b0201a",
+   "weight": 1,
+   "desc": "เขี้ยวที่ลุกเป็นไฟเมื่อคำราม · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "str": 3,
+     "crit": 3
+    }
+   }
+  },
+  "demon_pick": {
+   "name": "ปิ๊กปีศาจ",
+   "type": "loot",
+   "price": 534,
+   "color": "#d02a10",
+   "weight": 1,
+   "desc": "ปิ๊กกีตาร์สีเลือดจากปีศาจ"
+  },
+  "card_flame_demon": {
+   "name": "การ์ดปีศาจเปลวเพลิงกีตาร์",
+   "type": "card",
+   "price": 1500,
+   "color": "#d02a10",
+   "weight": 1,
+   "desc": "ปิ๊กกีตาร์สีเลือดจากปีศาจ · เสียบได้ในช่องการ์ดของเครื่องประดับ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "accessory",
+    "bonus": {
+     "str": 2,
+     "atkPct": 4
+    }
+   }
+  },
+  "obsidian_core": {
+   "name": "แกนออบซิเดียน",
+   "type": "loot",
+   "price": 552,
+   "color": "#2a2226",
+   "weight": 1,
+   "desc": "หินดำมันวาวที่ร้อนข้างใน"
+  },
+  "card_obsidian_golem": {
+   "name": "การ์ดโกเลมหินออบซิเดียน",
+   "type": "card",
+   "price": 1500,
+   "color": "#2a2226",
+   "weight": 1,
+   "desc": "หินดำมันวาวที่ร้อนข้างใน · เสียบได้ในช่องการ์ดของรองเท้า เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "vit": 3,
+     "maxHpPct": 5
+    }
+   }
+  },
+  "lava_scale": {
+   "name": "เกล็ดมังกรลาวา",
+   "type": "loot",
+   "price": 570,
+   "color": "#ff7a1a",
+   "weight": 1,
+   "desc": "เกล็ดที่หลอมจากลาวาเย็นตัว"
+  },
+  "card_lava_dragon": {
+   "name": "การ์ดมังกรลาวาวัยรุ่น",
+   "type": "card",
+   "price": 1500,
+   "color": "#ff7a1a",
+   "weight": 1,
+   "desc": "เกล็ดที่หลอมจากลาวาเย็นตัว · เสียบได้ในช่องการ์ดของชุด เสียบแล้วถอดไม่ได้ · เสียบในชุดแล้วตัวเป็นธาตุไฟ",
+   "card": {
+    "slot": "armor",
+    "bonus": {
+     "def": 5,
+     "mdef": 3
+    },
+    "element": "fire"
+   }
+  },
+  "volcano_heart": {
+   "name": "หัวใจภูเขาไฟ",
+   "type": "loot",
+   "price": 2970,
+   "color": "#ff3a1a",
+   "weight": 5,
+   "desc": "หัวใจลาวาที่ยังเต้นเป็นจังหวะดับเบิลเบส"
+  },
+  "card_inferno_lord": {
+   "name": "การ์ดจักรพรรดิภูเขาไฟเมทัล",
+   "type": "card",
+   "price": 5000,
+   "color": "#ff3a1a",
+   "weight": 1,
+   "desc": "หัวใจลาวาที่ยังเต้นเป็นจังหวะดับเบิลเบส (บอส) · เสียบได้ในช่องการ์ดของอาวุธ เสียบแล้วถอดไม่ได้",
+   "card": {
+    "slot": "weapon",
+    "bonus": {
+     "str": 4,
+     "atkPct": 8
+    }
+   }
   }
  },
  "shop": [
@@ -2590,18 +3583,21 @@
   "note_ribbon",
   "headphones",
   "pick_necklace",
-  "tuning_ore",
-  "velvet_patch"
+  "flame_oil",
+  "frost_powder",
+  "rock_sand",
+  "storm_feather",
+  "holy_water"
  ],
  "monsters": {
   "jelly": {
    "name": "เจลลี่โน้ต",
    "level": 1,
-   "hp": 50,
+   "hp": 75,
    "atk": 6,
    "def": 0,
-   "exp": 6,
-   "jobExp": 4,
+   "exp": 4,
+   "jobExp": 3,
    "zeny": [
     2,
     8
@@ -2640,16 +3636,20 @@
      0.004
     ]
    ],
-   "model": "Blob_PinkBlob"
+   "model": "Blob_PinkBlob",
+   "element": [
+    "water",
+    1
+   ]
   },
   "drop": {
    "name": "วุ้นเขียวบีท",
    "level": 2,
-   "hp": 70,
+   "hp": 105,
    "atk": 8,
    "def": 0,
-   "exp": 9,
-   "jobExp": 7,
+   "exp": 6,
+   "jobExp": 5,
    "zeny": [
     3,
     10
@@ -2684,16 +3684,20 @@
      0.004
     ]
    ],
-   "model": "Blob_GreenBlob"
+   "model": "Blob_GreenBlob",
+   "element": [
+    "water",
+    1
+   ]
   },
   "chick": {
    "name": "ไก่น้อยร้องเพลง",
    "level": 3,
-   "hp": 90,
+   "hp": 135,
    "atk": 10,
    "def": 1,
-   "exp": 12,
-   "jobExp": 9,
+   "exp": 8,
+   "jobExp": 6,
    "zeny": [
     4,
     12
@@ -2732,16 +3736,20 @@
      0.004
     ]
    ],
-   "model": "Blob_Chicken"
+   "model": "Blob_Chicken",
+   "element": [
+    "wind",
+    1
+   ]
   },
   "mushy": {
    "name": "เห็ดเงียบ",
    "level": 4,
-   "hp": 130,
+   "hp": 195,
    "atk": 13,
    "def": 2,
-   "exp": 18,
-   "jobExp": 14,
+   "exp": 13,
+   "jobExp": 10,
    "zeny": [
     5,
     15
@@ -2780,16 +3788,20 @@
      0.004
     ]
    ],
-   "model": "Blob_Mushnub"
+   "model": "Blob_Mushnub",
+   "element": [
+    "earth",
+    1
+   ]
   },
   "rabbit": {
    "name": "กระต่ายจังหวะ",
    "level": 5,
-   "hp": 160,
+   "hp": 240,
    "atk": 16,
    "def": 3,
-   "exp": 24,
-   "jobExp": 18,
+   "exp": 17,
+   "jobExp": 13,
    "zeny": [
     6,
     18
@@ -2828,16 +3840,20 @@
      0.004
     ]
    ],
-   "model": "Big_Bunny"
+   "model": "Big_Bunny",
+   "element": [
+    "neutral",
+    1
+   ]
   },
   "buzzer": {
    "name": "ผึ้งเสียงหึ่ง",
    "level": 7,
-   "hp": 210,
+   "hp": 315,
    "atk": 22,
    "def": 4,
-   "exp": 36,
-   "jobExp": 27,
+   "exp": 25,
+   "jobExp": 19,
    "zeny": [
     10,
     30
@@ -2880,16 +3896,20 @@
      0.005
     ]
    ],
-   "model": "Flying_Armabee"
+   "model": "Flying_Armabee",
+   "element": [
+    "wind",
+    1
+   ]
   },
   "frog": {
    "name": "กบเบส",
    "level": 8,
-   "hp": 280,
+   "hp": 420,
    "atk": 26,
    "def": 6,
-   "exp": 46,
-   "jobExp": 34,
+   "exp": 32,
+   "jobExp": 24,
    "zeny": [
     12,
     34
@@ -2932,16 +3952,20 @@
      0.005
     ]
    ],
-   "model": "Big_Frog"
+   "model": "Big_Frog",
+   "element": [
+    "water",
+    1
+   ]
   },
   "bat": {
    "name": "ค้างคาวโซนิค",
    "level": 10,
-   "hp": 330,
+   "hp": 495,
    "atk": 32,
    "def": 6,
-   "exp": 62,
-   "jobExp": 46,
+   "exp": 43,
+   "jobExp": 32,
    "zeny": [
     15,
     40
@@ -2982,18 +4006,30 @@
     [
      "outfit_gray_hoodie",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Flying_Ghost"
+   "model": "Flying_Ghost",
+   "element": [
+    "shadow",
+    1
+   ]
   },
   "rocky": {
    "name": "เม่นหนามร็อค",
    "level": 12,
-   "hp": 520,
+   "hp": 780,
    "atk": 38,
    "def": 14,
-   "exp": 90,
-   "jobExp": 68,
+   "exp": 63,
+   "jobExp": 48,
    "zeny": [
     25,
     60
@@ -3034,18 +4070,30 @@
     [
      "outfit_navy_school",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Blob_GreenSpikyBlob"
+   "model": "Blob_GreenSpikyBlob",
+   "element": [
+    "earth",
+    1
+   ]
   },
   "metronome": {
    "name": "กลับลูกตุ้มจังหวะ",
    "level": 14,
-   "hp": 640,
+   "hp": 960,
    "atk": 46,
    "def": 12,
-   "exp": 120,
-   "jobExp": 90,
+   "exp": 84,
+   "jobExp": 63,
    "zeny": [
     30,
     80
@@ -3086,18 +4134,30 @@
     [
      "outfit_orange_fox",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Flying_Glub"
+   "model": "Flying_Glub",
+   "element": [
+    "neutral",
+    1
+   ]
   },
   "king_jelly": {
    "name": "ราชาเห็ดเสียงเพี้ยน",
    "level": 20,
-   "hp": 5000,
+   "hp": 7500,
    "atk": 75,
    "def": 18,
-   "exp": 1500,
-   "jobExp": 1125,
+   "exp": 1050,
+   "jobExp": 788,
    "zeny": [
     400,
     900
@@ -3154,19 +4214,31 @@
     [
      "outfit_bunny_lolita",
      0.06
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
    "boss": true,
-   "model": "Blob_Mushnub_Evolved"
+   "model": "Blob_Mushnub_Evolved",
+   "element": [
+    "water",
+    2
+   ]
   },
   "owl": {
    "name": "นกฟ้าเบสทุ้ม",
    "level": 11,
-   "hp": 510,
+   "hp": 765,
    "atk": 35,
    "def": 8,
-   "exp": 75,
-   "jobExp": 56,
+   "exp": 52,
+   "jobExp": 39,
    "zeny": [
     22,
     55
@@ -3208,18 +4280,30 @@
     [
      "glasses_bold",
      0.01
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Blob_Birb"
+   "model": "Blob_Birb",
+   "element": [
+    "wind",
+    1
+   ]
   },
   "mossy": {
    "name": "ภูตเถาวัลย์คอรัส",
    "level": 13,
-   "hp": 620,
+   "hp": 930,
    "atk": 42,
    "def": 10,
-   "exp": 105,
-   "jobExp": 79,
+   "exp": 74,
+   "jobExp": 55,
    "zeny": [
     26,
     65
@@ -3257,18 +4341,30 @@
     [
      "outfit_gakuran",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Blob_Alien"
+   "model": "Blob_Alien",
+   "element": [
+    "earth",
+    1
+   ]
   },
   "elder_tree": {
    "name": "ราชาเห็ดป่าโบราณ",
    "level": 24,
-   "hp": 11520,
+   "hp": 17280,
    "atk": 123,
    "def": 25,
-   "exp": 4284,
-   "jobExp": 3213,
+   "exp": 2999,
+   "jobExp": 2249,
    "zeny": [
     480,
     1200
@@ -3319,18 +4415,30 @@
     [
      "outfit_forest_elf",
      0.06
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Big_MushroomKing"
+   "model": "Big_MushroomKing",
+   "element": [
+    "earth",
+    2
+   ]
   },
   "tuba_toad": {
    "name": "ปลาทูบาบึง",
    "level": 14,
-   "hp": 680,
+   "hp": 1020,
    "atk": 45,
    "def": 10,
-   "exp": 122,
-   "jobExp": 92,
+   "exp": 85,
+   "jobExp": 64,
    "zeny": [
     28,
     70
@@ -3368,18 +4476,30 @@
     [
      "outfit_beach_lace",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Blob_Fish"
+   "model": "Blob_Fish",
+   "element": [
+    "water",
+    1
+   ]
   },
   "mosquito": {
    "name": "ผึ้งยักษ์ไวโอลิน",
    "level": 16,
-   "hp": 790,
+   "hp": 1185,
    "atk": 51,
    "def": 12,
-   "exp": 159,
-   "jobExp": 119,
+   "exp": 111,
+   "jobExp": 83,
    "zeny": [
     32,
     80
@@ -3417,18 +4537,30 @@
     [
      "outfit_alice",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Flying_Armabee_Evolved"
+   "model": "Flying_Armabee_Evolved",
+   "element": [
+    "poison",
+    1
+   ]
   },
   "marsh_queen": {
    "name": "ราชาฉลามบึงทุ้ม",
    "level": 27,
-   "hp": 13230,
+   "hp": 19845,
    "atk": 138,
    "def": 28,
-   "exp": 5424,
-   "jobExp": 4068,
+   "exp": 3797,
+   "jobExp": 2848,
    "zeny": [
     540,
     1350
@@ -3483,18 +4615,30 @@
     [
      "hat_witch",
      0.06
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Big_Fish"
+   "model": "Big_Fish",
+   "element": [
+    "water",
+    3
+   ]
   },
   "drum_golem": {
    "name": "กระบองเพชรมาเรียชี",
    "level": 17,
-   "hp": 850,
+   "hp": 1275,
    "atk": 54,
    "def": 13,
-   "exp": 179,
-   "jobExp": 134,
+   "exp": 125,
+   "jobExp": 94,
    "zeny": [
     34,
     85
@@ -3532,18 +4676,30 @@
     [
      "outfit_gal_black",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Big_Cactoro"
+   "model": "Big_Cactoro",
+   "element": [
+    "earth",
+    2
+   ]
   },
   "howler": {
    "name": "ไดโนหอนโซโล",
    "level": 18,
-   "hp": 910,
+   "hp": 1365,
    "atk": 58,
    "def": 14,
-   "exp": 201,
-   "jobExp": 151,
+   "exp": 141,
+   "jobExp": 106,
    "zeny": [
     36,
     90
@@ -3581,18 +4737,30 @@
     [
      "outfit_white_priest",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Big_Dino"
+   "model": "Big_Dino",
+   "element": [
+    "wind",
+    1
+   ]
   },
   "sand_drop": {
    "name": "กระบองเพชรจิ๋วหมวกปีก",
    "level": 19,
-   "hp": 970,
+   "hp": 1455,
    "atk": 61,
    "def": 14,
-   "exp": 224,
-   "jobExp": 168,
+   "exp": 157,
+   "jobExp": 118,
    "zeny": [
     38,
     95
@@ -3630,18 +4798,30 @@
     [
      "outfit_gray_suit",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Blob_Cactoro"
+   "model": "Blob_Cactoro",
+   "element": [
+    "earth",
+    1
+   ]
   },
   "rock_dragon": {
    "name": "มังกรร็อกแอนด์โรล",
    "level": 31,
-   "hp": 15570,
+   "hp": 23355,
    "atk": 158,
    "def": 32,
-   "exp": 7152,
-   "jobExp": 5364,
+   "exp": 5006,
+   "jobExp": 3755,
    "zeny": [
     620,
     1550
@@ -3694,16 +4874,20 @@
      0.06
     ]
    ],
-   "model": "Flying_Dragon_Evolved"
+   "model": "Flying_Dragon_Evolved",
+   "element": [
+    "fire",
+    2
+   ]
   },
   "penguin": {
    "name": "เยติน้อยคอรัส",
    "level": 21,
-   "hp": 1090,
+   "hp": 1635,
    "atk": 67,
    "def": 16,
-   "exp": 273,
-   "jobExp": 205,
+   "exp": 191,
+   "jobExp": 144,
    "zeny": [
     42,
     105
@@ -3741,18 +4925,30 @@
     [
      "outfit_tuxedo",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Blob_Yeti"
+   "model": "Blob_Yeti",
+   "element": [
+    "water",
+    1
+   ]
   },
   "ice_jelly": {
    "name": "นกน้ำแข็งเสียงสูง",
    "level": 22,
-   "hp": 1150,
+   "hp": 1725,
    "atk": 70,
    "def": 16,
-   "exp": 300,
-   "jobExp": 225,
+   "exp": 210,
+   "jobExp": 158,
    "zeny": [
     44,
     110
@@ -3794,18 +4990,30 @@
     [
      "horn_ribbon",
      0.01
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Big_Birb"
+   "model": "Big_Birb",
+   "element": [
+    "water",
+    2
+   ]
   },
   "yeti": {
    "name": "เยติเบสหนัก",
    "level": 24,
-   "hp": 1280,
+   "hp": 1920,
    "atk": 77,
    "def": 18,
-   "exp": 357,
-   "jobExp": 268,
+   "exp": 250,
+   "jobExp": 188,
    "zeny": [
     48,
     120
@@ -3843,18 +5051,30 @@
     [
      "outfit_red_qipao",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Big_Yeti"
+   "model": "Big_Yeti",
+   "element": [
+    "water",
+    1
+   ]
   },
   "snow_queen": {
    "name": "ราชินีหิมะโซปราโน",
    "level": 35,
-   "hp": 17910,
+   "hp": 26865,
    "atk": 179,
    "def": 36,
-   "exp": 9120,
-   "jobExp": 6840,
+   "exp": 6384,
+   "jobExp": 4788,
    "zeny": [
     700,
     1750
@@ -3911,16 +5131,20 @@
      0.06
     ]
    ],
-   "model": "Flying_Goleling_Evolved"
+   "model": "Flying_Goleling_Evolved",
+   "element": [
+    "water",
+    3
+   ]
   },
   "fire_bat": {
    "name": "ค้างคาวเพลิงเมทัล",
    "level": 26,
-   "hp": 1400,
+   "hp": 2100,
    "atk": 83,
    "def": 20,
-   "exp": 419,
-   "jobExp": 314,
+   "exp": 293,
+   "jobExp": 220,
    "zeny": [
     52,
     130
@@ -3958,18 +5182,30 @@
     [
      "outfit_kungfu",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Flying_Demon"
+   "model": "Flying_Demon",
+   "element": [
+    "fire",
+    1
+   ]
   },
   "magma_golem": {
    "name": "ออร์คแมกมา",
    "level": 28,
-   "hp": 1530,
+   "hp": 2295,
    "atk": 90,
    "def": 21,
-   "exp": 486,
-   "jobExp": 364,
+   "exp": 340,
+   "jobExp": 255,
    "zeny": [
     56,
     140
@@ -4007,18 +5243,30 @@
     [
      "outfit_night_wolf",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Big_Orc"
+   "model": "Big_Orc",
+   "element": [
+    "fire",
+    2
+   ]
   },
   "flame_metronome": {
    "name": "มังกรน้อยเปลวไฟ",
    "level": 29,
-   "hp": 1590,
+   "hp": 2385,
    "atk": 93,
    "def": 22,
-   "exp": 521,
-   "jobExp": 391,
+   "exp": 365,
+   "jobExp": 274,
    "zeny": [
     58,
     145
@@ -4056,18 +5304,30 @@
     [
      "outfit_astronaut_f",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
    ],
-   "model": "Flying_Dragon"
+   "model": "Flying_Dragon",
+   "element": [
+    "fire",
+    2
+   ]
   },
   "metal_lord": {
    "name": "จอมมารหน้ากากเมทัล",
    "level": 40,
-   "hp": 20970,
+   "hp": 31455,
    "atk": 205,
    "def": 42,
-   "exp": 11904,
-   "jobExp": 8928,
+   "exp": 8333,
+   "jobExp": 6250,
    "zeny": [
     800,
     2000
@@ -4126,18 +5386,30 @@
     [
      "outfit_halloween_vampire",
      0.06
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
     ]
    ],
-   "model": "Flying_Tribal"
+   "model": "Flying_Tribal",
+   "element": [
+    "shadow",
+    3
+   ]
   },
   "cat": {
    "name": "แมวส้มฮัมเพลง",
    "level": 2,
-   "hp": 70,
+   "hp": 105,
    "atk": 6,
    "def": 2,
-   "exp": 2,
-   "jobExp": 2,
+   "exp": 1,
+   "jobExp": 1,
    "zeny": [
     4,
     10
@@ -4172,16 +5444,20 @@
      "card_cat",
      0.004
     ]
+   ],
+   "element": [
+    "neutral",
+    1
    ]
   },
   "dog": {
    "name": "หมาน้อยบีทบ็อกซ์",
    "level": 3,
-   "hp": 110,
+   "hp": 165,
    "atk": 10,
    "def": 2,
-   "exp": 6,
-   "jobExp": 4,
+   "exp": 4,
+   "jobExp": 3,
    "zeny": [
     6,
     15
@@ -4216,16 +5492,20 @@
      "card_dog",
      0.004
     ]
+   ],
+   "element": [
+    "neutral",
+    1
    ]
   },
   "pigeon": {
    "name": "นกพิราบป๊อป",
    "level": 6,
-   "hp": 250,
+   "hp": 375,
    "atk": 19,
    "def": 4,
-   "exp": 22,
-   "jobExp": 16,
+   "exp": 15,
+   "jobExp": 11,
    "zeny": [
     12,
     30
@@ -4260,16 +5540,20 @@
      "card_pigeon",
      0.004
     ]
+   ],
+   "element": [
+    "wind",
+    1
    ]
   },
   "monkroose": {
    "name": "ลิงกลองป่า",
    "level": 12,
-   "hp": 560,
+   "hp": 840,
    "atk": 38,
    "def": 9,
-   "exp": 89,
-   "jobExp": 67,
+   "exp": 62,
+   "jobExp": 47,
    "zeny": [
     24,
     60
@@ -4307,17 +5591,29 @@
     [
      "outfit_sailor_school",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "earth",
+    1
    ]
   },
   "wizard": {
    "name": "พ่อมดน้อยโน้ตม่วง",
    "level": 13,
-   "hp": 620,
+   "hp": 930,
    "atk": 42,
    "def": 10,
-   "exp": 105,
-   "jobExp": 79,
+   "exp": 74,
+   "jobExp": 55,
    "zeny": [
     26,
     65
@@ -4359,17 +5655,29 @@
     [
      "glasses_thin",
      0.01
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "shadow",
+    1
    ]
   },
   "ninja": {
    "name": "นินจาเงาไม้",
    "level": 14,
-   "hp": 680,
+   "hp": 1020,
    "atk": 45,
    "def": 10,
-   "exp": 122,
-   "jobExp": 92,
+   "exp": 85,
+   "jobExp": 64,
    "zeny": [
     28,
     70
@@ -4407,17 +5715,29 @@
     [
      "outfit_leopard_swim",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "shadow",
+    1
    ]
   },
   "squidle": {
    "name": "ปลาหมึกบินแจ๊ส",
    "level": 15,
-   "hp": 730,
+   "hp": 1095,
    "atk": 48,
    "def": 11,
-   "exp": 140,
-   "jobExp": 105,
+   "exp": 98,
+   "jobExp": 74,
    "zeny": [
     30,
     75
@@ -4455,17 +5775,29 @@
     [
      "outfit_rock_hoodie",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "water",
+    1
    ]
   },
   "alien": {
    "name": "เอเลี่ยนเถาวัลย์บึง",
    "level": 15,
-   "hp": 730,
+   "hp": 1095,
    "atk": 48,
    "def": 11,
-   "exp": 140,
-   "jobExp": 105,
+   "exp": 98,
+   "jobExp": 74,
    "zeny": [
     30,
     75
@@ -4503,17 +5835,29 @@
     [
      "outfit_maid",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "poison",
+    1
    ]
   },
   "orc": {
    "name": "ออร์คโคลนบึง",
    "level": 16,
-   "hp": 790,
+   "hp": 1185,
    "atk": 51,
    "def": 12,
-   "exp": 159,
-   "jobExp": 119,
+   "exp": 111,
+   "jobExp": 83,
    "zeny": [
     32,
     80
@@ -4551,17 +5895,29 @@
     [
      "outfit_street",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "earth",
+    1
    ]
   },
   "glub_evo": {
    "name": "กลับสามตาเสียงก้อง",
    "level": 17,
-   "hp": 850,
+   "hp": 1275,
    "atk": 54,
    "def": 13,
-   "exp": 179,
-   "jobExp": 134,
+   "exp": 125,
+   "jobExp": 94,
    "zeny": [
     34,
     85
@@ -4599,17 +5955,29 @@
     [
      "outfit_street_black",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "water",
+    2
    ]
   },
   "alpaking": {
    "name": "อัลปาคิงทะเลทราย",
    "level": 18,
-   "hp": 910,
+   "hp": 1365,
    "atk": 58,
    "def": 14,
-   "exp": 201,
-   "jobExp": 151,
+   "exp": 141,
+   "jobExp": 106,
    "zeny": [
     36,
     90
@@ -4647,17 +6015,29 @@
     [
      "outfit_bunny_butler",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "wind",
+    1
    ]
   },
   "goleling": {
    "name": "โกเลลิงปีกหิน",
    "level": 19,
-   "hp": 970,
+   "hp": 1455,
    "atk": 61,
    "def": 14,
-   "exp": 224,
-   "jobExp": 168,
+   "exp": 157,
+   "jobExp": 118,
    "zeny": [
     38,
     95
@@ -4695,17 +6075,29 @@
     [
      "outfit_black_coat",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "earth",
+    2
    ]
   },
   "tribal": {
    "name": "นักรบหน้ากากกลอง",
    "level": 20,
-   "hp": 1030,
+   "hp": 1545,
    "atk": 64,
    "def": 15,
-   "exp": 248,
-   "jobExp": 186,
+   "exp": 174,
+   "jobExp": 130,
    "zeny": [
     40,
     100
@@ -4743,17 +6135,29 @@
     [
      "outfit_gothic",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "neutral",
+    2
    ]
   },
   "big_ninja": {
    "name": "ซามูไรดาบคอร์ด",
    "level": 21,
-   "hp": 1090,
+   "hp": 1635,
    "atk": 67,
    "def": 16,
-   "exp": 273,
-   "jobExp": 205,
+   "exp": 191,
+   "jobExp": 144,
    "zeny": [
     42,
     105
@@ -4791,17 +6195,29 @@
     [
      "outfit_cyber_mint",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "shadow",
+    1
    ]
   },
   "hywirl": {
    "name": "ภูตหิมะหนวดม่วง",
    "level": 22,
-   "hp": 1150,
+   "hp": 1725,
    "atk": 70,
    "def": 16,
-   "exp": 300,
-   "jobExp": 225,
+   "exp": 210,
+   "jobExp": 158,
    "zeny": [
     44,
     110
@@ -4839,17 +6255,29 @@
     [
      "outfit_red_singer",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "ghost",
+    1
    ]
   },
   "bluedemon": {
    "name": "อสูรน้ำแข็งกระบอง",
    "level": 23,
-   "hp": 1210,
+   "hp": 1815,
    "atk": 74,
    "def": 17,
-   "exp": 328,
-   "jobExp": 246,
+   "exp": 230,
+   "jobExp": 172,
    "zeny": [
     46,
     115
@@ -4887,17 +6315,29 @@
     [
      "outfit_glitter_black",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "water",
+    2
    ]
   },
   "alpaking_evo": {
    "name": "อัลปาคิงหิมะสามหัว",
    "level": 24,
-   "hp": 1280,
+   "hp": 1920,
    "atk": 77,
    "def": 18,
-   "exp": 357,
-   "jobExp": 268,
+   "exp": 250,
+   "jobExp": 188,
    "zeny": [
     48,
     120
@@ -4935,17 +6375,29 @@
     [
      "outfit_red_evening",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "wind",
+    2
    ]
   },
   "ghost_skull": {
    "name": "วิญญาณกะโหลกร็อก",
    "level": 27,
-   "hp": 1470,
+   "hp": 2205,
    "atk": 86,
    "def": 20,
-   "exp": 452,
-   "jobExp": 339,
+   "exp": 316,
+   "jobExp": 237,
    "zeny": [
     54,
     135
@@ -4983,17 +6435,29 @@
     [
      "outfit_blue_swords",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "undead",
+    1
    ]
   },
   "demon": {
    "name": "ปีศาจตรีศูลเมทัล",
    "level": 28,
-   "hp": 1530,
+   "hp": 2295,
    "atk": 90,
    "def": 21,
-   "exp": 486,
-   "jobExp": 364,
+   "exp": 340,
+   "jobExp": 255,
    "zeny": [
     56,
     140
@@ -5031,17 +6495,29 @@
     [
      "outfit_violet_cat",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "shadow",
+    2
    ]
   },
   "orc_skull": {
    "name": "ออร์คกะโหลกเมทัล",
    "level": 30,
-   "hp": 1660,
+   "hp": 2490,
    "atk": 96,
    "def": 22,
-   "exp": 558,
-   "jobExp": 418,
+   "exp": 391,
+   "jobExp": 293,
    "zeny": [
     60,
     150
@@ -5079,17 +6555,29 @@
     [
      "outfit_astronaut",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "undead",
+    1
    ]
   },
   "dove": {
    "name": "นกพิราบป่าเสียงใส",
    "level": 11,
-   "hp": 510,
+   "hp": 765,
    "atk": 35,
    "def": 8,
-   "exp": 75,
-   "jobExp": 56,
+   "exp": 52,
+   "jobExp": 39,
    "zeny": [
     22,
     55
@@ -5127,119 +6615,1953 @@
     [
      "outfit_white_cardigan",
      0.005
+    ],
+    [
+     "tuning_ore",
+     0.05
+    ],
+    [
+     "velvet_patch",
+     0.05
     ]
+   ],
+   "element": [
+    "wind",
+    1
    ]
+  },
+  "lava_crablet": {
+   "name": "ปูลาวาจิ๋ว",
+   "level": 33,
+   "hp": 3286,
+   "atk": 119,
+   "exp": 457,
+   "jobExp": 343,
+   "zeny": [
+    66,
+    165
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#ff7a2e",
+   "size": 1.0,
+   "model": "Blob_GreenSpikyBlob",
+   "tint": "#ff7a2e",
+   "element": [
+    "fire",
+    1
+   ],
+   "drops": [
+    [
+     "crab_shell",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "flame_oil",
+     0.03
+    ],
+    [
+     "card_lava_crablet",
+     0.004
+    ]
+   ],
+   "glow": "#ff4400",
+   "def": 23
+  },
+  "sea_jelly": {
+   "name": "แมงกะพรุนซินธ์",
+   "level": 31,
+   "hp": 3014,
+   "atk": 111,
+   "exp": 404,
+   "jobExp": 303,
+   "zeny": [
+    62,
+    155
+   ],
+   "speed": 50,
+   "aggressive": false,
+   "color": "#7fe8ff",
+   "size": 0.9,
+   "model": "Blob_PinkBlob",
+   "tint": "#7fe8ff",
+   "element": [
+    "water",
+    2
+   ],
+   "drops": [
+    [
+     "synth_gel",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "frost_powder",
+     0.03
+    ],
+    [
+     "card_sea_jelly",
+     0.004
+    ]
+   ],
+   "glow": "#3fc6ff",
+   "def": 22
+  },
+  "conch_fish": {
+   "name": "ปลาหอยสังข์บีท",
+   "level": 32,
+   "hp": 3148,
+   "atk": 115,
+   "exp": 430,
+   "jobExp": 322,
+   "zeny": [
+    64,
+    160
+   ],
+   "speed": 60,
+   "aggressive": false,
+   "color": "#ffb36b",
+   "size": 0.95,
+   "model": "Blob_Fish",
+   "tint": "#ffb36b",
+   "element": [
+    "water",
+    1
+   ],
+   "drops": [
+    [
+     "conch_shell",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "frost_powder",
+     0.03
+    ],
+    [
+     "card_conch_fish",
+     0.004
+    ]
+   ],
+   "def": 22
+  },
+  "gull": {
+   "name": "นกนางนวลเสียงแหลม",
+   "level": 34,
+   "hp": 3428,
+   "atk": 123,
+   "exp": 486,
+   "jobExp": 364,
+   "zeny": [
+    68,
+    170
+   ],
+   "speed": 85,
+   "aggressive": true,
+   "color": "#f2f7ff",
+   "size": 0.9,
+   "model": "Flying_Pigeon",
+   "tint": "#f2f7ff",
+   "element": [
+    "wind",
+    1
+   ],
+   "drops": [
+    [
+     "gull_feather",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "storm_feather",
+     0.03
+    ],
+    [
+     "card_gull",
+     0.004
+    ]
+   ],
+   "def": 24
+  },
+  "surf_frog": {
+   "name": "กบโต้คลื่นเร็กเก้",
+   "level": 35,
+   "hp": 3570,
+   "atk": 127,
+   "exp": 514,
+   "jobExp": 386,
+   "zeny": [
+    70,
+    175
+   ],
+   "speed": 65,
+   "aggressive": false,
+   "color": "#3fd0c0",
+   "size": 1.1,
+   "model": "Big_Frog",
+   "tint": "#3fd0c0",
+   "element": [
+    "water",
+    1
+   ],
+   "drops": [
+    [
+     "reggae_skin",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "frost_powder",
+     0.03
+    ],
+    [
+     "card_surf_frog",
+     0.004
+    ]
+   ],
+   "def": 24
+  },
+  "storm_squid": {
+   "name": "หมึกพายุดีเจ",
+   "level": 37,
+   "hp": 3862,
+   "atk": 135,
+   "exp": 575,
+   "jobExp": 431,
+   "zeny": [
+    74,
+    185
+   ],
+   "speed": 75,
+   "aggressive": true,
+   "color": "#5c7cff",
+   "size": 1.0,
+   "model": "Flying_Squidle",
+   "tint": "#5c7cff",
+   "element": [
+    "wind",
+    2
+   ],
+   "drops": [
+    [
+     "dj_ink",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "storm_feather",
+     0.03
+    ],
+    [
+     "card_storm_squid",
+     0.004
+    ]
+   ],
+   "glow": "#8fb0ff",
+   "def": 26
+  },
+  "coral_golem": {
+   "name": "ปะการังเบสหนัก",
+   "level": 39,
+   "hp": 4166,
+   "atk": 143,
+   "exp": 639,
+   "jobExp": 479,
+   "zeny": [
+    78,
+    195
+   ],
+   "speed": 40,
+   "aggressive": true,
+   "color": "#ff7f8a",
+   "size": 1.25,
+   "model": "Big_Cactoro",
+   "tint": "#ff7f8a",
+   "element": [
+    "earth",
+    2
+   ],
+   "drops": [
+    [
+     "coral_piece",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "rock_sand",
+     0.03
+    ],
+    [
+     "card_coral_golem",
+     0.004
+    ]
+   ],
+   "def": 27
+  },
+  "kraken": {
+   "name": "ราชันย์หมึกยักษ์ซาวด์เวฟ",
+   "level": 45,
+   "hp": 51300,
+   "atk": 269,
+   "exp": 11056,
+   "jobExp": 8292,
+   "zeny": [
+    1125,
+    2700
+   ],
+   "speed": 50,
+   "aggressive": true,
+   "color": "#7a5cff",
+   "size": 2.3,
+   "model": "Big_Fish",
+   "tint": "#7a5cff",
+   "element": [
+    "water",
+    3
+   ],
+   "drops": [
+    [
+     "kraken_tentacle",
+     1.0
+    ],
+    [
+     "kraken_bass",
+     0.25
+    ],
+    [
+     "frost_powder",
+     0.5
+    ],
+    [
+     "outfit_beach_lace",
+     0.06
+    ],
+    [
+     "outfit_leopard_swim",
+     0.06
+    ],
+    [
+     "honey_lemon",
+     0.5
+    ],
+    [
+     "crystal_earring",
+     0.05
+    ],
+    [
+     "card_kraken",
+     0.05
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#5a3cff",
+   "boss": true,
+   "def": 43
+  },
+  "crystal_bat": {
+   "name": "ค้างคาวคริสตัลก้อง",
+   "level": 41,
+   "hp": 4478,
+   "atk": 151,
+   "exp": 706,
+   "jobExp": 530,
+   "zeny": [
+    82,
+    205
+   ],
+   "speed": 95,
+   "aggressive": true,
+   "color": "#9fe8ff",
+   "size": 0.95,
+   "model": "Flying_Ghost",
+   "tint": "#9fe8ff",
+   "element": [
+    "wind",
+    1
+   ],
+   "drops": [
+    [
+     "crystal_wing",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "storm_feather",
+     0.03
+    ],
+    [
+     "card_crystal_bat",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#6fd8ff",
+   "def": 29
+  },
+  "echo_slime": {
+   "name": "สไลม์เสียงสะท้อน",
+   "level": 43,
+   "hp": 4798,
+   "atk": 160,
+   "exp": 776,
+   "jobExp": 582,
+   "zeny": [
+    86,
+    215
+   ],
+   "speed": 45,
+   "aggressive": false,
+   "color": "#b06bff",
+   "size": 1.0,
+   "model": "Blob_GreenSpikyBlob",
+   "tint": "#b06bff",
+   "element": [
+    "poison",
+    1
+   ],
+   "drops": [
+    [
+     "echo_gel",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "card_echo_slime",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#8a3cff",
+   "def": 30
+  },
+  "gem_golem": {
+   "name": "โกเลมอัญมณีเบส",
+   "level": 46,
+   "hp": 5300,
+   "atk": 173,
+   "exp": 889,
+   "jobExp": 666,
+   "zeny": [
+    92,
+    230
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#c38bff",
+   "size": 1.1,
+   "model": "Flying_Goleling",
+   "tint": "#c38bff",
+   "element": [
+    "earth",
+    2
+   ],
+   "drops": [
+    [
+     "amethyst",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "rock_sand",
+     0.03
+    ],
+    [
+     "card_gem_golem",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#b06bff",
+   "def": 32
+  },
+  "cave_orc": {
+   "name": "ออร์คขุดแร่กลองศึก",
+   "level": 48,
+   "hp": 5644,
+   "atk": 181,
+   "exp": 967,
+   "jobExp": 725,
+   "zeny": [
+    96,
+    240
+   ],
+   "speed": 60,
+   "aggressive": true,
+   "color": "#8f9aa8",
+   "size": 1.1,
+   "model": "Blob_Orc",
+   "tint": "#8f9aa8",
+   "element": [
+    "earth",
+    1
+   ],
+   "drops": [
+    [
+     "miner_lamp",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "rock_sand",
+     0.03
+    ],
+    [
+     "card_cave_orc",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "def": 34
+  },
+  "glow_mush": {
+   "name": "เห็ดเรืองแสงไซคีเดลิก",
+   "level": 50,
+   "hp": 6000,
+   "atk": 190,
+   "exp": 1050,
+   "jobExp": 788,
+   "zeny": [
+    100,
+    250
+   ],
+   "speed": 40,
+   "aggressive": false,
+   "color": "#7dff8a",
+   "size": 1.0,
+   "model": "Blob_Mushnub",
+   "tint": "#7dff8a",
+   "element": [
+    "poison",
+    2
+   ],
+   "drops": [
+    [
+     "glow_spore",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "card_glow_mush",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#3cff6a",
+   "def": 35
+  },
+  "shadow_ninja": {
+   "name": "นินจาเงาคริสตัล",
+   "level": 53,
+   "hp": 6550,
+   "atk": 203,
+   "exp": 1180,
+   "jobExp": 885,
+   "zeny": [
+    106,
+    265
+   ],
+   "speed": 95,
+   "aggressive": true,
+   "color": "#3a3a5a",
+   "size": 1.2,
+   "model": "Big_Ninja",
+   "tint": "#3a3a5a",
+   "element": [
+    "shadow",
+    1
+   ],
+   "drops": [
+    [
+     "shadow_shuriken",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "card_shadow_ninja",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#7a6aff",
+   "def": 37
+  },
+  "crystal_king": {
+   "name": "ราชาคริสตัลเสียงก้อง",
+   "level": 58,
+   "hp": 75165,
+   "atk": 362,
+   "exp": 18364,
+   "jobExp": 13773,
+   "zeny": [
+    1450,
+    3480
+   ],
+   "speed": 45,
+   "aggressive": true,
+   "color": "#a8e6ff",
+   "size": 2.4,
+   "model": "Big_Demon",
+   "tint": "#a8e6ff",
+   "element": [
+    "earth",
+    3
+   ],
+   "drops": [
+    [
+     "echo_crown",
+     1.0
+    ],
+    [
+     "crystal_dagger",
+     0.3
+    ],
+    [
+     "rock_sand",
+     0.5
+    ],
+    [
+     "outfit_frost_princess",
+     0.06
+    ],
+    [
+     "outfit_cyber_mint",
+     0.06
+    ],
+    [
+     "honey_lemon",
+     0.5
+    ],
+    [
+     "crystal_earring",
+     0.05
+    ],
+    [
+     "card_crystal_king",
+     0.05
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#7fd8ff",
+   "boss": true,
+   "def": 57
+  },
+  "wisp": {
+   "name": "ผีไฟโน้ตหลง",
+   "level": 52,
+   "hp": 6364,
+   "atk": 199,
+   "exp": 1135,
+   "jobExp": 851,
+   "zeny": [
+    104,
+    260
+   ],
+   "speed": 80,
+   "aggressive": true,
+   "color": "#a8ffcf",
+   "size": 0.85,
+   "model": "Flying_Ghost",
+   "tint": "#a8ffcf",
+   "element": [
+    "ghost",
+    1
+   ],
+   "drops": [
+    [
+     "lost_note",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "card_wisp",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#6dffb0",
+   "def": 36
+  },
+  "crow_skull": {
+   "name": "อีกาโครงกระดูกแร็พ",
+   "level": 55,
+   "hp": 6930,
+   "atk": 212,
+   "exp": 1270,
+   "jobExp": 953,
+   "zeny": [
+    110,
+    275
+   ],
+   "speed": 90,
+   "aggressive": true,
+   "color": "#5a5070",
+   "size": 0.95,
+   "model": "Flying_Ghost_Skull",
+   "tint": "#5a5070",
+   "element": [
+    "shadow",
+    1
+   ],
+   "drops": [
+    [
+     "bone_mic",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "card_crow_skull",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#a07aff",
+   "def": 38
+  },
+  "rot_alien": {
+   "name": "ต้นไม้ผีพิษร้องโหยหวน",
+   "level": 57,
+   "hp": 7318,
+   "atk": 221,
+   "exp": 1364,
+   "jobExp": 1023,
+   "zeny": [
+    114,
+    285
+   ],
+   "speed": 45,
+   "aggressive": false,
+   "color": "#7a6a4a",
+   "size": 1.2,
+   "model": "Big_Alien",
+   "tint": "#7a6a4a",
+   "element": [
+    "poison",
+    2
+   ],
+   "drops": [
+    [
+     "rotten_root",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "card_rot_alien",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "def": 40
+  },
+  "zombie_yeti": {
+   "name": "เยติซอมบี้แจ๊ส",
+   "level": 59,
+   "hp": 7718,
+   "atk": 231,
+   "exp": 1462,
+   "jobExp": 1097,
+   "zeny": [
+    118,
+    295
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#9aa88a",
+   "size": 1.3,
+   "model": "Big_Yeti",
+   "tint": "#9aa88a",
+   "element": [
+    "undead",
+    1
+   ],
+   "drops": [
+    [
+     "zombie_fur",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "card_zombie_yeti",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "def": 41
+  },
+  "bog_witch": {
+   "name": "แม่มดหนองเพลงศพ",
+   "level": 61,
+   "hp": 8126,
+   "atk": 240,
+   "exp": 1563,
+   "jobExp": 1172,
+   "zeny": [
+    122,
+    305
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#4a2a6a",
+   "size": 1.0,
+   "model": "Blob_Wizard",
+   "tint": "#4a2a6a",
+   "element": [
+    "shadow",
+    2
+   ],
+   "drops": [
+    [
+     "funeral_score",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_bog_witch",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#b04aff",
+   "def": 43
+  },
+  "bone_dino": {
+   "name": "ไดโนกระดูกเดธเมทัล",
+   "level": 63,
+   "hp": 8542,
+   "atk": 249,
+   "exp": 1667,
+   "jobExp": 1250,
+   "zeny": [
+    126,
+    315
+   ],
+   "speed": 75,
+   "aggressive": true,
+   "color": "#e8e0c8",
+   "size": 1.4,
+   "model": "Big_Dino",
+   "tint": "#e8e0c8",
+   "element": [
+    "undead",
+    2
+   ],
+   "drops": [
+    [
+     "death_bone",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_bone_dino",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "def": 44
+  },
+  "banshee_queen": {
+   "name": "ราชินีบันชีเสียงกรีดร้อง",
+   "level": 68,
+   "hp": 96285,
+   "atk": 437,
+   "exp": 25243,
+   "jobExp": 18932,
+   "zeny": [
+    1700,
+    4080
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#e8e0ff",
+   "size": 2.3,
+   "model": "Flying_Hywirl",
+   "tint": "#e8e0ff",
+   "element": [
+    "ghost",
+    3
+   ],
+   "drops": [
+    [
+     "banshee_veil",
+     1.0
+    ],
+    [
+     "banshee_mic",
+     0.25
+    ],
+    [
+     "holy_water",
+     0.5
+    ],
+    [
+     "outfit_gothic",
+     0.06
+    ],
+    [
+     "outfit_witch",
+     0.06
+    ],
+    [
+     "honey_lemon",
+     0.5
+    ],
+    [
+     "crystal_earring",
+     0.05
+    ],
+    [
+     "card_banshee_queen",
+     0.05
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#c8b0ff",
+   "boss": true,
+   "def": 67
+  },
+  "opera_phantom": {
+   "name": "วิญญาณนักร้องโอเปร่า",
+   "level": 66,
+   "hp": 9188,
+   "atk": 263,
+   "exp": 1830,
+   "jobExp": 1372,
+   "zeny": [
+    132,
+    330
+   ],
+   "speed": 70,
+   "aggressive": true,
+   "color": "#dfe8ff",
+   "size": 1.0,
+   "model": "Flying_Glub_Evolved",
+   "tint": "#dfe8ff",
+   "element": [
+    "ghost",
+    2
+   ],
+   "drops": [
+    [
+     "opera_mask",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_opera_phantom",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#a8c8ff",
+   "def": 46
+  },
+  "hollow_knight": {
+   "name": "อัศวินเกราะไร้ร่าง",
+   "level": 69,
+   "hp": 9854,
+   "atk": 278,
+   "exp": 2000,
+   "jobExp": 1500,
+   "zeny": [
+    138,
+    345
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#9aa4b0",
+   "size": 1.35,
+   "model": "Big_Tribal",
+   "tint": "#9aa4b0",
+   "element": [
+    "undead",
+    1
+   ],
+   "drops": [
+    [
+     "rusty_crest",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_hollow_knight",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "def": 48
+  },
+  "bell_gargoyle": {
+   "name": "การ์กอยล์ระฆังโบสถ์",
+   "level": 71,
+   "hp": 10310,
+   "atk": 288,
+   "exp": 2118,
+   "jobExp": 1588,
+   "zeny": [
+    142,
+    355
+   ],
+   "speed": 65,
+   "aggressive": true,
+   "color": "#8a8a90",
+   "size": 1.15,
+   "model": "Flying_Goleling_Evolved",
+   "tint": "#8a8a90",
+   "element": [
+    "earth",
+    3
+   ],
+   "drops": [
+    [
+     "bell_clapper",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "rock_sand",
+     0.03
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_bell_gargoyle",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "def": 50
+  },
+  "skull_bandsman": {
+   "name": "ทหารกะโหลกวงโยธวาทิต",
+   "level": 73,
+   "hp": 10774,
+   "atk": 298,
+   "exp": 2238,
+   "jobExp": 1679,
+   "zeny": [
+    146,
+    365
+   ],
+   "speed": 60,
+   "aggressive": true,
+   "color": "#e0dccf",
+   "size": 1.35,
+   "model": "Big_Orc_Skull",
+   "tint": "#e0dccf",
+   "element": [
+    "undead",
+    2
+   ],
+   "drops": [
+    [
+     "march_drum",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_skull_bandsman",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "def": 51
+  },
+  "dark_bishop": {
+   "name": "บาทหลวงมืดเพลงสวด",
+   "level": 76,
+   "hp": 11492,
+   "atk": 313,
+   "exp": 2426,
+   "jobExp": 1820,
+   "zeny": [
+    152,
+    380
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#2a2030",
+   "size": 1.15,
+   "model": "Blob_Wizard",
+   "tint": "#2a2030",
+   "element": [
+    "shadow",
+    3
+   ],
+   "drops": [
+    [
+     "dark_hymnal",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_dark_bishop",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#7a3cff",
+   "def": 53
+  },
+  "bell_angel": {
+   "name": "เทวดาระฆังทอง",
+   "level": 78,
+   "hp": 11980,
+   "atk": 323,
+   "exp": 2555,
+   "jobExp": 1917,
+   "zeny": [
+    156,
+    390
+   ],
+   "speed": 80,
+   "aggressive": false,
+   "color": "#ffe27a",
+   "size": 1.1,
+   "model": "Flying_Pigeon",
+   "tint": "#ffe27a",
+   "element": [
+    "holy",
+    2
+   ],
+   "drops": [
+    [
+     "angel_bell",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "holy_water",
+     0.03
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_bell_angel",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#ffd84a",
+   "def": 55
+  },
+  "phantom_king": {
+   "name": "ราชาไร้บัลลังก์แห่งโอเปร่า",
+   "level": 82,
+   "hp": 129885,
+   "atk": 549,
+   "exp": 36709,
+   "jobExp": 27532,
+   "zeny": [
+    2050,
+    4920
+   ],
+   "speed": 50,
+   "aggressive": true,
+   "color": "#5a3a7a",
+   "size": 2.6,
+   "model": "Big_Demon",
+   "tint": "#5a3a7a",
+   "element": [
+    "undead",
+    4
+   ],
+   "drops": [
+    [
+     "phantom_crown",
+     1.0
+    ],
+    [
+     "cathedral_organ",
+     0.25
+    ],
+    [
+     "thunder_sticks",
+     0.25
+    ],
+    [
+     "outfit_night_general",
+     0.06
+    ],
+    [
+     "outfit_crimson_prince",
+     0.06
+    ],
+    [
+     "honey_lemon",
+     0.5
+    ],
+    [
+     "crystal_earring",
+     0.05
+    ],
+    [
+     "card_phantom_king",
+     0.05
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#c060ff",
+   "boss": true,
+   "def": 80
+  },
+  "lava_crab": {
+   "name": "ปูลาวาเกราะหนาม",
+   "level": 81,
+   "hp": 12734,
+   "atk": 338,
+   "exp": 2756,
+   "jobExp": 2067,
+   "zeny": [
+    162,
+    405
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#ff6a1e",
+   "size": 1.4,
+   "model": "Blob_GreenSpikyBlob",
+   "tint": "#ff6a1e",
+   "element": [
+    "fire",
+    2
+   ],
+   "drops": [
+    [
+     "lava_carapace",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "flame_oil",
+     0.03
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_lava_crab",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#ff3a00",
+   "def": 57
+  },
+  "magma_slime": {
+   "name": "สไลม์แมกมาเดือด",
+   "level": 84,
+   "hp": 13508,
+   "atk": 353,
+   "exp": 2964,
+   "jobExp": 2223,
+   "zeny": [
+    168,
+    420
+   ],
+   "speed": 50,
+   "aggressive": true,
+   "color": "#ff8a1e",
+   "size": 1.2,
+   "model": "Blob_GreenBlob",
+   "tint": "#ff8a1e",
+   "element": [
+    "fire",
+    2
+   ],
+   "drops": [
+    [
+     "boiling_gel",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "flame_oil",
+     0.03
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_magma_slime",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#ff5a00",
+   "def": 59
+  },
+  "hell_hound": {
+   "name": "หมาเพลิงนรกแบล็กเมทัล",
+   "level": 86,
+   "hp": 14036,
+   "atk": 364,
+   "exp": 3107,
+   "jobExp": 2330,
+   "zeny": [
+    172,
+    430
+   ],
+   "speed": 95,
+   "aggressive": true,
+   "color": "#b0201a",
+   "size": 1.4,
+   "model": "Blob_Dog",
+   "tint": "#b0201a",
+   "element": [
+    "fire",
+    3
+   ],
+   "drops": [
+    [
+     "hellfire_fang",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "flame_oil",
+     0.03
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_hell_hound",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#ff3a1a",
+   "def": 60
+  },
+  "flame_demon": {
+   "name": "ปีศาจเปลวเพลิงกีตาร์",
+   "level": 89,
+   "hp": 14846,
+   "atk": 380,
+   "exp": 3327,
+   "jobExp": 2496,
+   "zeny": [
+    178,
+    445
+   ],
+   "speed": 85,
+   "aggressive": true,
+   "color": "#d02a10",
+   "size": 1.3,
+   "model": "Flying_Demon",
+   "tint": "#d02a10",
+   "element": [
+    "fire",
+    3
+   ],
+   "drops": [
+    [
+     "demon_pick",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "flame_oil",
+     0.03
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_flame_demon",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#ff6a1a",
+   "def": 62
+  },
+  "obsidian_golem": {
+   "name": "โกเลมหินออบซิเดียน",
+   "level": 92,
+   "hp": 15676,
+   "atk": 396,
+   "exp": 3555,
+   "jobExp": 2666,
+   "zeny": [
+    184,
+    460
+   ],
+   "speed": 40,
+   "aggressive": true,
+   "color": "#2a2226",
+   "size": 1.6,
+   "model": "Big_Orc",
+   "tint": "#2a2226",
+   "element": [
+    "earth",
+    4
+   ],
+   "drops": [
+    [
+     "obsidian_core",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "rock_sand",
+     0.03
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_obsidian_golem",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#ff4a1a",
+   "def": 64
+  },
+  "lava_dragon": {
+   "name": "มังกรลาวาวัยรุ่น",
+   "level": 95,
+   "hp": 16530,
+   "atk": 412,
+   "exp": 3790,
+   "jobExp": 2843,
+   "zeny": [
+    190,
+    475
+   ],
+   "speed": 80,
+   "aggressive": true,
+   "color": "#ff7a1a",
+   "size": 1.5,
+   "model": "Flying_Dragon",
+   "tint": "#ff7a1a",
+   "element": [
+    "fire",
+    4
+   ],
+   "drops": [
+    [
+     "lava_scale",
+     0.5
+    ],
+    [
+     "honey_lemon",
+     0.1
+    ],
+    [
+     "flame_oil",
+     0.03
+    ],
+    [
+     "crystal_earring",
+     0.008
+    ],
+    [
+     "card_lava_dragon",
+     0.004
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#ff4a00",
+   "def": 66
+  },
+  "inferno_lord": {
+   "name": "จักรพรรดิภูเขาไฟเมทัล",
+   "level": 99,
+   "hp": 177015,
+   "atk": 694,
+   "exp": 53517,
+   "jobExp": 40138,
+   "zeny": [
+    2475,
+    5940
+   ],
+   "speed": 55,
+   "aggressive": true,
+   "color": "#ff3a1a",
+   "size": 3.0,
+   "model": "Flying_Dragon_Evolved",
+   "tint": "#ff3a1a",
+   "element": [
+    "fire",
+    4
+   ],
+   "drops": [
+    [
+     "volcano_heart",
+     1.0
+    ],
+    [
+     "inferno_guitar",
+     0.25
+    ],
+    [
+     "magma_plate",
+     0.2
+    ],
+    [
+     "outfit_red_evening",
+     0.06
+    ],
+    [
+     "outfit_shadow_battle",
+     0.06
+    ],
+    [
+     "honey_lemon",
+     0.5
+    ],
+    [
+     "crystal_earring",
+     0.05
+    ],
+    [
+     "card_inferno_lord",
+     0.05
+    ],
+    [
+     "pure_tuning_ore",
+     0.05
+    ],
+    [
+     "gold_velvet",
+     0.05
+    ]
+   ],
+   "glow": "#ff6a00",
+   "boss": true,
+   "def": 97
   }
  },
  "spawns": [
   {
    "map": "field",
    "monster": "jelly",
-   "count": 14,
+   "count": 21,
    "area": [
-    6,
-    20,
-    20,
-    40
+    9,
+    30,
+    30,
+    60
    ]
   },
   {
    "map": "field",
    "monster": "drop",
-   "count": 10,
+   "count": 15,
    "area": [
-    6,
-    8,
-    22,
-    20
+    9,
+    12,
+    33,
+    30
    ]
   },
   {
    "map": "field",
    "monster": "chick",
-   "count": 10,
+   "count": 15,
    "area": [
-    6,
-    40,
-    22,
-    54
+    9,
+    60,
+    33,
+    81
    ]
   },
   {
    "map": "field",
    "monster": "mushy",
-   "count": 9,
+   "count": 14,
    "area": [
-    22,
-    40,
-    36,
-    54
+    33,
+    60,
+    54,
+    81
    ]
   },
   {
    "map": "field",
    "monster": "rabbit",
-   "count": 9,
+   "count": 14,
    "area": [
-    22,
-    6,
-    38,
-    18
+    33,
+    9,
+    57,
+    27
    ]
   },
   {
    "map": "field",
    "monster": "buzzer",
-   "count": 8,
+   "count": 12,
    "area": [
-    24,
-    22,
-    38,
-    38
+    36,
+    33,
+    57,
+    57
    ]
   },
   {
    "map": "field",
    "monster": "frog",
-   "count": 8,
+   "count": 12,
    "area": [
-    38,
-    40,
-    54,
-    54
+    57,
+    60,
+    81,
+    81
    ]
   },
   {
    "map": "field",
    "monster": "cat",
-   "count": 9,
+   "count": 14,
    "area": [
-    6,
-    44,
-    20,
-    56
+    9,
+    66,
+    30,
+    84
    ]
   },
   {
    "map": "field",
    "monster": "dog",
-   "count": 9,
+   "count": 14,
    "area": [
-    38,
-    40,
-    52,
-    54
+    57,
+    60,
+    78,
+    81
    ]
   },
   {
    "map": "field",
    "monster": "pigeon",
-   "count": 9,
+   "count": 14,
    "area": [
-    40,
-    6,
-    54,
-    22
+    60,
+    9,
+    81,
+    33
    ]
   },
   {
@@ -5247,99 +8569,99 @@
    "monster": "king_jelly",
    "count": 1,
    "area": [
-    48,
-    48,
-    56,
-    56
+    72,
+    72,
+    84,
+    84
    ],
    "respawnSec": 300
   },
   {
    "map": "forest",
    "monster": "bat",
-   "count": 8,
+   "count": 12,
    "area": [
-    37,
-    20,
-    49,
-    33
+    56,
+    30,
+    74,
+    50
    ]
   },
   {
    "map": "forest",
    "monster": "owl",
-   "count": 8,
+   "count": 12,
    "area": [
-    23,
-    5,
-    35,
-    18
+    34,
+    8,
+    52,
+    27
    ]
   },
   {
    "map": "forest",
    "monster": "dove",
-   "count": 8,
+   "count": 12,
    "area": [
-    37,
-    5,
-    49,
-    18
+    56,
+    8,
+    74,
+    27
    ]
   },
   {
    "map": "forest",
    "monster": "rocky",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    20,
-    21,
-    33
+    14,
+    30,
+    32,
+    50
    ]
   },
   {
    "map": "forest",
    "monster": "monkroose",
-   "count": 8,
+   "count": 12,
    "area": [
-    23,
-    20,
-    35,
-    33
+    34,
+    30,
+    52,
+    50
    ]
   },
   {
    "map": "forest",
    "monster": "mossy",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    5,
-    21,
-    18
+    14,
+    8,
+    32,
+    27
    ]
   },
   {
    "map": "forest",
    "monster": "wizard",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    35,
-    21,
-    49
+    14,
+    52,
+    32,
+    74
    ]
   },
   {
    "map": "forest",
    "monster": "ninja",
-   "count": 8,
+   "count": 12,
    "area": [
-    23,
-    35,
-    35,
-    49
+    34,
+    52,
+    52,
+    74
    ]
   },
   {
@@ -5347,88 +8669,88 @@
    "monster": "elder_tree",
    "count": 1,
    "area": [
-    44,
-    44,
-    52,
-    52
+    66,
+    66,
+    78,
+    78
    ],
    "respawnSec": 300
   },
   {
    "map": "marsh",
    "monster": "tuba_toad",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    5,
-    21,
-    18
+    14,
+    8,
+    32,
+    27
    ]
   },
   {
    "map": "marsh",
    "monster": "metronome",
-   "count": 8,
+   "count": 12,
    "area": [
-    23,
-    5,
-    35,
-    18
+    34,
+    8,
+    52,
+    27
    ]
   },
   {
    "map": "marsh",
    "monster": "squidle",
-   "count": 8,
+   "count": 12,
    "area": [
-    37,
-    5,
-    49,
-    18
+    56,
+    8,
+    74,
+    27
    ]
   },
   {
    "map": "marsh",
    "monster": "alien",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    20,
-    21,
-    33
+    14,
+    30,
+    32,
+    50
    ]
   },
   {
    "map": "marsh",
    "monster": "mosquito",
-   "count": 8,
+   "count": 12,
    "area": [
-    23,
-    20,
-    35,
-    33
+    34,
+    30,
+    52,
+    50
    ]
   },
   {
    "map": "marsh",
    "monster": "orc",
-   "count": 8,
+   "count": 12,
    "area": [
-    37,
-    20,
-    49,
-    33
+    56,
+    30,
+    74,
+    50
    ]
   },
   {
    "map": "marsh",
    "monster": "glub_evo",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    35,
-    21,
-    49
+    14,
+    52,
+    32,
+    74
    ]
   },
   {
@@ -5436,88 +8758,88 @@
    "monster": "marsh_queen",
    "count": 1,
    "area": [
-    44,
-    44,
-    52,
-    52
+    66,
+    66,
+    78,
+    78
    ],
    "respawnSec": 300
   },
   {
    "map": "canyon",
    "monster": "drum_golem",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    5,
-    21,
-    18
+    14,
+    8,
+    32,
+    27
    ]
   },
   {
    "map": "canyon",
    "monster": "howler",
-   "count": 8,
+   "count": 12,
    "area": [
-    23,
-    5,
-    35,
-    18
+    34,
+    8,
+    52,
+    27
    ]
   },
   {
    "map": "canyon",
    "monster": "alpaking",
-   "count": 8,
+   "count": 12,
    "area": [
-    37,
-    5,
-    49,
-    18
+    56,
+    8,
+    74,
+    27
    ]
   },
   {
    "map": "canyon",
    "monster": "sand_drop",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    20,
-    21,
-    33
+    14,
+    30,
+    32,
+    50
    ]
   },
   {
    "map": "canyon",
    "monster": "goleling",
-   "count": 8,
+   "count": 12,
    "area": [
-    23,
-    20,
-    35,
-    33
+    34,
+    30,
+    52,
+    50
    ]
   },
   {
    "map": "canyon",
    "monster": "tribal",
-   "count": 8,
+   "count": 12,
    "area": [
-    37,
-    20,
-    49,
-    33
+    56,
+    30,
+    74,
+    50
    ]
   },
   {
    "map": "canyon",
    "monster": "big_ninja",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    35,
-    21,
-    49
+    14,
+    52,
+    32,
+    74
    ]
   },
   {
@@ -5525,77 +8847,77 @@
    "monster": "rock_dragon",
    "count": 1,
    "area": [
-    44,
-    44,
-    52,
-    52
+    66,
+    66,
+    78,
+    78
    ],
    "respawnSec": 360
   },
   {
    "map": "snow",
    "monster": "penguin",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    5,
-    28,
-    18
+    14,
+    8,
+    42,
+    27
    ]
   },
   {
    "map": "snow",
    "monster": "ice_jelly",
-   "count": 8,
+   "count": 12,
    "area": [
-    30,
-    5,
-    49,
-    18
+    45,
+    8,
+    74,
+    27
    ]
   },
   {
    "map": "snow",
    "monster": "hywirl",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    20,
-    28,
-    33
+    14,
+    30,
+    42,
+    50
    ]
   },
   {
    "map": "snow",
    "monster": "bluedemon",
-   "count": 8,
+   "count": 12,
    "area": [
+    45,
     30,
-    20,
-    49,
-    33
+    74,
+    50
    ]
   },
   {
    "map": "snow",
    "monster": "yeti",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    35,
-    28,
-    49
+    14,
+    52,
+    42,
+    74
    ]
   },
   {
    "map": "snow",
    "monster": "alpaking_evo",
-   "count": 8,
+   "count": 12,
    "area": [
-    30,
-    35,
-    49,
-    49
+    45,
+    52,
+    74,
+    74
    ]
   },
   {
@@ -5603,77 +8925,77 @@
    "monster": "snow_queen",
    "count": 1,
    "area": [
-    44,
-    44,
-    52,
-    52
+    66,
+    66,
+    78,
+    78
    ],
    "respawnSec": 360
   },
   {
    "map": "volcano",
    "monster": "fire_bat",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    5,
-    28,
-    18
+    6,
+    24,
+    34,
+    36
    ]
   },
   {
    "map": "volcano",
    "monster": "ghost_skull",
-   "count": 8,
+   "count": 12,
    "area": [
-    30,
-    5,
-    49,
+    6,
+    4,
+    40,
     18
    ]
   },
   {
    "map": "volcano",
    "monster": "magma_golem",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    20,
-    28,
-    33
+    38,
+    22,
+    54,
+    34
    ]
   },
   {
    "map": "volcano",
    "monster": "demon",
-   "count": 8,
+   "count": 12,
    "area": [
+    56,
     30,
-    20,
-    49,
-    33
+    78,
+    46
    ]
   },
   {
    "map": "volcano",
    "monster": "flame_metronome",
-   "count": 8,
+   "count": 12,
    "area": [
-    9,
-    35,
-    28,
-    49
+    6,
+    52,
+    34,
+    76
    ]
   },
   {
    "map": "volcano",
    "monster": "orc_skull",
-   "count": 8,
+   "count": 12,
    "area": [
-    30,
-    35,
-    49,
-    49
+    38,
+    64,
+    62,
+    78
    ]
   },
   {
@@ -5681,12 +9003,413 @@
    "monster": "metal_lord",
    "count": 1,
    "area": [
-    44,
-    44,
-    52,
-    52
+    66,
+    64,
+    78,
+    78
    ],
    "respawnSec": 420
+  },
+  {
+   "map": "volcano",
+   "monster": "lava_crablet",
+   "count": 12,
+   "area": [
+    36,
+    42,
+    70,
+    66
+   ]
+  },
+  {
+   "map": "beach",
+   "monster": "sea_jelly",
+   "count": 12,
+   "area": [
+    40,
+    4,
+    60,
+    26
+   ]
+  },
+  {
+   "map": "beach",
+   "monster": "conch_fish",
+   "count": 12,
+   "area": [
+    40,
+    28,
+    60,
+    50
+   ]
+  },
+  {
+   "map": "beach",
+   "monster": "gull",
+   "count": 12,
+   "area": [
+    8,
+    4,
+    36,
+    26
+   ]
+  },
+  {
+   "map": "beach",
+   "monster": "surf_frog",
+   "count": 12,
+   "area": [
+    40,
+    52,
+    58,
+    72
+   ]
+  },
+  {
+   "map": "beach",
+   "monster": "storm_squid",
+   "count": 12,
+   "area": [
+    8,
+    52,
+    36,
+    78
+   ]
+  },
+  {
+   "map": "beach",
+   "monster": "coral_golem",
+   "count": 12,
+   "area": [
+    8,
+    28,
+    36,
+    38
+   ]
+  },
+  {
+   "map": "beach",
+   "monster": "kraken",
+   "count": 1,
+   "area": [
+    44,
+    64,
+    58,
+    78
+   ],
+   "respawnSec": 420
+  },
+  {
+   "map": "cave",
+   "monster": "crystal_bat",
+   "count": 12,
+   "area": [
+    12,
+    8,
+    40,
+    26
+   ]
+  },
+  {
+   "map": "cave",
+   "monster": "echo_slime",
+   "count": 12,
+   "area": [
+    44,
+    8,
+    72,
+    26
+   ]
+  },
+  {
+   "map": "cave",
+   "monster": "gem_golem",
+   "count": 12,
+   "area": [
+    12,
+    30,
+    40,
+    50
+   ]
+  },
+  {
+   "map": "cave",
+   "monster": "cave_orc",
+   "count": 12,
+   "area": [
+    44,
+    30,
+    72,
+    50
+   ]
+  },
+  {
+   "map": "cave",
+   "monster": "glow_mush",
+   "count": 12,
+   "area": [
+    12,
+    54,
+    40,
+    74
+   ]
+  },
+  {
+   "map": "cave",
+   "monster": "shadow_ninja",
+   "count": 12,
+   "area": [
+    44,
+    54,
+    72,
+    74
+   ]
+  },
+  {
+   "map": "cave",
+   "monster": "crystal_king",
+   "count": 1,
+   "area": [
+    62,
+    62,
+    76,
+    76
+   ],
+   "respawnSec": 459
+  },
+  {
+   "map": "deadwood",
+   "monster": "wisp",
+   "count": 12,
+   "area": [
+    12,
+    8,
+    40,
+    26
+   ]
+  },
+  {
+   "map": "deadwood",
+   "monster": "crow_skull",
+   "count": 12,
+   "area": [
+    44,
+    8,
+    72,
+    26
+   ]
+  },
+  {
+   "map": "deadwood",
+   "monster": "rot_alien",
+   "count": 12,
+   "area": [
+    12,
+    30,
+    40,
+    50
+   ]
+  },
+  {
+   "map": "deadwood",
+   "monster": "zombie_yeti",
+   "count": 12,
+   "area": [
+    44,
+    30,
+    72,
+    50
+   ]
+  },
+  {
+   "map": "deadwood",
+   "monster": "bog_witch",
+   "count": 12,
+   "area": [
+    12,
+    54,
+    40,
+    74
+   ]
+  },
+  {
+   "map": "deadwood",
+   "monster": "bone_dino",
+   "count": 12,
+   "area": [
+    44,
+    54,
+    72,
+    74
+   ]
+  },
+  {
+   "map": "deadwood",
+   "monster": "banshee_queen",
+   "count": 1,
+   "area": [
+    62,
+    62,
+    76,
+    76
+   ],
+   "respawnSec": 489
+  },
+  {
+   "map": "ruins",
+   "monster": "opera_phantom",
+   "count": 12,
+   "area": [
+    12,
+    8,
+    40,
+    26
+   ]
+  },
+  {
+   "map": "ruins",
+   "monster": "hollow_knight",
+   "count": 12,
+   "area": [
+    44,
+    8,
+    72,
+    26
+   ]
+  },
+  {
+   "map": "ruins",
+   "monster": "bell_gargoyle",
+   "count": 12,
+   "area": [
+    12,
+    30,
+    40,
+    50
+   ]
+  },
+  {
+   "map": "ruins",
+   "monster": "skull_bandsman",
+   "count": 12,
+   "area": [
+    44,
+    30,
+    72,
+    50
+   ]
+  },
+  {
+   "map": "ruins",
+   "monster": "dark_bishop",
+   "count": 12,
+   "area": [
+    12,
+    54,
+    40,
+    74
+   ]
+  },
+  {
+   "map": "ruins",
+   "monster": "bell_angel",
+   "count": 12,
+   "area": [
+    44,
+    54,
+    72,
+    74
+   ]
+  },
+  {
+   "map": "ruins",
+   "monster": "phantom_king",
+   "count": 1,
+   "area": [
+    62,
+    62,
+    76,
+    76
+   ],
+   "respawnSec": 531
+  },
+  {
+   "map": "inferno",
+   "monster": "lava_crab",
+   "count": 12,
+   "area": [
+    4,
+    4,
+    24,
+    30
+   ]
+  },
+  {
+   "map": "inferno",
+   "monster": "magma_slime",
+   "count": 12,
+   "area": [
+    60,
+    4,
+    80,
+    30
+   ]
+  },
+  {
+   "map": "inferno",
+   "monster": "hell_hound",
+   "count": 12,
+   "area": [
+    12,
+    30,
+    40,
+    50
+   ]
+  },
+  {
+   "map": "inferno",
+   "monster": "flame_demon",
+   "count": 12,
+   "area": [
+    44,
+    30,
+    72,
+    50
+   ]
+  },
+  {
+   "map": "inferno",
+   "monster": "obsidian_golem",
+   "count": 12,
+   "area": [
+    12,
+    54,
+    40,
+    74
+   ]
+  },
+  {
+   "map": "inferno",
+   "monster": "lava_dragon",
+   "count": 12,
+   "area": [
+    44,
+    54,
+    72,
+    74
+   ]
+  },
+  {
+   "map": "inferno",
+   "monster": "inferno_lord",
+   "count": 1,
+   "area": [
+    62,
+    62,
+    76,
+    76
+   ],
+   "respawnSec": 582
   }
  ],
  "levels": {
@@ -5912,7 +9635,8 @@
     "int"
    ],
    "desc": "ร่าย 5 วินาที (ขยับ = ยกเลิก) แล้วปล่อยคลื่นเสียงพุ่งไปข้างหน้า 9 ช่อง โดนทุกตัวที่ขวางทาง ดาเมจคิดจาก DEX x INT (คูลดาวน์ 15 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "element": "wind"
   },
   "hammer_on": {
    "cls": "guitarist",
@@ -5993,7 +9717,8 @@
     8
    ],
    "desc": "หมุนตัวฟาดกีตาร์โดนมอนสเตอร์ทุกตัวในระยะ 2 ช่อง ดาเมจ = ATK x % สกิล x จำนวนมอนรอบตัว (สูงสุด 8) ยิ่งรุมเยอะยิ่งแรง (คูลดาวน์ 10 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "element": "fire"
   },
   "arpeggio": {
    "cls": "guitarist",
@@ -6084,7 +9809,8 @@
     "int"
    ],
    "desc": "กระทืบกระเดื่องสร้างคลื่นเสียงเป็นวงรอบตัว 5 ช่อง ดาเมจคิดจาก ATK x INT (คูลดาวน์ 5 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "element": "earth"
   },
   "send_off": {
    "cls": "drummer",
@@ -6206,7 +9932,8 @@
     "int"
    ],
    "desc": "คลื่นเสียงเบสเป็นวงรอบตัว 5 ช่อง ดาเมจคิดจาก ATK x VIT x INT (คูลดาวน์ 5 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "element": "earth"
   },
   "lift_beat": {
    "cls": "bassist",
@@ -6272,7 +9999,8 @@
     120,
     20
    ],
-   "fx": "note_burst"
+   "fx": "note_burst",
+   "element": "holy"
   },
   "restore": {
    "cls": "keyboardist",

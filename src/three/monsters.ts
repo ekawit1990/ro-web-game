@@ -124,6 +124,40 @@ export class MonsterAnim {
   }
 }
 
+const recoloured = new Map<string, THREE.Material>();
+
+/**
+ * Several monsters share a model: recolour it. The texture's shading (its brightness) is kept and painted in the
+ * tint, so a green blob becomes a lava-orange one rather than a muddy mix; `glow` adds a self-lit rim of colour.
+ */
+function recolour(obj: THREE.Object3D, key: string, tint?: string, glow?: string) {
+  obj.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    const src = m.material as THREE.MeshToonMaterial;
+    const id = `${key}:${src.uuid}`;
+    let mat = recoloured.get(id) as THREE.MeshToonMaterial | undefined;
+    if (!mat) {
+      mat = src.clone();
+      const tintC = new THREE.Color(tint ?? '#ffffff');
+      const glowC = new THREE.Color(glow ?? '#000000');
+      mat.onBeforeCompile = (sh) => {
+        sh.uniforms.uTint = { value: tintC };
+        sh.uniforms.uGlow = { value: glowC };
+        sh.fragmentShader = sh.fragmentShader
+          .replace('#include <common>', '#include <common>\nuniform vec3 uTint; uniform vec3 uGlow;')
+          .replace('#include <map_fragment>', `#include <map_fragment>
+            ${tint ? 'float lum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)); diffuseColor.rgb = mix(diffuseColor.rgb, uTint * clamp(0.35 + lum * 1.3, 0.0, 1.5), 0.85);' : ''}`)
+          .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+            totalEmissiveRadiance += uGlow * 0.55;`);
+      };
+      mat.customProgramCacheKey = () => `monster-recolour-${tint ? 1 : 0}`;
+      recoloured.set(id, mat);
+    }
+    m.material = mat;
+  });
+}
+
 /**
  * Swaps the code-drawn body of `rig` for the monster's model when it arrives. Resolves to the
  * animation driver, or null if the monster has no model (or the rig was dropped meanwhile).
@@ -134,6 +168,7 @@ export async function upgradeMonster(rig: MonsterRig, key: string, alive: () => 
   const src = await load(def.model);
   if (!src || !alive()) return null;
   const obj = clone(src.scene);
+  if (def.tint || def.glow) recolour(obj, key, def.tint, def.glow);
   const box = new THREE.Box3().setFromObject(obj);
   const size = box.getSize(new THREE.Vector3());
   const flying = def.model.startsWith('Flying_');

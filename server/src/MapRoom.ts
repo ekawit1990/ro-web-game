@@ -1,7 +1,7 @@
 import { Room, type Client } from 'colyseus';
 import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
-  Buffs, CLASSES, CROWD_MAX, Character, Derived, ITEMS, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
+  Buffs, CLASSES, CROWD_MAX, Character, Derived, ENDOW_SEC, ITEMS, type Element, elementMult, monsterElement, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
   STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
   skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, targetsPlayer, totalStats, outfitOf,
 } from '../../src/data/index.ts';
@@ -66,6 +66,9 @@ type SeatBuff = {
   stealth?: boolean;
 } & Buffs;
 
+/** Buff key of an element converter on the weapon (one at a time). */
+const ENDOW_KEY = (itemId: string) => `item:${itemId}`;
+
 interface Seat {
   client: Client;
   userId: string;
@@ -108,7 +111,11 @@ interface Brain {
 }
 
 /** Where a character arrives after taking a portal (set by the room they left). */
-const arrivals = new Map<string, { map: string; x: number; y: number; at: number; hp?: number; sp?: number }>();
+const arrivals = new Map<string, {
+  map: string; x: number; y: number; at: number; hp?: number; sp?: number;
+  /** an element converter still on the weapon: which item, and when it wears off (Date.now() ms) */
+  endow?: { item: string; until: number };
+}>();
 
 /** Where a skill was aimed: a monster, a player, or just a spot. */
 interface Aim {
@@ -222,7 +229,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       cooldowns: new Map(), lastAttack: 0, lastMoveAt: this.now, lastChat: 0, busy: false,
     };
     let { x, y } = this.map.spawn;
-    let carry: { hp?: number; sp?: number } = {};
+    let carry: { hp?: number; sp?: number; endow?: { item: string; until: number } } = {};
     const arrival = arrivals.get(c.id);
     if (arrival && arrival.map === this.map.id && Date.now() - arrival.at < 60000) {
       ({ x, y } = arrival);
@@ -242,6 +249,11 @@ export class MapRoom extends Room<{ state: MapState }> {
     });
     this.state.players.set(client.sessionId, p);
     this.seats.set(client.sessionId, seat);
+    if (carry.endow && carry.endow.until > Date.now() && ITEMS[carry.endow.item]?.endow) {
+      const left = carry.endow.until - Date.now();
+      seat.buffs.set(ENDOW_KEY(carry.endow.item), { until: this.now + left, endow: ITEMS[carry.endow.item].endow });
+      client.send('buff', { skill: ENDOW_KEY(carry.endow.item), seconds: left / 1000 });
+    }
     this.applyDerived(seat, p);
     client.send('welcome', { map: this.map.id, x, y });
     Parties.online({
@@ -333,7 +345,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     if (!p || !seat || p.dead || !portal) return;
     this.cancelTrade(seat.trade, 'อีกฝ่ายออกจากแผนที่');
     // the next room gets hp/sp from here, so the player doesn't wait for the database save
-    arrivals.set(seat.char.id, { map: portal.to, x: portal.toX, y: portal.toY, at: Date.now(), hp: p.hp, sp: p.sp });
+    arrivals.set(seat.char.id, { map: portal.to, x: portal.toX, y: portal.toY, at: Date.now(), hp: p.hp, sp: p.sp, endow: this.endowOf(seat) });
     c.send('warp', { map: portal.to });
     MapRoom.db
       .saveState(seat.userId, seat.char.id, { hp: p.hp, sp: p.sp, map: portal.to, x: portal.toX, y: portal.toY })
@@ -354,7 +366,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     try {
       const to = getMap(dest.map).spawn;
       seat.char = await MapRoom.db.payWarp(seat.userId, seat.char.id, dest.cost, { hp: p.hp, sp: p.sp, map: dest.map, x: to.x, y: to.y });
-      arrivals.set(seat.char.id, { map: dest.map, x: to.x, y: to.y, at: Date.now(), hp: p.hp, sp: p.sp });
+      arrivals.set(seat.char.id, { map: dest.map, x: to.x, y: to.y, at: Date.now(), hp: p.hp, sp: p.sp, endow: this.endowOf(seat) });
       c.send('sync', { character: seat.char, inventory: seat.inv });
       c.send('warp', { map: dest.map });
     } catch (e) {
@@ -374,6 +386,17 @@ export class MapRoom extends Room<{ state: MapState }> {
       const it = ITEMS[itemId];
       p.hp = Math.min(p.maxHp, p.hp + (it.heal ?? 0));
       p.sp = Math.min(p.maxSp, p.sp + (it.sp ?? 0));
+      if (it.endow) {
+        // an element converter: replaces any other one on the weapon
+        for (const k of [...seat.buffs.keys()]) {
+          if (seat.buffs.get(k)!.endow) {
+            seat.buffs.delete(k);
+            c.send('buff', { skill: k, seconds: 0 });
+          }
+        }
+        seat.buffs.set(ENDOW_KEY(itemId), { until: this.now + ENDOW_SEC * 1000, endow: it.endow });
+        c.send('buff', { skill: ENDOW_KEY(itemId), seconds: ENDOW_SEC });
+      }
       await this.resync(seat);
       this.broadcast('fx', { kind: 'potion', to: c.sessionId, item: itemId });
     } catch (e) {
@@ -468,9 +491,11 @@ export class MapRoom extends Room<{ state: MapState }> {
     }
     const crit = Math.random() < seat.derived.crit / 100;
     if (crit) dmg = dmg * 1.4 + this.monsterDef(brain, def); // crits ignore defense, like RO
-    const amount = Math.max(1, Math.round(dmg));
-    this.broadcast('hit', { by: c.sessionId, m: msg.id, dmg: amount, crit });
-    this.damageMonster(msg.id, m, brain, c.sessionId, amount);
+    const mult = this.elementVs(seat.derived.atkElement, def);
+    const amount = mult === 0 ? 0 : Math.max(1, Math.round(dmg * mult));
+    this.broadcast('hit', { by: c.sessionId, m: msg.id, dmg: amount, crit, el: this.elTag(mult) });
+    if (amount > 0) this.damageMonster(msg.id, m, brain, c.sessionId, amount);
+    else this.engage(brain, c.sessionId);
   }
 
   private onSkill(c: Client, msg: { id: string; target?: string }) {
@@ -558,16 +583,20 @@ export class MapRoom extends Room<{ state: MapState }> {
       });
       power *= Math.max(1, Math.min(CROWD_MAX, n));
     }
+    const element: Element = skill.element ?? seat.derived.atkElement ?? 'neutral';
     const rollDamage = (m: MonsterState, brain: Brain) => {
       const def = this.monsterDef(brain, MONSTERS[m.key]);
-      return Math.max(1, Math.round(base * power * rand(0.95, 1.1) - (skill.magic ? def / 2 : def)));
+      const mult = this.elementVs(element, MONSTERS[m.key]);
+      if (mult === 0) return 0;
+      return Math.max(1, Math.round((base * power * rand(0.95, 1.1) - (skill.magic ? def / 2 : def)) * mult));
     };
     const hitMonster = (mid: string, m: MonsterState) => {
       const brain = this.brains.get(mid)!;
       for (let i = 0; i < (skill.hits ?? 1); i++) {
         const dmg = rollDamage(m, brain);
         fx.hits.push({ m: mid, dmg });
-        this.damageMonster(mid, m, brain, c.sessionId, dmg);
+        if (dmg > 0) this.damageMonster(mid, m, brain, c.sessionId, dmg);
+        else this.engage(brain, c.sessionId);
         if (m.dead) break;
       }
       if (skill.knockback && !m.dead) this.knockBack(m, brain, p.x, p.y, skill.knockback);
@@ -595,7 +624,7 @@ export class MapRoom extends Room<{ state: MapState }> {
         const dmg = rollDamage(m, brain);
         fx.hits.push({ m: mid, dmg, at });
         this.clock.setTimeout(() => {
-          if (!m.dead && this.seats.has(c.sessionId)) this.damageMonster(mid, m, brain, c.sessionId, dmg);
+          if (!m.dead && this.seats.has(c.sessionId) && dmg > 0) this.damageMonster(mid, m, brain, c.sessionId, dmg);
         }, at);
       });
     } else if (skill.type === 'aoe' || skill.type === 'aoe_self') {
@@ -650,6 +679,25 @@ export class MapRoom extends Room<{ state: MapState }> {
       }
     }
     this.broadcast('skill', fx);
+  }
+
+  /** Damage multiplier for `el` against this monster's element and level. */
+  private elementVs(el: Element | undefined, def: MonsterDef) {
+    const [mel, lv] = monsterElement(def);
+    return elementMult(el ?? 'neutral', mel, lv);
+  }
+
+  /** Tag on a hit message so browsers can show "weak" / "resist": 'up' >= 150%, 'down' < 75%, '' otherwise. */
+  private elTag(mult: number) {
+    return mult >= 1.5 ? 'up' : mult < 0.75 ? 'down' : '';
+  }
+
+  /** The element converter on a player's weapon, for carrying it to the next map. */
+  private endowOf(seat: Seat) {
+    for (const [k, b] of seat.buffs) {
+      if (b.endow && b.until > this.now) return { item: k.slice(5), until: Date.now() + (b.until - this.now) };
+    }
+    return undefined;
   }
 
   /** Monster Def, lowered while Palm muting's debuff lasts. */
@@ -925,7 +973,12 @@ export class MapRoom extends Room<{ state: MapState }> {
       this.broadcast('mhit', { m: id, to: sid, dmg: 0, block: true });
       return;
     }
-    let dmg = Math.max(1, Math.round(def.atk * rand(0.85, 1.15) - seat.derived.def));
+    const mult = elementMult(monsterElement(def)[0], seat.derived.defElement ?? 'neutral', 1);
+    if (mult === 0) {
+      this.broadcast('mhit', { m: id, to: sid, dmg: 0 });
+      return;
+    }
+    let dmg = Math.max(1, Math.round((def.atk * rand(0.85, 1.15) - seat.derived.def) * mult));
     // Kick Drum: a bassist in the party (on this map) takes part of the hit
     const party = Parties.of(seat.char.id);
     if (party) {
@@ -1137,6 +1190,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       buffs.hitPct! += b.hitPct ?? 0;
       buffs.fleePct! += b.fleePct ?? 0;
       if (b.stealth) hidden = true;
+      if (b.endow) buffs.endow = b.endow;
       for (const k of STAT_KEYS) if (b.stats?.[k]) stats[k] = (stats[k] ?? 0) + b.stats[k]!;
     }
     if (Object.keys(stats).length) buffs.stats = stats;

@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import { G, GameMap } from '../game/maps';
+import { G, GameMap, isLava } from '../game/maps';
 import { toon } from './toon';
 
 /**
  * Clear, sunken ponds for the water tiles of a map: a pebbly basin cut into the ground with
  * moving caustics, a see-through surface that deepens from teal to blue, and lily pads,
  * cattails, weeds and koi. Shore rocks and grass come from nature.ts (see pondShore).
- * Lava (the volcano) keeps the flat look from props.ts.
+ * Lava (volcano, inferno) is drawn by lava.ts instead.
  */
 
 export interface PondField {
@@ -27,14 +27,14 @@ const smooth = (a: number, b: number, v: number) => {
 };
 
 export function hasPonds(m: GameMap) {
-  return m.theme !== 'volcano' && pondField(m).any;
+  return !isLava(m.theme) && pondField(m).any;
 }
 
 export function pondField(m: GameMap): PondField {
   const hit = cache.get(m);
   if (hit) return hit;
   const { w, h } = m;
-  const water = (x: number, y: number) => m.theme !== 'volcano' && x >= 0 && y >= 0 && x < w && y < h && m.ground[y][x] === G.Water;
+  const water = (x: number, y: number) => !isLava(m.theme) && x >= 0 && y >= 0 && x < w && y < h && m.ground[y][x] === G.Water;
   // soft occupancy (5x5 binomial blur): the 0.5 contour follows the tile edges with well rounded corners
   const occ = new Float32Array(w * h);
   const dist = new Float32Array(w * h);
@@ -269,6 +269,10 @@ const PALETTE: Partial<Record<GameMap['theme'], { shallow: number; deep: number;
   snow: { shallow: 0x8fdcef, deep: 0x2a6fa8, floor: 0xdde6ea },
   canyon: { shallow: 0x58d2c8, deep: 0x1a7896, floor: 0xd8c29a },
   desert: { shallow: 0x55d8d2, deep: 0x136f9a, floor: 0xe2cb9c },
+  beach: { shallow: 0x4fe0dc, deep: 0x0d6aa8, floor: 0xf0dcaa },
+  cave: { shallow: 0x5ff0e8, deep: 0x1a3a8a, floor: 0x6a6a8a },
+  deadwood: { shallow: 0x6a7a5a, deep: 0x2a2a3a, floor: 0x5a5444 },
+  ruins: { shallow: 0x5a7a8a, deep: 0x1e2a3a, floor: 0x6a6658 },
 };
 
 function rand(seed: number) {
@@ -430,9 +434,9 @@ export function buildPonds(m: GameMap): THREE.Group | null {
     const cx = x + 0.5, cz = y + 0.5;
     const d = p.deep(cx, cz), f = p.f(cx, cz);
     const roll = r();
-    const cold = m.theme === 'snow'; // no lilies or reeds in an icy pond, just weeds and fish
-    // the desert moat is big: only a sprinkling of pond life, so it stays cheap to draw
-    if (m.theme === 'desert' && roll > 0.06) {
+    const cold = m.theme === 'snow' || m.theme === 'cave' || m.theme === 'deadwood' || m.theme === 'ruins'; // no lilies or reeds, just weeds and fish
+    // the desert moat and the sea are big: only a sprinkling of pond life, so it stays cheap to draw
+    if ((m.theme === 'desert' || m.theme === 'beach') && roll > 0.06) {
       // skip
     } else if (cold && roll < 0.3) {
       // skip
@@ -456,7 +460,7 @@ export function buildPonds(m: GameMap): THREE.Group | null {
       w.position.set(wx, 0, wz);
       g.add(w);
     }
-    if (d > 0.35 && r() < (m.theme === 'desert' ? 0.04 : 0.16)) {
+    if (d > 0.35 && r() < (m.theme === 'desert' || m.theme === 'beach' ? 0.03 : 0.16)) {
       // a koi circling a deep spot, on a loop that stays in the water
       let rad = 0.5 + r() * 0.7;
       while (rad > 0.25 && [0, 1, 2, 3].some((k) => p.f(cx + Math.cos(k * 1.57) * (rad + 0.15), cz + Math.sin(k * 1.57) * (rad + 0.15)) < 0.65)) rad -= 0.1;

@@ -1,4 +1,4 @@
-import { G, type GameMap } from '../game/maps';
+import { G, isLava, type GameMap } from '../game/maps';
 
 /**
  * Painted terrain for grass and dirt: instead of one flat colour per tile, the ground is
@@ -51,7 +51,7 @@ function rng(seed: number) {
 export function paintTerrain(c: CanvasRenderingContext2D, m: GameMap, T: number, base: string[], soft: (x: number, y: number) => boolean) {
   const W = m.w * T, H = m.h * T;
   const fbm = noise(m.w * 7919 + m.h * 31 + m.id.length);
-  const lush = m.theme !== 'snow' && m.theme !== 'canyon' && m.theme !== 'volcano' && m.theme !== 'desert';
+  const lush = !['snow', 'canyon', 'desert', 'beach', 'cave', 'deadwood', 'ruins'].includes(m.theme) && !isLava(m.theme);
   const g1 = hex(base[G.Grass]), g2 = hex(base[G.Grass2]), dirt = hex(base[G.Dirt]);
   // a sunlit, yellower green and a deep shade green around the theme's own grass
   const sun: [number, number, number] = lush ? [Math.min(255, g2[0] * 1.18 + 14), Math.min(255, g2[1] * 1.15 + 8), g2[2] * 0.72] : [g2[0] * 1.06, g2[1] * 1.06, g2[2] * 1.06];
