@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { rimNow, setRim } from './look';
-import { VRM, VRMLoaderPlugin, VRMUtils, type VRMHumanBoneName } from '@pixiv/three-vrm';
-import { HAIR_COLORS, type ClassKey } from '../data';
+import { VRM, VRMLoaderPlugin, VRMSpringBoneJoint, VRMUtils, type VRMHumanBoneName } from '@pixiv/three-vrm';
+import { HAIR_COLORS, ITEMS, type ClassKey } from '../data';
 import { animateCharacter, buildDagger, setHat, type CharRig, type Look } from './models';
 import { dressArmour } from './armour';
 import { buildStringed } from './bass';
@@ -205,17 +205,118 @@ const HEIGHT = 1.55; // world units (tiles) for a VRM character
 
 const EXPRESSIONS = ['neutral', 'happy', 'angry', 'relaxed'];
 
+const isCloth = (m: THREE.Mesh) => ([] as THREE.Material[]).concat(m.material).some((x) => /CLOTH|Body_00_SKIN/.test(x?.name ?? ''));
+
+/**
+ * Puts another VRoid model's parts on this character: its clothes (with the body under them, which VRoid paints
+ * tights and inner layers onto) for an outfit, or a few hair parts for a hat. Every VRoid model has the same
+ * humanoid bones (J_Bip_*), so the parts are skinned to this character's bones by name; the extra bones they hang
+ * on (skirts, coat tails, hat brims: J_Sec_*) are copied in, with their spring-bone physics. Only one face and
+ * one set of hair per character, so a town full of outfits costs little more than before.
+ */
+function graft(base: VRM, from: VRM, take: (m: THREE.SkinnedMesh) => boolean) {
+  const byName = new Map<string, THREE.Object3D>();
+  base.scene.traverse((o) => {
+    const sm = o as THREE.SkinnedMesh;
+    if (sm.isSkinnedMesh) for (const b of sm.skeleton.bones) if (!byName.has(b.name)) byName.set(b.name, b);
+  });
+  const added = new Map<THREE.Object3D, THREE.Object3D>();
+  // VRM 0.x models face -Z in their own space and VRM 1.0 ones +Z (VRoid rest bones carry no rotation either way):
+  // parts from the other kind are turned round to this model's space
+  const flip = (from.meta?.metaVersion === '0') !== (base.meta?.metaVersion === '0');
+  const R = new THREE.Matrix4().makeRotationY(flip ? Math.PI : 0);
+  const qR = new THREE.Quaternion().setFromRotationMatrix(R);
+  const boneFor = (b: THREE.Object3D): THREE.Object3D => {
+    const got = byName.get(b.name);
+    if (got) return got;
+    const parent = b.parent && b.parent !== from.scene ? boneFor(b.parent) : base.scene;
+    const nb = new THREE.Bone();
+    nb.name = b.name;
+    nb.position.copy(b.position).applyQuaternion(qR);
+    nb.quaternion.copy(qR).multiply(b.quaternion).multiply(qR.clone().invert());
+    nb.scale.copy(b.scale);
+    parent.add(nb);
+    byName.set(b.name, nb);
+    added.set(b, nb);
+    return nb;
+  };
+  const parts: THREE.SkinnedMesh[] = [];
+  from.scene.traverse((o) => {
+    const sm = o as THREE.SkinnedMesh;
+    if (sm.isSkinnedMesh && take(sm)) parts.push(sm);
+  });
+  let host: THREE.Object3D | null = null;
+  base.scene.traverse((o) => {
+    if (!host && (o as THREE.SkinnedMesh).isSkinnedMesh) host = o.parent;
+  });
+  for (const m of parts) {
+    const sk = new THREE.Skeleton(m.skeleton.bones.map(boneFor) as THREE.Bone[], m.skeleton.boneInverses.map((x) => R.clone().multiply(x)));
+    const nm = new THREE.SkinnedMesh(m.geometry, m.material);
+    nm.name = m.name;
+    (host ?? base.scene).add(nm);
+    nm.bind(sk, m.bindMatrix.clone());
+  }
+  // skirts and hat brims swing like they did on their own model, bumping into this body
+  const springs = base.springBoneManager;
+  if (springs && from.springBoneManager && added.size) {
+    const groups = springs.colliderGroups;
+    for (const j of from.springBoneManager.joints) {
+      const bone = added.get(j.bone);
+      if (!bone) continue;
+      const child = j.child ? (added.get(j.child) ?? byName.get(j.child.name) ?? null) : null;
+      springs.addJoint(new VRMSpringBoneJoint(bone, child, { ...j.settings }, groups));
+    }
+    springs.setInitState();
+  }
+  return parts.length;
+}
+
 /** Loads a VRM character for this look, or null when no model is configured / it fails. */
 export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig | null> {
   const cat = await vrmCatalog();
-  const file = cat && (look.outfit || modelFor(cat, look));
+  const file = cat && modelFor(cat, look);
   if (!file) return null;
+  const outfit = look.outfit ? ITEMS[look.outfit] : undefined;
+  const hatItem = ITEMS[hat]?.vrm ? ITEMS[hat] : undefined;
   let vrm: VRM;
   try {
     vrm = await track(parse(file));
   } catch (e) {
     console.warn('VRM load failed, using the built-in character', e);
     return null;
+  }
+
+  // hair colour: tint materials named like VRoid's hair materials (before any hat parts come in)
+  if (cat!.tintHair !== false) {
+    const col = new THREE.Color(HAIR_COLORS[look.hair_color] ?? HAIR_COLORS[0]);
+    vrm.scene.traverse((o) => {
+      const mats = ((o as THREE.Mesh).material ? ([] as THREE.Material[]).concat((o as THREE.Mesh).material) : []) as (THREE.Material & { color?: THREE.Color })[];
+      for (const mat of mats) if (/hair/i.test(mat.name) && mat.color) mat.color.copy(col);
+    });
+  }
+
+  let dressed = false;
+  if (outfit?.vrm) {
+    try {
+      const from = await track(parse(outfit.vrm));
+      vrm.scene.traverse((o) => {
+        const sm = o as THREE.SkinnedMesh;
+        if (sm.isSkinnedMesh && isCloth(sm)) sm.visible = false;
+      });
+      dressed = graft(vrm, from, isCloth) > 0;
+      if (!dressed) vrm.scene.traverse((o) => (o as THREE.SkinnedMesh).isSkinnedMesh && (o.visible = true));
+    } catch (e) {
+      console.warn('outfit failed to load', e);
+    }
+  }
+  if (hatItem?.vrm && hatItem.part) {
+    try {
+      const part = hatItem.part;
+      const from = await track(parse(hatItem.vrm));
+      graft(vrm, from, (m) => ([] as THREE.Material[]).concat(m.material).some((x) => x?.name?.includes(part)));
+    } catch (e) {
+      console.warn('hat failed to load', e);
+    }
   }
 
   const root = new THREE.Group();
@@ -236,17 +337,8 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
   vrm.scene.scale.setScalar(HEIGHT / h);
   vrm.scene.position.y = -box.min.y * (HEIGHT / h);
 
-  // hair colour: tint materials named like VRoid's hair materials
-  if (cat!.tintHair !== false && !look.outfit) {
-    const col = new THREE.Color(HAIR_COLORS[look.hair_color] ?? HAIR_COLORS[0]);
-    vrm.scene.traverse((o) => {
-      const mats = ((o as THREE.Mesh).material ? ([] as THREE.Material[]).concat((o as THREE.Mesh).material) : []) as (THREE.Material & { color?: THREE.Color })[];
-      for (const mat of mats) if (/hair/i.test(mat.name) && mat.color) mat.color.copy(col);
-    });
-  }
-
-  // players all wear the same armour (NPCs keep their own clothes; an outfit is the model's own clothes)
-  if (!look.body && !look.outfit) {
+  // players all wear the same armour (NPCs keep their own clothes; an outfit brings its own)
+  if (!look.body && !dressed) {
     try {
       dressArmour(vrm, root);
     } catch (e) {
@@ -273,6 +365,7 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
   };
   rig.root.userData.vrmFace = EXPRESSIONS[look.face] ?? 'neutral';
   rig.root.userData.vrmFile = file;
+  rig.root.userData.outfit = dressed ? look.outfit : '';
   if (look.cls) rig.root.userData.gear = attachInstrument(vrm, look.cls, 1 / (HEIGHT / h), v0);
   rig.root.userData.cls = look.cls;
   setHat(rig, hat);

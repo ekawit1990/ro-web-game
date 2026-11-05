@@ -80,7 +80,7 @@ export function itemIcon(id: string): string {
       c.lineWidth = 2;
       c.stroke();
     }
-    c.fillText(EMOJI[id] ?? (item?.vrm ? (item.gender === 'f' ? '👗' : '🥼') : '❔'), 16, 18);
+    c.fillText(EMOJI[id] ?? (item?.vrm ? (item.type === 'head' ? (item.part?.includes('Glasses') ? '👓' : '🎩') : item.gender === 'f' ? '👗' : '🥼') : '❔'), 16, 18);
     if (item && (id.includes('bass') || id === 'golden_mic' || id === 'steel_dagger' || id === 'electric_guitar' || id === 'steel_sticks' || id === 'synth')) {
       // tint upgraded variants so they read differently
       c.globalCompositeOperation = 'source-atop';
