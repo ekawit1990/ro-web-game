@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, CROWD_MAX, ClassKey, ITEMS, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer } from '../data';
+import { CLASSES, CROWD_MAX, ClassKey, ITEMS, MAX_LEVEL, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf } from '../data';
 import { findPath, GameMap, Npc, THEMES, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
 import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setHat } from './models';
+import { animateMaxAura, buildMaxAura } from './levelAura';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { PHONE } from './device';
 import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
@@ -53,7 +54,7 @@ const AUTO_POTION_HP = 0.35;
 const AUTO_HEAL_HP = 0.6;
 
 interface RemotePlayer {
-  name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number; head: string; weapon: string; ear: string;
+  name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number; head: string; weapon: string; ear: string; body?: string;
   x: number; y: number; hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean; sitting: boolean; hidden?: boolean;
 }
 interface RemoteMonster { key: string; x: number; y: number; hp: number; maxHp: number; dead: boolean }
@@ -101,6 +102,8 @@ interface PlayerActor {
   label: Label;
   hit: THREE.Mesh;
   bubble?: { el: HTMLElement; until: number };
+  /** Base Lv 99: the golden aura at the feet. */
+  maxAura?: THREE.Group;
 }
 
 interface MonsterActor {
@@ -221,7 +224,7 @@ export class World3D {
     const c = this.session.char;
     this.me = this.makePlayer(this.room.sessionId, {
       name: c.name, cls: c.cls, level: c.level, gender: c.gender, hair: c.hair, hairColor: c.hair_color, face: c.face,
-      head: this.session.equippedOf('head')?.item_id ?? '', weapon: this.session.equippedOf('weapon')?.item_id ?? '', ear: this.session.equippedOf('earring')?.item_id ?? '', x: data.x, y: data.y, hp: 1, maxHp: 1, sp: 0, maxSp: 0, dead: false, sitting: false,
+      head: this.session.equippedOf('head')?.item_id ?? '', weapon: this.session.equippedOf('weapon')?.item_id ?? '', ear: this.session.equippedOf('earring')?.item_id ?? '', body: this.session.equippedOf('armor')?.item_id ?? '', x: data.x, y: data.y, hp: 1, maxHp: 1, sp: 0, maxSp: 0, dead: false, sitting: false,
     });
     this.me.label.el.classList.add('me');
     this.camTarget.set(data.x, 0, data.y);
@@ -357,7 +360,7 @@ export class World3D {
   // ------------------------------------------------------------ actors
 
   private makePlayer(id: string, rp: RemotePlayer): PlayerActor {
-    const look = { cls: rp.cls as ClassKey, gender: rp.gender as 'm' | 'f', hair: rp.hair, hair_color: rp.hairColor, face: rp.face };
+    const look = lookOf(rp);
     const rig = buildCharacter(look, rp.head);
     rig.root.position.set(rp.x, 0, rp.y);
     this.scene.add(rig.root);
@@ -1010,7 +1013,7 @@ export class World3D {
         // our own job change: swap the model in place (keeps the camera and our label)
         a.look = lookKey(rp);
         a.cls = rp.cls as ClassKey;
-        const look = { cls: a.cls, gender: rp.gender as 'm' | 'f', hair: rp.hair, hair_color: rp.hairColor, face: rp.face };
+        const look = lookOf(rp);
         const old = a.rig;
         const rig = buildCharacter(look, rp.head);
         rig.root.position.copy(old.root.position);
@@ -1063,6 +1066,14 @@ export class World3D {
       a.maxHp = rp.maxHp;
       setHat(a.rig, rp.head);
       setEar(a.rig, rp.ear);
+      if (rp.level >= MAX_LEVEL) {
+        a.maxAura ??= buildMaxAura();
+        if (a.maxAura.parent !== a.rig.root) a.rig.root.add(a.maxAura); // the model was swapped (outfit, job change)
+        animateMaxAura(a.maxAura, performance.now() / 1000);
+      } else if (a.maxAura) {
+        a.maxAura.removeFromParent();
+        a.maxAura = undefined;
+      }
       a.armed = !!rp.weapon;
       a.moving = Math.max(0, a.moving - dt);
       const atkTime = attackTime(a.armed === false ? '' : a.cls);
@@ -2387,5 +2398,10 @@ function crescentGeometry(radius: number, width: number, angle: number) {
 }
 
 function lookKey(rp: RemotePlayer) {
-  return `${rp.cls}_${rp.gender}_${rp.hair}_${rp.hairColor}_${rp.face}`;
+  return `${rp.cls}_${rp.gender}_${rp.hair}_${rp.hairColor}_${rp.face}_${outfitOf(rp.body)}`;
+}
+
+/** What a player looks like: their own appearance, or the model of the outfit they wear. */
+function lookOf(rp: RemotePlayer): Look {
+  return { cls: rp.cls as ClassKey, gender: rp.gender as 'm' | 'f', hair: rp.hair, hair_color: rp.hairColor, face: rp.face, outfit: outfitOf(rp.body) || undefined };
 }

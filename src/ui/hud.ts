@@ -1,6 +1,6 @@
 import {
   CLASSES, CLASS_KEYS, CardBonus, MONSTERS, SPAWNS, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, REFINE, SERVICE_FEE, SHOP, SKILLS,
-  START_CLASS, STAT_KEYS, STORAGE_SLOTS, StatKey, WEAPON_SHOP, canRefine, cardFits, expToNext, itemLabel, jobExpToNext, jobTown,
+  START_CLASS, STAT_KEYS, STORAGE_SLOTS, StatKey, WEAPON_SHOP, canRefine, cardFits, expToNext, itemLabel, jobExpToNext, jobTown, outfitOf,
   refineBonus, refineChance, refineFee, refineMaterial, refineSafe, skillSp, skillsOf, statCost, statRefund,
 } from '../data';
 import { THEMES, WARP_TOWNS, getMap, type GameMap, type Npc } from '../game/maps';
@@ -379,7 +379,7 @@ export class Hud implements WorldHooks {
         <div class="st-right">${right.map(([k, v]) => `<div><label>${k}</label><b>${v}</b></div>`).join('')}
           <div class="sp-pts"><label>Status Point</label><b>${c.stat_points}</b></div></div>
       </div>`;
-    drawLook(b.querySelector('#eq-preview')!, { ...c, cls: c.cls }, 'f', this.s.equippedOf('head')?.item_id, true, !!this.s.equippedOf('weapon'), this.s.equippedOf('earring')?.item_id);
+    drawLook(b.querySelector('#eq-preview')!, { ...c, cls: c.cls, outfit: outfitOf(this.s.equippedOf('armor')?.item_id) }, 'f', this.s.equippedOf('head')?.item_id, true, !!this.s.equippedOf('weapon'), this.s.equippedOf('earring')?.item_id);
     b.querySelectorAll<HTMLButtonElement>('[data-stat]').forEach((btn) =>
       btn.addEventListener('click', () => this.run(() => this.s.allocate(btn.dataset.stat as StatKey))),
     );
@@ -479,7 +479,13 @@ export class Hud implements WorldHooks {
     const sub = [TYPE_LABEL[it.type] ?? it.type];
     if (it.classes) sub.push(`ใช้ได้: ${it.classes.map((c) => CLASSES[c].name).join(', ')}`);
     else if ((EQUIP_TYPES as string[]).includes(it.type)) sub.push('ทุกอาชีพ');
+    if (it.gender) sub.push(it.gender === 'f' ? 'หญิงเท่านั้น' : 'ชายเท่านั้น');
     if (stats) lines.push(`<div class="it-stats">${stats}</div>`);
+    if (it.bonus) lines.push(`<div class="it-bonus">${bonusText(it.bonus)}</div>`);
+    if (it.vrm) {
+      const from = Object.values(MONSTERS).filter((m) => m.drops.some(([d]) => d === id)).map((m) => `${m.name}${m.boss ? ' (บอส)' : ''}`);
+      lines.push(`<div class="muted">👗 ใส่แล้วตัวละครเปลี่ยนเป็นชุดนี้ทั้งตัว · ไม่มีขายในร้าน${from.length ? ` · ดร็อปจาก ${escapeHtml(from.join(', '))}` : ''}</div>`);
+    }
     if (it.slots) {
       const cards = row?.cards ?? [];
       const slots = Array.from({ length: it.slots }, (_, i) => {

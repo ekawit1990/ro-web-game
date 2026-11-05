@@ -1705,6 +1705,800 @@
      "agi": 1
     }
    }
+  },
+  "outfit_aqua_hoodie": {
+   "name": "ชุดฮู้ดดี้ฟ้าน้ำทะเล",
+   "type": "armor",
+   "def": 5,
+   "price": 720,
+   "color": "#7fd6e0",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "avatar_g.vrm.gz",
+   "bonus": {
+    "agi": 1,
+    "dex": 1
+   },
+   "slots": 1,
+   "desc": "ฮู้ดดี้สีฟ้าใสตัวโคร่งกับกางเกงขาสั้น สบายตัวเหมาะซ้อมดนตรีทั้งวัน (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_light_hoodie": {
+   "name": "ชุดฮู้ดดี้เทาอ่อน",
+   "type": "armor",
+   "def": 5,
+   "price": 780,
+   "color": "#cfcfcf",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_207710935336237648.vrm.gz",
+   "bonus": {
+    "vit": 1,
+    "luk": 1
+   },
+   "slots": 1,
+   "desc": "ฮู้ดดี้เทาอ่อนกับกางเกงสามส่วน ใส่ไปไหนก็ได้ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_gray_hoodie": {
+   "name": "ชุดฮู้ดดี้เทา",
+   "type": "armor",
+   "def": 6,
+   "price": 900,
+   "color": "#bdbdbd",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_5351321668046832234.vrm.gz",
+   "bonus": {
+    "str": 1,
+    "vit": 1
+   },
+   "slots": 1,
+   "desc": "ฮู้ดดี้เทาตัวใหญ่ อุ่นสบายตอนซ้อมดึก (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_white_cardigan": {
+   "name": "ชุดคาร์ดิแกนขาว",
+   "type": "armor",
+   "def": 6,
+   "price": 960,
+   "color": "#f2ece0",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_a.vrm.gz",
+   "bonus": {
+    "int": 1,
+    "luk": 1
+   },
+   "slots": 1,
+   "desc": "คาร์ดิแกนสีครีมกับกางเกงขาสั้น สาวนักแต่งเพลงชอบใส่ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_black_hoodie": {
+   "name": "ชุดฮู้ดดี้ดำ",
+   "type": "armor",
+   "def": 6,
+   "price": 960,
+   "color": "#1e1e22",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_1292382841793082181.vrm.gz",
+   "bonus": {
+    "str": 1,
+    "agi": 1
+   },
+   "slots": 1,
+   "desc": "ฮู้ดดี้สีดำเรียบ ๆ ของมือกลองวงใต้ดิน (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_sailor_school": {
+   "name": "ชุดนักเรียนกะลาสี",
+   "type": "armor",
+   "def": 7,
+   "price": 1020,
+   "color": "#d8dde6",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_4782566278761081075.vrm.gz",
+   "bonus": {
+    "int": 2,
+    "dex": 2
+   },
+   "slots": 1,
+   "desc": "เสื้อกะลาสีกับกระโปรงจีบกรมท่า ชุดนักเรียนวงประสานเสียง (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_navy_school": {
+   "name": "ชุดนักเรียนกรมท่า",
+   "type": "armor",
+   "def": 7,
+   "price": 1020,
+   "color": "#1f2a3d",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_6370431923836766206.vrm.gz",
+   "bonus": {
+    "int": 2,
+    "dex": 2
+   },
+   "slots": 1,
+   "desc": "เครื่องแบบนักเรียนสีกรมท่า ดูเรียบร้อยตั้งใจเรียนดนตรี (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_gakuran": {
+   "name": "ชุดนักเรียนคอตั้ง",
+   "type": "armor",
+   "def": 7,
+   "price": 1080,
+   "color": "#1c2433",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_2357013225090354220.vrm.gz",
+   "bonus": {
+    "str": 2,
+    "dex": 2
+   },
+   "slots": 1,
+   "desc": "ชุดนักเรียนคอตั้งสีกรมท่า กระดุมทองเรียงแถว (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_sport_orange": {
+   "name": "ชุดสปอร์ตส้ม",
+   "type": "armor",
+   "def": 7,
+   "price": 1080,
+   "color": "#f0a050",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_l.vrm.gz",
+   "bonus": {
+    "agi": 2,
+    "vit": 2
+   },
+   "slots": 1,
+   "desc": "ชุดสปอร์ตส้มขาวพร้อมเข็มขัด วิ่งไปเล่นคอนเสิร์ตได้ไม่เหนื่อย (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_orange_fox": {
+   "name": "ชุดจิ้งจอกส้ม",
+   "type": "armor",
+   "def": 7,
+   "price": 1140,
+   "color": "#e89a2c",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_f.vrm.gz",
+   "bonus": {
+    "agi": 2,
+    "dex": 2
+   },
+   "slots": 1,
+   "desc": "เดรสส้มทองกับหูจิ้งจอก ร่าเริงเหมือนเพลงป๊อป (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_leopard_swim": {
+   "name": "ชุดว่ายน้ำลายเสือ",
+   "type": "armor",
+   "def": 7,
+   "price": 1140,
+   "color": "#c9a35a",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_4360835510799003378.vrm.gz",
+   "bonus": {
+    "agi": 2,
+    "luk": 2
+   },
+   "slots": 1,
+   "desc": "ชุดว่ายน้ำลายเสือดาวสำหรับคอนเสิร์ตริมสระ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_beach_lace": {
+   "name": "ชุดคลุมลูกไม้ชายหาด",
+   "type": "armor",
+   "def": 7,
+   "price": 1140,
+   "color": "#d9c08f",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_5690907647172776179.vrm.gz",
+   "bonus": {
+    "luk": 2,
+    "vit": 2
+   },
+   "slots": 1,
+   "desc": "เสื้อคลุมลูกไม้บางเบาสำหรับเทศกาลดนตรีชายหาด (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_maid": {
+   "name": "ชุดเมด",
+   "type": "armor",
+   "def": 8,
+   "price": 1200,
+   "color": "#2a2a30",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_6782942892762570203.vrm.gz",
+   "bonus": {
+    "dex": 2,
+    "vit": 2
+   },
+   "slots": 1,
+   "desc": "ชุดเมดดำขาวผ้ากันเปื้อนยาว เสิร์ฟชาไปร้องเพลงไป (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_rock_hoodie": {
+   "name": "ชุดฮู้ดดี้ฮาร์ดร็อค",
+   "type": "armor",
+   "def": 8,
+   "price": 1200,
+   "color": "#6d7380",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_9089159310965215321.vrm.gz",
+   "bonus": {
+    "str": 2,
+    "luk": 2
+   },
+   "slots": 1,
+   "desc": "ฮู้ดดี้เทาซับในแดง สายฮาร์ดร็อคใส่กันทั้งวง (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_alice": {
+   "name": "ชุดอลิซฟ้า",
+   "type": "armor",
+   "def": 8,
+   "price": 1260,
+   "color": "#9fb8d6",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_m.vrm.gz",
+   "bonus": {
+    "int": 2,
+    "luk": 2
+   },
+   "slots": 1,
+   "desc": "เดรสฟ้ากับผ้ากันเปื้อนขาว เหมือนหลุดมาจากแดนมหัศจรรย์ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_street": {
+   "name": "ชุดสตรีทแร็ปเปอร์",
+   "type": "armor",
+   "def": 8,
+   "price": 1260,
+   "color": "#4a4a4a",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "avatar_c.vrm.gz",
+   "bonus": {
+    "agi": 2,
+    "luk": 2
+   },
+   "slots": 1,
+   "desc": "แจ็คเก็ตกับกางเกงคาร์โกสายสตรีท ใส่แล้วพร้อมแร็ปกลางตลาด (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_gal_black": {
+   "name": "ชุดสาวแกลดำ",
+   "type": "armor",
+   "def": 8,
+   "price": 1320,
+   "color": "#1f1f24",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_7872617533467124013.vrm.gz",
+   "bonus": {
+    "luk": 2,
+    "agi": 2
+   },
+   "slots": 1,
+   "desc": "ชุดดำสั้นสไตล์แกล มั่นใจเต็มร้อย (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_street_black": {
+   "name": "ชุดสตรีทดำ",
+   "type": "armor",
+   "def": 8,
+   "price": 1320,
+   "color": "#141416",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_7569961834217150822.vrm.gz",
+   "bonus": {
+    "agi": 2,
+    "dex": 2
+   },
+   "slots": 1,
+   "desc": "เสื้อตัวโคร่งกับกระโปรงสั้นสีดำ สไตล์สตรีทในเมือง (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_bunny_butler": {
+   "name": "ชุดบัตเลอร์หูกระต่าย",
+   "type": "armor",
+   "def": 9,
+   "price": 1380,
+   "color": "#8b8f7a",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "avatar_n.vrm.gz",
+   "bonus": {
+    "dex": 2,
+    "luk": 2
+   },
+   "slots": 1,
+   "desc": "เสื้อกั๊กบัตเลอร์กับหูกระต่ายตั้งเด่น สุภาพแต่ซุกซน (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_white_priest": {
+   "name": "ชุดนักบวชขาว",
+   "type": "armor",
+   "def": 9,
+   "price": 1380,
+   "color": "#f4f4ef",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_h.vrm.gz",
+   "bonus": {
+    "int": 2,
+    "vit": 2
+   },
+   "slots": 1,
+   "desc": "เสื้อคลุมนักบวชสีขาวลายฟ้า สวมแล้วเสียงเพลงฟังศักดิ์สิทธิ์ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_black_coat": {
+   "name": "ชุดโค้ทหน้าหนาวดำ",
+   "type": "armor",
+   "def": 9,
+   "price": 1440,
+   "color": "#26262b",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_s.vrm.gz",
+   "bonus": {
+    "vit": 2,
+    "dex": 2
+   },
+   "slots": 1,
+   "desc": "โค้ทดำตัวยาวกันหนาว ใส่เดินทางขึ้นเขาหิมะได้สบาย (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_gray_suit": {
+   "name": "ชุดสูทเทาสุภาพบุรุษ",
+   "type": "armor",
+   "def": 9,
+   "price": 1440,
+   "color": "#5a5a5e",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "avatar_p.vrm.gz",
+   "bonus": {
+    "int": 2,
+    "dex": 2
+   },
+   "slots": 1,
+   "desc": "สูทสีเทาตัดเข้ารูป เหมาะกับคอนเสิร์ตแจ๊สยามค่ำ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_gothic": {
+   "name": "ชุดโกธิคดำ",
+   "type": "armor",
+   "def": 9,
+   "price": 1500,
+   "color": "#1b1b1f",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_o.vrm.gz",
+   "bonus": {
+    "int": 2,
+    "dex": 2
+   },
+   "slots": 1,
+   "desc": "เดรสโกธิคสีดำแขนพอง เหมาะกับเพลงออร์แกนยามเที่ยงคืน (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_cyber_mint": {
+   "name": "ชุดไซเบอร์มิ้นต์",
+   "type": "armor",
+   "def": 10,
+   "price": 1560,
+   "color": "#33b3a6",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_k.vrm.gz",
+   "bonus": {
+    "agi": 3,
+    "dex": 3
+   },
+   "slots": 1,
+   "desc": "ชุดไซเบอร์ดำมิ้นต์เรืองแสง ของดีเจแห่งอนาคต (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_tuxedo": {
+   "name": "ชุดทักซิโด้ดำ",
+   "type": "armor",
+   "def": 10,
+   "price": 1560,
+   "color": "#111216",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_3635028656775800209.vrm.gz",
+   "bonus": {
+    "dex": 3,
+    "luk": 3
+   },
+   "slots": 1,
+   "desc": "ทักซิโด้สีดำผูกโบว์ ชุดออกงานของวาทยกร (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_red_singer": {
+   "name": "ชุดเดรสแดงนักร้อง",
+   "type": "armor",
+   "def": 10,
+   "price": 1620,
+   "color": "#b0202e",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_u.vrm.gz",
+   "bonus": {
+    "dex": 3,
+    "luk": 3
+   },
+   "slots": 1,
+   "desc": "เดรสแดงเปิดไหล่ ชุดประจำตัวนักร้องเสียงทรงพลัง (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_dark_idol": {
+   "name": "ชุดไอดอลสายดาร์ก",
+   "type": "armor",
+   "def": 10,
+   "price": 1620,
+   "color": "#3b2a4a",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_b.vrm.gz",
+   "bonus": {
+    "agi": 3,
+    "luk": 3
+   },
+   "slots": 1,
+   "desc": "แจ็คเก็ตดำกับกระโปรงชมพู ไอดอลสายดาร์กขึ้นเวทีด้วยชุดนี้ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_glitter_black": {
+   "name": "ชุดกลิตเตอร์ดำ",
+   "type": "armor",
+   "def": 10,
+   "price": 1680,
+   "color": "#232026",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_9196507926128616617.vrm.gz",
+   "bonus": {
+    "luk": 3,
+    "int": 3
+   },
+   "slots": 1,
+   "desc": "เสื้อคลุมดำประกายระยิบระยับเหมือนแสงไฟเวที (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_red_evening": {
+   "name": "ชุดเดรสแดงราตรี",
+   "type": "armor",
+   "def": 11,
+   "price": 1740,
+   "color": "#9a1426",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_8755100585825430042.vrm.gz",
+   "bonus": {
+    "dex": 3,
+    "int": 3
+   },
+   "slots": 1,
+   "desc": "เดรสแดงลายดอกไม้ ชุดสำหรับงานกาล่าคืนสำคัญ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_red_qipao": {
+   "name": "ชุดกี่เพ้าแดงทอง",
+   "type": "armor",
+   "def": 11,
+   "price": 1740,
+   "color": "#9e1b2a",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_i.vrm.gz",
+   "bonus": {
+    "int": 3,
+    "dex": 3
+   },
+   "slots": 1,
+   "desc": "เดรสแดงปักทองแขนบาน สง่างามเหมือนเพลงพิณจีน (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_kungfu": {
+   "name": "ชุดกังฟูแดง",
+   "type": "armor",
+   "def": 11,
+   "price": 1860,
+   "color": "#a1161c",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_3675109917025159411.vrm.gz",
+   "bonus": {
+    "str": 3,
+    "agi": 3
+   },
+   "slots": 1,
+   "desc": "เสื้อจีนสีแดงกระดุมผ้า ออกหมัดได้คล่องตัว (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_blue_swords": {
+   "name": "ชุดนักดาบฟ้า",
+   "type": "armor",
+   "def": 12,
+   "price": 1920,
+   "color": "#87b8e8",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_7931905149146643613.vrm.gz",
+   "bonus": {
+    "str": 3,
+    "dex": 3
+   },
+   "slots": 1,
+   "desc": "ชุดคอร์เซ็ตฟ้าทองกับกางเกงขาสั้น ของนักดาบผู้รักเสียงเพลง (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_violet_cat": {
+   "name": "ชุดราตรีแมวม่วง",
+   "type": "armor",
+   "def": 12,
+   "price": 1980,
+   "color": "#4b3a8f",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_j.vrm.gz",
+   "bonus": {
+    "int": 4,
+    "luk": 4
+   },
+   "slots": 1,
+   "desc": "เดรสราตรีม่วงลายดวงดาวกับหูแมว เหมาะกับบทเพลงยามค่ำ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_night_wolf": {
+   "name": "ชุดหมาป่าราตรี",
+   "type": "armor",
+   "def": 12,
+   "price": 1980,
+   "color": "#2e2e36",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_1204999165323567084.vrm.gz",
+   "bonus": {
+    "str": 4,
+    "agi": 4
+   },
+   "slots": 1,
+   "desc": "ชุดดำแดงกับหูหมาป่า ล่าเหยื่อในคืนพระจันทร์เต็มดวง (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_astronaut_f": {
+   "name": "ชุดนักบินอวกาศหญิง",
+   "type": "armor",
+   "def": 12,
+   "price": 2040,
+   "color": "#e6e6ea",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_61121190575213457.vrm.gz",
+   "bonus": {
+    "vit": 4,
+    "dex": 4,
+    "int": 4
+   },
+   "slots": 1,
+   "desc": "ชุดอวกาศสีขาวรัดรูปพร้อมกระเป๋าเครื่องมือ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_astronaut": {
+   "name": "ชุดนักบินอวกาศ",
+   "type": "armor",
+   "def": 13,
+   "price": 2100,
+   "color": "#e8e8e8",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_3425491812101364740.vrm.gz",
+   "bonus": {
+    "vit": 4,
+    "dex": 4,
+    "int": 4
+   },
+   "slots": 1,
+   "desc": "ชุดอวกาศสีขาวพร้อมสายรัด หนาแน่นทนแรงกระแทก (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_night_general": {
+   "name": "ชุดนายพลราตรี",
+   "type": "armor",
+   "def": 13,
+   "price": 3500,
+   "color": "#3a1015",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_7185862033116711190.vrm.gz",
+   "bonus": {
+    "str": 4,
+    "vit": 4,
+    "luk": 4,
+    "maxHpPct": 5
+   },
+   "slots": 1,
+   "desc": "เสื้อคลุมนายพลสีดำแดง ราชาเจลลี่กลืนเก็บไว้นานแล้ว (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_bunny_lolita": {
+   "name": "ชุดโลลิต้ากระต่ายชมพู",
+   "type": "armor",
+   "def": 13,
+   "price": 3500,
+   "color": "#f7a8c4",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_e.vrm.gz",
+   "bonus": {
+    "vit": 4,
+    "int": 4,
+    "luk": 4,
+    "maxHpPct": 5
+   },
+   "slots": 1,
+   "desc": "ชุดโลลิต้าชมพูฟูฟ่องกับหูกระต่าย ราชาเจลลี่ชอบสีนี้ที่สุด (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_crimson_prince": {
+   "name": "ชุดเจ้าชายแดงทอง",
+   "type": "armor",
+   "def": 15,
+   "price": 3740,
+   "color": "#7a1c24",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "avatar_r.vrm.gz",
+   "bonus": {
+    "str": 5,
+    "vit": 5,
+    "dex": 5,
+    "maxHpPct": 5
+   },
+   "slots": 1,
+   "desc": "เสื้อคลุมแดงดำปักลายทอง ชุดของเจ้าชายแห่งป่าเพลง (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_forest_elf": {
+   "name": "ชุดเอลฟ์ป่าเขียว",
+   "type": "armor",
+   "def": 15,
+   "price": 3740,
+   "color": "#6fae5a",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_q.vrm.gz",
+   "bonus": {
+    "agi": 5,
+    "dex": 5,
+    "luk": 5,
+    "maxHpPct": 5
+   },
+   "slots": 1,
+   "desc": "ชุดเอลฟ์สีเขียวทองที่ต้นไม้เฒ่าทอจากใบไม้ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_kimono": {
+   "name": "ชุดกิโมโนเทาเงิน",
+   "type": "armor",
+   "def": 16,
+   "price": 3920,
+   "color": "#6b6b6b",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_7643054104406740418.vrm.gz",
+   "bonus": {
+    "agi": 5,
+    "int": 5,
+    "dex": 5,
+    "maxHpPct": 5
+   },
+   "slots": 1,
+   "desc": "กิโมโนผ้าเทาเงินคาดโอบิ นุ่งแล้วเดินเงียบราวสายลม (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_witch": {
+   "name": "ชุดแม่มดหมวกแหลม",
+   "type": "armor",
+   "def": 16,
+   "price": 3920,
+   "color": "#5a1424",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_2677677015271245663.vrm.gz",
+   "bonus": {
+    "int": 5,
+    "dex": 5,
+    "luk": 5,
+    "maxHpPct": 5
+   },
+   "slots": 1,
+   "desc": "ชุดแม่มดแดงดำกับหมวกปีกกว้าง ราชินีบึงร่ายเวทย์ด้วยชุดนี้ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_tactical": {
+   "name": "ชุดรบยุทธวิธี",
+   "type": "armor",
+   "def": 17,
+   "price": 4160,
+   "color": "#26282b",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_6760953917734017824.vrm.gz",
+   "bonus": {
+    "str": 6,
+    "vit": 6,
+    "agi": 6,
+    "maxHpPct": 5
+   },
+   "slots": 1,
+   "desc": "ชุดรบสีดำพร้อมเกราะอก มังกรหินเฝ้าไว้ในหุบผา (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_shadow_battle": {
+   "name": "ชุดรบเงา",
+   "type": "armor",
+   "def": 17,
+   "price": 4160,
+   "color": "#3a3c42",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_3568652502349812865.vrm.gz",
+   "bonus": {
+    "str": 6,
+    "agi": 6,
+    "vit": 6,
+    "maxHpPct": 5
+   },
+   "slots": 1,
+   "desc": "ชุดรบสีเงาพร้อมเกราะไหล่ มังกรหินซ่อนไว้ใต้ภูเขา (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_white_coat": {
+   "name": "ชุดโค้ทขาวหิมะ",
+   "type": "armor",
+   "def": 18,
+   "price": 4400,
+   "color": "#eef3f7",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "hub_1895101762715499275.vrm.gz",
+   "bonus": {
+    "vit": 6,
+    "int": 6,
+    "dex": 6,
+    "maxHpPct": 5
+   },
+   "slots": 1,
+   "desc": "โค้ทยาวสีขาวราวหิมะ ราชินีหิมะทอให้เองกับมือ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_frost_princess": {
+   "name": "ชุดเจ้าหญิงจิ้งจอกน้ำแข็ง",
+   "type": "armor",
+   "def": 18,
+   "price": 4400,
+   "color": "#8cc7ef",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "avatar_d.vrm.gz",
+   "bonus": {
+    "int": 6,
+    "dex": 6,
+    "luk": 6,
+    "maxHpPct": 5
+   },
+   "slots": 1,
+   "desc": "เดรสคอร์เซ็ตสีฟ้าน้ำแข็ง ราชินีหิมะมอบให้ผู้ที่ชนะเธอ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_vampire_count": {
+   "name": "ชุดเคานต์แวมไพร์",
+   "type": "armor",
+   "def": 20,
+   "price": 4700,
+   "color": "#5a0f18",
+   "weight": 60,
+   "gender": "m",
+   "vrm": "avatar_v.vrm.gz",
+   "bonus": {
+    "str": 7,
+    "agi": 7,
+    "luk": 7,
+    "maxHpPct": 5
+   },
+   "slots": 1,
+   "desc": "ชุดเคานต์ผ้าคลุมแดงที่จอมมารหน้ากากเมทัลเก็บไว้ ใครใส่ก็ดูน่าเกรงขาม (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
+  },
+  "outfit_halloween_vampire": {
+   "name": "ชุดแวมไพร์ฮาโลวีน",
+   "type": "armor",
+   "def": 20,
+   "price": 4700,
+   "color": "#4a0d14",
+   "weight": 60,
+   "gender": "f",
+   "vrm": "hub_7724651398025574026.vrm.gz",
+   "bonus": {
+    "int": 7,
+    "agi": 7,
+    "luk": 7,
+    "maxHpPct": 5
+   },
+   "slots": 1,
+   "desc": "ชุดแวมไพร์ผ้าคลุมแดง จอมมารหน้ากากเมทัลเก็บไว้คู่กับชุดเคานต์ (ใส่แล้วเปลี่ยนรูปลักษณ์ทั้งตัว)"
   }
  },
  "shop": [
@@ -2001,6 +2795,10 @@
     [
      "card_buzzer",
      0.004
+    ],
+    [
+     "outfit_aqua_hoodie",
+     0.005
     ]
    ],
    "model": "Flying_Armabee"
@@ -2049,6 +2847,10 @@
     [
      "card_frog",
      0.004
+    ],
+    [
+     "outfit_light_hoodie",
+     0.005
     ]
    ],
    "model": "Big_Frog"
@@ -2097,6 +2899,10 @@
     [
      "card_bat",
      0.004
+    ],
+    [
+     "outfit_gray_hoodie",
+     0.005
     ]
    ],
    "model": "Flying_Ghost"
@@ -2145,6 +2951,10 @@
     [
      "card_rocky",
      0.004
+    ],
+    [
+     "outfit_navy_school",
+     0.005
     ]
    ],
    "model": "Blob_GreenSpikyBlob"
@@ -2193,6 +3003,10 @@
     [
      "card_metronome",
      0.004
+    ],
+    [
+     "outfit_orange_fox",
+     0.005
     ]
    ],
    "model": "Flying_Glub"
@@ -2253,6 +3067,14 @@
     [
      "card_king_jelly",
      0.05
+    ],
+    [
+     "outfit_night_general",
+     0.06
+    ],
+    [
+     "outfit_bunny_lolita",
+     0.06
     ]
    ],
    "boss": true,
@@ -2299,6 +3121,10 @@
     [
      "card_owl",
      0.004
+    ],
+    [
+     "outfit_black_hoodie",
+     0.005
     ]
    ],
    "model": "Blob_Birb"
@@ -2344,6 +3170,10 @@
     [
      "card_mossy",
      0.004
+    ],
+    [
+     "outfit_gakuran",
+     0.005
     ]
    ],
    "model": "Blob_Alien"
@@ -2398,6 +3228,14 @@
     [
      "card_elder_tree",
      0.05
+    ],
+    [
+     "outfit_crimson_prince",
+     0.06
+    ],
+    [
+     "outfit_forest_elf",
+     0.06
     ]
    ],
    "model": "Big_MushroomKing"
@@ -2443,6 +3281,10 @@
     [
      "card_tuba_toad",
      0.004
+    ],
+    [
+     "outfit_beach_lace",
+     0.005
     ]
    ],
    "model": "Blob_Fish"
@@ -2488,6 +3330,10 @@
     [
      "card_mosquito",
      0.004
+    ],
+    [
+     "outfit_alice",
+     0.005
     ]
    ],
    "model": "Flying_Armabee_Evolved"
@@ -2542,6 +3388,14 @@
     [
      "card_marsh_queen",
      0.05
+    ],
+    [
+     "outfit_kimono",
+     0.06
+    ],
+    [
+     "outfit_witch",
+     0.06
     ]
    ],
    "model": "Big_Fish"
@@ -2587,6 +3441,10 @@
     [
      "card_drum_golem",
      0.004
+    ],
+    [
+     "outfit_gal_black",
+     0.005
     ]
    ],
    "model": "Big_Cactoro"
@@ -2632,6 +3490,10 @@
     [
      "card_howler",
      0.004
+    ],
+    [
+     "outfit_white_priest",
+     0.005
     ]
    ],
    "model": "Big_Dino"
@@ -2677,6 +3539,10 @@
     [
      "card_sand_drop",
      0.004
+    ],
+    [
+     "outfit_gray_suit",
+     0.005
     ]
    ],
    "model": "Blob_Cactoro"
@@ -2731,6 +3597,14 @@
     [
      "card_rock_dragon",
      0.05
+    ],
+    [
+     "outfit_tactical",
+     0.06
+    ],
+    [
+     "outfit_shadow_battle",
+     0.06
     ]
    ],
    "model": "Flying_Dragon_Evolved"
@@ -2776,6 +3650,10 @@
     [
      "card_penguin",
      0.004
+    ],
+    [
+     "outfit_tuxedo",
+     0.005
     ]
    ],
    "model": "Blob_Yeti"
@@ -2821,6 +3699,10 @@
     [
      "card_ice_jelly",
      0.004
+    ],
+    [
+     "outfit_dark_idol",
+     0.005
     ]
    ],
    "model": "Big_Birb"
@@ -2866,6 +3748,10 @@
     [
      "card_yeti",
      0.004
+    ],
+    [
+     "outfit_red_qipao",
+     0.005
     ]
    ],
    "model": "Big_Yeti"
@@ -2920,6 +3806,14 @@
     [
      "card_snow_queen",
      0.05
+    ],
+    [
+     "outfit_white_coat",
+     0.06
+    ],
+    [
+     "outfit_frost_princess",
+     0.06
     ]
    ],
    "model": "Flying_Goleling_Evolved"
@@ -2965,6 +3859,10 @@
     [
      "card_fire_bat",
      0.004
+    ],
+    [
+     "outfit_kungfu",
+     0.005
     ]
    ],
    "model": "Flying_Demon"
@@ -3010,6 +3908,10 @@
     [
      "card_magma_golem",
      0.004
+    ],
+    [
+     "outfit_night_wolf",
+     0.005
     ]
    ],
    "model": "Big_Orc"
@@ -3055,6 +3957,10 @@
     [
      "card_flame_metronome",
      0.004
+    ],
+    [
+     "outfit_astronaut_f",
+     0.005
     ]
    ],
    "model": "Flying_Dragon"
@@ -3117,6 +4023,14 @@
     [
      "card_metal_lord",
      0.05
+    ],
+    [
+     "outfit_vampire_count",
+     0.06
+    ],
+    [
+     "outfit_halloween_vampire",
+     0.06
     ]
    ],
    "model": "Flying_Tribal"
@@ -3294,6 +4208,10 @@
     [
      "card_monkroose",
      0.004
+    ],
+    [
+     "outfit_sailor_school",
+     0.005
     ]
    ]
   },
@@ -3338,6 +4256,10 @@
     [
      "card_wizard",
      0.004
+    ],
+    [
+     "outfit_sport_orange",
+     0.005
     ]
    ]
   },
@@ -3382,6 +4304,10 @@
     [
      "card_ninja",
      0.004
+    ],
+    [
+     "outfit_leopard_swim",
+     0.005
     ]
    ]
   },
@@ -3426,6 +4352,10 @@
     [
      "card_squidle",
      0.004
+    ],
+    [
+     "outfit_rock_hoodie",
+     0.005
     ]
    ]
   },
@@ -3470,6 +4400,10 @@
     [
      "card_alien",
      0.004
+    ],
+    [
+     "outfit_maid",
+     0.005
     ]
    ]
   },
@@ -3514,6 +4448,10 @@
     [
      "card_orc",
      0.004
+    ],
+    [
+     "outfit_street",
+     0.005
     ]
    ]
   },
@@ -3558,6 +4496,10 @@
     [
      "card_glub_evo",
      0.004
+    ],
+    [
+     "outfit_street_black",
+     0.005
     ]
    ]
   },
@@ -3602,6 +4544,10 @@
     [
      "card_alpaking",
      0.004
+    ],
+    [
+     "outfit_bunny_butler",
+     0.005
     ]
    ]
   },
@@ -3646,6 +4592,10 @@
     [
      "card_goleling",
      0.004
+    ],
+    [
+     "outfit_black_coat",
+     0.005
     ]
    ]
   },
@@ -3690,6 +4640,10 @@
     [
      "card_tribal",
      0.004
+    ],
+    [
+     "outfit_gothic",
+     0.005
     ]
    ]
   },
@@ -3734,6 +4688,10 @@
     [
      "card_big_ninja",
      0.004
+    ],
+    [
+     "outfit_cyber_mint",
+     0.005
     ]
    ]
   },
@@ -3778,6 +4736,10 @@
     [
      "card_hywirl",
      0.004
+    ],
+    [
+     "outfit_red_singer",
+     0.005
     ]
    ]
   },
@@ -3822,6 +4784,10 @@
     [
      "card_bluedemon",
      0.004
+    ],
+    [
+     "outfit_glitter_black",
+     0.005
     ]
    ]
   },
@@ -3866,6 +4832,10 @@
     [
      "card_alpaking_evo",
      0.004
+    ],
+    [
+     "outfit_red_evening",
+     0.005
     ]
    ]
   },
@@ -3910,6 +4880,10 @@
     [
      "card_ghost_skull",
      0.004
+    ],
+    [
+     "outfit_blue_swords",
+     0.005
     ]
    ]
   },
@@ -3954,6 +4928,10 @@
     [
      "card_demon",
      0.004
+    ],
+    [
+     "outfit_violet_cat",
+     0.005
     ]
    ]
   },
@@ -3998,6 +4976,10 @@
     [
      "card_orc_skull",
      0.004
+    ],
+    [
+     "outfit_astronaut",
+     0.005
     ]
    ]
   },
@@ -4042,6 +5024,10 @@
     [
      "card_dove",
      0.004
+    ],
+    [
+     "outfit_white_cardigan",
+     0.005
     ]
    ]
   }

@@ -3,7 +3,7 @@ import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ITEMS, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
   STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
-  skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, targetsPlayer, totalStats,
+  skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, targetsPlayer, totalStats, outfitOf,
 } from '../../src/data/index.ts';
 import { GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
 import type { RewardShare, TradeOffer } from '../../src/services/store.ts';
@@ -24,6 +24,7 @@ export const PlayerState = schema({
   head: t.string(), // equipped headgear item id, for drawing
   weapon: t.string(), // equipped weapon item id ('' = bare hands), for drawing
   ear: t.string(), // equipped headphones item id, for drawing
+  body: t.string(), // equipped outfit item id (armor with a VRoid model, '' = none): the character's look
   x: t.number(),
   y: t.number(),
   hp: t.number(),
@@ -234,7 +235,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const p = new PlayerState();
     Object.assign(p, {
       name: c.name, cls: c.cls, level: c.level, gender: c.gender, hair: c.hair, hairColor: c.hair_color, face: c.face,
-      head: '', weapon: '', ear: '', hidden: false, x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
+      head: '', weapon: '', ear: '', body: '', hidden: false, x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
       hp: (carry.hp ?? c.hp) > 0 ? Math.min(carry.hp ?? c.hp, seat.derived.maxHp) : seat.derived.maxHp,
       sp: (carry.sp ?? c.sp) >= 0 ? Math.min(carry.sp ?? c.sp, seat.derived.maxSp) : seat.derived.maxSp,
       dead: false, sitting: false,
@@ -1151,6 +1152,8 @@ export class MapRoom extends Room<{ state: MapState }> {
     p.head = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'head')?.item_id ?? '';
     p.weapon = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'weapon')?.item_id ?? '';
     p.ear = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'earring')?.item_id ?? '';
+    const armor = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'armor')?.item_id;
+    p.body = outfitOf(armor) ? armor! : '';
     seat.client.send('derived', { derived: seat.derived });
   }
 

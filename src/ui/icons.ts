@@ -70,7 +70,17 @@ export function itemIcon(id: string): string {
     c.font = '22px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    c.fillText(EMOJI[id] ?? '❔', 16, 18);
+    if (item?.vrm) {
+      // outfits: a round swatch in the outfit's main colour behind the garment
+      c.fillStyle = item.color;
+      c.beginPath();
+      c.arc(16, 16, 14, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = '#e0b21f';
+      c.lineWidth = 2;
+      c.stroke();
+    }
+    c.fillText(EMOJI[id] ?? (item?.vrm ? (item.gender === 'f' ? '👗' : '🥼') : '❔'), 16, 18);
     if (item && (id.includes('bass') || id === 'golden_mic' || id === 'steel_dagger' || id === 'electric_guitar' || id === 'steel_sticks' || id === 'synth')) {
       // tint upgraded variants so they read differently
       c.globalCompositeOperation = 'source-atop';
