@@ -8,6 +8,7 @@ import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setHat } from './models';
 import { animateMaxAura, buildMaxAura } from './levelAura';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
+import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
 import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
@@ -30,6 +31,7 @@ const blendFor = (color: number) => (SOLID_FX.has(color) ? THREE.NormalBlending 
 const TILE_PX = 32; // derived.moveSpeed is pixels/second at this tile size (same as the server)
 const MOVE_SEND_MS = 100;
 const COMBAT_TIME = 0.8; // seconds the instrument stays in hand (and the fighting pose stays) after an attack or skill: stand again within a second
+const READY_TIME = 3; // seconds after an attack or skill the character stays ready for the next monster (rocking on its feet)
 
 export interface WorldHooks {
   system(text: string): void;
@@ -79,6 +81,8 @@ interface PlayerActor {
   attack: number;
   /** Seconds left with the instrument in hand after the last attack; then it goes back over the shoulder. */
   combat: number;
+  /** Seconds left in the ready stance after the last attack or skill (weapon in hand, rocking on its feet). */
+  ready?: number;
   /** Teen dagger combo: which move the last attack was, and when it was swung (ms). */
   combo?: number;
   lastSwing?: number;
@@ -162,6 +166,7 @@ export class World3D {
   private monsters = new Map<string, MonsterActor>();
   private hits: THREE.Mesh[] = [];
   private npcHits = new Map<THREE.Object3D, Npc>();
+  private npcs: NpcLife[] = [];
   private path: { x: number; y: number }[] = [];
   private target: Target | null = null;
   private pendingSkill: { id: string; target?: string } | null = null;
@@ -313,10 +318,11 @@ export class World3D {
       rig.root.add(hit);
       this.npcHits.set(hit, n);
       this.hits.push(hit);
-      this.animated.push(rig.root);
-      rig.root.userData.rig = rig;
-      this.upgradeNpc(rig, { ...n.look }, hit);
-      this.staticLabel(`<span class="npc">${escapeHtml(n.name)}</span>`, new THREE.Vector3(n.x + 0.5, 0, n.y + 0.5));
+      const label = new THREE.Vector3(n.x + 0.5, 0, n.y + 0.5);
+      const life = npcLife(n, rig, label);
+      this.npcs.push(life);
+      this.upgradeNpc(life, { ...n.look }, hit);
+      this.staticLabel(`<span class="npc">${escapeHtml(n.name)}</span>`, label);
     }
     for (const p of this.map.portals) {
       const g = buildPortal();
@@ -395,15 +401,16 @@ export class World3D {
     a.rig = v;
   }
 
-  private async upgradeNpc(old: CharRig, look: Look, hit: THREE.Mesh) {
+  private async upgradeNpc(life: NpcLife, look: Look, hit: THREE.Mesh) {
     const v = await buildVrmCharacter(look);
     if (!v || this.ac.signal.aborted) return;
+    const old = life.rig;
     v.root.position.copy(old.root.position);
+    v.root.rotation.copy(old.root.rotation);
     v.root.add(hit);
-    v.root.userData.rig = v;
     this.scene.remove(old.root);
     this.scene.add(v.root);
-    this.animated = this.animated.map((o) => (o === old.root ? v.root : o));
+    life.rig = v;
   }
 
   /** Party members on this map (session ids): their names are drawn in the party color. */
@@ -804,6 +811,7 @@ export class World3D {
         this.face(a, m.x, m.y);
         a.attack = 1;
         a.combat = COMBAT_TIME;
+        a.ready = READY_TIME;
         sfxAttack(a.cls, this.vol(a.x, a.y, a === this.me));
         this.attackFx(a, m, land);
       } else land();
@@ -919,12 +927,14 @@ export class World3D {
       this.syncPlayers(state, dt, t);
       this.updateMe(state, dt);
     }
+    // town NPCs: idling at their posts, strolling round them, turning to the player
+    const me = this.me ? { x: this.me.x, y: this.me.y } : null;
+    for (const n of this.npcs) tickNpc(n, this.map, t, dt, me);
     // ambient animation
     for (const o of this.animated) {
       if (o.name === 'flag') o.rotation.y = Math.sin(t * 2 + o.id) * 0.25;
       else if (o.name === 'water') o.position.y = 0.36 + Math.sin(t * 2) * 0.01;
       else if (o.userData.tick) o.userData.tick(t);
-      else if (o.userData.rig) animateRig(o.userData.rig, t + o.id, { moving: false, sitting: false, dead: false, attack: 0 });
       else {
         for (let i = 0; i < 3; i++) {
           const ring = o.getObjectByName(`ring${i}`);
@@ -1087,6 +1097,8 @@ export class World3D {
       a.perform = Math.max(0, Math.min(1, (a.perform ?? 0) + (performing ? dt * 5 : -dt * 4)));
       if (performing) a.combat = Math.max(a.combat, 1);
       a.combat = Math.max(0, a.combat - dt);
+      a.ready = Math.max(0, (a.ready ?? 0) - dt);
+      if (a.dead || a.sitting) a.ready = 0;
       a.rig.root.position.set(a.x, 0, a.y);
       if (a.dash) {
         const k = (performance.now() - a.dash.t) / DASH_MS;
@@ -1096,7 +1108,7 @@ export class World3D {
           a.rig.root.position.set(a.dash.x + (a.x - a.dash.x) * e, 0, a.dash.y + (a.y - a.dash.y) * e);
         }
       }
-      animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0, armed: a.armed, combo: a.combo, perform: a.perform });
+      animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0 || a.ready > 0, armed: a.armed, combo: a.combo, perform: a.perform, ready: a.ready > 0 });
       if (a.cast) {
         const k = Math.min(1, (performance.now() - a.cast.start) / a.cast.ms);
         a.cast.bar.position.set(a.x, 2.35, a.y);
@@ -1451,6 +1463,7 @@ export class World3D {
       this.face(a, msg.x, msg.y);
       a.attack = 1;
       a.combat = COMBAT_TIME;
+      a.ready = READY_TIME;
     }
     if (bladeSkill) {
       // drawn by bladeFx
@@ -1574,6 +1587,7 @@ export class World3D {
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       if (skill.type !== 'aoe_self' && !isBuff) this.face(a, msg.x, msg.y);
       a.combat = COMBAT_TIME;
+      a.ready = READY_TIME;
       if (isBuff && skill.cls !== 'drummer') a.performUntil = performance.now() + 1800;
       else if (!isBuff && skill.cls !== 'singer') a.attack = 1;
     }
@@ -1790,6 +1804,7 @@ export class World3D {
     a.cast = { start, ms, bar };
     a.performUntil = start + ms;
     a.combat = COMBAT_TIME;
+    a.ready = READY_TIME;
     this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}...`, 'shout', 1200);
     const circle = new THREE.Mesh(new THREE.RingGeometry(0.75, 1, 6, 1), new THREE.MeshBasicMaterial({ color: c, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: blendFor(c) }));
     circle.rotation.x = -Math.PI / 2;

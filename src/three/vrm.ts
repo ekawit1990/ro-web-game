@@ -214,7 +214,16 @@ const isCloth = (m: THREE.Mesh) => ([] as THREE.Material[]).concat(m.material).s
  * on (skirts, coat tails, hat brims: J_Sec_*) are copied in, with their spring-bone physics. Only one face and
  * one set of hair per character, so a town full of outfits costs little more than before.
  */
-function graft(base: VRM, from: VRM, take: (m: THREE.SkinnedMesh) => boolean) {
+function graft(base: VRM, from: VRM, take: (m: THREE.SkinnedMesh) => boolean, fit = false) {
+  // `fit`: the parts are made on another body: resize them bone by bone to this character's limbs and trunk
+  const scales = fit ? boneScales(base, from) : null;
+  const scaleOf = (b: THREE.Object3D | null) => {
+    for (let o = b; o && scales; o = o.parent) {
+      const k = scales.get(o.name);
+      if (k !== undefined) return k;
+    }
+    return 1;
+  };
   const byName = new Map<string, THREE.Object3D>();
   base.scene.traverse((o) => {
     const sm = o as THREE.SkinnedMesh;
@@ -227,12 +236,14 @@ function graft(base: VRM, from: VRM, take: (m: THREE.SkinnedMesh) => boolean) {
   const R = new THREE.Matrix4().makeRotationY(flip ? Math.PI : 0);
   const qR = new THREE.Quaternion().setFromRotationMatrix(R);
   const boneFor = (b: THREE.Object3D): THREE.Object3D => {
-    const got = byName.get(b.name);
+    // the body's bones are shared by name; the swinging ones (skirts, coat tails, hair: J_Sec_*) belong to the part.
+    // This character may have its own skirt bones by the same names, laid out for its own (longer, wider) skirt.
+    const got = added.get(b) ?? (b.name.startsWith('J_Sec_') ? undefined : byName.get(b.name));
     if (got) return got;
     const parent = b.parent && b.parent !== from.scene ? boneFor(b.parent) : base.scene;
     const nb = new THREE.Bone();
     nb.name = b.name;
-    nb.position.copy(b.position).applyQuaternion(qR);
+    nb.position.copy(b.position).multiplyScalar(scaleOf(b.parent)).applyQuaternion(qR);
     nb.quaternion.copy(qR).multiply(b.quaternion).multiply(qR.clone().invert());
     nb.scale.copy(b.scale);
     parent.add(nb);
@@ -250,7 +261,14 @@ function graft(base: VRM, from: VRM, take: (m: THREE.SkinnedMesh) => boolean) {
     if (!host && (o as THREE.SkinnedMesh).isSkinnedMesh) host = o.parent;
   });
   for (const m of parts) {
-    const sk = new THREE.Skeleton(m.skeleton.bones.map(boneFor) as THREE.Bone[], m.skeleton.boneInverses.map((x) => R.clone().multiply(x)));
+    const sk = new THREE.Skeleton(
+      m.skeleton.bones.map(boneFor) as THREE.Bone[],
+      // a scale in the inverse bind matrix shrinks or grows the part round each bone it hangs on
+      m.skeleton.boneInverses.map((x, i) => {
+        const k = scaleOf(m.skeleton.bones[i]);
+        return k === 1 ? R.clone().multiply(x) : R.clone().multiply(new THREE.Matrix4().makeScale(k, k, k)).multiply(x);
+      }),
+    );
     const nm = new THREE.SkinnedMesh(m.geometry, m.material);
     nm.name = m.name;
     (host ?? base.scene).add(nm);
@@ -269,6 +287,104 @@ function graft(base: VRM, from: VRM, take: (m: THREE.SkinnedMesh) => boolean) {
     springs.setInitState();
   }
   return parts.length;
+}
+
+/**
+ * How much longer this character's limbs and trunk are than the source model's, per source bone name: a part made
+ * on a grown-up body then fits a small or chibi character (VRoid rest bones carry no rotation, so a scale is enough).
+ */
+function boneScales(base: VRM, from: VRM) {
+  const at = (v: VRM, n: VRMHumanBoneName) => v.humanoid.getRawBoneNode(n)?.getWorldPosition(new THREE.Vector3());
+  const ratio = (a: VRMHumanBoneName, b: VRMHumanBoneName) => {
+    const p = at(base, a), q = at(base, b), r = at(from, a), t = at(from, b);
+    const x = p && q ? p.distanceTo(q) : 0;
+    const y = r && t ? r.distanceTo(t) : 0;
+    return x > 1e-4 && y > 1e-4 ? THREE.MathUtils.clamp(x / y, 0.4, 2.5) : 1;
+  };
+  const trunk = ratio('hips', 'neck');
+  const legs = { left: ratio('leftUpperLeg', 'leftFoot'), right: ratio('rightUpperLeg', 'rightFoot') };
+  const arms = { left: ratio('leftUpperArm', 'leftHand'), right: ratio('rightUpperArm', 'rightHand') };
+  const out = new Map<string, number>();
+  for (const [name, bone] of Object.entries(from.humanoid.humanBones)) {
+    const node = bone?.node;
+    if (!node) continue;
+    const side = name.startsWith('left') ? 'left' : name.startsWith('right') ? 'right' : null;
+    const k = !side ? trunk : /Leg|Foot|Toes/.test(name) ? legs[side] : /Shoulder/.test(name) ? trunk : arms[side];
+    out.set(node.name, k);
+  }
+  return out;
+}
+
+/** The typical skin colour of a model's body texture (warm, opaque texels), or null. */
+function skinOf(scene: THREE.Object3D): THREE.Color | null {
+  let img: (CanvasImageSource & { width: number; height: number }) | null = null;
+  scene.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (img || !m.isMesh) return;
+    for (const mat of ([] as THREE.Material[]).concat(m.material)) {
+      const map = (mat as THREE.MeshBasicMaterial).map;
+      if (/Body_00_SKIN/.test(mat.name) && map?.image) img = map.image as typeof img;
+    }
+  });
+  if (!img) return null;
+  try {
+    const n = 48;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = n;
+    const c = cv.getContext('2d', { willReadFrequently: true })!;
+    c.drawImage(img, 0, 0, n, n);
+    const d = c.getImageData(0, 0, n, n).data;
+    const ch: number[][] = [[], [], []];
+    for (let i = 0; i < d.length; i += 4) {
+      // skin: opaque, red > green > blue, not too dark (clothes painted on the body are grey, black or blue)
+      if (d[i + 3] > 200 && d[i] > 70 && d[i] > d[i + 1] && d[i + 1] > d[i + 2] && d[i] - d[i + 2] > 18) {
+        ch[0].push(d[i]);
+        ch[1].push(d[i + 1]);
+        ch[2].push(d[i + 2]);
+      }
+    }
+    if (ch[0].length < 20) return null;
+    const med = (a: number[]) => a.sort((x, y) => x - y)[a.length >> 1] / 255;
+    return new THREE.Color().setRGB(med(ch[0]), med(ch[1]), med(ch[2]), THREE.SRGBColorSpace);
+  } catch {
+    return null; // a tainted or unreadable image: keep the uniform's own skin
+  }
+}
+
+/** The school uniform every Teen wears (white shirt and navy tie / sailor blouse and skirt): tools/make_uniform.py. */
+const UNIFORM = { m: 'uniform_m.vrm.gz', f: 'uniform_f.vrm.gz' };
+
+/**
+ * Puts the school uniform on a character: the uniform's clothes and body, resized to this character's skeleton,
+ * with the body tinted to this character's own skin. Their face and hair stay. Returns false if it didn't load.
+ */
+async function wearUniform(vrm: VRM, gender: 'm' | 'f') {
+  const skin = skinOf(vrm.scene);
+  const from = await track(parse(UNIFORM[gender]));
+  const theirs = skinOf(from.scene);
+  const own: THREE.Object3D[] = [];
+  vrm.scene.traverse((o) => {
+    const sm = o as THREE.SkinnedMesh;
+    if (sm.isSkinnedMesh && isCloth(sm) && sm.visible) own.push(sm);
+  });
+  const before = new Set<THREE.Object3D>();
+  vrm.scene.traverse((o) => before.add(o));
+  if (!graft(vrm, from, isCloth, true)) return false;
+  for (const o of own) o.visible = false;
+  if (skin && theirs) {
+    const k = [skin.r / theirs.r, skin.g / theirs.g, skin.b / theirs.b].map((x) => THREE.MathUtils.clamp(x, 0.35, 1.3));
+    vrm.scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || before.has(o)) return;
+      for (const mat of ([] as THREE.Material[]).concat(m.material)) {
+        if (!/Body_00_SKIN/.test(mat.name)) continue;
+        const mt = mat as THREE.Material & { color?: THREE.Color; shadeColorFactor?: THREE.Color };
+        mt.color?.setRGB(mt.color.r * k[0], mt.color.g * k[1], mt.color.b * k[2]);
+        mt.shadeColorFactor?.setRGB(mt.shadeColorFactor.r * k[0], mt.shadeColorFactor.g * k[1], mt.shadeColorFactor.b * k[2]);
+      }
+    });
+  }
+  return true;
 }
 
 /** Loads a VRM character for this look, or null when no model is configured / it fails. */
@@ -309,6 +425,15 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
       console.warn('outfit failed to load', e);
     }
   }
+  // Teens (every new character) wear the school uniform; after the job change it's the armour below
+  let student = false;
+  if (!dressed && !look.body && (look.cls ?? 'teen') === 'teen') {
+    try {
+      student = await wearUniform(vrm, look.gender === 'f' ? 'f' : 'm');
+    } catch (e) {
+      console.warn('uniform failed to load', e);
+    }
+  }
   if (hatItem?.vrm && hatItem.part) {
     try {
       const part = hatItem.part;
@@ -336,9 +461,16 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
   const h = Math.max(0.3, box.max.y - box.min.y);
   vrm.scene.scale.setScalar(HEIGHT / h);
   vrm.scene.position.y = -box.min.y * (HEIGHT / h);
+  // the swinging parts (hair, skirts) remember where their tips were: measured before the model was turned round
+  // (VRM 0.x) and scaled, a grafted skirt would fly out towards those old places. Start them from here instead.
+  vrm.scene.updateMatrixWorld(true);
+  vrm.springBoneManager?.reset();
+  // hip to ankle, in game units: how far the body sinks when the knees bend (the ready stance keeps feet down)
+  const yOf = (n: VRMHumanBoneName) => vrm.humanoid.getRawBoneNode(n)?.getWorldPosition(new THREE.Vector3()).y;
+  root.userData.legLen = Math.max(0.2, (yOf('hips') ?? 0.75) - (yOf('leftFoot') ?? 0.05));
 
-  // players all wear the same armour (NPCs keep their own clothes; an outfit brings its own)
-  if (!look.body && !dressed) {
+  // after the job change players all wear the same armour (NPCs keep their own clothes; an outfit brings its own)
+  if (!look.body && !dressed && !student) {
     try {
       dressArmour(vrm, root);
     } catch (e) {
@@ -710,7 +842,7 @@ const POSES: Record<string, { rU: [number, number]; rL: number; lU: [number, num
 };
 
 const POSED: VRMHumanBoneName[] = ['rightUpperArm', 'leftUpperArm', 'rightLowerArm', 'leftLowerArm', 'leftUpperLeg', 'rightUpperLeg',
-  'leftLowerLeg', 'rightLowerLeg', 'spine', 'chest', 'head', 'rightHand', 'leftHand'];
+  'leftLowerLeg', 'rightLowerLeg', 'spine', 'chest', 'head', 'rightHand', 'leftHand', 'hips', 'leftFoot', 'rightFoot'];
 
 type V3 = [number, number, number];
 /**
@@ -724,6 +856,9 @@ interface ComboKey { at: number; bones: Partial<Record<VRMHumanBoneName, V3>>; d
  * knees bent and weight low, shoulders turned so the left side leads, head kept on the target,
  * off hand up in front of the chest and the dagger held low at the hip, point forward.
  */
+/** The Teen between attacks: dagger held forward at the waist, point out, off hand loose in front of the chest. */
+const READY_ARMS = { rU: [-0.5, 1.15] as const, rL: 1.2, lU: [-0.55, -1.08] as const, lL: -1.3 };
+
 const GUARD: Partial<Record<VRMHumanBoneName, V3>> = {
   leftUpperLeg: [-0.55, 0, -0.18], leftLowerLeg: [0.8, 0, 0], rightUpperLeg: [0.3, 0, 0.18], rightLowerLeg: [0.4, 0, 0],
   spine: [0.22, -0.3, 0], chest: [0.06, -0.1, 0], head: [-0.2, 0.38, 0],
@@ -845,6 +980,8 @@ export interface AnimState {
   combo?: number;
   /** 0..1: playing / singing for a buff skill or while casting (guitarist, bassist, singer). */
   perform?: number;
+  /** Still in a fight between attacks, waiting to hit the next monster: a light stance, rocking from foot to foot. */
+  ready?: boolean;
 }
 
 const DRAW_TIME = 0.22; // seconds to swing the instrument from the back into the hands
@@ -886,25 +1023,129 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
   rig.body.position.set(0, 0, 0);
   for (const n of POSED) b(n)?.rotation.set(0, 0, 0);
 
-  const swing = s.moving ? Math.sin(t * 11) : 0;
-  const armSwing = swing * (cls.locked ? mix(0.5, 0.1) : 0.5);
+  // guard stance of the dagger / sticks, only while an attack plays (it eases in and out of each attack)
+  const fighting = (knife || (clsKey === 'drummer' && armed)) && k > 0 && s.attack > 0 && !s.moving && !s.sitting && !s.dead;
+  const g = fighting ? k * Math.min(1, (1 - s.attack) / 0.12, s.attack / 0.12) : 0;
+
+  // Body motion in layers: walking, standing about, and the ready stance between attacks. Each one fades in and
+  // out instead of snapping, and every character keeps its own rhythm.
+  const ud = rig.root.userData;
+  const fade = (key: string, want: number, rate: number) => {
+    const cur = (ud[key] as number | undefined) ?? want;
+    const v = cur + THREE.MathUtils.clamp(want - cur, -rate * dt, rate * dt);
+    ud[key] = v;
+    return v * v * (3 - 2 * v);
+  };
+  const free = !s.sitting && !s.dead;
+  const W = fade('walkW', s.moving && free ? 1 : 0, 6);
+  const R = fade('readyW', s.ready && !s.moving && free ? 1 : 0, 3.5) * (1 - g);
+  const I = (1 - W) * (1 - R);
+  const seed = (rig.root.id % 97) * 1.37;
+  const legLen = (ud.legLen as number | undefined) ?? 0.7;
   const set = (n: VRMHumanBoneName, x: number, y: number, z: number) => b(n)?.rotation.set(x, y, z);
+  const nudge = (n: VRMHumanBoneName, x: number, y: number, z: number, w: number) => {
+    if (w <= 0) return;
+    const r = b(n)?.rotation;
+    if (r) r.set(r.x + x * w, r.y + y * w, r.z + z * w);
+  };
+  // the body moves sideways over the feet: lean the legs back under it so the feet stay where they stand
+  const shiftBody = (dx: number) => {
+    rig.body.position.x += dx;
+    nudge('leftUpperLeg', 0, 0, -dx / legLen, 1);
+    nudge('rightUpperLeg', 0, 0, -dx / legLen, 1);
+  };
+
+  // arms: the class pose (instrument or dagger in hand) or hanging loose, swinging against the legs when walking
+  const ph = t * 10.5;
+  const sw = Math.sin(ph), cw = Math.cos(ph);
+  const loose = cls.locked ? 1 - k : 1;
+  const armSwing = sw * (cls.locked ? mix(0.5, 0.1) : 0.5) * W;
   set('rightUpperArm', pose.rU[0] + armSwing, 0, pose.rU[1]);
   set('leftUpperArm', pose.lU[0] - armSwing, 0, pose.lU[1]);
-  set('rightLowerArm', 0, pose.rL, 0);
-  set('leftLowerArm', 0, pose.lL, 0);
-  set('leftUpperLeg', swing * 0.6, 0, 0);
-  set('rightUpperLeg', -swing * 0.6, 0, 0);
-  set('leftLowerLeg', s.moving ? Math.max(0, -swing) * 0.8 : 0, 0, 0);
-  set('rightLowerLeg', s.moving ? Math.max(0, swing) * 0.8 : 0, 0, 0);
-  set('spine', s.moving ? 0.06 : Math.sin(t * 2) * 0.015, 0, 0);
-  set('head', gear?.ik ? 0.14 * k : 0, 0, s.moving ? 0 : Math.sin(t * 1.3) * 0.04);
-  rig.body.position.y = s.moving ? Math.abs(Math.sin(t * 11)) * 0.04 : 0;
+  set('rightLowerArm', 0, pose.rL + 0.3 * Math.max(0, -sw) * W * loose, 0);
+  set('leftLowerArm', 0, pose.lL - 0.3 * Math.max(0, sw) * W * loose, 0);
+  set('head', gear?.ik ? 0.14 * k : 0, 0, 0);
 
-  if ((knife || (clsKey === 'drummer' && armed)) && k > 0 && s.attack > 0 && !s.moving && !s.sitting && !s.dead) {
-    // guard stance, only while an attack plays (it eases in and out): knees bent, feet apart, weight low.
-    // Between attacks the character stands straight again straight away.
-    const g = k * Math.min(1, (1 - s.attack) / 0.12, s.attack / 0.12);
+  if (W > 0) {
+    // walking: the hips swing the legs, the knees fold through each swing and the feet roll from heel to toe;
+    // the pelvis turns with the stepping leg and the shoulders turn against it; the body rides highest over the
+    // standing leg and leans a little over it
+    // knee: folds most just after the toe leaves the ground, nearly straight again as the heel comes down
+    const knee = (p: number) => 0.1 + 0.7 * Math.max(0, Math.cos(p - 0.85 * Math.PI)) ** 2;
+    nudge('leftUpperLeg', sw * 0.48, 0, 0, W);
+    nudge('rightUpperLeg', -sw * 0.48, 0, 0, W);
+    nudge('leftLowerLeg', knee(ph), 0, 0, W);
+    nudge('rightLowerLeg', knee(ph + Math.PI), 0, 0, W);
+    nudge('leftFoot', 0.22 * sw, 0, 0, W);
+    nudge('rightFoot', -0.22 * sw, 0, 0, W);
+    nudge('hips', 0, 0.08 * sw, 0.025 * cw, W);
+    nudge('spine', 0.06, -0.05 * sw, -0.02 * cw, W);
+    nudge('chest', 0, -0.06 * sw, 0, W);
+    nudge('head', -0.03, 0.03 * sw, 0, W);
+    rig.body.position.y += (Math.abs(cw) - 0.65) * 0.045 * W;
+    shiftBody(0.012 * cw * W);
+  }
+  if (I > 0) {
+    // standing about: breathing, the weight drifting from one leg to the other (the free knee eases), a slow look
+    // round
+    const br = Math.sin(t * 1.7 + seed);
+    const shift = Math.sin(t * 0.45 + seed * 0.7) * 0.7 + Math.sin(t * 0.21 + seed * 1.9) * 0.3;
+    const look = Math.sin(t * 0.29 + seed * 1.3) * 0.65 + Math.sin(t * 0.77 + seed) * 0.35;
+    nudge('spine', 0.012 * br, 0, -0.02 * shift, I);
+    nudge('chest', -0.018 * br, 0, 0, I);
+    nudge('hips', 0, 0.03 * shift, 0.03 * shift, I);
+    const relaxL = Math.max(0, -shift), relaxR = Math.max(0, shift);
+    nudge('leftUpperLeg', -0.05 * relaxL, 0, 0, I);
+    nudge('leftLowerLeg', 0.13 * relaxL, 0, 0, I);
+    nudge('rightUpperLeg', -0.05 * relaxR, 0, 0, I);
+    nudge('rightLowerLeg', 0.13 * relaxR, 0, 0, I);
+    nudge('leftUpperArm', 0, 0, 0.02 * br * loose, I);
+    nudge('rightUpperArm', 0, 0, -0.02 * br * loose, I);
+    nudge('head', 0.015 * br, 0.18 * look, 0.03 * shift, I);
+    shiftBody(0.014 * shift * I);
+    rig.body.position.y += (0.002 * br - 0.005 * Math.abs(shift)) * I;
+  }
+  if (R > 0) {
+    // ready for the next monster: left foot a little forward, knees soft, rocking from foot to foot with a small
+    // bounce as the weight lands on each; shoulders roll with it and the head stays on the target
+    const om = t * 4.6 + seed;
+    const sway = Math.sin(om);
+    const dip = sway * sway;
+    const fa = 0.2 + 0.1 * dip, fk = 0.32 + 0.2 * dip; // front leg: thigh forward, knee bend
+    const ba = 0.07, bk = 0.2 + 0.2 * dip; // back leg
+    nudge('leftUpperLeg', -fa, 0, -0.07, R);
+    nudge('leftLowerLeg', fk, 0, 0, R);
+    nudge('rightUpperLeg', ba, 0, 0.07, R);
+    nudge('rightLowerLeg', bk, 0, 0, R);
+    nudge('leftFoot', fa - fk, 0, 0, R * 0.6);
+    nudge('rightFoot', -(ba + bk) * 0.5, 0, 0, R * 0.6);
+    nudge('hips', 0, -0.1, 0.03 * sway, R);
+    nudge('spine', 0.12, -0.08, -0.08 * sway, R);
+    nudge('chest', 0.03, 0.06 * sway, 0, R);
+    nudge('head', -0.1, 0.18 - 0.06 * sway, 0.04 * sway, R);
+    if (knife) {
+      // the dagger comes down from the high guard to the waist while waiting
+      const a = R * k;
+      const to = (n: VRMHumanBoneName, x: number, y: number, z: number) => {
+        const r = b(n)?.rotation;
+        if (r) r.set(r.x + (x - r.x) * a, r.y + (y - r.y) * a, r.z + (z - r.z) * a);
+      };
+      to('rightUpperArm', READY_ARMS.rU[0], 0, READY_ARMS.rU[1]);
+      to('rightLowerArm', 0, READY_ARMS.rL, 0);
+      to('leftUpperArm', READY_ARMS.lU[0], 0, READY_ARMS.lU[1]);
+      to('leftLowerArm', 0, READY_ARMS.lL, 0);
+    }
+    nudge('rightUpperArm', 0.06 * dip, 0, 0, R * loose);
+    nudge('leftUpperArm', 0.06 * dip, 0, 0, R * loose);
+    // drop the hips by what the bent legs lose in height, so the feet stay on the ground
+    const front = (Math.cos(fa) + Math.cos(fk - fa)) / 2;
+    const back = (Math.cos(ba) + Math.cos(ba + bk)) / 2;
+    rig.body.position.y -= legLen * (1 - (front + back) / 2) * R;
+    shiftBody(0.05 * sway * R);
+  }
+
+  if (g > 0) {
+    // the deep guard only lasts while an attack plays; between attacks the light ready stance above takes over
     for (const [n, v] of Object.entries(GUARD) as [VRMHumanBoneName, V3][]) {
       const r = b(n)?.rotation;
       if (r) r.set(r.x + v[0] * g, r.y + v[1] * g, r.z + v[2] * g);

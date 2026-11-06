@@ -276,8 +276,8 @@ function createScreen(store: GameStore): Promise<boolean> {
     document.querySelectorAll('[data-color]').forEach((b) => b.classList.toggle('on', Number((b as HTMLElement).dataset.color) === look.hair_color));
   };
   const c = CLASSES[START_CLASS];
-  $('cls-desc').innerHTML = `<b style="color:${c.color}">${c.name}</b> (มีดสั้น) ทุกคนเริ่มที่อาชีพนี้ในชุดเกราะเดียวกัน<br>`
-    + `ถึง Base Lv ${JOB_CHANGE.level} ไปหาครูแนะแนวอาชีพในเมือง เพื่อเป็น นักร้อง กีตาร์ เบส กลอง หรือคีย์บอร์ด`;
+  $('cls-desc').innerHTML = `<b style="color:${c.color}">${c.name}</b> (มีดสั้น) ทุกคนเริ่มที่อาชีพนี้ในชุดนักเรียน<br>`
+    + `ถึง Base Lv ${JOB_CHANGE.level} ไปหาครูแนะแนวอาชีพในเมือง เพื่อเป็น นักร้อง กีตาร์ เบส กลอง หรือคีย์บอร์ด (เปลี่ยนอาชีพแล้วได้ชุดเกราะ)`;
 
   $('hair-colors').innerHTML = HAIR_COLORS.map((h, i) => `<button type="button" data-color="${i}" style="background:${h}"></button>`).join('');
 
