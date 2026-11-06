@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, CROWD_MAX, ClassKey, ITEMS, MAX_LEVEL, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf, vrmHatOf } from '../data';
-import { findPath, GameMap, Npc, THEMES, walkable } from '../game/maps';
+import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVEL, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf, vrmHatOf } from '../data';
+import { findPath, GameMap, Npc, THEMES, isLava, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
 import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
@@ -270,7 +270,9 @@ export class World3D {
 
   private buildScene() {
     this.scene.background = new THREE.Color(THEMES[this.map.theme].sky);
-    this.scene.fog = new THREE.Fog(this.scene.background, 42, 105);
+    // lava maps see further (the big volcano), the cave and the haunted maps less far
+    const [near, far] = isLava(this.map.theme) ? [60, 150] : this.map.theme === 'cave' ? [26, 72] : this.map.theme === 'deadwood' || this.map.theme === 'ruins' ? [30, 88] : [42, 105];
+    this.scene.fog = new THREE.Fog(this.scene.background, near, far);
     const mood = MOODS[this.map.theme];
     renderer!.toneMapping = THREE.NeutralToneMapping;
     renderer!.toneMappingExposure = mood.exposure;
@@ -427,7 +429,8 @@ export class World3D {
     hit.userData.monster = id;
     rig.root.add(hit);
     this.hits.push(hit);
-    const label = this.makeLabel(`${def.boss ? '★ ' : ''}${escapeHtml(def.name)} <span class="lv">Lv.${def.level}</span>`, true);
+    const [mel, melv] = monsterElement(def);
+    const label = this.makeLabel(`${def.boss ? '★ ' : ''}${escapeHtml(def.name)} <span class="lv">Lv.${def.level}</span> <span class="el" title="${ELEMENTS[mel].name} ${melv}">${ELEMENTS[mel].icon}${melv}</span>`, true);
     label.el.classList.add('mon');
     if (def.boss) label.el.classList.add('boss');
     const m: MonsterActor = {
@@ -780,7 +783,7 @@ export class World3D {
 
   private listen() {
     const on = (type: string, fn: (msg: any) => void) => this.unsubs.push(this.room.onMessage(type, fn));
-    on('hit', (msg: { by: string; m: string; dmg: number; crit: boolean }) => {
+    on('hit', (msg: { by: string; m: string; dmg: number; crit: boolean; el?: 'up' | 'down' | '' }) => {
       const m = this.monsters.get(msg.m);
       const a = this.players.get(msg.by);
       if (!m) return;
@@ -788,7 +791,9 @@ export class World3D {
       const land = () => {
         const p = this.top(m);
         sfx(msg.dmg === 0 ? 'miss' : msg.crit ? 'crit' : 'hit', vol);
-        if (msg.dmg === 0) this.floatText(p, 'Miss', 'miss');
+        // element: "weak!" / "resists" over my own hits
+        if (a === this.me && msg.el) this.floatText(p.clone().add(new THREE.Vector3(0, 0.45, 0)), msg.el === 'up' ? 'แพ้ธาตุ!' : msg.dmg === 0 ? 'ไม่ได้ผล' : 'ต้านธาตุ', msg.el === 'up' ? 'el-up' : 'el-down', 1000);
+        if (msg.dmg === 0) this.floatText(p, msg.el === 'down' ? '0' : 'Miss', 'miss');
         else {
           this.floatText(p, String(msg.dmg), msg.crit ? 'crit' : a === this.me ? 'deal' : 'other');
           this.flash(m.rig.root);

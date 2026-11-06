@@ -30,7 +30,12 @@ const TINTS: Partial<Record<Theme, Record<string, number>>> = {
   snow: { PineTree_Leaves: 0xd6ece6, PineTree_Bark: 0xb8a8a0 },
   canyon: { Grass: 0xd9c27a, None: 0xc9b46a, NormalTree_Bark: 0xc8a888 },
   marsh: { Grass: 0x8fa868, None: 0x7f9a58, NormalTree_Bark: 0x8a8070, BirchTree_Leaves: 0xa8c070 },
-  volcano: { NormalTree_Bark: 0x5a4a45 },
+  volcano: { NormalTree_Bark: 0x5a4a45, Rock: 0x5a4844 },
+  inferno: { NormalTree_Bark: 0x2e2422, Rock: 0x4a3834 },
+  beach: { Grass: 0xb8d878, None: 0xa8c868 },
+  cave: { Rock: 0x8078a8 },
+  deadwood: { Grass: 0x8a8a5a, None: 0x7a7a52, NormalTree_Bark: 0xa098a8, BirchTree_Leaves: 0x9a9070 },
+  ruins: { Grass: 0x8aa070, None: 0x7a9060, NormalTree_Bark: 0x6a6258, BirchTree_Leaves: 0x9aa070 },
   desert: { Grass: 0xd9c27a, None: 0xc9b46a },
 };
 
@@ -113,6 +118,12 @@ const LOOK: Record<Theme, { trees: string[]; grass: number; flowers: number; bus
   snow: { trees: ['PineTree_1', 'PineTree_2', 'PineTree_4', 'PineTree_5'], grass: 0, flowers: 0, bushes: 0 },
   volcano: { trees: ['DeadTree_1', 'DeadTree_3', 'DeadTree_2'], grass: 0, flowers: 0, bushes: 0 },
   desert: { trees: ['PalmTree_1', 'PalmTree_2', 'PalmTree_3'], grass: 0.012, flowers: 0, bushes: 0.006 },
+  inferno: { trees: ['DeadTree_1', 'DeadTree_3'], grass: 0, flowers: 0, bushes: 0 },
+  beach: { trees: ['PalmTree_1', 'PalmTree_2', 'PalmTree_3'], grass: 0.02, flowers: 0, bushes: 0.008 },
+  // the cave's "trees" are tall rock spires (see plan)
+  cave: { trees: ['Rock_1', 'Rock_2', 'Rock_3', 'Rock_5'], grass: 0, flowers: 0, bushes: 0 },
+  deadwood: { trees: ['DeadTree_1', 'DeadTree_2', 'DeadTree_3'], grass: 0.12, flowers: 0, bushes: 0.01 },
+  ruins: { trees: ['DeadTree_1', 'DeadTree_2', 'DeadTree_3', 'BirchTree_1'], grass: 0.14, flowers: 0.004, bushes: 0.03 },
 };
 const BUSHES = ['Bush', 'Bush_Flowers', 'Bush_Large', 'Bush_Small_Flowers'];
 const FLOWERS = ['Flower_1_Clump', 'Flower_2_Clump', 'Flower_3_Clump', 'Flower_4_Clump', 'Plant_1', 'Plant_Flowers'];
@@ -136,7 +147,9 @@ function plan(map: GameMap): Spot[] {
     if (o.kind === 'tree') {
       const r = hash(o.x, o.y, 1);
       const model = pick(look.trees, r);
-      const s = TREE_SCALE[model.replace(/Tree.*/, '')] * (o.big ? 1.1 : 0.85) * (0.9 + hash(o.x, o.y, 2) * 0.25);
+      // cave: rock spires stand in for trees
+      const s = model.startsWith('Rock') ? (o.big ? 1.9 : 1.4) * (0.85 + hash(o.x, o.y, 2) * 0.4)
+        : TREE_SCALE[model.replace(/Tree.*/, '')] * (o.big ? 1.1 : 0.85) * (0.9 + hash(o.x, o.y, 2) * 0.25);
       out.push({ model, x: o.x + 0.5, z: o.y + 0.5, s, rot: hash(o.x, o.y, 3) * Math.PI * 2 });
       used.add(`${o.x},${o.y}`);
     } else if (o.kind === 'planter') {
@@ -144,7 +157,7 @@ function plan(map: GameMap): Spot[] {
       out.push({ model: pick(TOWN_TREES, hash(o.x, o.y, 1)), x: o.x + 0.5, z: o.y + 0.5, y: 0.36, s: 0.36, rot: hash(o.x, o.y, 3) * Math.PI * 2 });
       used.add(`${o.x},${o.y}`);
     } else if (o.kind === 'rock') {
-      out.push({ model: pick(ROCKS, hash(o.x, o.y, 4)), x: o.x + 0.5, z: o.y + 0.5, s: (map.theme === 'canyon' || map.theme === 'volcano' ? 0.8 : 0.6) + hash(o.x, o.y, 5) * 0.35, rot: hash(o.x, o.y, 6) * 6.3 });
+      out.push({ model: pick(ROCKS, hash(o.x, o.y, 4)), x: o.x + 0.5, z: o.y + 0.5, s: (map.theme === 'canyon' || map.theme === 'volcano' || map.theme === 'inferno' || map.theme === 'cave' ? 0.8 : 0.6) + hash(o.x, o.y, 5) * 0.35, rot: hash(o.x, o.y, 6) * 6.3 });
       used.add(`${o.x},${o.y}`);
     } else if ('x' in o) used.add(`${Math.floor(o.x)},${Math.floor(o.y)}`);
   }

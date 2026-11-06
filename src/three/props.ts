@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { G, THEMES, type GameMap, type Obj } from '../game/maps';
+import { G, THEMES, isLava, type GameMap, type Obj } from '../game/maps';
+import { buildLava, paintBasalt } from './lava';
+import { buildRuinProps } from './ruins';
 import { paintPaving, paintTerrain } from './ground';
 import { buildFortress } from './castle';
 import { buildDesertHouses, buildPalace } from './desert';
@@ -28,6 +30,7 @@ export function buildGround(m: GameMap): THREE.Group {
   const r = rng(m.w * 31 + m.h);
   const BASE = THEMES[m.theme].ground;
   const ponds = hasPonds(m);
+  let glow: THREE.Texture | null = null;
   const tex = canvasTexture(m.w * TILE, m.h * TILE, (c) => {
     for (let y = 0; y < m.h; y++) {
       for (let x = 0; x < m.w; x++) {
@@ -93,11 +96,14 @@ export function buildGround(m: GameMap): THREE.Group {
     };
     paintTerrain(c, m, TILE, BASE, soft);
     if (m.safe) paintPaving(c, m, TILE, m.theme === 'desert');
+    if (isLava(m.theme)) glow = paintBasalt(c, m, TILE);
   });
   tex.anisotropy = 8;
   if (ponds) cutPonds(tex.image as HTMLCanvasElement, m);
   tex.magFilter = THREE.LinearFilter;
-  const plane = mesh(new THREE.PlaneGeometry(m.w, m.h), new THREE.MeshLambertMaterial({ map: tex, alphaTest: ponds ? 0.5 : 0 }), m.w / 2, 0, m.h / 2);
+  const plane = mesh(new THREE.PlaneGeometry(m.w, m.h), new THREE.MeshLambertMaterial({
+    map: tex, alphaTest: ponds ? 0.5 : 0, ...(glow ? { emissiveMap: glow, emissive: 0xffffff, emissiveIntensity: 1.3 } : {}),
+  }), m.w / 2, 0, m.h / 2);
   plane.rotation.x = -Math.PI / 2;
   plane.receiveShadow = true;
   plane.name = 'ground';
@@ -451,6 +457,10 @@ export function buildProps(map: GameMap): THREE.Group {
   if (fortress) g.add(fortress);
   const ponds = buildPonds(map);
   if (ponds) g.add(ponds);
+  const lava = buildLava(map);
+  if (lava) g.add(lava);
+  const ruins = buildRuinProps(map);
+  if (ruins) g.add(ruins);
   return g;
 }
 

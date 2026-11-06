@@ -330,8 +330,8 @@ export class LocalStore implements GameStore {
     if (cur >= REFINE.max) throw new Error(`ตีบวกสูงสุดแล้ว (+${REFINE.max})`);
     const fee = refineFee(cur + 1);
     if (c.zeny < fee) throw new Error(`Zeny ไม่พอ (ค่าตีบวก ${fee} z)`);
-    const mat = inv.find((i) => i.item_id === refineMaterial(it));
-    if (!mat) throw new Error(`ไม่มี${ITEMS[refineMaterial(it)].name}`);
+    const mat = inv.find((i) => i.item_id === refineMaterial(it, cur + 1));
+    if (!mat) throw new Error(`ไม่มี${ITEMS[refineMaterial(it, cur + 1)].name}`);
     mat.qty--;
     if (mat.qty === 0) inv.splice(inv.indexOf(mat), 1);
     c.zeny -= fee;

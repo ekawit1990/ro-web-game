@@ -34,7 +34,18 @@ export type Obj =
   /** Two wings either side of a `door`-wide passage down the middle, joined by an arch over it. */
   | { kind: 'castle'; x: number; y: number; w: number; h: number; door: number }
   /** The desert palace: domed sandstone hall, door on the south (+y) side. */
-  | { kind: 'palace'; x: number; y: number; w: number; h: number };
+  | { kind: 'palace'; x: number; y: number; w: number; h: number }
+  /** A big lava volcano: a cone on the circle of radius r round (x, y), lava running down it (see lava.ts). */
+  | { kind: 'volcano'; x: number; y: number; r: number }
+  /** A cluster of glowing crystals (cave). */
+  | { kind: 'crystal'; x: number; y: number; hue: number }
+  /** Gravestone (deadwood, ruins). */
+  | { kind: 'grave'; x: number; y: number }
+  /** Ruined castle-town pieces (ruins.ts): a broken wall run, a column, a crumbling tower, the roofless cathedral. */
+  | { kind: 'ruinwall'; x: number; y: number; w: number; h: number }
+  | { kind: 'pillar'; x: number; y: number; broken: boolean }
+  | { kind: 'ruintower'; x: number; y: number; s: number }
+  | { kind: 'cathedral'; x: number; y: number; w: number; h: number };
 
 export interface Npc {
   /** 'warper' = บูรพา: paid warps between towns and the account-wide storage. */
@@ -71,7 +82,10 @@ export interface GameMap {
   theme: Theme;
 }
 
-export type Theme = 'town' | 'meadow' | 'forest' | 'marsh' | 'canyon' | 'snow' | 'volcano' | 'desert';
+export type Theme = 'town' | 'meadow' | 'forest' | 'marsh' | 'canyon' | 'snow' | 'volcano' | 'desert'
+  | 'beach' | 'cave' | 'deadwood' | 'ruins' | 'inferno';
+/** Maps where G.Water is lava. */
+export const isLava = (t: Theme) => t === 'volcano' || t === 'inferno';
 
 /** Per-theme colours: one per ground type (G), then the sky and the land outside the map. */
 export const THEMES: Record<Theme, { ground: string[]; sky: string; outside: string }> = {
@@ -81,7 +95,12 @@ export const THEMES: Record<Theme, { ground: string[]; sky: string; outside: str
   marsh: { ground: ['#6f8a4a', '#7a9450', '#7a6640', '#7d8170', '#a59f88', '#4f7a5a', '#6f8a4a'], sky: '#b8c9b0', outside: '#3d4a2c' },
   canyon: { ground: ['#c9a067', '#d1aa72', '#b07a48', '#a8825a', '#d8bf94', '#4a8fb0', '#c9a067'], sky: '#ffd9a8', outside: '#8a5a32' },
   snow: { ground: ['#eef3f8', '#e3ebf3', '#b9c6d3', '#a9b4c0', '#dfe6ee', '#9fd3f0', '#eef3f8'], sky: '#d4e6f5', outside: '#c9d6e3' },
-  volcano: { ground: ['#4a3a35', '#56433c', '#3a2c28', '#5e5550', '#6e625b', '#ff6a1a', '#4a3a35'], sky: '#7a4a3e', outside: '#231816' },
+  volcano: { ground: ['#5a4a44', '#64534b', '#463833', '#6a5d56', '#786a62', '#ff6a1a', '#3b302d'], sky: '#6a3a30', outside: '#1c1312' },
+  inferno: { ground: ['#4a3a36', '#54423c', '#3a2c29', '#5c4c46', '#6a5850', '#ff5a10', '#2e2422'], sky: '#4a1c16', outside: '#140c0b' },
+  beach: { ground: ['#f0dcaa', '#e8d29a', '#d9be86', '#cdb894', '#f3e6c4', '#2fb7d6', '#f0dcaa'], sky: '#9fe0ff', outside: '#1e8fb8' },
+  cave: { ground: ['#5e5a72', '#68627e', '#4a4658', '#77708e', '#857e9c', '#3fd0e0', '#3d3a4a'], sky: '#120f1c', outside: '#0c0a14' },
+  deadwood: { ground: ['#6e6a58', '#78705a', '#5a5040', '#5a5650', '#6a645a', '#4a5a48', '#4e4a3e'], sky: '#5a5468', outside: '#24221e' },
+  ruins: { ground: ['#5a6050', '#636a56', '#4a4438', '#6e6c66', '#7d7a72', '#3e4a58', '#5a6050'], sky: '#6e6a80', outside: '#2a2a2e' },
   desert: { ground: ['#e3c58b', '#dbbb7c', '#cfae7a', '#c9ad84', '#e6d2a8', '#3aa6c4', '#e3c58b'], sky: '#ffe6b8', outside: '#d9b677' },
 };
 
@@ -280,7 +299,7 @@ function buildTown(): GameMap {
   }
 
   m.portals = [
-    { x: N - 2, y: C - 1, to: 'field', toX: 3.5, toY: 30.5, label: 'ทุ่งเมโลดี้ (Lv 1+)' },
+    { x: N - 2, y: C - 1, to: 'field', toX: 3.5, toY: FIELD / 2 + 0.5, label: 'ทุ่งเมโลดี้ (Lv 1+)' },
     { x: 1, y: C - 1, to: 'forest', toX: WILD - 3.5, toY: WILD / 2 + 0.5, label: 'ป่าเพลงกระซิบ (Lv 10+)' },
     { x: C - 1, y: N - 2, to: 'canyon', toX: WILD / 2 + 0.5, toY: 3.5, label: 'หุบผาร็อค (Lv 17+)' },
     { x: C - 1, y: 1, to: 'snow', toX: WILD / 2 + 0.5, toY: WILD - 3.5, label: 'ยอดเขาหิมะโซปราโน (Lv 21+)' },
@@ -327,7 +346,7 @@ function buildDesert(): GameMap {
       const round = Math.pow(a ** 4 + b ** 4, 0.25); // a rounded square, for the lane between the blocks
       let z = Z.Block;
       let g: G = rnd() < 0.3 ? G.Grass2 : G.Grass;
-      if (x < 2 || y < 2 || x >= N - 2 || y >= N - 2) z = y < 2 && a < 2 ? Z.Street : Z.Wall;
+      if (x < 2 || y < 2 || x >= N - 2 || y >= N - 2) z = (y < 2 || y >= N - 2) && a < 2 ? Z.Street : Z.Wall;
       else if (o < ISLAND) { z = Z.Street; g = G.Plaza; }
       else if (o < MOAT) {
         if (y > C && a < 2) { z = Z.Street; g = G.Plaza; } // the causeway
@@ -343,17 +362,19 @@ function buildDesert(): GameMap {
   }
 
   // ---- walls and towers (sandstone, see castle.ts)
-  for (const [x, y, w, h] of [[0, 0, C - 2, 2], [C + 2, 0, C - 2, 2], [0, N - 2, N, 2], [0, 2, 2, N - 4], [N - 2, 2, 2, N - 4]]) {
+  for (const [x, y, w, h] of [[0, 0, C - 2, 2], [C + 2, 0, C - 2, 2], [0, N - 2, C - 2, 2], [C + 2, N - 2, C - 2, 2], [0, 2, 2, N - 4], [N - 2, 2, 2, N - 4]]) {
     put({ kind: 'wall', x, y, w, h }, w, h);
   }
   const tower = (x: number, y: number, s: number) => put({ kind: 'tower', x, y, s }, s, s);
   for (const [x, y] of [[0, 0], [N - 4, 0], [0, N - 4], [N - 4, N - 4]]) tower(x, y, 4);
   tower(C - 5, 0, 3);
   tower(C + 2, 0, 3);
+  tower(C - 5, N - 3, 3); // gatehouse of the south gate (out to the dead forest)
+  tower(C + 2, N - 3, 3);
   for (const t of [18, C - 1, N - 21]) {
     tower(0, t, 3);
     tower(N - 3, t, 3);
-    tower(t, N - 3, 3);
+    if (t !== C - 1) tower(t, N - 3, 3);
   }
 
   // ---- the palace island: palace at the back, a fountain court in front with the NPCs
@@ -433,15 +454,24 @@ function buildDesert(): GameMap {
     }
   }
 
-  m.portals = [{ x: C - 1, y: 1, to: 'canyon', toX: WILD / 2 + 0.5, toY: WILD - 3.5, label: 'หุบผาร็อค (Lv 17+)' }];
+  m.portals = [
+    { x: C - 1, y: 1, to: 'canyon', toX: WILD / 2 + 0.5, toY: WILD - 3.5, label: 'หุบผาร็อค (Lv 17+)' },
+    { x: C - 1, y: N - 2, ...arrive('deadwood', 'n'), label: 'ป่าไม้ตายเพลงหลอน (Lv 50+)' },
+  ];
   m.spawn = { x: C + 0.5, y: C + 6.5 };
   return m;
 }
 
 // ---------------------------------------------------------------- field
 
+/** The first field: FIELD x FIELD, the town gate in the middle of the west side, the beach gate on the east. */
+const FIELD = 90;
+
 function buildField(): GameMap {
-  const m = blank('field', 'ทุ่งเมโลดี้', 60, 60, G.Grass, false);
+  const N = FIELD;
+  const k = N / 60; // laid out on a 60-tile plan, stretched
+  const mid = Math.floor(N / 2);
+  const m = blank('field', 'ทุ่งเมโลดี้', N, N, G.Grass, false);
   const rnd = mulberry32(20261025);
   for (let y = 0; y < m.h; y++) {
     for (let x = 0; x < m.w; x++) {
@@ -449,19 +479,20 @@ function buildField(): GameMap {
       m.ground[y][x] = r < 0.03 ? G.Flower : r < 0.4 ? G.Grass2 : G.Grass;
     }
   }
-  // winding dirt path from the west portal
-  let py = 30;
-  for (let x = 0; x < m.w - 4; x++) {
-    py += Math.round((rnd() - 0.5) * 1.4);
-    py = Math.max(24, Math.min(36, py));
+  // winding dirt path from the west gate right across to the east gate
+  let py = mid;
+  for (let x = 0; x < m.w; x++) {
+    if (x < m.w - 10) py += Math.round((rnd() - 0.5) * 1.4);
+    else py += Math.sign(mid - py);
+    py = Math.max(mid - 9, Math.min(mid + 9, py));
     m.ground[py][x] = G.Dirt;
     m.ground[py + 1][x] = G.Dirt;
   }
   // ponds
-  for (const [px, py2, rx, ry] of [[30, 46, 4, 2.5], [16, 14, 3, 2], [46, 20, 2.5, 3]]) {
+  for (const [px, py2, rx, ry] of [[30, 46, 4, 2.5], [16, 14, 3, 2], [46, 20, 2.5, 3], [44, 50, 3, 2]]) {
     for (let y = 0; y < m.h; y++) {
       for (let x = 0; x < m.w; x++) {
-        if (((x - px) / rx) ** 2 + ((y - py2) / ry) ** 2 <= 1) {
+        if (((x - px * k) / (rx * k)) ** 2 + ((y - py2 * k) / (ry * k)) ** 2 <= 1 && m.ground[y][x] !== G.Dirt) {
           m.ground[y][x] = G.Water;
           m.blocked[y][x] = true;
         }
@@ -473,21 +504,28 @@ function buildField(): GameMap {
     m.objects.push({ kind: 'tree', x, y, big });
     block(m, x, y);
   };
+  const gate = (j: number) => j >= mid - 2 && j <= mid + 3;
   for (let i = 0; i < m.w; i++) {
     addTree(i, 0, true);
     addTree(i, m.h - 1, true);
   }
   for (let j = 0; j < m.h; j++) {
-    if (j < 28 || j > 33) addTree(0, j, true);
-    addTree(m.w - 1, j, true);
+    if (!gate(j)) {
+      addTree(0, j, true);
+      addTree(m.w - 1, j, true);
+    }
   }
   block(m, 0, 0, m.w, 1);
   block(m, 0, m.h - 1, m.w, 1);
-  for (let j = 0; j < m.h; j++) if (j < 28 || j > 33) block(m, 0, j);
-  block(m, m.w - 1, 0, 1, m.h);
+  for (let j = 0; j < m.h; j++) {
+    if (!gate(j)) {
+      block(m, 0, j);
+      block(m, m.w - 1, j);
+    }
+  }
   for (let y = 2; y < m.h - 2; y++) {
     for (let x = 2; x < m.w - 2; x++) {
-      if (x < 7 && y > 25 && y < 36) continue; // keep the arrival area clear
+      if ((x < 8 || x > m.w - 9) && Math.abs(y - mid) < 7) continue; // keep the gates clear
       const r = rnd();
       if (r < 0.04) addTree(x, y);
       else if (r < 0.05 && free(m, x, y)) {
@@ -496,15 +534,20 @@ function buildField(): GameMap {
       }
     }
   }
-  m.portals = [{ x: 1, y: 30, ...TOWN_GATE.e, label: 'เมืองเมโลเดีย' }];
-  m.spawn = { x: 3.5, y: 30.5 };
+  m.portals = [
+    { x: 1, y: mid, ...TOWN_GATE.e, label: 'เมืองเมโลเดีย' },
+    { x: m.w - 2, y: mid, ...arrive('beach', 'w'), label: 'หาดคลื่นซินธ์ (Lv 30+)' },
+  ];
+  m.spawn = { x: 3.5, y: mid + 0.5 };
   return m;
 }
 
 // ---------------------------------------------------------------- wild maps
 
-/** Every wild map is WILD x WILD with its gates in the middle of a side. */
-const WILD = 56;
+/** Every wild map is WILD x WILD with its gates in the middle of a side (56 until 2026-11-05, now 1.5x). */
+const WILD = 84;
+/** The old maps were laid out on a 56-tile plan: their ponds are stretched by this. */
+const OLD = WILD / 56;
 
 type Side = 'n' | 'e' | 's' | 'w';
 
@@ -527,8 +570,12 @@ interface WildSpec {
   rocks: number;
   /** Ponds / ice / lava: [cx, cy, rx, ry]. */
   pools: [number, number, number, number][];
+  /** Rivers (lava on the volcano maps): a line through these points, `width` tiles wide. */
+  rivers?: { pts: [number, number][]; width: number }[];
   /** The first gate leads back towards town; you arrive there. */
   gates: Gate[];
+  /** Places the map's own landmarks (a volcano, crystals, graves) after the water and before the trees. */
+  extra?: (m: GameMap, rnd: () => number) => void;
 }
 
 /** Arriving in a wild map through its gate on `side`. */
@@ -561,7 +608,7 @@ function buildWild(sp: WildSpec): GameMap {
     const tile = (u: number, v: number) => (side === 'w' ? [u, v] : side === 'e' ? [n - 1 - u, v] : side === 'n' ? [v, u] : [v, n - 1 - u]);
     let v = mid;
     for (let u = 0; u <= mid; u++) {
-      if (u > 3 && u < mid - 6) v = Math.max(mid - 10, Math.min(mid + 10, v + Math.round((rnd() - 0.5) * 1.6)));
+      if (u > 3 && u < mid - 6) v = Math.max(mid - 14, Math.min(mid + 14, v + Math.round((rnd() - 0.5) * 1.6)));
       else if (u >= mid - 6) v += Math.sign(mid - v);
       for (const [dx, dy] of [[0, 0], side === 'w' || side === 'e' ? [0, 1] : [1, 0]]) {
         const [x, y] = tile(u, v);
@@ -579,6 +626,25 @@ function buildWild(sp: WildSpec): GameMap {
       }
     }
   }
+  // rivers: wobbly bands along each line; the gate paths cross them as natural bridges
+  for (const rv of sp.rivers ?? []) {
+    for (let i = 0; i + 1 < rv.pts.length; i++) {
+      const [ax, ay] = rv.pts[i], [bx, by] = rv.pts[i + 1];
+      const len = Math.hypot(bx - ax, by - ay);
+      for (let t = 0; t <= len; t += 0.5) {
+        const cx = ax + ((bx - ax) * t) / len, cy = ay + ((by - ay) * t) / len;
+        const w = rv.width / 2 + Math.sin((i * 7 + t) * 0.6) * 0.6;
+        for (let y = Math.floor(cy - w); y <= cy + w; y++) {
+          for (let x = Math.floor(cx - w); x <= cx + w; x++) {
+            if (x < 2 || y < 2 || x >= n - 2 || y >= n - 2 || Math.hypot(x + 0.5 - cx, y + 0.5 - cy) > w || m.ground[y][x] === G.Dirt) continue;
+            m.ground[y][x] = G.Water;
+            m.blocked[y][x] = true;
+          }
+        }
+      }
+    }
+  }
+  sp.extra?.(m, rnd);
   const opening = (side: Side, i: number) => sides.has(side) && i >= mid - 3 && i <= mid + 3;
   const addTree = (x: number, y: number, big = rnd() < 0.3) => {
     if (!free(m, x, y) || m.ground[y][x] === G.Dirt) return;
@@ -618,11 +684,39 @@ function buildWild(sp: WildSpec): GameMap {
   return m;
 }
 
-// The town is the hub: east to the meadow, west to the forest and on to the marsh,
-// south to the canyon, north (through the castle) up the snow peak and on to the volcano.
+/** Stretches a pond laid out on the old 56-tile plan. */
+const old = (p: [number, number, number, number][]): [number, number, number, number][] => p.map(([a, b, c, d]) => [a * OLD, b * OLD, c * OLD, d * OLD]);
+
+/** Puts a lava volcano on the circle (x, y, r): blocked, no trees on it. */
+function addVolcano(m: GameMap, x: number, y: number, r: number) {
+  m.objects.push({ kind: 'volcano', x, y, r });
+  for (let j = Math.floor(y - r - 1); j <= y + r + 1; j++) {
+    for (let i = Math.floor(x - r - 1); i <= x + r + 1; i++) {
+      if (m.ground[j]?.[i] === undefined || Math.hypot(i + 0.5 - x, j + 0.5 - y) > r) continue;
+      m.blocked[j][i] = true;
+      if (m.ground[j][i] !== G.Water) m.ground[j][i] = G.Cobble;
+    }
+  }
+}
+
+/** Scatters `count` single-tile `kind`s on free, dry, off-path tiles inside the box. */
+function scatter(m: GameMap, rnd: () => number, count: number, box: [number, number, number, number], make: (x: number, y: number) => Obj) {
+  for (let i = 0, tries = 0; i < count && tries < count * 30; tries++) {
+    const x = Math.floor(box[0] + rnd() * (box[2] - box[0]));
+    const y = Math.floor(box[1] + rnd() * (box[3] - box[1]));
+    if (!free(m, x - 1, y - 1, 3, 3) || m.ground[y][x] === G.Dirt || m.ground[y][x] === G.Water) continue;
+    m.objects.push(make(x, y));
+    block(m, x, y);
+    i++;
+  }
+}
+
+// The town is the hub: east to the meadow (and on to the beach), west to the forest, the marsh and the
+// crystal cave, south to the canyon and the desert town (and on through the dead forest to the ruined castle
+// town), north (through the castle) up the snow peak, the volcano and the inferno.
 const buildForest = () => buildWild({
   id: 'forest', name: 'ป่าเพลงกระซิบ', theme: 'forest', seed: 11,
-  ground: [[G.Grass2, 0.55], [G.Grass, 0.42], [G.Flower, 0.03]], trees: 0.11, rocks: 0.015, pools: [[40, 12, 3, 2], [14, 44, 2.5, 2]],
+  ground: [[G.Grass2, 0.55], [G.Grass, 0.42], [G.Flower, 0.03]], trees: 0.11, rocks: 0.015, pools: old([[40, 12, 3, 2], [14, 44, 2.5, 2]]),
   gates: [
     { side: 'e', ...TOWN_GATE.w, label: 'เมืองเมโลเดีย' },
     { side: 'w', ...arrive('marsh', 'e'), label: 'บึงจังหวะ (Lv 14+)' },
@@ -631,12 +725,15 @@ const buildForest = () => buildWild({
 const buildMarsh = () => buildWild({
   id: 'marsh', name: 'บึงจังหวะ', theme: 'marsh', seed: 23,
   ground: [[G.Grass, 0.6], [G.Grass2, 0.4]], trees: 0.035, rocks: 0.01,
-  pools: [[14, 12, 5, 3], [36, 10, 4, 3], [44, 42, 6, 4], [18, 42, 4, 5], [30, 26, 3, 2]],
-  gates: [{ side: 'e', ...arrive('forest', 'w'), label: 'ป่าเพลงกระซิบ' }],
+  pools: old([[14, 12, 5, 3], [36, 10, 4, 3], [44, 42, 6, 4], [18, 42, 4, 5], [30, 26, 3, 2]]),
+  gates: [
+    { side: 'e', ...arrive('forest', 'w'), label: 'ป่าเพลงกระซิบ' },
+    { side: 'w', ...arrive('cave', 'e'), label: 'ถ้ำคริสตัลก้องกังวาน (Lv 40+)' },
+  ],
 });
 const buildCanyon = () => buildWild({
   id: 'canyon', name: 'หุบผาร็อค', theme: 'canyon', seed: 37,
-  ground: [[G.Grass, 0.55], [G.Grass2, 0.3], [G.Cobble, 0.15]], trees: 0.012, rocks: 0.07, pools: [[42, 40, 3, 2]],
+  ground: [[G.Grass, 0.55], [G.Grass2, 0.3], [G.Cobble, 0.15]], trees: 0.012, rocks: 0.07, pools: old([[42, 40, 3, 2]]),
   gates: [
     { side: 'n', ...TOWN_GATE.s, label: 'เมืองเมโลเดีย' },
     { side: 's', to: 'desert', toX: DC - 0.5, toY: 3.5, label: 'เมืองทะเลทรายตะโพน' },
@@ -644,18 +741,194 @@ const buildCanyon = () => buildWild({
 });
 const buildSnow = () => buildWild({
   id: 'snow', name: 'ยอดเขาหิมะโซปราโน', theme: 'snow', seed: 41,
-  ground: [[G.Grass, 0.65], [G.Grass2, 0.35]], trees: 0.06, rocks: 0.025, pools: [[16, 14, 4, 3], [40, 44, 5, 3]],
+  ground: [[G.Grass, 0.65], [G.Grass2, 0.35]], trees: 0.06, rocks: 0.025, pools: old([[16, 14, 4, 3], [40, 44, 5, 3]]),
   gates: [
     { side: 's', ...TOWN_GATE.n, label: 'เมืองเมโลเดีย' },
     { side: 'n', ...arrive('volcano', 's'), label: 'ภูเขาไฟเมทัล (Lv 26+)' },
   ],
 });
+/**
+ * After the reference picture: dark cracked basalt with glowing seams, a lava river out of a big volcano in the
+ * north-east, broad lava lakes with jagged rock shores, dead trees and armoured lava crabs.
+ */
 const buildVolcano = () => buildWild({
   id: 'volcano', name: 'ภูเขาไฟเมทัล', theme: 'volcano', seed: 53,
-  ground: [[G.Grass, 0.55], [G.Grass2, 0.3], [G.Cobble, 0.15]], trees: 0.02, rocks: 0.06,
-  pools: [[16, 12, 4, 3], [40, 14, 3, 4], [12, 44, 5, 3], [46, 40, 3, 3]],
-  gates: [{ side: 's', ...arrive('snow', 'n'), label: 'ยอดเขาหิมะโซปราโน' }],
+  ground: [[G.Grass, 0.55], [G.Grass2, 0.3], [G.Cobble, 0.15]], trees: 0.012, rocks: 0.05,
+  pools: [[54, 57, 10, 6], [20, 19, 5, 4], [70, 50, 4, 6], [14, 66, 5, 3]],
+  rivers: [{ pts: [[58, 25], [50, 32], [40, 38], [28, 43], [16, 46], [4, 50]], width: 3.5 }, { pts: [[60, 52], [66, 45], [70, 38]], width: 2.5 }],
+  gates: [
+    { side: 's', ...arrive('snow', 'n'), label: 'ยอดเขาหิมะโซปราโน' },
+    { side: 'n', ...arrive('inferno', 's'), label: 'ปล่องลาวานรกเมทัล (Lv 80+)' },
+  ],
+  extra: (m) => addVolcano(m, 66, 15, 12),
 });
+const buildInferno = () => buildWild({
+  id: 'inferno', name: 'ปล่องลาวานรกเมทัล', theme: 'inferno', seed: 97,
+  ground: [[G.Grass, 0.5], [G.Grass2, 0.3], [G.Cobble, 0.2]], trees: 0.006, rocks: 0.06,
+  pools: [[18, 40, 8, 5], [64, 40, 7, 6], [40, 62, 9, 4], [14, 70, 4, 4], [72, 70, 5, 4]],
+  rivers: [
+    { pts: [[34, 18], [26, 28], [18, 40]], width: 3 },
+    { pts: [[50, 18], [58, 28], [64, 40]], width: 3 },
+    { pts: [[64, 46], [52, 56], [40, 62]], width: 2.5 },
+  ],
+  gates: [{ side: 's', ...arrive('volcano', 'n'), label: 'ภูเขาไฟเมทัล' }],
+  extra: (m) => addVolcano(m, 42, 4, 15),
+});
+const buildBeach = () => buildWild({
+  id: 'beach', name: 'หาดคลื่นซินธ์', theme: 'beach', seed: 61,
+  ground: [[G.Grass, 0.6], [G.Grass2, 0.38], [G.Flower, 0.02]], trees: 0.02, rocks: 0.012,
+  pools: [[30, 22, 4, 3], [24, 62, 5, 3]],
+  gates: [{ side: 'w', ...arrive('field', 'e'), label: 'ทุ่งเมโลดี้' }],
+  extra: (m, rnd) => {
+    // the sea along the east side, with a wavy shore and a sandbar island
+    for (let y = 0; y < m.h; y++) {
+      const shore = 62 + Math.sin(y * 0.16) * 4 + Math.sin(y * 0.05 + 1) * 3;
+      for (let x = Math.floor(shore); x < m.w; x++) {
+        if (m.ground[y][x] === G.Dirt) continue;
+        m.ground[y][x] = G.Water;
+        m.blocked[y][x] = true;
+      }
+    }
+    for (let y = 36; y < 48; y++) for (let x = 72; x < 80; x++) {
+      if (((x - 76) / 4) ** 2 + ((y - 42) / 6) ** 2 <= 1) {
+        m.ground[y][x] = G.Grass;
+        m.blocked[y][x] = true; // out of reach, just scenery
+      }
+    }
+    // shells and driftwood: rocks on the sand near the water
+    scatter(m, rnd, 14, [44, 4, 64, 80], (x, y) => ({ kind: 'rock', x, y }));
+  },
+});
+const buildCave = () => buildWild({
+  id: 'cave', name: 'ถ้ำคริสตัลก้องกังวาน', theme: 'cave', seed: 71,
+  ground: [[G.Grass, 0.55], [G.Grass2, 0.3], [G.Cobble, 0.15]], trees: 0.03, rocks: 0.07,
+  pools: [[22, 20, 5, 3], [62, 18, 4, 4], [40, 44, 4, 3], [18, 64, 6, 4], [64, 64, 5, 3]],
+  gates: [{ side: 'e', ...arrive('marsh', 'w'), label: 'บึงจังหวะ' }],
+  extra: (m, rnd) => scatter(m, rnd, 70, [3, 3, 81, 81], (x, y) => ({ kind: 'crystal', x, y, hue: rnd() })),
+});
+const buildDeadwood = () => buildWild({
+  id: 'deadwood', name: 'ป่าไม้ตายเพลงหลอน', theme: 'deadwood', seed: 83,
+  ground: [[G.Grass, 0.55], [G.Grass2, 0.4], [G.Flower, 0.05]], trees: 0.08, rocks: 0.02,
+  pools: [[20, 24, 5, 3], [62, 22, 4, 5], [30, 60, 6, 4], [66, 62, 4, 3]],
+  gates: [
+    { side: 'n', to: 'desert', toX: DC - 0.5, toY: DESERT_SIZE - 3.5, label: 'เมืองทะเลทรายตะโพน' },
+    { side: 's', ...arrive('ruins', 'n'), label: 'เมืองปราสาทร้างโอเปร่า (Lv 65+)' },
+  ],
+  extra: (m, rnd) => scatter(m, rnd, 40, [4, 4, 80, 80], (x, y) => ({ kind: 'grave', x, y })),
+});
+
+// ---------------------------------------------------------------- the ruined castle town
+
+/**
+ * เมืองปราสาทร้างโอเปร่า: a walled castle town left to fall apart. Broken wall rings, cobbled avenues gone to
+ * grass, roofless houses, a roofless cathedral on the old square with broken columns round it, a graveyard in
+ * the south-east and dead trees everywhere. A hunting map (no NPCs); the only gate is north, to the dead forest.
+ */
+function buildRuins(): GameMap {
+  const N = WILD;
+  const C = N / 2;
+  const m = blank('ruins', 'เมืองปราสาทร้างโอเปร่า', N, N, G.Grass, false, 'ruins');
+  const rnd = mulberry32(131);
+  const put = (o: Obj, w = 1, h = 1) => {
+    m.objects.push(o);
+    block(m, Math.floor(o.x), Math.floor(o.y), w, h);
+  };
+  // overgrown ground; cobbled avenues and lanes; the old square
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const a = Math.abs(x + 0.5 - C), b = Math.abs(y + 0.5 - C), o = Math.max(a, b);
+      let g: G = rnd() < 0.35 ? G.Grass2 : G.Grass;
+      if (o < 12) g = G.Plaza;
+      else if (a < 2.5 || b < 2.5 || (o >= 25 && o < 27.5)) g = rnd() < 0.82 ? G.Cobble : G.Grass2; // weeds through the stones
+      m.ground[y][x] = g;
+    }
+  }
+  // the map's edge: dead trees, the north gate open
+  const gate = (i: number) => i >= C - 3 && i <= C + 3;
+  for (let i = 0; i < N; i++) {
+    for (const [x, y] of [[i, 0], [i, N - 1], [0, i], [N - 1, i]]) {
+      if (y === 0 && gate(x)) continue;
+      if (rnd() < 0.5) m.objects.push({ kind: 'tree', x, y, big: true });
+      block(m, x, y);
+    }
+  }
+  // the town wall: a ring 5 tiles in, broken into runs with collapsed gaps, crumbling towers at the corners
+  const W0 = 5, W1 = N - 7;
+  const run = (horiz: boolean, fixed: number, from: number, to: number) => {
+    for (let i = from; i < to;) {
+      const len = 4 + Math.floor(rnd() * 6);
+      const end = Math.min(to, i + len);
+      const gap = horiz ? gate(i) || gate(end - 1) || (i <= C + 3 && end >= C - 3) : false;
+      if (!gap && end - i >= 2 && rnd() < 0.78) put({ kind: 'ruinwall', x: horiz ? i : fixed, y: horiz ? fixed : i, w: horiz ? end - i : 2, h: horiz ? 2 : end - i }, horiz ? end - i : 2, horiz ? 2 : end - i);
+      i = end + 1 + Math.floor(rnd() * 3);
+    }
+  };
+  run(true, W0, W0 + 3, W1 - 1);
+  run(true, W1, W0 + 3, W1 - 1);
+  run(false, W0, W0 + 3, W1 - 1);
+  run(false, W1, W0 + 3, W1 - 1);
+  for (const [x, y] of [[W0 - 1, W0 - 1], [W1 - 1, W0 - 1], [W0 - 1, W1 - 1], [W1 - 1, W1 - 1]]) put({ kind: 'ruintower', x, y, s: 4 }, 4, 4);
+  // gatehouse ruins either side of the north gate
+  put({ kind: 'ruintower', x: C - 7, y: W0 - 1, s: 3 }, 3, 3);
+  put({ kind: 'ruintower', x: C + 4, y: W0 - 1, s: 3 }, 3, 3);
+
+  // the roofless cathedral on the north side of the square, columns round the square
+  put({ kind: 'cathedral', x: C - 9, y: C - 11, w: 18, h: 9 }, 18, 9);
+  for (let k = 0; k < 16; k++) {
+    const ang = (k / 16) * Math.PI * 2;
+    const x = Math.floor(C + Math.cos(ang) * 10.5), y = Math.floor(C + Math.sin(ang) * 10.5);
+    if (y < C - 1 && Math.abs(x + 0.5 - C) < 10) continue; // the cathedral front
+    if (Math.abs(x + 0.5 - C) < 3 || Math.abs(y + 0.5 - C) < 3) continue; // keep the avenues open
+    if (free(m, x, y)) put({ kind: 'pillar', x, y, broken: rnd() < 0.6 });
+  }
+  // a dry, cracked fountain basin in the middle of the square
+  m.objects.push({ kind: 'grave', x: C - 1, y: C + 3 });
+  block(m, C - 1, C + 3);
+
+  // roofless houses in the blocks between the avenues and the lanes
+  for (let tries = 0; tries < 900; tries++) {
+    const w = 3 + Math.floor(rnd() * 4), h = 3 + Math.floor(rnd() * 3);
+    const x = W0 + 3 + Math.floor(rnd() * (W1 - W0 - 6 - w)), y = W0 + 3 + Math.floor(rnd() * (W1 - W0 - 6 - h));
+    let ok = true;
+    for (let j = y - 1; j <= y + h && ok; j++) {
+      for (let i = x - 1; i <= x + w && ok; i++) {
+        const g = m.ground[j]?.[i];
+        if (g === G.Cobble || g === G.Plaza || m.blocked[j]?.[i] !== false) ok = false;
+      }
+    }
+    if (ok) put({ kind: 'ruinwall', x, y, w, h }, w, h);
+  }
+  // the graveyard in the south-east corner, a few dark pools where cellars fell in
+  for (let y = C + 16; y < W1 - 2; y += 3) {
+    for (let x = C + 16; x < W1 - 2; x += 2) if (rnd() < 0.7 && free(m, x, y)) put({ kind: 'grave', x, y });
+  }
+  for (const [cx, cy, rx, ry] of [[18, 66, 3, 2], [66, 20, 2.5, 2], [16, 22, 2, 3]]) {
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1 && !m.blocked[y][x] && m.ground[y][x] !== G.Cobble) {
+          m.ground[y][x] = G.Water;
+          m.blocked[y][x] = true;
+        }
+      }
+    }
+  }
+  // dead trees and rubble in the yards
+  for (let y = 2; y < N - 2; y++) {
+    for (let x = 2; x < N - 2; x++) {
+      if (Math.abs(x + 0.5 - C) < 4 && y < 9) continue; // the gate
+      const g = m.ground[y][x];
+      if (g === G.Cobble || g === G.Plaza || !free(m, x - 1, y - 1, 3, 3)) continue;
+      const r = rnd();
+      if (r < 0.035) put({ kind: 'tree', x, y, big: rnd() < 0.4 });
+      else if (r < 0.06) put({ kind: 'rock', x, y });
+      else if (r < 0.068) put({ kind: 'grave', x, y });
+    }
+  }
+  m.portals = [{ x: C, y: 1, ...arrive('deadwood', 's'), label: 'ป่าไม้ตายเพลงหลอน' }];
+  const a = arrive('ruins', 'n');
+  m.spawn = { x: a.toX, y: a.toY };
+  return m;
+}
 
 /**
  * The job-change teacher stands a few steps from where new players appear in town, on the first free
@@ -682,7 +955,7 @@ function addJobNpc(m: GameMap) {
 const built = new Map<string, GameMap>();
 const BUILDERS: Record<string, () => GameMap> = {
   town: buildTown, field: buildField, forest: buildForest, marsh: buildMarsh, canyon: buildCanyon, snow: buildSnow, volcano: buildVolcano,
-  desert: buildDesert,
+  desert: buildDesert, beach: buildBeach, cave: buildCave, deadwood: buildDeadwood, ruins: buildRuins, inferno: buildInferno,
 };
 export const MAP_IDS = Object.keys(BUILDERS);
 export const START_MAP = 'town';
@@ -714,7 +987,7 @@ export function walkable(m: GameMap, x: number, y: number) {
 }
 
 /** A* on the tile grid with 8-way moves (no corner cutting). Returns tile centres, excluding the start. */
-export function findPath(m: GameMap, sx: number, sy: number, tx: number, ty: number, maxNodes = 5000) {
+export function findPath(m: GameMap, sx: number, sy: number, tx: number, ty: number, maxNodes = 12000) {
   const W = m.w;
   const ok = (x: number, y: number) => x >= 0 && y >= 0 && x < m.w && y < m.h && !m.blocked[y][x];
   if (!ok(tx, ty)) return null;
@@ -722,7 +995,34 @@ export function findPath(m: GameMap, sx: number, sy: number, tx: number, ty: num
   const goal = ty * W + tx;
   const g = new Map<number, number>([[start, 0]]);
   const came = new Map<number, number>();
-  const open: { k: number; f: number }[] = [{ k: start, f: 0 }];
+  // binary heap on f (the maps are big enough since 2026-11-05 that a linear scan got slow)
+  const heap: { k: number; f: number }[] = [{ k: start, f: 0 }];
+  const push = (n: { k: number; f: number }) => {
+    heap.push(n);
+    for (let i = heap.length - 1; i > 0;) {
+      const p = (i - 1) >> 1;
+      if (heap[p].f <= heap[i].f) break;
+      [heap[p], heap[i]] = [heap[i], heap[p]];
+      i = p;
+    }
+  };
+  const pop = () => {
+    const top = heap[0];
+    const last = heap.pop()!;
+    if (heap.length) {
+      heap[0] = last;
+      for (let i = 0; ;) {
+        const l = i * 2 + 1, r = l + 1;
+        let b = i;
+        if (l < heap.length && heap[l].f < heap[b].f) b = l;
+        if (r < heap.length && heap[r].f < heap[b].f) b = r;
+        if (b === i) break;
+        [heap[b], heap[i]] = [heap[i], heap[b]];
+        i = b;
+      }
+    }
+    return top;
+  };
   const closed = new Set<number>();
   const h = (x: number, y: number) => {
     const dx = Math.abs(x - tx);
@@ -730,10 +1030,8 @@ export function findPath(m: GameMap, sx: number, sy: number, tx: number, ty: num
     return Math.max(dx, dy) + 0.41 * Math.min(dx, dy);
   };
   let expanded = 0;
-  while (open.length) {
-    let bi = 0;
-    for (let i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
-    const { k } = open.splice(bi, 1)[0];
+  while (heap.length) {
+    const { k } = pop();
     if (k === goal) {
       const path: { x: number; y: number }[] = [];
       let cur = k;
@@ -760,7 +1058,7 @@ export function findPath(m: GameMap, sx: number, sy: number, tx: number, ty: num
         if (ng < (g.get(nk) ?? Infinity)) {
           g.set(nk, ng);
           came.set(nk, k);
-          open.push({ k: nk, f: ng + h(nx, ny) });
+          push({ k: nk, f: ng + h(nx, ny) });
         }
       }
     }

@@ -11,7 +11,13 @@ const EMOJI: Record<string, string> = {
   note_ribbon: '🎀', headphones: '🎧', earbuds: '🎧', in_ear_monitor: '🎧', gaming_headset: '🎧', dj_headphones: '🎧', cat_headphones: '🎧', rock_cap: '🧢', pick_necklace: '📿', metronome_charm: '⏱️', banana: '🍌', carrot: '🥕',
   note_shard: '🎵', silent_spore: '🍄', buzz_stinger: '📌', rock_chip: '🪨', golden_clef: '🗝️', drop_crystal: '💎',
   chick_feather: '🪶', sneakers: '👟', stage_boots: '🥾', dance_shoes: '👠', rock_boots: '🥾',
-  tuning_ore: '💠', velvet_patch: '🧶',
+  tuning_ore: '💠', velvet_patch: '🧶', pure_tuning_ore: '🔷', gold_velvet: '🟨',
+  crystal_dagger: '🗡️', banshee_mic: '🎤', inferno_guitar: '🎸', thunder_sticks: '🥢', kraken_bass: '🎸', cathedral_organ: '🎹', magma_plate: '🦺',
+  crab_shell: '🦀', synth_gel: '🫧', conch_shell: '🐚', gull_feather: '🪶', reggae_skin: '🐸', dj_ink: '🖋️', coral_piece: '🪸', kraken_tentacle: '🐙',
+  crystal_wing: '🦇', echo_gel: '🫧', amethyst: '💜', miner_lamp: '🏮', glow_spore: '🍄', shadow_shuriken: '✴️', echo_crown: '👑',
+  lost_note: '🎶', bone_mic: '🦴', rotten_root: '🪵', zombie_fur: '🧶', funeral_score: '📜', death_bone: '🦴', banshee_veil: '🕸️',
+  opera_mask: '🎭', rusty_crest: '🛡️', bell_clapper: '🔔', march_drum: '🥁', dark_hymnal: '📕', angel_bell: '🛎️', phantom_crown: '👑',
+  lava_carapace: '🦀', boiling_gel: '🫧', hellfire_fang: '🦷', demon_pick: '🔻', obsidian_core: '⚫', lava_scale: '🐉', volcano_heart: '❤️‍🔥',
   note_stud: '🎵', pick_earring: '🔸', star_earring: '⭐', crystal_earring: '💎', rabbit_ear: '🐰', frog_skin: '🐸', bat_wing: '🦇', gear_spring: '⚙️',
 };
 
@@ -81,7 +87,7 @@ export function itemIcon(id: string): string {
       c.stroke();
     }
     c.fillText(EMOJI[id] ?? (item?.vrm ? (item.type === 'head' ? (item.part?.includes('Glasses') ? '👓' : '🎩') : item.gender === 'f' ? '👗' : '🥼') : '❔'), 16, 18);
-    if (item && (id.includes('bass') || id === 'golden_mic' || id === 'steel_dagger' || id === 'electric_guitar' || id === 'steel_sticks' || id === 'synth')) {
+    if (item && (id.includes('bass') || id === 'golden_mic' || id === 'steel_dagger' || id === 'electric_guitar' || id === 'steel_sticks' || id === 'synth' || (item.type === 'weapon' && item.element))) {
       // tint upgraded variants so they read differently
       c.globalCompositeOperation = 'source-atop';
       c.fillStyle = item.color + '66';

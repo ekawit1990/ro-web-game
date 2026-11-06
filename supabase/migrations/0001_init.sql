@@ -517,6 +517,7 @@ begin
 end $$;
 
 -- Refiner NPC (browser). Numbers match REFINE in src/data/index.ts: 1 material + 100 z x next level;
+-- the material changes after +4 (REFINE.lowMax);
 -- up to the safe level it always works, past it a failure destroys the item and its cards.
 create or replace function public.refine_item(p_char uuid, p_inv uuid) returns jsonb
 language plpgsql security definer set search_path = public as $$
@@ -531,16 +532,20 @@ begin
   if it.type not in ('weapon', 'armor', 'head', 'shoes', 'earring') then raise exception 'ไอเท็มนี้ตีบวกไม่ได้'; end if;
   if r.refine >= 10 then raise exception 'ตีบวกสูงสุดแล้ว (+10)'; end if;
   nxt := r.refine + 1;
+  -- +1..+4 use the low materials (drops from Lv 10-30 monsters), +5..+10 the high ones (Lv 40-99)
   if it.type = 'weapon' then
-    chance := (array[100, 100, 100, 100, 100, 70, 55, 40, 25, 15])[nxt]; mat := 'tuning_ore';
+    chance := (array[100, 100, 100, 100, 100, 70, 55, 40, 25, 15])[nxt];
+    mat := case when nxt <= 4 then 'tuning_ore' else 'pure_tuning_ore' end;
   else
-    chance := (array[100, 100, 100, 100, 70, 55, 40, 30, 20, 10])[nxt]; mat := 'velvet_patch';
+    chance := (array[100, 100, 100, 100, 70, 55, 40, 30, 20, 10])[nxt];
+    mat := case when nxt <= 4 then 'velvet_patch' else 'gold_velvet' end;
   end if;
   fee := 100 * nxt;
   if c.zeny < fee then raise exception 'Zeny ไม่พอ (ค่าตีบวก % z)', fee; end if;
   select * into m from public.inventory where character_id = p_char and item_id = mat for update limit 1;
   if not found then
-    raise exception 'ไม่มี%', case when mat = 'tuning_ore' then 'หินจูนเสียง' else 'ผ้ากำมะหยี่ซับเสียง' end;
+    raise exception 'ไม่มี%', case mat when 'tuning_ore' then 'หินจูนเสียง' when 'velvet_patch' then 'ผ้ากำมะหยี่ซับเสียง'
+      when 'pure_tuning_ore' then 'หินจูนเสียงบริสุทธิ์' else 'ผ้ากำมะหยี่ทองซับเสียง' end;
   end if;
   if m.qty = 1 then delete from public.inventory where id = m.id;
   else update public.inventory set qty = qty - 1 where id = m.id; end if;

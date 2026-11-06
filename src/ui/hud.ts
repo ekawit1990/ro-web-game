@@ -1,5 +1,5 @@
 import {
-  CLASSES, CLASS_KEYS, CardBonus, MONSTERS, SPAWNS, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, REFINE, SERVICE_FEE, SHOP, SKILLS,
+  CLASSES, CLASS_KEYS, CardBonus, ELEMENTS, ELEMENT_KEYS, ENDOW_SEC, MONSTERS, elementLabel, elementMult, monsterElement, SPAWNS, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, REFINE, SERVICE_FEE, SHOP, SKILLS,
   START_CLASS, STAT_KEYS, STORAGE_SLOTS, StatKey, WEAPON_SHOP, canRefine, cardFits, expToNext, itemLabel, jobExpToNext, jobTown, outfitOf,
   refineBonus, refineChance, refineFee, refineMaterial, refineSafe, skillSp, skillsOf, statCost, statRefund,
 } from '../data';
@@ -366,7 +366,7 @@ export class Hud implements WorldHooks {
     }).join('');
     const right: [string, string | number][] = [
       ['Atk', d.atk], ['Matk', d.matk], ['Hit', d.hit], ['Critical', d.crit], ['Def', d.def], ['Mdef', d.mdef], ['Flee', d.flee],
-      ['Aspd', d.aspd],
+      ['Aspd', d.aspd], ['ธาตุโจมตี', elementLabel(d.atkElement)], ['ธาตุตัว', elementLabel(d.defElement)],
     ];
     b.innerHTML = `
       <div class="eq-grid">
@@ -481,6 +481,10 @@ export class Hud implements WorldHooks {
     else if ((EQUIP_TYPES as string[]).includes(it.type)) sub.push('ทุกอาชีพ');
     if (it.gender) sub.push(it.gender === 'f' ? 'หญิงเท่านั้น' : 'ชายเท่านั้น');
     if (stats) lines.push(`<div class="it-stats">${stats}</div>`);
+    if (it.element && it.type === 'weapon') lines.push(`<div class="it-bonus">โจมตีเป็นธาตุ ${elementLabel(it.element)}</div>`);
+    if (it.element && it.type === 'armor') lines.push(`<div class="it-bonus">สวมแล้วตัวเป็นธาตุ ${elementLabel(it.element)}</div>`);
+    if (it.endow) lines.push(`<div class="it-bonus">ใช้แล้วอาวุธเป็นธาตุ ${elementLabel(it.endow)} ${ENDOW_SEC / 60} นาที</div>`);
+    if (it.card?.element) lines.push(`<div class="it-bonus">เสียบในชุด: ตัวเป็นธาตุ ${elementLabel(it.card.element)}</div>`);
     if (it.bonus) lines.push(`<div class="it-bonus">${bonusText(it.bonus)}</div>`);
     if (it.vrm) {
       const from = Object.values(MONSTERS).filter((m) => m.drops.some(([d]) => d === id)).map((m) => `${m.name}${m.boss ? ' (บอส)' : ''}`);
@@ -624,7 +628,8 @@ export class Hud implements WorldHooks {
   private skillTip(id: string) {
     const sk = SKILLS[id];
     const lv = this.s.char.skills?.[id] ?? 0;
-    return `<b>${sk.icon} ${escapeHtml(sk.name)}</b> (Lv ${lv}/${sk.maxLevel})<div>${escapeHtml(sk.desc)}</div>
+    const el = sk.power ? `<div class="muted">ธาตุ: ${sk.element ? elementLabel(sk.element) : 'ตามอาวุธ'}</div>` : '';
+    return `<b>${sk.icon} ${escapeHtml(sk.name)}</b> (Lv ${lv}/${sk.maxLevel})<div>${escapeHtml(sk.desc)}</div>${el}
       ${sk.cooldown ? `<div class="muted">คูลดาวน์ ${(sk.cooldown / 1000).toFixed(1)} วิ</div>` : ''}`;
   }
 
@@ -839,6 +844,24 @@ export class Hud implements WorldHooks {
       } else if (o.kind === 'stall') {
         c.fillStyle = '#d9c28a';
         c.fillRect(o.x * s, o.y * s, 2 * s, 2 * s);
+      } else if (o.kind === 'ruinwall' || o.kind === 'cathedral') {
+        c.fillStyle = o.kind === 'cathedral' ? '#9a90a8' : '#7d7a72';
+        c.fillRect(o.x * s, o.y * s, o.w * s, o.h * s);
+      } else if (o.kind === 'ruintower') {
+        c.fillStyle = '#6e6a62';
+        c.fillRect(o.x * s, o.y * s, o.s * s, o.s * s);
+      } else if (o.kind === 'volcano') {
+        c.fillStyle = '#3a2420';
+        c.beginPath();
+        c.arc(o.x * s, o.y * s, o.r * s, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = '#ff6a1a';
+        c.beginPath();
+        c.arc(o.x * s, o.y * s, o.r * s * 0.2, 0, Math.PI * 2);
+        c.fill();
+      } else if (o.kind === 'crystal' || o.kind === 'grave' || o.kind === 'pillar') {
+        c.fillStyle = o.kind === 'crystal' ? '#7fe8ff' : '#a8a49a';
+        c.fillRect(o.x * s, o.y * s, s, s);
       }
     }
     for (const p of m.portals) {
@@ -891,9 +914,11 @@ export class Hud implements WorldHooks {
       const diff = d.level - myLv;
       const tag = diff >= 8 ? '<em class="wm-hard">อันตราย</em>' : diff <= -10 ? '<em class="wm-easy">ง่าย</em>' : '';
       const quest = this.s.char.job_quest >= 0 && d.level >= JOB_CHANGE.monsterLevel ? '<em class="wm-quest">นับเควส</em>' : '';
+      const [mel, mlv] = monsterElement(d);
       return `<div class="wm-row ${this.mapPick === e.id ? 'on' : ''}" data-mon="${e.id}">
         <i style="background:${d.color}"></i>
-        <span><b>${d.boss ? '★ ' : ''}${escapeHtml(d.name)}</b> <small>Lv.${d.level}</small>${tag}${quest}
+        <span><b>${d.boss ? '★ ' : ''}${escapeHtml(d.name)}</b> <small>Lv.${d.level}</small>
+          <em class="el-tag" style="background:${ELEMENTS[mel].color}">${elementLabel(mel, mlv)}</em>${tag}${quest}
           <small class="wm-sub">${d.aggressive ? '⚔ ดุ (เข้ามาตีก่อน)' : 'ไม่ตีก่อน'} · HP ${d.hp.toLocaleString()} · EXP ${d.exp}/${d.jobExp} · ${e.count} ตัว</small></span></div>`;
     }).join('');
     const portals = this.map.portals.map((p) => `<div class="wm-portal"><i></i>${escapeHtml(p.label)}</div>`).join('');
@@ -1151,14 +1176,36 @@ export class Hud implements WorldHooks {
     const b = this.body('npc')!;
     const action = n.id === 'shop' || n.id === 'weapons' ? 'เปิดร้าน' : n.id === 'healer' ? 'รักษา' : '';
     b.innerHTML = `<div class="npc-text">${escapeHtml(text[n.id]).replace(/\n/g, '<br>')}</div>
-      <div class="npc-btns">${action ? `<button class="ok">${action}</button>` : ''}<button class="close">ปิด</button></div>`;
+      <div class="npc-btns">${action ? `<button class="ok">${action}</button>` : ''}${n.id === 'guide' ? '<button class="buy" data-chart>ตารางธาตุ</button>' : ''}<button class="close">ปิด</button></div>`;
     b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
+    b.querySelector('[data-chart]')?.addEventListener('click', () => this.elementChart(n));
     b.querySelector('.ok')?.addEventListener('click', () => {
       this.closeWin('npc');
       if (n.id === 'healer') this.actions.send('heal');
       else this.openShop(n.id as 'shop' | 'weapons', n.name);
     });
     void w;
+  }
+
+  /** The guide's element chart: how much damage each attack element does to each defence element (level 1). */
+  private elementChart(n: Npc) {
+    this.win('npc', `${escapeHtml(n.name)} · ตารางธาตุ`, 'npc');
+    const b = this.body('npc')!;
+    const head = ELEMENT_KEYS.map((e) => `<th title="${ELEMENTS[e].name}">${ELEMENTS[e].icon}</th>`).join('');
+    const rows = ELEMENT_KEYS.map((a) => `<tr><th title="${ELEMENTS[a].name}">${ELEMENTS[a].icon}</th>${ELEMENT_KEYS.map((dEl) => {
+      const v = Math.round(elementMult(a, dEl, 1) * 100);
+      return `<td class="${v > 100 ? 'hi' : v < 100 ? 'lo' : ''}">${v}</td>`;
+    }).join('')}</tr>`).join('');
+    const legend = ELEMENT_KEYS.map((e) => `${ELEMENTS[e].icon} ${ELEMENTS[e].name}`).join(' · ');
+    b.innerHTML = `<div class="npc-text">ทุกการโจมตีมีธาตุ (อาวุธ สกิล หรือของที่ทาบนอาวุธ) และมอนสเตอร์ทุกตัวมีธาตุพร้อมเลเวล 1-4<br>
+      แถว = ธาตุที่เราโจมตี · คอลัมน์ = ธาตุของเป้า (เลเวล 1) · ตัวเลข = % ดาเมจ<br>
+      ธาตุเลเวลสูงขึ้น ตัวเลขจะห่างจาก 100 มากขึ้นอีกเลเวลละ 30%</div>
+      <div class="el-chart"><table><tr><th></th>${head}</tr>${rows}</table></div>
+      <div class="muted" style="font-size:11px;margin:4px 0">${legend}</div>
+      <div class="npc-text">• ร้านของใช้ขายของเปลี่ยนธาตุอาวุธ (ไฟ น้ำ ดิน ลม ศักดิ์สิทธิ์) ใช้ได้ 10 นาที<br>
+      • การ์ดมอนสเตอร์บางใบเสียบในชุดแล้วตัวเราเป็นธาตุนั้น โดนธาตุเดียวกันเบาลงมาก</div>
+      <div class="npc-btns"><button class="close">ปิด</button></div>`;
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
   }
 
   /** บูรพา: paid warps to the other towns, and the storage every character of the account shares. */
@@ -1197,7 +1244,9 @@ export class Hud implements WorldHooks {
     this.win('npc', escapeHtml(n.name), 'npc');
     const b = this.body('npc')!;
     b.innerHTML = `<div class="npc-text">ข้ารับจูนเครื่องดนตรีและเสื้อผ้าให้แกร่งขึ้น! (ตีบวก +1 ถึง +${REFINE.max})<br>
-      • อาวุธใช้ <b>${ITEMS.tuning_ore.name}</b> ส่วนชุด หมวก หูฟัง รองเท้า ใช้ <b>${ITEMS.velvet_patch.name}</b> ครั้งละ 1 ชิ้น + ค่าแรง<br>
+      • +1 ถึง +${REFINE.lowMax}: อาวุธใช้ <b>${ITEMS.tuning_ore.name}</b> ชุด หมวก หูฟัง รองเท้า ใช้ <b>${ITEMS.velvet_patch.name}</b> (ดร็อปจากมอนสเตอร์ Lv 10-30)<br>
+      • +${REFINE.lowMax + 1} ขึ้นไป: อาวุธใช้ <b>${ITEMS.pure_tuning_ore.name}</b> อุปกรณ์อื่นใช้ <b>${ITEMS.gold_velvet.name}</b> (ดร็อปจากมอนสเตอร์ Lv 40-99)<br>
+      • ใช้ครั้งละ 1 ชิ้น + ค่าแรง วัสดุไม่มีขายในร้าน ต้องล่าจากมอนสเตอร์ (โอกาส 5%)<br>
       • อาวุธปลอดภัยถึง +${refineSafe(ITEMS.dagger)} อุปกรณ์อื่นถึง +${refineSafe(ITEMS.band_tshirt)} เกินจากนั้นถ้าพลาด <b>ไอเท็มจะแตกหาย</b> (การ์ดที่เสียบไว้หายด้วย)<br>
       • การ์ดมอนสเตอร์: ดับเบิลคลิกการ์ดในกระเป๋า (มือถือ: แตะการ์ด) แล้วเลือกอุปกรณ์ที่มีช่องการ์ดว่าง</div>
       <div class="npc-btns"><button class="ok" data-refine>ตีบวกอุปกรณ์</button><button class="close">ปิด</button></div>`;
@@ -1218,8 +1267,8 @@ export class Hud implements WorldHooks {
     if (this.lastSig.refine === sig) return;
     this.lastSig.refine = sig;
     const rows = this.s.inv.filter((r) => canRefine(ITEMS[r.item_id])).sort((a, c) => Number(c.equipped) - Number(a.equipped));
-    const mats = (['tuning_ore', 'velvet_patch'] as const).map((m) => `<span class="rf-mat"><img src="${itemIcon(m)}"/>${ITEMS[m].name} <b>${this.s.countItem(m)}</b>
-      <button class="buy" data-buy="${m}" title="ซื้อ 1 ชิ้น">ซื้อ ${ITEMS[m].price} z</button></span>`).join('');
+    const mats = (['tuning_ore', 'velvet_patch', 'pure_tuning_ore', 'gold_velvet'] as const)
+      .map((m) => `<span class="rf-mat"><img src="${itemIcon(m)}"/>${ITEMS[m].name} <b>${this.s.countItem(m)}</b></span>`).join('');
     const list = rows.map((r) => {
       const it = ITEMS[r.item_id];
       const cur = r.refine ?? 0;
@@ -1227,23 +1276,19 @@ export class Hud implements WorldHooks {
         return `<div class="shop-row" data-item="${r.item_id}" data-row="${r.id}"><img src="${itemIcon(r.item_id)}"/><span>${escapeHtml(itemLabel(r.item_id, r))}</span><b>สูงสุดแล้ว</b></div>`;
       }
       const chance = refineChance(it, cur + 1);
-      const has = this.s.countItem(refineMaterial(it)) > 0;
+      const mat = refineMaterial(it, cur + 1);
+      const has = this.s.countItem(mat) > 0;
       const fee = refineFee(cur + 1);
       const ok = has && this.s.char.zeny >= fee;
       const armed = this.armed === r.id;
       return `<div class="shop-row" data-item="${r.item_id}" data-row="${r.id}"><img src="${itemIcon(r.item_id)}"/>
         <span>${escapeHtml(itemLabel(r.item_id, r))}${r.equipped ? ' <em class="muted">(สวมอยู่)</em>' : ''}
-          <small class="rf-info">+${cur} → +${cur + 1} · โอกาส <b class="${chance < 100 ? 'risk' : 'safe'}">${chance}%</b> · ${fee.toLocaleString()} z · ${ITEMS[refineMaterial(it)].name} 1</small></span>
+          <small class="rf-info">+${cur} → +${cur + 1} · โอกาส <b class="${chance < 100 ? 'risk' : 'safe'}">${chance}%</b> · ${fee.toLocaleString()} z · ${ITEMS[mat].name} 1</small></span>
         <button class="${armed ? 'sell armed' : 'buy'}" data-go="${r.id}" ${ok ? '' : 'disabled'}>${armed ? 'ยืนยัน! เสี่ยงแตก' : 'ตีบวก'}</button></div>`;
     }).join('');
     b.innerHTML = `<div class="rf-mats">${mats}</div>
       <div class="shop-list">${list || '<p class="hint">ไม่มีอุปกรณ์ที่ตีบวกได้ (เครื่องประดับตีบวกไม่ได้)</p>'}</div>
       <div class="inv-foot"><span>Zeny <b>${this.s.char.zeny.toLocaleString()}</b></span><span class="hint">เกินระดับปลอดภัย ถ้าพลาดไอเท็มแตก</span></div>`;
-    b.querySelectorAll<HTMLButtonElement>('[data-buy]').forEach((btn) =>
-      btn.addEventListener('click', () => this.run(async () => {
-        await this.s.buy(btn.dataset.buy!, 1);
-        sfx('coin');
-      })));
     b.querySelectorAll<HTMLElement>('[data-row]').forEach((el) => {
       const row = this.s.inv.find((r) => r.id === el.dataset.row);
       if (row) this.tooltip(el.querySelector('img')!, () => this.itemTip(row.item_id, row));
@@ -1930,7 +1975,12 @@ export class Hud implements WorldHooks {
         continue;
       }
       const blocks = this.buffBlocks.get(id);
-      html += `<div class="buff" title="${escapeHtml(SKILLS[id]?.name ?? id)}${blocks ? ` · กันได้อีก ${blocks} ครั้ง` : ''}">${SKILLS[id]?.icon ?? '✨'}${blocks ? `<b>${blocks}</b>` : ''}<i>${left}</i></div>`;
+      // an element converter on the weapon: 'item:<id>'
+      const conv = id.startsWith('item:') ? ITEMS[id.slice(5)] : undefined;
+      const name = conv ? `${conv.name} · อาวุธธาตุ${ELEMENTS[conv.endow ?? 'neutral'].name}` : SKILLS[id]?.name ?? id;
+      const icon = conv ? ELEMENTS[conv.endow ?? 'neutral'].icon : SKILLS[id]?.icon ?? '✨';
+      const time = left >= 60 ? `${Math.ceil(left / 60)}น` : left;
+      html += `<div class="buff" title="${escapeHtml(name)}${blocks ? ` · กันได้อีก ${blocks} ครั้ง` : ''}">${icon}${blocks ? `<b>${blocks}</b>` : ''}<i>${time}</i></div>`;
     }
     if (box.innerHTML !== html) box.innerHTML = html;
   }
