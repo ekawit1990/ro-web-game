@@ -761,7 +761,8 @@ function swingGrip(vrm: VRM, root: THREE.Object3D, p: Piece) {
   const q = basis(dir.clone().negate(), n.normalize());
   p.held.matrixWorld.decompose(_pb, _qa, _sa);
   const scale = _sa.x;
-  const pos = _hd.clone().addScaledVector(dir, (blade ? p.swing.userData.bladeHold : p.swing.userData.hold) * scale);
+  const hilt = root.userData.bladeHilt as THREE.Vector3 | undefined;
+  const pos = (blade && hilt ? hilt.clone() : _hd.clone()).addScaledVector(dir, (blade ? p.swing.userData.bladeHold : p.swing.userData.hold) * scale);
   p.swing.matrixWorld.compose(pos, q, _sa.setScalar(scale));
 }
 
@@ -1273,6 +1274,7 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
   }
 
   rig.root.userData.bladeDir = undefined;
+  rig.root.userData.bladeHilt = undefined;
   if (gear && blade && swingW > 0) {
     // both fists on the neck: right hand at `h`, left hand a little further along it; elbows bend down and out
     rig.root.updateMatrixWorld(true);
@@ -1285,10 +1287,13 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
     const sw = gear.pieces.find((p) => p.swing);
     sw?.held.matrixWorld.decompose(_pb, _qa, _sa);
     const hL = hR.clone().addScaledVector(dirW, sw ? sw.swing!.userData.bladeGap * _sa.x : 0.2);
-    reach(vrm, 'right', hR, toW(new THREE.Vector3(-0.7, 0.5, -0.4)), -1.5);
-    reach(vrm, 'left', hL, toW(new THREE.Vector3(0.6, 0.4, -0.1)), -1.5);
+    // the left fist by the headstock, the right one halfway down the neck
+    reach(vrm, 'left', hR, toW(new THREE.Vector3(0.6, 0.4, -0.1)), -1.5);
+    reach(vrm, 'right', hL, toW(new THREE.Vector3(-0.7, 0.5, -0.4)), -1.5);
     if (swingW < 1) ARM_BONES.forEach((n, i) => before[i] && b(n)?.quaternion.slerpQuaternions(before[i]!, b(n)!.quaternion, swingW));
     rig.root.userData.bladeDir = dirW;
+    // the instrument hangs from where the left fist actually got to (the wrist bone, like the one-handed grip)
+    rig.root.userData.bladeHilt = b('leftHand')?.getWorldPosition(new THREE.Vector3()) ?? hR;
   }
   if (gear) {
     rig.root.updateMatrixWorld(true);
