@@ -608,3 +608,17 @@ export function sfxHammer(vol = 1, big = false, at = 0) {
   tone(140, t, 0.5, { type: 'sine', to: 30, gain: 0.85 * vol * k, release: 0.18 });
   noise(t + 0.01, 0.55, { gain: 0.38 * vol * k, type: 'lowpass', freq: 1200, freqTo: 90, release: 0.22, wet: 0.4 });
 }
+
+/**
+ * Vibrato: a bright sustained guitar note (A4 + octave, saw through a filter) with a wide vibrato that speeds up,
+ * over a soft rising whoosh as the aura flares.
+ */
+export function sfxVibrato(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = big ? 1.15 : 1;
+  noise(t, 0.35, { gain: 0.22 * vol * k, type: 'bandpass', freq: 400, freqTo: 3500, q: 0.7, release: 0.12, wet: 0.4 });
+  tone(440, t + 0.05, 1.1, { type: 'sawtooth', gain: 0.12 * vol * k, filter: 2400, filterTo: 900, vibrato: 0.03, release: 0.4, wet: 0.5 });
+  tone(880, t + 0.05, 1.0, { type: 'triangle', gain: 0.07 * vol * k, vibrato: 0.03, release: 0.35, wet: 0.5 });
+  tone(220, t + 0.05, 0.9, { type: 'sawtooth', gain: 0.06 * vol * k, filter: 900, filterTo: 300, release: 0.3, wet: 0.3 });
+}

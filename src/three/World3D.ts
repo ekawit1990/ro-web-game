@@ -10,14 +10,14 @@ import { animateMaxAura, buildMaxAura } from './levelAura';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxPak, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
 import { MOODS, sunDir, useRim } from './look';
 import { FxOptions, playFx, preloadFx } from './pixelfx';
-import { hammerOnBlast } from './guitarfx';
+import { hammerOnBlast, vibratoAura } from './guitarfx';
 import { doubleKickBlast, sendOffDash, snareGhost, snareHit, snareStorm, xSlashWave } from './xslash';
 
 /** Classes with their own attack moves in vrm.ts (the hit lands when the blow does). */
@@ -1584,7 +1584,7 @@ export class World3D {
     const vol = a ? this.vol(a.x, a.y, mine) : 0;
     const isBuff = skill.type === 'buff' || skill.type === 'buff_party' || skill.type === 'buff_target';
     if (a) {
-      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll' && id !== 'hammer_on') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
+      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll' && id !== 'hammer_on' && id !== 'vibrato') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       if (skill.type !== 'aoe_self' && !isBuff) this.face(a, msg.x, msg.y);
       a.combat = COMBAT_TIME;
@@ -1803,13 +1803,32 @@ export class World3D {
 
   /** The look of each buff on the player who got it. */
   private buffFx(t: PlayerActor, id: string, c: number) {
+    if (id === 'vibrato') {
+      // a red aura with red notes circling the guitarist for the whole buff
+      const vol = this.vol(t.x, t.y, t === this.me);
+      vibratoAura(
+        {
+          scene: this.scene,
+          camera: this.camera,
+          add: (e) => this.effects.push(e),
+          sparks: (p, color, n, speed) => this.burst(p, color, n, speed),
+          sound: (big) => sfxVibrato(vol, big),
+          shake: () => {},
+        },
+        () => new THREE.Vector3(t.x, 0, t.y),
+        () => !t.dead && this.players.get(t.id) === t,
+        SKILLS.vibrato.buff?.durationSec ?? 30,
+        sparkTexture(),
+        (g) => glyphTexture(g, '#ff2a14', 'rgba(70,0,0,0.95)'),
+      );
+      return;
+    }
     this.pillar(t.x, t.y, c, 0.6, 3.2);
     this.ring(t.x, t.y, 1.8, c);
     this.notes(t, c);
     if (id === 'kick_drum') this.dome(t, c, 0.9);
     else if (id === 'lift_beat') this.dome(t, 0xffffff, 0.75);
     else if (id === 'push_note') this.pixelFx('heal_ring', { at: () => new THREE.Vector3(t.x, 0.02, t.y) });
-    else if (id === 'vibrato') this.burst(new THREE.Vector3(t.x, 1, t.y), 0xffffff, 24, 5);
     else this.sparkle(t, c);
   }
 

@@ -628,3 +628,138 @@ export function hammerOnBlast(ctx: XSlashCtx, at: () => THREE.Vector3, dx: numbe
     ctx.shake(0.45);
   }, hitMs);
 }
+
+/** A closed wavy ribbon (vibrato on a string): radius r with `waves` bumps of height `amp`, `w` tall, round the y axis. */
+function wavyRing(r: number, amp: number, waves: number, color: number, opacity: number, w = 0.07, glowTex?: THREE.Texture) {
+  const n = PHONE ? 96 : 160;
+  const pos = new Float32Array((n + 1) * 6);
+  const uv: number[] = [];
+  const idx: number[] = [];
+  for (let i = 0; i <= n; i++) {
+    uv.push(i / n, 1, i / n, 0);
+    if (i < n) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx);
+  const mat = new THREE.MeshBasicMaterial({ color, map: glowTex ? ray() : undefined, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+  const line = new THREE.Mesh(geo, mat);
+  const set = (phase: number, a: number) => {
+    for (let i = 0; i <= n; i++) {
+      const th = (i / n) * Math.PI * 2;
+      const rr = r + Math.sin(th * waves + phase) * amp * a;
+      const y = Math.sin(th * waves * 0.5 - phase) * amp * 0.6 * a;
+      const x = Math.cos(th) * rr;
+      const z = Math.sin(th) * rr;
+      pos.set([x, y + w / 2, z, x, y - w / 2, z], i * 6);
+    }
+    geo.attributes.position.needsUpdate = true;
+  };
+  return { line, mat, set };
+}
+
+/** A red music note sprite. */
+function noteSprite(ctx: XSlashCtx, glyph: string, tex: (g: string) => THREE.Texture) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(glyph), transparent: true, depthWrite: false }));
+  ctx.scene.add(s);
+  return s;
+}
+
+/**
+ * Vibrato: the guitarist plays and a red aura wraps round them for the whole buff. On the cast a crimson circle
+ * snaps open with a flash and embers; then, until `sec` runs out (or `alive()` says the player is gone): a pulsing
+ * red glow on the ground, a haze round the body, little flames licking up, two wavy "vibrato" rings turning round
+ * the waist and red music notes circling the body, bobbing up and down like a vibrato.
+ * `at()` is the player's feet; `noteTex` makes a red note texture from a glyph.
+ */
+export function vibratoAura(ctx: XSlashCtx, at: () => THREE.Vector3, alive: () => boolean, sec: number, glowTex: THREE.Texture, noteTex: (g: string) => THREE.Texture) {
+  const p0 = at();
+  // the cast
+  redCircle(ctx, p0.x, p0.z, 1.7, 1.4);
+  redShock(ctx, p0.x, p0.z, 3.2, 0.6);
+  flash(ctx, p0.clone().setY(1), 3.2, 0xff2a00, 0.5, glowTex);
+  flameRing(ctx, p0.x, p0.z, 0.9, 10, 1.6, 0.8);
+  embers(ctx, p0.x, p0.z, 1, 18, glowTex);
+  ctx.sparks(p0.clone().setY(1), 0xff3010, Math.round(24 * Q), 5);
+  ctx.sound(true);
+
+  // the aura
+  const floor = groundPlane(glowTex, 2.6, true);
+  (floor.material as THREE.MeshBasicMaterial).color.set(0xff2000);
+  const floorDark = groundPlane(glowTex, 2.2);
+  (floorDark.material as THREE.MeshBasicMaterial).color.set(0x900000);
+  const haze = sprite(ctx, glowTex, 0xff1800, true);
+  const hazeDark = sprite(ctx, glowTex, 0xa00000, false);
+  haze.material.depthTest = false;
+  ctx.scene.add(floor, floorDark);
+  const rings = [wavyRing(0.8, 0.12, 9, 0xff2a10, 1, 0.12), wavyRing(0.66, 0.09, 7, 0xffb070, 0.9, 0.08), wavyRing(0.9, 0.1, 11, 0xff4020, 0.8, 0.1)];
+  rings.forEach((r) => ctx.scene.add(r.line));
+  const glyphs = ['♪', '♫', '♬', '♩', '♪', '♫', '♬', '♩'];
+  const nn = PHONE ? 5 : 8;
+  const notes = glyphs.slice(0, nn).map((g, i) => ({ s: noteSprite(ctx, g, noteTex), a: (i / nn) * Math.PI * 2, h: 0.45 + (i % 3) * 0.55, r: 0.85 + (i % 2) * 0.25 }));
+  const flames: { s: THREE.Sprite; t: number; life: number; ang: number; r: number; h: number }[] = [];
+  let spawn = 0;
+  let t = 0;
+  ctx.add((dt) => {
+    t += dt;
+    const on = alive() && t < sec;
+    const fadeIn = Math.min(1, t / 0.3);
+    const fadeOut = on ? Math.min(1, (sec - t) / 0.5) : 0;
+    const f = fadeIn * fadeOut;
+    const p = at();
+    const pulse = 0.8 + 0.2 * Math.sin(t * 7);
+    floor.position.set(p.x, 0.06, p.z);
+    floorDark.position.set(p.x, 0.055, p.z);
+    floor.scale.setScalar(pulse);
+    (floor.material as THREE.MeshBasicMaterial).opacity = 0.8 * f;
+    (floorDark.material as THREE.MeshBasicMaterial).opacity = 0.45 * f;
+    haze.position.set(p.x, 0.95, p.z);
+    hazeDark.position.set(p.x, 0.9, p.z);
+    haze.scale.set(2.0 + Math.sin(t * 11) * 0.12, 2.6, 1);
+    hazeDark.scale.set(1.9, 2.5, 1);
+    haze.material.opacity = 0.5 * f;
+    hazeDark.material.opacity = 0.25 * f;
+    rings.forEach((r, i) => {
+      r.line.position.set(p.x, 0.35 + i * 0.5 + Math.sin(t * 3 + i) * 0.08, p.z);
+      r.line.rotation.y = t * (i % 2 ? -1.6 : 1.2);
+      r.set(t * 10 * (i % 2 ? -1 : 1), 0.6 + 0.4 * Math.sin(t * 6 + i));
+      r.mat.opacity = (i === 1 ? 0.8 : 1) * f;
+    });
+    for (const n of notes) {
+      const an = n.a + t * 1.4;
+      // a vibrato: the notes bob quickly up and down as they circle
+      n.s.position.set(p.x + Math.cos(an) * n.r, n.h + Math.sin(t * 9 + n.a * 3) * 0.08 + Math.sin(t * 1.3 + n.a) * 0.15, p.z + Math.sin(an) * n.r);
+      n.s.scale.setScalar(0.5 + 0.07 * Math.sin(t * 9 + n.a));
+      n.s.material.opacity = f;
+    }
+    // little flames licking up round the feet
+    spawn += dt * f;
+    while (spawn > (PHONE ? 0.12 : 0.06)) {
+      spawn -= PHONE ? 0.12 : 0.06;
+      const s = sprite(ctx, flame(), 0xffffff, Math.random() < 0.5);
+      s.center.set(0.5, 0.05);
+      flames.push({ s, t: 0, life: 0.5 + Math.random() * 0.4, ang: Math.random() * Math.PI * 2, r: 0.25 + Math.random() * 0.3, h: 0.9 + Math.random() * 0.9 });
+    }
+    for (let i = flames.length - 1; i >= 0; i--) {
+      const fl = flames[i];
+      fl.t += dt;
+      const k = fl.t / fl.life;
+      fl.s.position.set(p.x + Math.cos(fl.ang) * fl.r, 0.02 + k * 0.5, p.z + Math.sin(fl.ang) * fl.r);
+      fl.s.scale.set(fl.h * 0.4, fl.h * (k < 0.3 ? k / 0.3 : 1 - (k - 0.3) * 0.8), 1);
+      fl.s.material.opacity = Math.min(1, (1 - k) * 2);
+      if (k >= 1) {
+        dispose(ctx, fl.s);
+        flames.splice(i, 1);
+      }
+    }
+    if (!on && t > 0 && fadeOut <= 0) {
+      dispose(ctx, floor, floorDark, haze, hazeDark, ...rings.map((r) => r.line), ...notes.map((n) => n.s), ...flames.map((fl) => fl.s));
+      floor.geometry.dispose();
+      floorDark.geometry.dispose();
+      rings.forEach((r) => r.line.geometry.dispose());
+      return false;
+    }
+    return true;
+  });
+}
