@@ -756,7 +756,7 @@ function swingGrip(vrm: VRM, root: THREE.Object3D, p: Piece) {
   // strings face sideways to the swing: across the arm and the character's facing
   _fw.set(0, 0, 1).applyQuaternion(root.getWorldQuaternion(_qb));
   // a two-handed guard holds it on edge like a sword blade: the face of the body turned to the side
-  const n = blade ? _sb.crossVectors(dir, _up) : _sb.crossVectors(dir, _fw);
+  const n = blade ? _sb.crossVectors(_up, dir) : _sb.crossVectors(dir, _fw);
   if (n.lengthSq() < 1e-4) n.crossVectors(dir, blade ? _fw : _up);
   const q = basis(dir.clone().negate(), n.normalize());
   p.held.matrixWorld.decompose(_pb, _qa, _sa);
@@ -944,22 +944,26 @@ const SWORD_GUARD = {
     spine: [0.38, -0.4, 0] as V3, chest: [0.12, -0.15, 0] as V3, head: [-0.35, 0.5, 0] as V3, hips: [0, 0, 0] as V3,
   },
   dy: -0.2,
-  blade: { h: [-0.22, 0.74, 0.12] as V3, d: [0.5, -0.04, 1] as V3 },
+  // held the other way round: the right fist by the headstock in front of the hips, the left one halfway down the
+  // neck, and the body of the instrument trailing out behind past the right hip
+  blade: { h: [-0.18, 0.74, 0.3] as V3, d: [-0.65, -0.06, -0.75] as V3 },
 };
 const SWORD: ComboKey[][] = [
-  // 1. from the low guard, a rising cut up and across to the left
+  // 1. from the guard, the instrument swung up from behind, over the top and down in front
   [
     { at: 0.12, ...SWORD_GUARD },
-    { at: 0.32, ...SWORD_GUARD, bones: { ...SWORD_GUARD.bones, spine: [0.4, -0.6, 0] }, blade: { h: [-0.3, 0.62, 0.05], d: [0.25, -0.2, 1] } },
-    { at: 0.5, hit: true, bones: { ...LUNGE, spine: [0.25, 0.45, 0], chest: [0.05, 0.2, 0], head: [-0.15, -0.5, 0] }, dy: -0.16, dz: 0.16, blade: { h: [0.12, 1.0, 0.42], d: [0.75, 0.55, 0.35] } },
-    { at: 0.7, bones: { ...LUNGE, spine: [0.2, 0.6, 0], chest: [0.05, 0.25, 0], head: [-0.1, -0.6, 0] }, dy: -0.15, dz: 0.16, blade: { h: [0.25, 1.1, 0.25], d: [0.55, 0.75, -0.3] } },
+    { at: 0.3, ...SWORD_GUARD, bones: { ...SWORD_GUARD.bones, spine: [0.3, -0.5, 0] }, blade: { h: [-0.22, 0.7, 0.2], d: [-0.55, -0.45, -0.7] } },
+    { at: 0.42, bones: { spine: [0.05, 0, 0], chest: [-0.05, 0, 0], head: [-0.1, 0, 0] }, dy: -0.05, blade: { h: [0.0, 1.05, 0.25], d: [0.1, 1, -0.2] } },
+    { at: 0.52, hit: true, bones: { ...LUNGE, spine: [0.5, 0.1, 0], chest: [0.15, 0, 0], head: [-0.45, -0.1, 0] }, dy: -0.18, dz: 0.16, blade: { h: [0.0, 0.85, 0.42], d: [0.05, -0.25, 1] } },
+    { at: 0.72, bones: { ...LUNGE, spine: [0.55, 0.1, 0], chest: [0.18, 0, 0], head: [-0.5, -0.1, 0] }, dy: -0.2, dz: 0.16, blade: { h: [0.0, 0.7, 0.4], d: [0.05, -0.6, 0.8] } },
   ],
-  // 2. from the guard, pull back to the right, then a flat sweep across from right to left
+  // 2. from the guard, a flat sweep: the instrument comes round from behind on the right and across to the left
   [
     { at: 0.12, ...SWORD_GUARD },
-    { at: 0.3, ...SWORD_GUARD, bones: { ...SWORD_GUARD.bones, spine: [0.3, -0.85, 0], chest: [0.08, -0.3, 0], head: [-0.25, 0.85, 0] }, blade: { h: [-0.32, 0.72, -0.02], d: [-0.6, 0, 0.8] } },
-    { at: 0.5, hit: true, bones: { ...LUNGE, spine: [0.3, 0.6, 0], chest: [0.08, 0.25, 0], head: [-0.2, -0.65, 0] }, dy: -0.18, dz: 0.16, blade: { h: [0.05, 0.75, 0.45], d: [0.85, 0, 0.5] } },
-    { at: 0.7, bones: { ...LUNGE, spine: [0.3, 0.8, 0], chest: [0.08, 0.3, 0], head: [-0.2, -0.85, 0] }, dy: -0.18, dz: 0.16, blade: { h: [0.3, 0.75, 0.3], d: [0.8, 0, -0.5] } },
+    { at: 0.3, ...SWORD_GUARD, bones: { ...SWORD_GUARD.bones, spine: [0.3, -0.85, 0], chest: [0.08, -0.3, 0], head: [-0.25, 0.85, 0] }, blade: { h: [-0.2, 0.78, 0.15], d: [-0.6, 0, -0.8] } },
+    { at: 0.42, bones: { spine: [0.2, -0.2, 0], chest: [0.05, -0.1, 0], head: [-0.2, 0.2, 0] }, dy: -0.1, blade: { h: [-0.15, 0.8, 0.3], d: [-1, 0, 0.15] } },
+    { at: 0.52, hit: true, bones: { ...LUNGE, spine: [0.3, 0.6, 0], chest: [0.08, 0.25, 0], head: [-0.2, -0.65, 0] }, dy: -0.18, dz: 0.16, blade: { h: [0.05, 0.8, 0.45], d: [0.1, 0, 1] } },
+    { at: 0.72, bones: { ...LUNGE, spine: [0.3, 0.8, 0], chest: [0.08, 0.3, 0], head: [-0.2, -0.85, 0] }, dy: -0.18, dz: 0.16, blade: { h: [0.3, 0.78, 0.3], d: [0.9, 0, 0.3] } },
   ],
 ];
 
