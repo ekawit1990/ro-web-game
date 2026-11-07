@@ -4,7 +4,6 @@ import { rimNow, setRim } from './look';
 import { VRM, VRMLoaderPlugin, VRMSpringBoneJoint, VRMUtils, type VRMHumanBoneName } from '@pixiv/three-vrm';
 import { HAIR_COLORS, ITEMS, type ClassKey } from '../data';
 import { animateCharacter, buildDagger, setHat, type CharRig, type Look } from './models';
-import { dressArmour } from './armour';
 import { buildStringed } from './bass';
 import { buildKeyboard } from './keyboard';
 import { mesh, toon } from './toon';
@@ -355,14 +354,17 @@ function skinOf(scene: THREE.Object3D): THREE.Color | null {
 
 /** The school uniform every Teen wears (white shirt and navy tie / sailor blouse and skirt): tools/make_uniform.py. */
 const UNIFORM = { m: 'uniform_m.vrm.gz', f: 'uniform_f.vrm.gz' };
+/** After the job change: each class's streetwear outfit in its own colours (tools/make_class_outfits.py). */
+const CLASS_OUTFIT = new Set(['singer', 'guitarist', 'drummer', 'bassist', 'keyboardist']);
+const classOutfit = (cls: string, gender: 'm' | 'f') => (CLASS_OUTFIT.has(cls) ? `class_${cls}_${gender}.vrm.gz` : UNIFORM[gender]);
 
 /**
  * Puts the school uniform on a character: the uniform's clothes and body, resized to this character's skeleton,
  * with the body tinted to this character's own skin. Their face and hair stay. Returns false if it didn't load.
  */
-async function wearUniform(vrm: VRM, gender: 'm' | 'f') {
+async function wearUniform(vrm: VRM, gender: 'm' | 'f', cls = 'teen') {
   const skin = skinOf(vrm.scene);
-  const from = await track(parse(UNIFORM[gender]));
+  const from = await track(parse(classOutfit(cls, gender)));
   const theirs = skinOf(from.scene);
   const own: THREE.Object3D[] = [];
   vrm.scene.traverse((o) => {
@@ -427,13 +429,13 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
       console.warn('outfit failed to load', e);
     }
   }
-  // Teens (every new character) wear the school uniform; after the job change it's the armour below
+  // Teens (every new character) wear the school uniform; after the job change each class has its own outfit
   let student = false;
-  if (!dressed && !look.body && (look.cls ?? 'teen') === 'teen') {
+  if (!dressed && !look.body) {
     try {
-      student = await wearUniform(vrm, look.gender === 'f' ? 'f' : 'm');
+      student = await wearUniform(vrm, look.gender === 'f' ? 'f' : 'm', look.cls ?? 'teen');
     } catch (e) {
-      console.warn('uniform failed to load', e);
+      console.warn('class outfit failed to load', e);
     }
   }
   if (hatItem?.vrm && hatItem.part) {
@@ -473,14 +475,6 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
   const yOf = (n: VRMHumanBoneName) => vrm.humanoid.getRawBoneNode(n)?.getWorldPosition(new THREE.Vector3()).y;
   root.userData.legLen = Math.max(0.2, (yOf('hips') ?? 0.75) - (yOf('leftFoot') ?? 0.05));
 
-  // after the job change players all wear the same armour (NPCs keep their own clothes; an outfit brings its own)
-  if (!look.body && !dressed && !student) {
-    try {
-      dressArmour(vrm, root);
-    } catch (e) {
-      console.warn('could not fit the armour', e);
-    }
-  }
   setRim(root, rimNow());
 
   const bone = (n: VRMHumanBoneName) => vrm.humanoid.getNormalizedBoneNode(n);
