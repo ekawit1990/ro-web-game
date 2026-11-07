@@ -11,7 +11,7 @@ import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
 import { monsterPortrait } from '../three/portrait';
 
-type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap';
+type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'guide';
 /** A bag row, or what we know of someone else's (trade): the + level and cards travel with it. */
 type ItemRow = Pick<InvItem, 'refine' | 'cards'> & { qty?: number; equipped?: boolean };
 type Slot = { t: 's' | 'i'; id: string } | null;
@@ -53,6 +53,23 @@ const TYPE_LABEL: Record<string, string> = {
   ...SLOT_LABEL, consumable: 'ของใช้', loot: 'ของสะสม / วัตถุดิบ', card: 'การ์ดมอนสเตอร์',
 };
 const CARD_SLOT_LABEL: Record<string, string> = { weapon: 'อาวุธ', armor: 'ชุด', head: 'หมวก / หูฟัง', shoes: 'รองเท้า', accessory: 'เครื่องประดับ' };
+
+type GuideTab = 'mon' | 'equip' | 'card';
+const GUIDE_TABS: Record<GuideTab, string> = { mon: '👾 มอนสเตอร์', equip: '🛡️ อุปกรณ์', card: '🃏 การ์ด' };
+const GUIDE_FILTERS: Record<GuideTab, [string, string][]> = {
+  mon: [['', 'ทั้งหมด'], ['1-20', 'Lv 1-20'], ['21-40', '21-40'], ['41-60', '41-60'], ['61-80', '61-80'], ['81-99', '81-99'], ['boss', '★ บอส'], ['aggr', '⚔ ดุ']],
+  equip: [['', 'ทั้งหมด'], ['weapon', 'อาวุธ'], ['armor', 'ชุด'], ['head', 'หมวก'], ['shoes', 'รองเท้า'], ['accessory', 'เครื่องประดับ'], ['earring', 'ต่างหู']],
+  card: [['', 'ทั้งหมด'], ['weapon', 'อาวุธ'], ['armor', 'ชุด'], ['head', 'หมวก/หูฟัง'], ['shoes', 'รองเท้า'], ['accessory', 'เครื่องประดับ']],
+};
+/** The monster a card comes from (each monster has its own card). */
+const dropperOf = (cardId: string) => Object.values(MONSTERS).find((m) => m.drops.some(([d]) => d === cardId));
+const mapNames = new Map<string, string>();
+const mapName = (id: string) => {
+  if (!mapNames.has(id)) mapNames.set(id, getMap(id).name);
+  return mapNames.get(id)!;
+};
+/** 0.004 -> "0.4%", 0.25 -> "25%" */
+const pct = (r: number) => `${+(r * 100).toFixed(r < 0.01 ? 2 : r < 0.1 ? 1 : 0)}%`;
 const BONUS_LABEL: Record<keyof CardBonus, string> = {
   str: 'Str', agi: 'Agi', vit: 'Vit', int: 'Int', dex: 'Dex', luk: 'Luk', atk: 'Atk', matk: 'Matk', def: 'Def', mdef: 'Mdef',
   hit: 'Hit', flee: 'Flee', crit: 'Critical', aspd: 'Aspd', maxHp: 'MaxHP', maxSp: 'MaxSP', maxHpPct: 'MaxHP', maxSpPct: 'MaxSP',
@@ -64,7 +81,7 @@ export const bonusText = (b: CardBonus) =>
   (Object.entries(b) as [keyof CardBonus, number][]).map(([k, v]) => `${BONUS_LABEL[k]} +${v}${PCT_BONUS.has(k) ? '%' : ''}`).join(' · ');
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
-  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40],
+  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40], guide: [-1, 30],
 };
 
 /** The RO-style windows over the game: Basic Info, Equipment+Status, Inventory, Skill Tree, hotkeys, minimap, chat. */
@@ -563,11 +580,7 @@ export class Hud implements WorldHooks {
     }
     b.innerHTML = `${this.itemTip(v.item, row ?? v.row, true)}${extra}
       <div class="npc-btns">${btns.join('')}<button class="close">ปิด</button></div>`;
-    b.querySelectorAll<HTMLElement>('[data-portrait]').forEach((pic) => {
-      void monsterPortrait(pic.dataset.portrait!).then((url) => {
-        pic.innerHTML = url ? `<img src="${url}" alt=""/>` : '<span class="muted">?</span>';
-      });
-    });
+    hydratePortraits(b);
     b.querySelector('.close')!.addEventListener('click', () => this.closeWin('item'));
     b.querySelector('[data-act="use"]')?.addEventListener('click', () => row && this.s.use(row.id));
     b.querySelector('[data-act="equip"]')?.addEventListener('click', () => row && this.run(() => this.s.setEquipped(row.id, !row.equipped)));
@@ -832,6 +845,8 @@ export class Hud implements WorldHooks {
         <canvas id="mini-cv" width="140" height="140" title="คลิกเพื่อเปิดแผนที่ใหญ่"></canvas>
       </div>`);
     this.root.querySelector('#mini-cv')!.addEventListener('click', () => this.toggleWorldMap());
+    this.root.insertAdjacentHTML('beforeend', `<button id="guide-btn" class="guide-btn" title="คู่มือ: มอนสเตอร์ อุปกรณ์ การ์ด (Alt+G)"><i>📖</i><span>คู่มือ</span></button>`);
+    this.root.querySelector('#guide-btn')!.addEventListener('click', () => this.toggleGuide());
   }
 
   private drawMiniBase() {
@@ -902,6 +917,244 @@ export class Hud implements WorldHooks {
       c.fillRect((n.x + 0.5) * s - 2, (n.y + 0.5) * s - 2, 4, 4);
     }
     return cv;
+  }
+
+  // ------------------------------------------------------------ guide (encyclopedia)
+
+  /** The guide: every monster, piece of equipment and card in the game, browsable (button left of the minimap). */
+  private guide = { tab: 'mon' as GuideTab, q: '', filter: '', pick: { mon: '', equip: '', card: '' } as Record<GuideTab, string>, detail: false };
+
+  private guideResize = false;
+  private toggleGuide() {
+    if (!this.guideResize) {
+      this.guideResize = true;
+      window.addEventListener('resize', () => requestAnimationFrame(this.fitGuide), { signal: this.ac.signal });
+    }
+    if (this.isOpen('guide')) return this.closeWin('guide');
+    this.openGuide();
+  }
+
+  private openGuide(tab?: GuideTab, pick?: string) {
+    const g = this.guide;
+    if (tab && tab !== g.tab) {
+      g.tab = tab;
+      g.q = '';
+      g.filter = '';
+    }
+    if (pick) {
+      g.pick[g.tab] = pick;
+      g.detail = true;
+    }
+    this.win('guide', '📖 คู่มือ Music Land', 'guide');
+    this.renderGuide();
+    this.fitGuide();
+    requestAnimationFrame(this.fitGuide); // after win() places it
+  }
+
+  /** Big window: keep it whole on screen (phones, rotating, a smaller browser window). */
+  private fitGuide = () => {
+    const w = this.wins.get('guide');
+    if (!w || !this.isOpen('guide')) return;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const x = w.offsetLeft;
+    const y = w.offsetTop;
+    if (x + w.offsetWidth > vw - 4 || x < 0) w.style.left = `${Math.max(4, (vw - w.offsetWidth) / 2)}px`;
+    if (y + w.offsetHeight > vh - 4 || y < 0) w.style.top = `${Math.max(2, vh - w.offsetHeight - 4)}px`;
+  };
+
+  /** The window's frame: tabs, search and filters. The list and the details below re-render on their own. */
+  private renderGuide() {
+    const b = this.body('guide');
+    if (!b) return;
+    const g = this.guide;
+    const filters = GUIDE_FILTERS[g.tab];
+    b.innerHTML = `<div class="gd-wrap ${g.detail ? 'show-detail' : ''}">
+        <div class="gd-tabs">${(Object.keys(GUIDE_TABS) as GuideTab[]).map((t) =>
+          `<button data-gtab="${t}" class="${g.tab === t ? 'on' : ''}">${GUIDE_TABS[t]}</button>`).join('')}</div>
+        <div class="gd-main">
+          <div class="gd-side">
+            <input class="gd-q" type="search" placeholder="🔍 ค้นหาชื่อ…" value="${escapeHtml(g.q)}" enterkeyhint="search"/>
+            <div class="gd-filters">${filters.map(([k, label]) => `<button data-gf="${k}" class="${g.filter === k ? 'on' : ''}">${label}</button>`).join('')}</div>
+            <div class="gd-list"></div>
+          </div>
+          <div class="gd-detail"></div>
+        </div>
+      </div>`;
+    b.querySelectorAll<HTMLButtonElement>('[data-gtab]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        const t = btn.dataset.gtab as GuideTab;
+        if (t === g.tab) {
+          g.detail = false;
+        } else {
+          g.tab = t;
+          g.q = '';
+          g.filter = '';
+          g.detail = false;
+        }
+        this.renderGuide();
+      }));
+    b.querySelectorAll<HTMLButtonElement>('[data-gf]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        g.filter = btn.dataset.gf!;
+        b.querySelectorAll('[data-gf]').forEach((x) => x.classList.toggle('on', x === btn));
+        this.renderGuideList();
+      }));
+    const q = b.querySelector('.gd-q') as HTMLInputElement;
+    q.addEventListener('input', () => {
+      g.q = q.value;
+      this.renderGuideList();
+    });
+    this.renderGuideList();
+    this.renderGuideDetail();
+  }
+
+  /** What's in the current tab after the search and the filter, in a sensible order. */
+  private guideEntries(): string[] {
+    const g = this.guide;
+    const q = g.q.trim().toLowerCase();
+    const hit = (name: string) => !q || name.toLowerCase().includes(q);
+    if (g.tab === 'mon') {
+      return Object.keys(MONSTERS)
+        .filter((k) => hit(MONSTERS[k].name))
+        .filter((k) => {
+          const m = MONSTERS[k];
+          if (g.filter === 'boss') return !!m.boss;
+          if (g.filter === 'aggr') return m.aggressive;
+          if (g.filter) {
+            const [lo, hi] = g.filter.split('-').map(Number);
+            return m.level >= lo && m.level <= hi;
+          }
+          return true;
+        })
+        .sort((a, b) => MONSTERS[a].level - MONSTERS[b].level || MONSTERS[a].name.localeCompare(MONSTERS[b].name, 'th'));
+    }
+    if (g.tab === 'equip') {
+      const order = EQUIP_TYPES as string[];
+      return Object.keys(ITEMS)
+        .filter((k) => order.includes(ITEMS[k].type) && (!g.filter || ITEMS[k].type === g.filter) && hit(ITEMS[k].name))
+        .sort((a, b) => {
+          const x = ITEMS[a];
+          const y = ITEMS[b];
+          return order.indexOf(x.type) - order.indexOf(y.type) || (x.atk ?? x.def ?? 0) - (y.atk ?? y.def ?? 0) || x.price - y.price;
+        });
+    }
+    return Object.keys(ITEMS)
+      .filter((k) => ITEMS[k].card && (!g.filter || ITEMS[k].card!.slot === g.filter) && hit(ITEMS[k].name))
+      .sort((a, b) => (dropperOf(a)?.level ?? 0) - (dropperOf(b)?.level ?? 0));
+  }
+
+  private renderGuideList() {
+    const box = this.body('guide')?.querySelector('.gd-list') as HTMLElement | null;
+    if (!box) return;
+    const g = this.guide;
+    const ids = this.guideEntries();
+    const pick = g.pick[g.tab];
+    box.innerHTML = ids.map((id) => {
+      if (g.tab === 'mon') {
+        const m = MONSTERS[id];
+        const [el, lv] = monsterElement(m);
+        return `<div class="gd-row ${pick === id ? 'on' : ''}" data-gid="${id}"><i class="gd-dot" style="background:${m.color}"></i>
+          <span><b>${m.boss ? '★ ' : ''}${escapeHtml(m.name)}</b><small>Lv.${m.level} · <em class="el-tag" style="background:${ELEMENTS[el].color}">${elementLabel(el, lv)}</em>${m.aggressive ? ' · ⚔' : ''}</small></span></div>`;
+      }
+      const it = ITEMS[id];
+      const sub = it.card ? `${CARD_SLOT_LABEL[it.card.slot]} · ${bonusText(it.card.bonus)}` : `${TYPE_LABEL[it.type] ?? it.type}${it.atk ? ` · Atk ${it.atk}` : ''}${it.matk ? ` · Matk ${it.matk}` : ''}${it.def ? ` · Def ${it.def}` : ''}${it.slots ? ` · [${it.slots}]` : ''}`;
+      return `<div class="gd-row ${pick === id ? 'on' : ''}" data-gid="${id}"><img src="${itemIcon(id)}" alt=""/>
+        <span><b>${escapeHtml(it.name)}</b><small>${escapeHtml(sub)}</small></span></div>`;
+    }).join('') || '<p class="hint gd-empty">ไม่พบรายการที่ค้นหา</p>';
+    const count = this.body('guide')?.querySelector('.gd-q') as HTMLInputElement | null;
+    if (count) count.placeholder = `🔍 ค้นหาชื่อ… (${ids.length} รายการ)`;
+    box.querySelectorAll<HTMLElement>('[data-gid]').forEach((row) =>
+      row.addEventListener('click', () => {
+        g.pick[g.tab] = row.dataset.gid!;
+        g.detail = true;
+        box.querySelectorAll('.gd-row.on').forEach((x) => x.classList.remove('on'));
+        row.classList.add('on');
+        this.body('guide')?.querySelector('.gd-wrap')?.classList.add('show-detail');
+        this.renderGuideDetail();
+      }));
+  }
+
+  private renderGuideDetail() {
+    const box = this.body('guide')?.querySelector('.gd-detail') as HTMLElement | null;
+    if (!box) return;
+    const g = this.guide;
+    const id = g.pick[g.tab];
+    const back = '<button class="gd-back">‹ กลับไปรายการ</button>';
+    if (!id || (g.tab === 'mon' ? !MONSTERS[id] : !ITEMS[id])) {
+      box.innerHTML = `<p class="hint gd-empty">${g.tab === 'mon' ? 'เลือกมอนสเตอร์ทางซ้ายเพื่อดูค่าพลัง ที่อยู่ และของที่ดร็อป' : 'เลือกรายการทางซ้ายเพื่อดูรายละเอียด และมอนสเตอร์ที่ดร็อป'}</p>`;
+      return;
+    }
+    box.innerHTML = back + (g.tab === 'mon' ? this.guideMonster(id) : this.guideItem(id));
+    box.scrollTop = 0;
+    hydratePortraits(box);
+    box.querySelector('.gd-back')!.addEventListener('click', () => {
+      g.detail = false;
+      this.body('guide')?.querySelector('.gd-wrap')?.classList.remove('show-detail');
+    });
+    // jump between a monster and what it drops (and back)
+    box.querySelectorAll<HTMLElement>('[data-gmon]').forEach((el) => el.addEventListener('click', () => this.openGuide('mon', el.dataset.gmon)));
+    box.querySelectorAll<HTMLElement>('[data-gitem]').forEach((el) =>
+      el.addEventListener('click', () => {
+        const it = ITEMS[el.dataset.gitem!];
+        if (it?.card) this.openGuide('card', el.dataset.gitem);
+        else if (it && (EQUIP_TYPES as string[]).includes(it.type)) this.openGuide('equip', el.dataset.gitem);
+        else this.openItem(el.dataset.gitem!);
+      }));
+  }
+
+  private guideMonster(id: string) {
+    const m = MONSTERS[id];
+    const [el, elv] = monsterElement(m);
+    const myLv = this.s.char.level;
+    const diff = m.level - myLv;
+    const where = new Map<string, number>();
+    for (const s of SPAWNS) if (s.monster === id) where.set(s.map, (where.get(s.map) ?? 0) + s.count);
+    const maps = [...where].map(([map, n]) => `<div class="gd-where">📍 ${escapeHtml(mapName(map))} <small>· ${n} ตัว</small></div>`).join('');
+    const drops = m.drops.filter(([d]) => ITEMS[d]).map(([d, r]) => {
+      const it = ITEMS[d];
+      return `<div class="gd-drop ${it.card ? 'card' : ''}" data-gitem="${d}"><img src="${itemIcon(d)}" alt=""/><span>${escapeHtml(it.name)}<small>${TYPE_LABEL[it.type] ?? it.type}</small></span><b>${pct(r)}</b></div>`;
+    }).join('');
+    // what each element does against it
+    const weak = ELEMENT_KEYS.filter((a) => a !== 'neutral' || el !== 'neutral').map((a) => [a, elementMult(a, el, elv)] as const);
+    const good = weak.filter(([, x]) => x > 1).sort((a, b) => b[1] - a[1]).map(([a, x]) => `${elementLabel(a)} ${Math.round(x * 100)}%`);
+    const bad = weak.filter(([, x]) => x < 1).sort((a, b) => a[1] - b[1]).map(([a, x]) => `${elementLabel(a)} ${Math.round(x * 100)}%`);
+    return `<div class="gd-mon">
+      <div class="card-art ${m.boss ? 'boss' : ''}"><div class="card-pic" data-portrait="${id}"><span class="spin"></span></div>
+        <div class="card-name">${escapeHtml(m.name)}</div><div class="card-sub">Lv ${m.level}${m.boss ? ' · บอส' : ''}</div></div>
+      <div class="gd-info">
+        <div class="gd-title"><b>${m.boss ? '★ ' : ''}${escapeHtml(m.name)}</b>
+          ${diff >= 8 ? '<em class="wm-hard">อันตราย</em>' : diff <= -10 ? '<em class="wm-easy">ง่าย</em>' : ''}</div>
+        <div class="gd-stats">
+          <span>Lv <b>${m.level}</b></span><span>HP <b>${m.hp.toLocaleString()}</b></span>
+          <span>Atk <b>${m.atk}</b></span><span>Def <b>${m.def}</b></span>
+          <span>Base EXP <b>${m.exp.toLocaleString()}</b></span><span>Job EXP <b>${m.jobExp.toLocaleString()}</b></span>
+          <span>Zeny <b>${m.zeny[0]}–${m.zeny[1]}</b></span><span>ธาตุ <b><em class="el-tag" style="background:${ELEMENTS[el].color}">${elementLabel(el, elv)}</em></b></span>
+        </div>
+        <div class="muted">${m.aggressive ? '⚔ ดุ เข้ามาตีก่อน' : '😌 ไม่ตีก่อน'}${m.boss ? ' · บอส ดร็อปการ์ดง่ายกว่า' : ''}</div>
+        ${good.length ? `<div class="gd-el good">ตีแรงขึ้นด้วย: ${good.join(', ')}</div>` : ''}
+        ${bad.length ? `<div class="gd-el bad">ตีเบาลงด้วย: ${bad.join(', ')}</div>` : ''}
+      </div>
+      <div class="it-sec">พบได้ที่</div>${maps || '<div class="muted">ไม่เกิดในแผนที่ทั่วไป</div>'}
+      <div class="it-sec">ของที่ดร็อป <small class="muted">· แตะเพื่อดูรายละเอียด</small></div>
+      <div class="gd-drops">${drops || '<div class="muted">ไม่มี</div>'}</div>
+    </div>`;
+  }
+
+  private guideItem(id: string) {
+    const it = ITEMS[id];
+    const from = Object.entries(MONSTERS)
+      .flatMap(([k, m]) => m.drops.filter(([d]) => d === id).map(([, r]) => [k, r] as const))
+      .sort((a, b) => b[1] - a[1]);
+    const srcs = from.map(([k, r]) => {
+      const m = MONSTERS[k];
+      return `<div class="gd-drop" data-gmon="${k}"><i class="gd-dot" style="background:${m.color}"></i><span>${m.boss ? '★ ' : ''}${escapeHtml(m.name)}<small>Lv.${m.level}</small></span><b>${pct(r)}</b></div>`;
+    }).join('');
+    const shop = SHOP.includes(id) ? 'ร้านของใช้' : WEAPON_SHOP.includes(id) ? 'ร้านเครื่องดนตรี' : '';
+    return `${this.itemTip(id, undefined, true)}
+      <div class="it-sec">หาได้จาก</div>
+      ${shop ? `<div class="gd-where">🛒 มีขายที่${shop} ราคา ${it.price.toLocaleString()} z</div>` : ''}
+      <div class="gd-drops">${srcs || (shop ? '' : '<div class="muted">ยังไม่มีมอนสเตอร์ดร็อป</div>')}</div>`;
   }
 
   // ------------------------------------------------------------ big map
@@ -1945,6 +2198,7 @@ export class Hud implements WorldHooks {
       else if (e.altKey && k === 's') this.toggle('skill');
       else if (e.altKey && k === 'a') this.toggle('equip');
       else if (e.altKey && k === 'z') this.toggle('party');
+      else if (e.altKey && k === 'g') this.toggleGuide();
       else if (k === 'tab') this.root.querySelector('#minimap')!.classList.toggle('hidden');
       else if (k === 'insert') this.actions.scene()?.toggleSit();
       else if (k === 'escape') {
@@ -2011,6 +2265,15 @@ export class Hud implements WorldHooks {
     }
     if (box.innerHTML !== html) box.innerHTML = html;
   }
+}
+
+/** Card art placeholders (data-portrait="<monster>") get the monster rendered from its model. */
+function hydratePortraits(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>('[data-portrait]').forEach((pic) => {
+    void monsterPortrait(pic.dataset.portrait!).then((url) => {
+      if (pic.isConnected) pic.innerHTML = url ? `<img src="${url}" alt=""/>` : '<span class="muted">?</span>';
+    });
+  });
 }
 
 // whether the last press was a finger (some phones also send dblclick after two taps: don't act twice)
