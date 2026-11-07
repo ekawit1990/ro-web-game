@@ -10,13 +10,14 @@ import { animateMaxAura, buildMaxAura } from './levelAura';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
 import { MOODS, sunDir, useRim } from './look';
 import { FxOptions, playFx, preloadFx } from './pixelfx';
+import { hammerOnBlast } from './guitarfx';
 import { doubleKickBlast, sendOffDash, snareGhost, snareHit, snareStorm, xSlashWave } from './xslash';
 
 /** Classes with their own attack moves in vrm.ts (the hit lands when the blow does). */
@@ -1583,7 +1584,7 @@ export class World3D {
     const vol = a ? this.vol(a.x, a.y, mine) : 0;
     const isBuff = skill.type === 'buff' || skill.type === 'buff_party' || skill.type === 'buff_target';
     if (a) {
-      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
+      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll' && id !== 'hammer_on') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       if (skill.type !== 'aoe_self' && !isBuff) this.face(a, msg.x, msg.y);
       a.combat = COMBAT_TIME;
@@ -1708,7 +1709,29 @@ export class World3D {
         }, i * 180);
       }
       this.pillar(a.x, a.y, c, 1.0, 2.5);
-    } else if ((id === 'hammer_on' || id === 'ear_training') && a) {
+    } else if (id === 'hammer_on' && a) {
+      // the ground smash, in red: a crimson circle, a flaming crescent out of the sky, cracks, flames, rocks ("ตึ้ง!")
+      a.combo = 2;
+      const hitMs = attackHit(a.cls, 2) * attackTime(a.cls) * 1000;
+      numbersFrom = hitMs + 40;
+      const p0 = target();
+      let kx = p0.x - a.x;
+      let kz = p0.z - a.y;
+      const kl = Math.hypot(kx, kz) || 1;
+      kx /= kl;
+      kz /= kl;
+      hammerOnBlast(
+        {
+          scene: this.scene,
+          camera: this.camera,
+          add: (e) => this.effects.push(e),
+          sparks: (p, color, n, speed) => this.burst(p, color, n, speed),
+          sound: (big) => sfxHammer(vol, big),
+          shake: (amp) => mine && this.shake(amp),
+        },
+        target, kx, kz, hitMs, sparkTexture(),
+      );
+    } else if (id === 'ear_training' && a) {
       const throwIt = id === 'ear_training';
       const boom = () => {
         const at = target();

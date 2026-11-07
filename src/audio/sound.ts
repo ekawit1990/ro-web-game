@@ -592,3 +592,19 @@ export function playMusic(name: string | null) {
   timer = window.setInterval(schedule, 80);
   schedule();
 }
+
+/**
+ * "ตึ้ง!": Hammer-on. A distorted power chord (E5: root, fifth, octave, saw waves through a closing filter)
+ * slammed together with a deep boom and a crack of noise, like the guitar smashing the ground.
+ */
+export function sfxHammer(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = big ? 1.25 : 1;
+  noise(t, 0.03, { gain: 0.4 * vol * k, type: 'highpass', freq: 2500, release: 0.02 });
+  for (const [f, g] of [[82.4, 0.2], [123.5, 0.16], [164.8, 0.13], [247, 0.07]] as const) {
+    tone(f, t, 0.9, { type: 'sawtooth', to: f * 0.985, gain: g * vol * k, filter: 2600, filterTo: 300, vibrato: 0.006, release: 0.35, wet: 0.35 });
+  }
+  tone(140, t, 0.5, { type: 'sine', to: 30, gain: 0.85 * vol * k, release: 0.18 });
+  noise(t + 0.01, 0.55, { gain: 0.38 * vol * k, type: 'lowpass', freq: 1200, freqTo: 90, release: 0.22, wet: 0.4 });
+}
