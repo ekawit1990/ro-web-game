@@ -9,6 +9,7 @@ import type { World3D, WorldHooks } from '../three/World3D';
 import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
+import { monsterPortrait } from '../three/portrait';
 
 type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap';
 /** A bag row, or what we know of someone else's (trade): the + level and cards travel with it. */
@@ -502,6 +503,13 @@ export class Hud implements WorldHooks {
       lines.push(`<div class="it-sec">ช่องการ์ด ${cards.length} / ${it.slots}</div>${slots.join('')}`);
     }
     if (it.card) {
+      // card art: the monster that drops it, rendered from its own model (item window only)
+      const mon = full ? Object.keys(MONSTERS).find((k) => MONSTERS[k].drops.some(([d]) => d === id)) : undefined;
+      if (mon) {
+        const m = MONSTERS[mon];
+        lines.push(`<div class="card-art ${m.boss ? 'boss' : ''}"><div class="card-pic" data-portrait="${mon}"><span class="spin"></span></div>
+          <div class="card-name">${escapeHtml(m.name)}</div><div class="card-sub">Lv ${m.level}${m.boss ? ' · บอส' : ''}${m.element && m.element[0] !== 'neutral' ? ` · ${elementLabel(m.element[0])}` : ''}</div></div>`);
+      }
       lines.push(`<div class="it-sec">เสียบใน: ${CARD_SLOT_LABEL[it.card.slot]}</div><div class="it-bonus">${bonusText(it.card.bonus)}</div>`);
     }
     if (canRefine(it)) {
@@ -555,6 +563,11 @@ export class Hud implements WorldHooks {
     }
     b.innerHTML = `${this.itemTip(v.item, row ?? v.row, true)}${extra}
       <div class="npc-btns">${btns.join('')}<button class="close">ปิด</button></div>`;
+    b.querySelectorAll<HTMLElement>('[data-portrait]').forEach((pic) => {
+      void monsterPortrait(pic.dataset.portrait!).then((url) => {
+        pic.innerHTML = url ? `<img src="${url}" alt=""/>` : '<span class="muted">?</span>';
+      });
+    });
     b.querySelector('.close')!.addEventListener('click', () => this.closeWin('item'));
     b.querySelector('[data-act="use"]')?.addEventListener('click', () => row && this.s.use(row.id));
     b.querySelector('[data-act="equip"]')?.addEventListener('click', () => row && this.run(() => this.s.setEquipped(row.id, !row.equipped)));
@@ -588,11 +601,14 @@ export class Hud implements WorldHooks {
     this.renderSkills();
   }
 
+  /** The skill whose details are expanded in the Skill Tree (tap the name). */
+  private skOpen = '';
+
   private renderSkills() {
     const b = this.body('skill');
     if (!b || !this.isOpen('skill')) return;
     const c = this.s.char;
-    const sig = JSON.stringify([c.skills, c.skill_points, c.cls]);
+    const sig = JSON.stringify([c.skills, c.skill_points, c.cls, this.skOpen]);
     if (this.lastSig.skill === sig) return;
     this.lastSig.skill = sig;
     // the job change refunds Teen skills, so only your class's own skills are listed
@@ -602,13 +618,24 @@ export class Hud implements WorldHooks {
       const passive = sk.type === 'passive';
       return `<div class="sk-row ${lv ? '' : 'locked'}">
         <div class="sk-icon" data-skill="${id}" draggable="${!passive && lv > 0}" title="${passive ? 'สกิลติดตัว' : 'ลากไปช่องปุ่มลัด / ดับเบิลคลิกเพื่อใช้'}">${sk.icon}</div>
-        <div class="sk-info"><b>${escapeHtml(sk.name)}</b><small>${passive ? 'ติดตัว' : `Sp : ${skillSp(sk, Math.max(1, lv))}`}</small></div>
+        <div class="sk-info" data-skinfo="${id}"><b>${escapeHtml(sk.name)} <span class="sk-more">${this.skOpen === id ? '▴' : 'ⓘ'}</span></b><small>${passive ? 'ติดตัว' : `Sp : ${skillSp(sk, Math.max(1, lv))}`}</small></div>
         <div class="sk-lv">Lv : ${lv} / ${sk.maxLevel}</div>
         <button class="up" data-learn="${id}" ${c.skill_points > 0 && lv < sk.maxLevel && sk.cls === c.cls ? '' : 'disabled'}>Lv Up</button>
-      </div>`;
+      </div>${this.skOpen === id ? `<div class="sk-detail">${this.skillTip(id)}</div>` : ''}`;
     });
+    const keep = b.querySelector('.sk-list')?.scrollTop ?? 0;
     b.innerHTML = `<div class="sk-list">${rows.join('')}</div>
-      <div class="sk-foot"><span>Skill Point : <b>${c.skill_points}</b></span><span class="hint">ได้ 1 แต้มทุก Job Lv</span></div>`;
+      <div class="sk-foot"><span>Skill Point : <b>${c.skill_points}</b></span><span class="hint">${lastTouch ? 'แตะชื่อสกิล = ดูรายละเอียด' : 'ได้ 1 แต้มทุก Job Lv'}</span></div>`;
+    b.querySelector('.sk-list')!.scrollTop = keep;
+    // tapping a skill's name opens its description under the row (phones have no hover tooltip)
+    b.querySelectorAll<HTMLElement>('[data-skinfo]').forEach((el) =>
+      el.addEventListener('click', () => {
+        const id = el.dataset.skinfo!;
+        this.skOpen = this.skOpen === id ? '' : id;
+        this.renderSkills();
+        b.querySelector('.sk-detail')?.scrollIntoView({ block: 'nearest' });
+      }),
+    );
     b.querySelectorAll<HTMLButtonElement>('[data-learn]').forEach((btn) =>
       btn.addEventListener('click', () => this.run(() => this.s.learn(btn.dataset.learn!))),
     );
