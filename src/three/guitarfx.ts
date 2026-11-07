@@ -763,3 +763,318 @@ export function vibratoAura(ctx: XSlashCtx, at: () => THREE.Vector3, alive: () =
     return true;
   });
 }
+
+// ------------------------------------------------------------ Slide
+
+/** A strip of light from (x0,z0) to (x1,z1), flat on the ground or standing edge-up; bright end at the target. */
+function streak(ctx: XSlashCtx, x0: number, z0: number, x1: number, z1: number, y: number, w: number, color: number, sec: number, delay: number, flat: boolean, additive: boolean) {
+  const len = Math.hypot(x1 - x0, z1 - z0);
+  const geo = new THREE.PlaneGeometry(w, len);
+  const mat = new THREE.MeshBasicMaterial({ map: ray(), color, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending });
+  const m = new THREE.Mesh(geo, mat);
+  m.rotation.order = 'YXZ';
+  const yaw = Math.atan2(x1 - x0, z1 - z0);
+  if (flat) m.rotation.set(-Math.PI / 2, yaw, 0);
+  else m.rotation.set(0, yaw + Math.PI / 2, -Math.PI / 2);
+  m.position.set((x0 + x1) / 2, y, (z0 + z1) / 2);
+  ctx.scene.add(m);
+  anim(ctx, sec, delay, (_t, k) => {
+    mat.opacity = Math.max(0, k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85);
+    m.scale.x = 1 - k * 0.6;
+  }, () => {
+    dispose(ctx, m);
+    geo.dispose();
+  });
+}
+
+/**
+ * Slide: like the drummer's จังหวะส่ง but a red fire comet. The guitarist shoots from (fx,fz) to (tx,tz) in
+ * `dashMs`: a burning trail on the ground with flames left behind, speed lines, an oval of light round the path;
+ * at the target a red starburst, a crimson circle, shock rings, flames and embers. `big` = x2 with Vibrato.
+ */
+export function slideDash(ctx: XSlashCtx, fx: number, fz: number, tx: number, tz: number, dashMs: number, big: boolean, glowTex: THREE.Texture) {
+  const len = Math.hypot(tx - fx, tz - fz);
+  if (len < 0.2) return;
+  const dx = (tx - fx) / len;
+  const dz = (tz - fz) / len;
+  const k = big ? 1.35 : 1;
+  const dash = dashMs / 1000;
+  ctx.sound(false);
+  smoke(ctx, fx, fz, 3, 1.4);
+  redShock(ctx, fx, fz, 1.8, 0.4);
+  const bx = fx - dx * 1.2;
+  const bz = fz - dz * 1.2;
+  streak(ctx, bx, bz, tx, tz, 0.06, 1.9 * k, 0xb00000, 0.7, 0, true, false);
+  streak(ctx, bx, bz, tx, tz, 0.07, 1.2 * k, 0xff4010, 0.6, 0, true, true);
+  streak(ctx, bx, bz, tx, tz, 0.08, 0.5 * k, 0xfff0d0, 0.45, 0, true, true);
+  const lines = Math.round(8 * Q) + 2;
+  for (let i = 0; i < lines; i++) {
+    const side = (Math.random() - 0.5) * 1.6;
+    const sx = -dz * side;
+    const sz = dx * side;
+    const back = 0.5 + Math.random() * 1.8;
+    const col = [0xc00000, 0xff5020, 0xffe0b0][i % 3];
+    streak(ctx, bx - dx * back + sx, bz - dz * back + sz, tx - dx * 0.4 + sx, tz - dz * 0.4 + sz, 0.3 + Math.random() * 1.3, 0.08 + Math.random() * 0.12, col, 0.45, Math.random() * dash * 0.6, false, i % 3 !== 0);
+  }
+  // flames left burning along the path
+  const fl = Math.max(3, Math.round(len * 3 * Q));
+  for (let i = 0; i < fl; i++) {
+    const u = i / fl;
+    const side = (Math.random() - 0.5) * 0.8;
+    const x = fx + (tx - fx) * u - dz * side;
+    const z = fz + (tz - fz) * u + dx * side;
+    flameRing(ctx, x, z, 0.01, 1, 0.8 + Math.random() * 0.6, 0.6, dash * u);
+  }
+  embers(ctx, (fx + tx) / 2, (fz + tz) / 2, len / 2, 14, glowTex);
+  // an oval of light round the path
+  const loop = groundPlane(shock(), 2, true);
+  loop.rotation.order = 'YXZ';
+  loop.rotation.set(-Math.PI / 2, Math.atan2(dx, dz), 0);
+  loop.position.set((fx + tx) / 2, 0.5, (fz + tz) / 2);
+  (loop.material as THREE.MeshBasicMaterial).color.set(0xff3010);
+  ctx.scene.add(loop);
+  anim(ctx, 0.55, 0, (t, q) => {
+    const s = Math.min(1, t / 0.25);
+    loop.scale.set(1.2 * k * (0.5 + s * 0.5), (len / 2 + 1) * (0.6 + s * 0.4), 1);
+    (loop.material as THREE.MeshBasicMaterial).opacity = 1 - q;
+  }, () => {
+    dispose(ctx, loop);
+    loop.geometry.dispose();
+  });
+  // the hit
+  anim(ctx, 0.01, dash, () => {}, () => {
+    const at = new THREE.Vector3(tx, 0.8, tz);
+    ctx.sound(true);
+    ctx.shake(0.3 * k);
+    const deep = sprite(ctx, glowTex, 0xa00000, false);
+    deep.material.depthTest = false;
+    deep.renderOrder = 8;
+    deep.position.copy(at);
+    anim(ctx, 0.45, 0, (_t, q) => {
+      deep.scale.setScalar(3.6 * k * (0.6 + q * 0.6));
+      deep.material.opacity = 0.9 * (1 - q);
+    }, () => dispose(ctx, deep));
+    flash(ctx, at, 4.5 * k, 0xff3010, 0.4, glowTex);
+    flash(ctx, at, 2 * k, 0xffffff, 0.25, glowTex);
+    rays(ctx, at, 16, 2.8 * k);
+    redCircle(ctx, tx, tz, 1.5 * k, 0.9);
+    redShock(ctx, tx, tz, 2.8 * k, 0.5);
+    redShock(ctx, tx, tz, 1.7 * k, 0.4, 0.08);
+    flameRing(ctx, tx, tz, 0.7, 8, 1.4 * k, 0.6);
+    embers(ctx, tx, tz, 1, 18, glowTex);
+    ctx.sparks(at, 0xff6030, Math.round(28 * Q * k), 7);
+  });
+}
+
+// ------------------------------------------------------------ Palm muting
+
+/** A jagged bolt between two points, re-drawn with new kinks every few frames: a wide red glow, the red bolt and a hot core. */
+function bolt(ctx: XSlashCtx, from: () => THREE.Vector3, to: () => THREE.Vector3, color: number, width: number, sec: number, delay: number) {
+  const n = 14;
+  const idx: number[] = [];
+  for (let i = 0; i < n; i++) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+  const layers = ([
+    [3.2, new THREE.MeshBasicMaterial({ color: 0xff1a00, transparent: true, side: THREE.DoubleSide, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending })],
+    [1, new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide, depthWrite: false, depthTest: false })],
+    [0.3, new THREE.MeshBasicMaterial({ color: 0xffc8a0, transparent: true, side: THREE.DoubleSide, depthWrite: false, depthTest: false })],
+  ] as const).map(([f, mat], i) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((n + 1) * 6), 3));
+    geo.setIndex(idx);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 10 + i;
+    mesh.visible = false;
+    mesh.frustumCulled = false;
+    ctx.scene.add(mesh);
+    return { f, mat, geo, mesh };
+  });
+  let kinks: number[] = [];
+  let next = 0;
+  anim(ctx, sec, delay, (t, k) => {
+    const a = from();
+    const b = to();
+    if (t >= next) {
+      next = t + 0.05;
+      kinks = Array.from({ length: n + 1 }, (_, i) => (i === 0 || i === n ? 0 : (Math.random() - 0.5) * 0.6));
+    }
+    const d = b.clone().sub(a);
+    const len = d.length() || 1;
+    const side = new THREE.Vector3(-d.z, 0, d.x).divideScalar(len);
+    const flick = 0.75 + Math.random() * 0.25;
+    for (const l of layers) {
+      l.mesh.visible = true;
+      const pos = l.geo.attributes.position.array as Float32Array;
+      const w = width * l.f * (1 - k * 0.5);
+      for (let i = 0; i <= n; i++) {
+        const u = i / n;
+        const p = a.clone().addScaledVector(d, u).addScaledVector(side, kinks[i]);
+        p.y += Math.sin(u * Math.PI) * 0.4 + kinks[(i + 3) % (n + 1)] * 0.5;
+        pos.set([p.x - side.x * w, p.y + w, p.z - side.z * w, p.x + side.x * w, p.y - w, p.z + side.z * w], i * 6);
+      }
+      l.geo.attributes.position.needsUpdate = true;
+      l.mat.opacity = (l.f > 2 ? 0.45 : 1) * (1 - k * 0.6) * flick;
+    }
+  }, () => {
+    for (const l of layers) {
+      ctx.scene.remove(l.mesh);
+      l.mat.dispose();
+      l.geo.dispose();
+    }
+  });
+}
+
+/**
+ * Palm muting: a crimson circle under the guitarist and a red ring rushing out `radius` tiles; red lightning
+ * jumps from the guitarist to every monster it catches, then the bolts drag them in (the server moves them) with
+ * a flash and flames on each one and a burst round the guitarist when they arrive.
+ * `targets` follow the monsters as they move.
+ */
+export function palmMuting(ctx: XSlashCtx, at: () => THREE.Vector3, radius: number, targets: (() => THREE.Vector3)[], glowTex: THREE.Texture) {
+  const p0 = at();
+  ctx.sound(false);
+  redCircle(ctx, p0.x, p0.z, 2.2, 1.6);
+  redShock(ctx, p0.x, p0.z, radius, 0.7);
+  redShock(ctx, p0.x, p0.z, radius * 0.7, 0.6, 0.1);
+  flash(ctx, p0.clone().setY(1), 3.5, 0xff2000, 0.5, glowTex);
+  embers(ctx, p0.x, p0.z, 1.2, 14, glowTex);
+  // a standing wall of red light on the ring as it goes out
+  const wall = new THREE.Mesh(
+    new THREE.CylinderGeometry(1, 1, 1, 48, 1, true),
+    new THREE.MeshBasicMaterial({ map: ray(), color: 0xff2a10, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }),
+  );
+  wall.position.set(p0.x, 0.4, p0.z);
+  ctx.scene.add(wall);
+  anim(ctx, 0.7, 0, (_t, k) => {
+    const r = 0.3 + radius * (1 - Math.pow(1 - k, 2.5));
+    wall.scale.set(r, 0.8 * (1 - k * 0.5), r);
+    (wall.material as THREE.MeshBasicMaterial).opacity = 1 - k;
+  }, () => {
+    dispose(ctx, wall);
+    wall.geometry.dispose();
+  });
+  const from = () => at().setY(1.1);
+  targets.forEach((to, i) => {
+    const d = 0.12 + Math.min(0.3, i * 0.03);
+    const tgt = () => to().setY(0.7);
+    bolt(ctx, from, tgt, 0xe00000, 0.14, 0.95, d);
+    if (i % 2 === 0) bolt(ctx, from, tgt, 0xff3010, 0.08, 0.8, d + 0.05);
+    anim(ctx, 0.01, d, () => {}, () => {
+      const p = tgt();
+      flash(ctx, p, 1.8, 0xff3010, 0.35, glowTex);
+      ctx.sparks(p, 0xff4010, Math.round(10 * Q), 4);
+      redShock(ctx, p.x, p.z, 1.4, 0.4);
+    });
+  });
+  // all pulled in: a burst round the guitarist
+  anim(ctx, 0.01, 0.75, () => {}, () => {
+    const p = at();
+    ctx.sound(true);
+    ctx.shake(0.3);
+    flameRing(ctx, p.x, p.z, 1.3, 12, 1.6, 0.7);
+    redShock(ctx, p.x, p.z, 3, 0.5);
+    rays(ctx, p.clone().setY(0.8), 12, 2.2);
+  });
+}
+
+// ------------------------------------------------------------ Bending
+
+/** A spinning crescent ring of fire round (x, y, z): radius r, tilted, turning `spin` rad/s. */
+function fireArc(ctx: XSlashCtx, follow: () => THREE.Vector3, y: number, r: number, w: number, arc: number, tiltX: number, tiltZ: number, spin: number, sec: number, delay: number) {
+  const geo = arcGeometry(r, w, arc);
+  const solid = new THREE.MeshBasicMaterial({ map: blade(), transparent: true, side: THREE.DoubleSide, depthWrite: false });
+  const add = new THREE.MeshBasicMaterial({ map: blade(), color: 0xff7040, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+  const g = new THREE.Group();
+  const tilt = new THREE.Group();
+  tilt.rotation.set(-Math.PI / 2 + tiltX, 0, tiltZ);
+  g.add(tilt);
+  const spinner = new THREE.Group();
+  tilt.add(spinner);
+  for (const m of [solid, add]) spinner.add(new THREE.Mesh(geo, m));
+  g.visible = false;
+  ctx.scene.add(g);
+  const a0 = Math.random() * Math.PI * 2;
+  anim(ctx, sec, delay, (t, k) => {
+    g.visible = true;
+    const p = follow();
+    g.position.set(p.x, y + Math.sin(t * 5) * 0.05, p.z);
+    spinner.rotation.z = a0 + t * spin;
+    const grow = Math.min(1, t / 0.15);
+    g.scale.setScalar(0.5 + 0.5 * grow + k * 0.25);
+    const o = Math.min(1, (1 - k) * 3);
+    solid.opacity = o;
+    add.opacity = 0.7 * o;
+  }, () => dispose(ctx, g));
+}
+
+/**
+ * Bending: the guitarist spins and a red fire storm whirls up round them: a crimson circle, layers of flaming
+ * crescents turning fast at different heights and tilts (a tornado), a spiral of flames and embers sucked up,
+ * smoke, rocks and shock rings, and a final blast outwards. `radius` = the skill's reach in tiles.
+ */
+export function bendingStorm(ctx: XSlashCtx, at: () => THREE.Vector3, radius: number, glowTex: THREE.Texture) {
+  const p0 = at();
+  const sec = 1.3;
+  ctx.sound(false);
+  redCircle(ctx, p0.x, p0.z, radius + 0.8, sec + 0.4);
+  redShock(ctx, p0.x, p0.z, radius + 1.5, 0.5);
+  // the tornado: rings widen as they go up
+  const layers = PHONE ? 5 : 9;
+  for (let i = 0; i < layers; i++) {
+    const u = i / (layers - 1);
+    const y = 0.15 + u * 2.6;
+    const r = radius * (0.45 + u * 0.6);
+    fireArc(ctx, at, y, r, 0.35 + u * 0.35, Math.PI * (0.9 + Math.random() * 0.5), (Math.random() - 0.5) * 0.35, (Math.random() - 0.5) * 0.35, (i % 2 ? -1 : 1) * (9 + Math.random() * 5) * (1 - u * 0.3), sec, i * 0.04);
+  }
+  // a dark-red funnel behind the arcs
+  const funnel = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius * 0.95, radius * 0.4, 2.8, 32, 1, true),
+    new THREE.MeshBasicMaterial({ map: ray(), color: 0xc00000, transparent: true, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  funnel.rotation.x = Math.PI; // the ray texture is bright at the bottom of the funnel
+  ctx.scene.add(funnel);
+  anim(ctx, sec, 0, (t, k) => {
+    const p = at();
+    funnel.position.set(p.x, 1.45, p.z);
+    funnel.rotation.y = t * 8;
+    (funnel.material as THREE.MeshBasicMaterial).opacity = 0.22 * Math.min(1, t / 0.15) * Math.min(1, (1 - k) * 3);
+  }, () => {
+    dispose(ctx, funnel);
+    funnel.geometry.dispose();
+  });
+  // flames and embers spiralling up
+  const n = Math.round(40 * Q);
+  for (let i = 0; i < n; i++) {
+    const s = sprite(ctx, i % 3 ? glowTex : flame(), i % 3 ? (i % 2 ? 0xff4010 : 0xffb050) : 0xffffff, true);
+    const a = Math.random() * Math.PI * 2;
+    const r0 = radius * (0.5 + Math.random() * 0.6);
+    const size = i % 3 ? 0.15 + Math.random() * 0.15 : 0.5 + Math.random() * 0.4;
+    s.visible = false;
+    anim(ctx, 0.8 + Math.random() * 0.4, Math.random() * (sec - 0.6), (_t, k) => {
+      s.visible = true;
+      const p = at();
+      const an = a + k * 9;
+      const r = r0 * (1 - k * 0.3) + k * 0.6;
+      s.position.set(p.x + Math.cos(an) * r, 0.1 + k * 3, p.z + Math.sin(an) * r);
+      s.scale.set(size * (i % 3 ? 1 : 0.6), size, 1);
+      s.material.opacity = 1 - k;
+    }, () => dispose(ctx, s));
+  }
+  smoke(ctx, p0.x, p0.z, 8, 2.6);
+  rocks(ctx, p0.x, p0.z, 10, 3);
+  for (let i = 0; i < 3; i++) anim(ctx, 0.01, i * 0.35, () => {}, () => {
+    const p = at();
+    redShock(ctx, p.x, p.z, radius + 1.2, 0.45);
+    ctx.sparks(p.clone().setY(0.8), 0xff4010, Math.round(14 * Q), 6);
+  });
+  // the end: a blast outwards
+  anim(ctx, 0.01, sec - 0.1, () => {}, () => {
+    const p = at();
+    ctx.sound(true);
+    ctx.shake(0.4);
+    flash(ctx, p.clone().setY(1), 5, 0xff2000, 0.5, glowTex);
+    rays(ctx, p.clone().setY(1), 16, 3);
+    redShock(ctx, p.x, p.z, radius + 3, 0.6);
+    flameRing(ctx, p.x, p.z, radius + 0.3, 16, 1.8, 0.7);
+    embers(ctx, p.x, p.z, radius, 24, glowTex);
+  });
+}

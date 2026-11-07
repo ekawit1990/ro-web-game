@@ -10,14 +10,14 @@ import { animateMaxAura, buildMaxAura } from './levelAura';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxPak, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
 import { MOODS, sunDir, useRim } from './look';
 import { FxOptions, playFx, preloadFx } from './pixelfx';
-import { hammerOnBlast, vibratoAura } from './guitarfx';
+import { bendingStorm, hammerOnBlast, palmMuting, slideDash, vibratoAura } from './guitarfx';
 import { doubleKickBlast, sendOffDash, snareGhost, snareHit, snareStorm, xSlashWave } from './xslash';
 
 /** Classes with their own attack moves in vrm.ts (the hit lands when the blow does). */
@@ -1584,7 +1584,7 @@ export class World3D {
     const vol = a ? this.vol(a.x, a.y, mine) : 0;
     const isBuff = skill.type === 'buff' || skill.type === 'buff_party' || skill.type === 'buff_target';
     if (a) {
-      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll' && id !== 'hammer_on' && id !== 'vibrato') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
+      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll' && id !== 'hammer_on' && id !== 'vibrato' && id !== 'slide' && id !== 'bending' && id !== 'palm_muting') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       if (skill.type !== 'aoe_self' && !isBuff) this.face(a, msg.x, msg.y);
       a.combat = COMBAT_TIME;
@@ -1648,7 +1648,12 @@ export class World3D {
         },
         a.x, a.y, skill.radius ?? 5, sparkTexture(),
       );
-    } else if ((id === 'send_off' || id === 'slide') && a) {
+    } else if (id === 'slide' && a) {
+      // a red fire comet (like the drummer's จังหวะส่ง) and a red starburst where it lands (x2 with Vibrato = bigger)
+      const at = target();
+      slideDash(this.fxCtx(mine, (hit) => sfxSlide(vol, hit, !!msg.bonus)), msg.fromX ?? a.x, msg.fromY ?? a.y, at.x, at.z, DASH_MS, !!msg.bonus, sparkTexture());
+      if (msg.bonus) setTimeout(() => this.floatText(target().setY(at.y + 1.4), 'x2!!', 'shout', 900), DASH_MS);
+    } else if (id === 'send_off' && a) {
       // dash like a purple comet ("ฟวิ้ง!") and a starburst where it lands (x2 = bigger)
       const fx = msg.fromX ?? a.x;
       const fy = msg.fromY ?? a.y;
@@ -1768,21 +1773,21 @@ export class World3D {
         }, i * 230);
       }
     } else if (id === 'bending' && a) {
-      sfxWhirl(vol);
-      const r = skill.radius ?? 2;
-      for (let i = 0; i < 3; i++) this.whirlRing(a, 0.4 + i * 0.5, r * (0.9 + i * 0.25), i % 2 ? 0xffffff : c, i * 70);
-      this.ring(a.x, a.y, r + 0.5, c);
-      this.burst(new THREE.Vector3(a.x, 0.5, a.y), c, 40, 7);
-      if (mine) this.shake(0.25);
+      // a red fire storm whirling up round the guitarist
+      bendingStorm(this.fxCtx(mine, (big) => sfxBend(vol, big)), () => new THREE.Vector3(a.x, 0, a.y), skill.radius ?? 2, sparkTexture());
     } else if (id === 'palm_muting' && a) {
-      // a red wave goes out 12 tiles and drags everything back in
-      this.ring(a.x, a.y, skill.radius ?? 12, c);
-      this.implode(a.x, a.y, skill.radius ?? 12, c);
-      for (const mid of msg.pulled ?? []) {
+      // a red ring goes out 12 tiles, red lightning hooks every monster it catches and drags them in
+      numbersFrom = 200;
+      const targets = (msg.pulled ?? []).map((mid) => {
         const m = this.monsters.get(mid);
-        if (m) setTimeout(() => this.tether(a, m, c), 120);
-      }
-      this.pillar(a.x, a.y, c, 1.0, 3);
+        const last = m ? new THREE.Vector3(m.x, 0, m.y) : new THREE.Vector3(a.x, 0, a.y);
+        return () => {
+          const mm = this.monsters.get(mid);
+          if (mm) last.set(mm.x, 0, mm.y);
+          return last.clone();
+        };
+      });
+      palmMuting(this.fxCtx(mine, (big) => sfxPalmMute(vol, big)), () => new THREE.Vector3(a.x, 0, a.y), skill.radius ?? 12, targets, sparkTexture());
     } else if (isBuff) {
       for (const sid of msg.allies ?? [msg.by]) {
         const t = this.players.get(sid);
@@ -1799,6 +1804,18 @@ export class World3D {
         m.anim?.hit();
       }, h.at !== undefined ? h.at + 60 : numbersFrom + i * numberGap);
     });
+  }
+
+  /** The context the big skill effects in xslash.ts / guitarfx.ts draw with. */
+  private fxCtx(mine: boolean, sound: (big: boolean) => void) {
+    return {
+      scene: this.scene,
+      camera: this.camera,
+      add: (e: (dt: number) => boolean) => this.effects.push(e),
+      sparks: (p: THREE.Vector3, color: number, n: number, speed: number) => this.burst(p, color, n, speed),
+      sound,
+      shake: (amp: number) => mine && this.shake(amp),
+    };
   }
 
   /** The look of each buff on the player who got it. */

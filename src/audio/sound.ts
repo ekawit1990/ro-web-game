@@ -622,3 +622,51 @@ export function sfxVibrato(vol = 1, big = false, at = 0) {
   tone(880, t + 0.05, 1.0, { type: 'triangle', gain: 0.07 * vol * k, vibrato: 0.03, release: 0.35, wet: 0.5 });
   tone(220, t + 0.05, 0.9, { type: 'sawtooth', gain: 0.06 * vol * k, filter: 900, filterTo: 300, release: 0.3, wet: 0.3 });
 }
+
+/** Slide: a guitar slide (a saw note gliding up the neck) on a rush of air; `hit` = the landing crash. */
+export function sfxSlide(vol = 1, hit = false, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = big ? 1.3 : 1;
+  if (hit) {
+    noise(t, 0.03, { gain: 0.35 * vol * k, type: 'highpass', freq: 2500, release: 0.02 });
+    for (const f of [110, 164.8, 220]) tone(f, t, 0.5, { type: 'sawtooth', gain: 0.12 * vol * k, filter: 2200, filterTo: 300, release: 0.2, wet: 0.35 });
+    tone(150, t, 0.35, { type: 'sine', to: 40, gain: 0.6 * vol * k, release: 0.12 });
+    return;
+  }
+  noise(t, 0.2, { gain: 0.3 * vol * k, type: 'bandpass', freq: 500, freqTo: 5000, q: 0.8, release: 0.06 });
+  tone(165, t, 0.25, { type: 'sawtooth', to: 660, gain: 0.14 * vol * k, filter: 1800, filterTo: 3500, release: 0.08, wet: 0.35 });
+  tone(330, t, 0.25, { type: 'triangle', to: 1320, gain: 0.07 * vol * k, release: 0.08, wet: 0.35 });
+}
+
+/** Palm muting: fast muted power-chord chugs with a crackle of electricity; `big` = the final pull-in thud. */
+export function sfxPalmMute(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  if (big) {
+    tone(82.4, t, 0.5, { type: 'sawtooth', gain: 0.2 * vol, filter: 900, filterTo: 150, release: 0.2, wet: 0.3 });
+    tone(120, t, 0.4, { type: 'sine', to: 35, gain: 0.7 * vol, release: 0.15 });
+    return;
+  }
+  for (let i = 0; i < 4; i++) {
+    const s = t + i * 0.09;
+    for (const f of [82.4, 123.5]) tone(f, s, 0.08, { type: 'sawtooth', gain: 0.16 * vol, filter: 700, filterTo: 200, release: 0.03 });
+    noise(s, 0.03, { gain: 0.12 * vol, type: 'lowpass', freq: 800, release: 0.02 });
+  }
+  for (let i = 0; i < 6; i++) noise(t + 0.1 + i * 0.05 + Math.random() * 0.03, 0.03, { gain: 0.18 * vol, type: 'bandpass', freq: 3000 + Math.random() * 3000, q: 2, release: 0.02 });
+}
+
+/** Bending: a string bent up and screaming (a saw note bending a whole tone with vibrato) over a roaring wind. */
+export function sfxBend(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  if (big) {
+    noise(t, 0.04, { gain: 0.35 * vol, type: 'highpass', freq: 2500, release: 0.02 });
+    tone(130, t, 0.45, { type: 'sine', to: 35, gain: 0.7 * vol, release: 0.15 });
+    noise(t, 0.5, { gain: 0.3 * vol, type: 'lowpass', freq: 1200, freqTo: 100, release: 0.2, wet: 0.4 });
+    return;
+  }
+  tone(587, t, 1.1, { type: 'sawtooth', to: 659, gain: 0.1 * vol, filter: 2600, filterTo: 1400, vibrato: 0.02, release: 0.35, wet: 0.5 });
+  tone(294, t, 1.1, { type: 'sawtooth', to: 330, gain: 0.07 * vol, filter: 1500, release: 0.35, wet: 0.4 });
+  noise(t, 1.2, { gain: 0.28 * vol, type: 'bandpass', freq: 300, freqTo: 1600, q: 0.6, release: 0.3, wet: 0.4 });
+}
