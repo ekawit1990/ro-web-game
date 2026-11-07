@@ -980,10 +980,12 @@ const DRUM: ComboKey[][] = [
  */
 const SWORD_GUARD = {
   bones: {
-    leftUpperLeg: [-0.75, 0, -0.32] as V3, leftLowerLeg: [0.95, 0, 0] as V3, rightUpperLeg: [0.5, 0, 0.32] as V3, rightLowerLeg: [0.25, 0, 0] as V3,
-    spine: [0.38, -0.4, 0] as V3, chest: [0.12, -0.15, 0] as V3, head: [-0.35, 0.5, 0] as V3, hips: [0, 0, 0] as V3,
+    // a deep lunge: front knee well bent over the foot, back leg stretched out long behind
+    leftUpperLeg: [-1.1, 0, -0.12] as V3, leftLowerLeg: [1.3, 0, 0] as V3, leftFoot: [0.2, 0, 0] as V3,
+    rightUpperLeg: [0.85, 0, 0.12] as V3, rightLowerLeg: [0.12, 0, 0] as V3, rightFoot: [-0.3, 0, 0] as V3,
+    spine: [0.45, -0.4, 0] as V3, chest: [0.12, -0.15, 0] as V3, head: [-0.42, 0.5, 0] as V3, hips: [0, 0, 0] as V3,
   },
-  dy: -0.2,
+  dy: -0.24,
   // held the other way round: the right fist by the headstock in front of the hips, the left one halfway down the
   // neck, and the body of the instrument trailing out behind past the right hip
   blade: { h: [-0.1, 1.02, 0.36] as V3, d: [-0.75, -0.02, -0.65] as V3 },
