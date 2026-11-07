@@ -202,6 +202,8 @@ async function gunzip(buf: ArrayBuffer): Promise<ArrayBuffer> {
 }
 
 const HEIGHT = 1.55; // world units (tiles) for a VRM character
+/** Semi-chibi / SD proportions (approved 2026-11-07): not the full chibi, just a slightly big head and eyes. */
+const CHIBI = { head: 1.38, eye: 1.25, leg: 0.86, arm: 0.92, spine: 0.92 };
 
 const EXPRESSIONS = ['neutral', 'happy', 'angry', 'relaxed'];
 
@@ -455,6 +457,8 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
       m.frustumCulled = false;
     }
   });
+  // semi-chibi proportions: head and eyes a bit bigger, legs a touch shorter (the overall height stays the same)
+  applySemiChibi(vrm);
   // scale to game size
   vrm.update(0);
   const box = new THREE.Box3().setFromObject(vrm.scene);
@@ -486,8 +490,8 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
   const v0 = vrm.meta?.metaVersion === '0';
   const hatSlot = new THREE.Group();
   if (v0) hatSlot.rotation.y = Math.PI;
-  hatSlot.scale.setScalar(0.37); // our hats fit a 0.33 head; a VRoid head is ~0.12 m
-  hatSlot.position.y = 0.11;
+  hatSlot.scale.setScalar(0.37 * CHIBI.head); // our hats fit a 0.33 head; a VRoid head is ~0.12 m (grown, semi-chibi)
+  hatSlot.position.y = 0.11 * CHIBI.head;
   const earSlot = hatSlot.clone();
   head.add(hatSlot, earSlot);
 
@@ -1433,4 +1437,31 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
 export function animateRig(rig: CharRig, t: number, s: AnimState) {
   if ((rig as CharRig & { vrm?: VRM }).vrm) animateVrm(rig, t, s);
   else animateCharacter(rig, t, s);
+}
+
+
+/** Semi-chibi / SD look made at load time on the raw bones, the .vrm files stay as they are. */
+function applySemiChibi(vrm: VRM) {
+  const raw = (n: VRMHumanBoneName) => vrm.humanoid.getRawBoneNode(n);
+  const { head: HEAD, eye: EYE, leg: LEG, arm: ARM, spine: SPINE } = CHIBI;
+  raw('head')?.scale.multiplyScalar(HEAD);
+  // VRoid eye-adjust bones (J_Adj_*_FaceEye) carry the iris and lashes
+  vrm.scene.traverse((o) => {
+    if (/FaceEye$/.test(o.name)) o.scale.multiplyScalar(EYE);
+  });
+  for (const n of ['leftUpperLeg', 'rightUpperLeg'] as VRMHumanBoneName[]) {
+    raw(n)?.children.forEach((c) => c.position.multiplyScalar(LEG));
+  }
+  for (const n of ['leftLowerLeg', 'rightLowerLeg'] as VRMHumanBoneName[]) {
+    raw(n)?.children.forEach((c) => c.position.multiplyScalar(LEG));
+  }
+  for (const n of ['leftUpperArm', 'rightUpperArm', 'leftLowerArm', 'rightLowerArm'] as VRMHumanBoneName[]) {
+    raw(n)?.children.forEach((c) => c.position.multiplyScalar(ARM));
+  }
+  for (const n of ['spine', 'chest'] as VRMHumanBoneName[]) {
+    raw(n)?.children.forEach((c) => { if (c.position.y > 0) c.position.y *= SPINE; });
+  }
+  vrm.scene.updateMatrixWorld(true);
+  vrm.springBoneManager?.setInitState();
+  vrm.springBoneManager?.reset();
 }
