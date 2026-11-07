@@ -832,7 +832,7 @@ function reach(vrm: VRM, side: 'left' | 'right', target: THREE.Vector3, pole: TH
  * then the hand turns so its straight fingers point along `fingers`, the thumb along `thumb` and the palm faces `palm`
  * (all world space; the fingers are curled shut afterwards).
  */
-function grip(vrm: VRM, side: 'left' | 'right', at: THREE.Vector3, fingers: THREE.Vector3, thumb: THREE.Vector3, palm: THREE.Vector3, pole: THREE.Vector3) {
+function grip(vrm: VRM, side: 'left' | 'right', at: THREE.Vector3, fingers: THREE.Vector3, thumb: THREE.Vector3, palm: THREE.Vector3, pole: THREE.Vector3, palmOff?: number) {
   const hand = vrm.humanoid.getNormalizedBoneNode(`${side}Hand`);
   const mid = vrm.humanoid.getNormalizedBoneNode(`${side}MiddleProximal`);
   const th = vrm.humanoid.getNormalizedBoneNode(`${side}ThumbMetacarpal` as VRMHumanBoneName) ?? vrm.humanoid.getNormalizedBoneNode(`${side}ThumbProximal`);
@@ -843,7 +843,7 @@ function grip(vrm: VRM, side: 'left' | 'right', at: THREE.Vector3, fingers: THRE
   const W = hand.getWorldPosition(new THREE.Vector3());
   const len = W.distanceTo(mid.getWorldPosition(new THREE.Vector3()));
   // the bar sits across the middle of the palm, a finger's thickness off it
-  const wrist = at.clone().addScaledVector(fingers, -len * 0.6).addScaledVector(palm, -len * 0.2);
+  const wrist = at.clone().addScaledVector(fingers, -len * (palmOff ? 0.35 : 0.6)).addScaledVector(palm, -len * (palmOff ?? 0.2));
   reach(vrm, side, wrist, pole);
   hand.updateWorldMatrix(true, true);
   const H = hand.getWorldPosition(new THREE.Vector3());
@@ -1325,8 +1325,9 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
     const sw = gear.pieces.find((p) => p.swing);
     sw?.held.matrixWorld.decompose(_pb, _qa, _sa);
     const neckR = neckL.clone().addScaledVector(dirW, sw ? sw.swing!.userData.bladeGap * _sa.x : 0.2);
-    // left: overhand, back of the hand up, fingers over the far side of the neck
-    grip(vrm, 'left', neckL, side.clone().negate(), dirW.clone().negate(), upW.clone().negate(), toW(new THREE.Vector3(0.6, 0.4, -0.1)));
+    // left: a fist closed round the neck from its outer side (the side you see), knuckles out, fingers wrapping
+    // down and under it
+    grip(vrm, 'left', neckL, upW.clone().negate(), dirW.clone().negate(), side, toW(new THREE.Vector3(0.6, 0.4, -0.1)), 0.6);
     // right: underhand, palm up, fingers curling up round the neck from the body side
     grip(vrm, 'right', neckR, side, dirW, upW, toW(new THREE.Vector3(-0.7, 0.5, -0.4)));
     if (swingW < 1) GRIP_BONES.forEach((n, i) => before[i] && b(n)?.quaternion.slerpQuaternions(before[i]!, b(n)!.quaternion, swingW));
