@@ -648,7 +648,7 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean): Gear
     // two-handed guard: back fist by the headstock (fret 1), front fist halfway down the neck (fret ~11)
     const f5 = NUT_X - inst.grip.position.x; // nut to fret 5 = 0.25 of the scale length
     p.swing.userData.bladeHold = NUT_X - f5 * 0.22;
-    p.swing.userData.bladeGap = f5 * 1.6;
+    p.swing.userData.bladeGap = f5 * 1.25;
     const poleL = new THREE.Object3D();
     poleL.position.set(0.45, -0.35, -0.25).multiplyScalar(fit);
     const poleR = new THREE.Object3D();
@@ -827,6 +827,39 @@ function reach(vrm: VRM, side: 'left' | 'right', target: THREE.Vector3, pole: TH
   }
 }
 
+/**
+ * Puts a hand round a bar (the instrument's neck) at `at`: the arm reaches so the palm, not the wrist, lands there,
+ * then the hand turns so its straight fingers point along `fingers`, the thumb along `thumb` and the palm faces `palm`
+ * (all world space; the fingers are curled shut afterwards).
+ */
+function grip(vrm: VRM, side: 'left' | 'right', at: THREE.Vector3, fingers: THREE.Vector3, thumb: THREE.Vector3, palm: THREE.Vector3, pole: THREE.Vector3) {
+  const hand = vrm.humanoid.getNormalizedBoneNode(`${side}Hand`);
+  const mid = vrm.humanoid.getNormalizedBoneNode(`${side}MiddleProximal`);
+  const th = vrm.humanoid.getNormalizedBoneNode(`${side}ThumbMetacarpal` as VRMHumanBoneName) ?? vrm.humanoid.getNormalizedBoneNode(`${side}ThumbProximal`);
+  if (!hand || !mid || !th) {
+    reach(vrm, side, at, pole);
+    return;
+  }
+  const W = hand.getWorldPosition(new THREE.Vector3());
+  const len = W.distanceTo(mid.getWorldPosition(new THREE.Vector3()));
+  // the bar sits across the middle of the palm, a finger's thickness off it
+  const wrist = at.clone().addScaledVector(fingers, -len * 0.6).addScaledVector(palm, -len * 0.2);
+  reach(vrm, side, wrist, pole);
+  hand.updateWorldMatrix(true, true);
+  const H = hand.getWorldPosition(new THREE.Vector3());
+  const f0 = mid.getWorldPosition(new THREE.Vector3()).sub(H).normalize();
+  const t0 = th.getWorldPosition(new THREE.Vector3()).sub(H);
+  t0.addScaledVector(f0, -t0.dot(f0)).normalize();
+  const t1 = thumb.clone().addScaledVector(fingers, -thumb.dot(fingers)).normalize();
+  const m0 = new THREE.Matrix4().makeBasis(f0, t0, new THREE.Vector3().crossVectors(f0, t0));
+  const m1 = new THREE.Matrix4().makeBasis(fingers, t1, new THREE.Vector3().crossVectors(fingers, t1));
+  _q.setFromRotationMatrix(m1.multiply(m0.transpose()));
+  hand.parent!.getWorldQuaternion(_p);
+  hand.getWorldQuaternion(_w);
+  hand.quaternion.copy(_p.invert().multiply(_q.multiply(_w)));
+  hand.updateWorldMatrix(false, true);
+}
+
 const FINGERS = ['Index', 'Middle', 'Ring', 'Little'] as const;
 const JOINTS = ['Proximal', 'Intermediate', 'Distal'] as const;
 
@@ -947,7 +980,7 @@ const SWORD_GUARD = {
   dy: -0.2,
   // held the other way round: the right fist by the headstock in front of the hips, the left one halfway down the
   // neck, and the body of the instrument trailing out behind past the right hip
-  blade: { h: [-0.18, 0.74, 0.3] as V3, d: [-0.65, -0.06, -0.75] as V3 },
+  blade: { h: [-0.1, 1.02, 0.36] as V3, d: [-0.75, -0.02, -0.65] as V3 },
 };
 const SWORD: ComboKey[][] = [
   // 1. from the guard, the instrument swung up from behind, over the top and down in front
@@ -1276,24 +1309,29 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
   rig.root.userData.bladeDir = undefined;
   rig.root.userData.bladeHilt = undefined;
   if (gear && blade && swingW > 0) {
-    // both fists on the neck: right hand at `h`, left hand a little further along it; elbows bend down and out
+    // both hands on the neck: the left fist closed over it by the headstock, the right hand palm up under it
+    // halfway down; elbows bend down and out
     rig.root.updateMatrixWorld(true);
-    const before = ARM_BONES.map((n) => b(n)?.quaternion.clone());
+    const GRIP_BONES = [...ARM_BONES, 'leftHand', 'rightHand'] as VRMHumanBoneName[];
+    const before = GRIP_BONES.map((n) => b(n)?.quaternion.clone());
     const toW = (v: THREE.Vector3) => rig.body.localToWorld(v.clone());
-    const dirW = toW(blade.d).sub(toW(new THREE.Vector3()));
-    dirW.normalize();
-    const hR = toW(blade.h);
-    // hands well apart on the neck, the back one by the headstock
+    const o = toW(new THREE.Vector3());
+    const dirW = toW(blade.d).sub(o).normalize();
+    const upW = toW(new THREE.Vector3(0, 1, 0)).sub(o).normalize();
+    // across the neck, towards the character's left
+    const side = toW(new THREE.Vector3(1, 0, 0)).sub(o);
+    side.addScaledVector(dirW, -side.dot(dirW)).normalize();
+    const neckL = toW(blade.h);
     const sw = gear.pieces.find((p) => p.swing);
     sw?.held.matrixWorld.decompose(_pb, _qa, _sa);
-    const hL = hR.clone().addScaledVector(dirW, sw ? sw.swing!.userData.bladeGap * _sa.x : 0.2);
-    // the left fist by the headstock, the right one halfway down the neck
-    reach(vrm, 'left', hR, toW(new THREE.Vector3(0.6, 0.4, -0.1)), -1.5);
-    reach(vrm, 'right', hL, toW(new THREE.Vector3(-0.7, 0.5, -0.4)), -1.5);
-    if (swingW < 1) ARM_BONES.forEach((n, i) => before[i] && b(n)?.quaternion.slerpQuaternions(before[i]!, b(n)!.quaternion, swingW));
+    const neckR = neckL.clone().addScaledVector(dirW, sw ? sw.swing!.userData.bladeGap * _sa.x : 0.2);
+    // left: overhand, back of the hand up, fingers over the far side of the neck
+    grip(vrm, 'left', neckL, side.clone().negate(), dirW.clone().negate(), upW.clone().negate(), toW(new THREE.Vector3(0.6, 0.4, -0.1)));
+    // right: underhand, palm up, fingers curling up round the neck from the body side
+    grip(vrm, 'right', neckR, side, dirW, upW, toW(new THREE.Vector3(-0.7, 0.5, -0.4)));
+    if (swingW < 1) GRIP_BONES.forEach((n, i) => before[i] && b(n)?.quaternion.slerpQuaternions(before[i]!, b(n)!.quaternion, swingW));
     rig.root.userData.bladeDir = dirW;
-    // the instrument hangs from where the left fist actually got to (the wrist bone, like the one-handed grip)
-    rig.root.userData.bladeHilt = b('leftHand')?.getWorldPosition(new THREE.Vector3()) ?? hR;
+    rig.root.userData.bladeHilt = neckL;
   }
   if (gear) {
     rig.root.updateMatrixWorld(true);
@@ -1343,8 +1381,10 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
     const ikW = k * (1 - swingW);
     if (ikW < 1) ARM_BONES.forEach((n, i) => before[i] && b(n)?.quaternion.slerpQuaternions(before[i]!, b(n)!.quaternion, ikW));
     const c = (v: number[]) => v.map((x) => x * Math.max(k * (1 - swingW), swingW));
-    curl(vrm, 'left', c(keys ? [0.35, 0.4, 0.45, 0.5] : [1.0, 1.1, 1.15, 1.2]), v0);
-    curl(vrm, 'right', c(keys ? [0.35, 0.4, 0.45, 0.5] : [0.55, 0.7, 0.9, 1.0]), v0);
+    // two-handed guard: both hands closed tight round the neck
+    const fist = rig.root.userData.bladeHilt ? [1.15, 1.25, 1.3, 1.35] : null;
+    curl(vrm, 'left', c(fist ?? (keys ? [0.35, 0.4, 0.45, 0.5] : [1.0, 1.1, 1.15, 1.2])), v0);
+    curl(vrm, 'right', c(fist ?? (keys ? [0.35, 0.4, 0.45, 0.5] : [0.55, 0.7, 0.9, 1.0])), v0);
   } else if (ik) {
     curl(vrm, 'left', [0, 0, 0, 0], v0);
     curl(vrm, 'right', [0, 0, 0, 0], v0);
