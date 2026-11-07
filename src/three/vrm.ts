@@ -645,6 +645,10 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean): Gear
     p.swing = new THREE.Object3D();
     p.swing.matrixAutoUpdate = false;
     p.swing.userData.hold = inst.grip.position.x + (bass ? 0.1 : 0.06);
+    // two-handed guard: back fist by the headstock (fret 1), front fist halfway down the neck (fret ~11)
+    const f5 = NUT_X - inst.grip.position.x; // nut to fret 5 = 0.25 of the scale length
+    p.swing.userData.bladeHold = NUT_X - f5 * 0.22;
+    p.swing.userData.bladeGap = f5 * 1.6;
     const poleL = new THREE.Object3D();
     poleL.position.set(0.45, -0.35, -0.25).multiplyScalar(fit);
     const poleR = new THREE.Object3D();
@@ -757,7 +761,7 @@ function swingGrip(vrm: VRM, root: THREE.Object3D, p: Piece) {
   const q = basis(dir.clone().negate(), n.normalize());
   p.held.matrixWorld.decompose(_pb, _qa, _sa);
   const scale = _sa.x;
-  const pos = _hd.clone().addScaledVector(dir, p.swing.userData.hold * scale);
+  const pos = _hd.clone().addScaledVector(dir, (blade ? p.swing.userData.bladeHold : p.swing.userData.hold) * scale);
   p.swing.matrixWorld.compose(pos, q, _sa.setScalar(scale));
 }
 
@@ -775,6 +779,7 @@ function place(p: Piece, k: number, from = p.back, to = p.held, arc = true) {
 }
 
 const _bh = new THREE.Vector3();
+const NUT_X = 0.47; // the instrument's nut, along its +X (see buildStringed)
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3();
 const _q = new THREE.Quaternion(), _p = new THREE.Quaternion(), _w = new THREE.Quaternion();
 
@@ -939,7 +944,7 @@ const SWORD_GUARD = {
     spine: [0.38, -0.4, 0] as V3, chest: [0.12, -0.15, 0] as V3, head: [-0.35, 0.5, 0] as V3, hips: [0, 0, 0] as V3,
   },
   dy: -0.2,
-  blade: { h: [-0.2, 0.72, 0.22] as V3, d: [0.55, -0.06, 1] as V3 },
+  blade: { h: [-0.22, 0.74, 0.12] as V3, d: [0.5, -0.04, 1] as V3 },
 };
 const SWORD: ComboKey[][] = [
   // 1. from the low guard, a rising cut up and across to the left
@@ -1272,7 +1277,10 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
     const dirW = toW(blade.d).sub(toW(new THREE.Vector3()));
     dirW.normalize();
     const hR = toW(blade.h);
-    const hL = hR.clone().addScaledVector(dirW, 0.1);
+    // hands well apart on the neck, the back one by the headstock
+    const sw = gear.pieces.find((p) => p.swing);
+    sw?.held.matrixWorld.decompose(_pb, _qa, _sa);
+    const hL = hR.clone().addScaledVector(dirW, sw ? sw.swing!.userData.bladeGap * _sa.x : 0.2);
     reach(vrm, 'right', hR, toW(new THREE.Vector3(-0.7, 0.5, -0.4)), -1.5);
     reach(vrm, 'left', hL, toW(new THREE.Vector3(0.6, 0.4, -0.1)), -1.5);
     if (swingW < 1) ARM_BONES.forEach((n, i) => before[i] && b(n)?.quaternion.slerpQuaternions(before[i]!, b(n)!.quaternion, swingW));
