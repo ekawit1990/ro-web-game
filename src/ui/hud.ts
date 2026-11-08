@@ -2201,7 +2201,7 @@ export class Hud implements WorldHooks {
     const d = document.createElement('div');
     d.className = 'rw death';
     d.innerHTML = `<div class="rw-title"><span>หมดสติ</span></div><div class="rw-body">
-      <p>คุณหมดสติแล้ว… เสีย Base EXP 5% และจะกลับไปฟื้นที่เมือง</p>
+      <p>คุณหมดสติแล้ว… เสีย Base EXP 5% และจะกลับไปฟื้นที่จุดเกิดที่บันทึกไว้กับบูรพา (ยังไม่บันทึก = กลางเมือง)</p>
       <div class="npc-btns"><button class="ok">กลับไปจุดเซฟ</button></div></div>`;
     this.root.appendChild(d);
     this.bringFront(d);
