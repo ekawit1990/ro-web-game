@@ -1,21 +1,29 @@
-/** /auto potion setting, picked on the AUTO bar and kept in this browser (2026-11-08). */
-const AUTO_POTION_KEY = 'ml-auto-potion';
-const AUTO_POTION_DEFAULT = 35;
-/** and at most this often (ms) */
+/** /auto potion settings, picked on the AUTO bar and kept in this browser (2026-11-08). */
+const KEYS = { hp: 'ml-auto-potion', sp: 'ml-auto-potion-sp' } as const;
+/** HP: 35% as before the setting existed; SP: off until the player picks one. */
+const DEFAULTS = { hp: 35, sp: 0 };
+/** and each at most this often (ms) */
 export const AUTO_POTION_EVERY = 1000;
-function stored() {
+type Kind = keyof typeof KEYS;
+
+function stored(k: Kind) {
   try {
-    const v = Number(localStorage.getItem(AUTO_POTION_KEY));
-    if (localStorage.getItem(AUTO_POTION_KEY) !== null && Number.isFinite(v)) return Math.min(95, Math.max(0, v));
+    const raw = localStorage.getItem(KEYS[k]);
+    const v = Number(raw);
+    if (raw !== null && Number.isFinite(v)) return Math.min(95, Math.max(0, v));
   } catch { /* storage may be blocked */ }
-  return AUTO_POTION_DEFAULT;
+  return DEFAULTS[k];
 }
-let pct = stored();
-/** The current setting: drink when HP is under this % (0 = never). */
-export const potionPct = () => pct;
-export function setAutoPotionPct(v: number) {
-  pct = Math.min(95, Math.max(0, Math.round(v)));
+const pct = { hp: stored('hp'), sp: stored('sp') };
+/** Drink an HP potion when HP is under this % (0 = never). */
+export const potionPct = () => pct.hp;
+/** Drink an SP potion when SP is under this % (0 = never). */
+export const spPotionPct = () => pct.sp;
+function set(k: Kind, v: number) {
+  pct[k] = Math.min(95, Math.max(0, Math.round(v)));
   try {
-    localStorage.setItem(AUTO_POTION_KEY, String(pct));
+    localStorage.setItem(KEYS[k], String(pct[k]));
   } catch { /* storage may be blocked */ }
 }
+export const setAutoPotionPct = (v: number) => set('hp', v);
+export const setAutoSpPotionPct = (v: number) => set('sp', v);

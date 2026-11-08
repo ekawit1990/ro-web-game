@@ -1,4 +1,4 @@
-import { potionPct, AUTO_POTION_EVERY } from '../game/autoPrefs';
+import { potionPct, spPotionPct, AUTO_POTION_EVERY } from '../game/autoPrefs';
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
 import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVEL, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf, vrmHatOf } from '../data';
@@ -179,6 +179,7 @@ export class World3D {
   private auto = false;
   private autoNext = 0;
   private autoPotionAt = 0;
+  private autoSpPotionAt = 0;
   /** skill id -> performance.now() when /auto may cast it again */
   private autoReady = new Map<string, number>();
   /** buff skill id -> performance.now() when it wears off */
@@ -759,13 +760,25 @@ export class World3D {
     const me = this.me;
     const d = s.derived;
 
+    let drank = false;
     if (potionPct() > 0 && s.hp < d.maxHp * (potionPct() / 100) && t >= this.autoPotionAt) {
       const pot = s.inv
         .filter((i) => ITEMS[i.item_id]?.type === 'consumable' && ITEMS[i.item_id].heal)
         .sort((a, b) => (ITEMS[b.item_id].heal ?? 0) - (ITEMS[a.item_id].heal ?? 0))[0];
       if (pot) {
         s.use(pot.id);
+        drank = true;
         this.autoPotionAt = t + AUTO_POTION_EVERY;
+      }
+    }
+    // SP potions on their own 1 s timer; not in the same step as an HP one (the server takes one item at a time)
+    if (!drank && spPotionPct() > 0 && s.sp < d.maxSp * (spPotionPct() / 100) && t >= this.autoSpPotionAt) {
+      const pot = s.inv
+        .filter((i) => ITEMS[i.item_id]?.type === 'consumable' && ITEMS[i.item_id].sp)
+        .sort((a, b) => (ITEMS[b.item_id].sp ?? 0) - (ITEMS[a.item_id].sp ?? 0))[0];
+      if (pot) {
+        s.use(pot.id);
+        this.autoSpPotionAt = t + AUTO_POTION_EVERY;
       }
     }
     if (this.pendingSkill || this.targetingSkill || me.cast) return;

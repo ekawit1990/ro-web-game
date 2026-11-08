@@ -6,7 +6,7 @@ import {
 import { THEMES, WARP_TOWNS, getMap, type GameMap, type Npc } from '../game/maps';
 import type { Session } from '../game/session';
 import type { World3D, WorldHooks } from '../three/World3D';
-import { potionPct, setAutoPotionPct } from '../game/autoPrefs';
+import { potionPct, setAutoPotionPct, setAutoSpPotionPct, spPotionPct } from '../game/autoPrefs';
 import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
@@ -2177,21 +2177,31 @@ export class Hud implements WorldHooks {
     this.root.querySelector('#auto-badge')?.remove();
     if (on) {
       const pct = potionPct();
-      const opts = [0, 10, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90]
-        .map((v) => `<option value="${v}" ${v === pct ? 'selected' : ''}>${v ? `ต่ำกว่า ${v}%` : 'ไม่ใช้ยา'}</option>`).join('');
-      const extra = [0, 10, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90].includes(pct) ? '' : `<option value="${pct}" selected>ต่ำกว่า ${pct}%</option>`;
+      const spPct = spPotionPct();
+      const STEPS = [0, 10, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90];
+      const options = (cur: number) => (STEPS.includes(cur) ? '' : `<option value="${cur}" selected>ต่ำกว่า ${cur}%</option>`)
+        + STEPS.map((v) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${v ? `ต่ำกว่า ${v}%` : 'ไม่ใช้ยา'}</option>`).join('');
       this.root.insertAdjacentHTML('beforeend', `<div id="auto-badge" class="auto-badge">
         <span class="ab-t">AUTO · ตีและใช้สกิลอัตโนมัติ</span>
-        <label class="ab-pot" title="ดื่มยาฟื้น HP อัตโนมัติ (ซ้ำได้ทุก 1 วินาที)">ยาปั๊ม HP <select id="ab-pot">${extra}${opts}</select></label>
+        <label class="ab-pot" title="ดื่มยาฟื้น HP อัตโนมัติ (ซ้ำได้ทุก 1 วินาที)">ยา HP <select id="ab-pot">${options(pct)}</select></label>
+        <label class="ab-pot" title="ดื่มยาฟื้น SP อัตโนมัติ (ซ้ำได้ทุก 1 วินาที)">ยา SP <select id="ab-sp">${options(spPct)}</select></label>
         <button id="ab-stop" title="หยุดออโต้">หยุด</button></div>`);
       const sel = this.root.querySelector<HTMLSelectElement>('#ab-pot')!;
       sel.addEventListener('change', () => {
         setAutoPotionPct(Number(sel.value));
         const v = Number(sel.value);
-        this.line('sys', v ? `ออโต้จะดื่มยาเมื่อ HP ต่ำกว่า ${v}% (ซ้ำได้ทุก 1 วินาที)` : 'ออโต้จะไม่ดื่มยา');
+        this.line('sys', v ? `ออโต้จะดื่มยา HP เมื่อ HP ต่ำกว่า ${v}% (ซ้ำได้ทุก 1 วินาที)` : 'ออโต้จะไม่ดื่มยา HP');
+      });
+      const spSel = this.root.querySelector<HTMLSelectElement>('#ab-sp')!;
+      spSel.addEventListener('change', () => {
+        setAutoSpPotionPct(Number(spSel.value));
+        const v = Number(spSel.value);
+        const has = this.s.inv.some((i) => ITEMS[i.item_id]?.type === 'consumable' && ITEMS[i.item_id].sp);
+        this.line('sys', v ? `ออโต้จะดื่มยา SP เมื่อ SP ต่ำกว่า ${v}% (ซ้ำได้ทุก 1 วินาที)${has ? '' : ' · ตอนนี้ในกระเป๋ายังไม่มียาฟื้น SP'}` : 'ออโต้จะไม่ดื่มยา SP');
       });
       this.root.querySelector('#ab-stop')!.addEventListener('click', () => this.actions.scene()?.setAuto(false));
-      this.line('sys', `เปิดออโต้: ตีมอนสเตอร์ใกล้ ๆ ใช้สกิลเอง ${pct ? `ดื่มยาเมื่อ HP ต่ำกว่า ${pct}% (เปลี่ยนได้ที่แถบ AUTO ด้านบน)` : 'ไม่ดื่มยา'} · พิมพ์ /auto อีกครั้ง หรือคลิกพื้นเพื่อหยุด`);
+      const say = (v: number, what: string) => (v ? `ดื่มยา ${what} เมื่อ ${what} ต่ำกว่า ${v}%` : `ไม่ดื่มยา ${what}`);
+      this.line('sys', `เปิดออโต้: ตีมอนสเตอร์ใกล้ ๆ ใช้สกิลเอง ${say(pct, 'HP')} · ${say(spPct, 'SP')} (เปลี่ยนได้ที่แถบ AUTO ด้านบน) · พิมพ์ /auto อีกครั้ง หรือคลิกพื้นเพื่อหยุด`);
     } else this.line('sys', 'ปิดออโต้แล้ว');
   }
 
