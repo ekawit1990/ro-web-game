@@ -943,3 +943,94 @@ export function reviveFx(ctx: XSlashCtx, at: () => THREE.Vector3) {
   });
   risingNotes(ctx, p.x, p.z, 1.4, 10, 2, 0.6);
 }
+
+/**
+ * The keyboardist's buffs leave a blue aura round each player who got one, for as long as it lasts (like the
+ * guitarist's Vibrato aura, 2026-11-08): a slow piano-key circle under the feet with a pulsing glow, a haze round
+ * the body, two rings of light turning round the waist, ice-white notes circling and little sparks drifting up.
+ * Runs until `alive()` turns false, then fades out.
+ */
+export function keyAura(ctx: XSlashCtx, at: () => THREE.Vector3, alive: () => boolean) {
+  const keys = groundPlane(circle(), 1.9);
+  const glow = groundPlane(sparkTexture(), 2.6, true);
+  (glow.material as THREE.MeshBasicMaterial).color.set(KB.cyan);
+  const shade = groundPlane(sparkTexture(), 2.2);
+  (shade.material as THREE.MeshBasicMaterial).color.set(KB.deep);
+  ctx.scene.add(shade, keys, glow);
+  const haze = sprite(ctx, sparkTexture(), KB.blue, true);
+  haze.material.depthTest = false;
+  const hazeDeep = sprite(ctx, sparkTexture(), KB.deep, false);
+  const ringMat = (c: number, o: number) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+  const rings = [
+    new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.022, 6, 48), ringMat(KB.cyan, 1)),
+    new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.016, 6, 48), ringMat(KB.ice, 0.9)),
+  ];
+  rings.forEach((r) => ctx.scene.add(r));
+  const nn = PHONE ? 4 : 7;
+  const notes = Array.from({ length: nn }, (_, i) => {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex(NOTES[i % 4]), transparent: true, depthWrite: false }));
+    ctx.scene.add(s);
+    return { s, a: (i / nn) * Math.PI * 2, h: 0.5 + (i % 3) * 0.5, r: 0.8 + (i % 2) * 0.22 };
+  });
+  const sparks: { s: THREE.Sprite; t: number; life: number; a: number; r: number }[] = [];
+  let spawn = 0;
+  let t = 0;
+  let fade = 1;
+  ctx.add((dt) => {
+    t += dt;
+    const on = alive();
+    if (!on) fade = Math.max(0, fade - dt / 0.5);
+    const f = Math.min(1, t / 0.4) * fade;
+    const p = at();
+    const pulse = 0.85 + 0.15 * Math.sin(t * 5);
+    keys.position.set(p.x, 0.05, p.z);
+    keys.rotation.z = t * 0.4;
+    (keys.material as THREE.MeshBasicMaterial).opacity = 0.75 * f;
+    glow.position.set(p.x, 0.055, p.z);
+    glow.scale.setScalar(pulse);
+    (glow.material as THREE.MeshBasicMaterial).opacity = 0.7 * f;
+    shade.position.set(p.x, 0.045, p.z);
+    (shade.material as THREE.MeshBasicMaterial).opacity = 0.35 * f;
+    haze.position.set(p.x, 0.95, p.z);
+    haze.scale.set(1.9 + Math.sin(t * 6) * 0.1, 2.5, 1);
+    haze.material.opacity = 0.4 * f;
+    hazeDeep.position.set(p.x, 0.9, p.z);
+    hazeDeep.scale.set(1.8, 2.4, 1);
+    hazeDeep.material.opacity = 0.18 * f;
+    rings.forEach((r, i) => {
+      r.position.set(p.x, 0.55 + i * 0.6 + Math.sin(t * 2.2 + i * 2) * 0.12, p.z);
+      r.rotation.set(Math.PI / 2 + Math.sin(t * 1.5 + i) * 0.25, 0, t * (i ? -1.2 : 1.5));
+      (r.material as THREE.MeshBasicMaterial).opacity = (i ? 0.75 : 1) * f * (0.75 + 0.25 * Math.sin(t * 8 + i));
+    });
+    for (const n of notes) {
+      const an = n.a + t * 1.2;
+      n.s.position.set(p.x + Math.cos(an) * n.r, n.h + Math.sin(t * 2 + n.a * 2) * 0.18, p.z + Math.sin(an) * n.r);
+      n.s.scale.setScalar(0.42 + 0.05 * Math.sin(t * 6 + n.a));
+      n.s.material.opacity = f;
+    }
+    spawn += dt * f;
+    const every = PHONE ? 0.16 : 0.08;
+    while (spawn > every) {
+      spawn -= every;
+      const s = sprite(ctx, Math.random() < 0.4 ? star() : sparkTexture(), Math.random() < 0.5 ? KB.cyan : KB.ice, true);
+      sparks.push({ s, t: 0, life: 0.8 + Math.random() * 0.6, a: Math.random() * Math.PI * 2, r: 0.2 + Math.random() * 0.55 });
+    }
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const sp = sparks[i];
+      sp.t += dt;
+      const k = sp.t / sp.life;
+      sp.s.position.set(p.x + Math.cos(sp.a + k) * sp.r, 0.1 + k * 2.2, p.z + Math.sin(sp.a + k) * sp.r);
+      sp.s.scale.setScalar(0.22 * (1 - k * 0.5));
+      sp.s.material.opacity = Math.min(1, (1 - k) * 2);
+      if (k >= 1) {
+        dispose(ctx, sp.s);
+        sparks.splice(i, 1);
+      }
+    }
+    if (fade <= 0) {
+      dispose(ctx, keys, glow, shade, haze, hazeDeep, ...rings, ...notes.map((n) => n.s), ...sparks.map((sp) => sp.s));
+      return false;
+    }
+    return true;
+  });
+}

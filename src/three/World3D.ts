@@ -11,7 +11,7 @@ import { animateMaxAura, buildMaxAura } from './levelAura';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
-import { blueCircle, chorusFx, controlFx, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
+import { blueCircle, chorusFx, controlFx, keyAura, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
 import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
@@ -968,7 +968,7 @@ export class World3D {
       this.path = [];
     });
     on('healed', () => {
-      this.hooks.toast('ครูเพลง: พักเสียงสักหน่อยนะ (ฟื้น HP/SP เต็ม + บัพทุกสกิลระดับสูงสุด)', 'good');
+      this.hooks.toast('ครูเพลง: พักเสียงสักหน่อยนะ (ฟื้น HP/SP เต็ม + บัพทุกสกิลระดับสูงสุด นาน 5 นาที)', 'good');
       this.sparkle(this.me, 0x9be0ff);
       this.levelFx(this.me, '', 0xffd36b);
       sfx('heal');
@@ -1906,6 +1906,7 @@ export class World3D {
         const play = first;
         first = false;
         draw(this.fxCtx(mine, (b) => play && sfxKeySpell(kind, vol, b)), follow(t));
+        this.keyboardAura(t, (skill.buff?.durationSec ?? 30) * 1000);
       }
     }
     msg.hits.forEach((h, i) => {
@@ -1921,6 +1922,26 @@ export class World3D {
           if (p) this.floatText(new THREE.Vector3(p.x, 1.8, p.y), `+${-h.dmg}`, 'heal');
         }
       }, h.at !== undefined ? h.at + 40 : skill.type === 'revive' ? 700 : 300 + i * 110);
+    });
+  }
+
+  /** Player id -> their keyboardist-buff aura and when it ends (one aura per player, a new buff stretches it). */
+  private keyAuras = new Map<string, { until: number }>();
+
+  /** The blue aura round a player for as long as a keyboardist buff lasts on them. */
+  private keyboardAura(t: PlayerActor, ms: number) {
+    const until = performance.now() + ms;
+    const cur = this.keyAuras.get(t.id);
+    if (cur) {
+      cur.until = Math.max(cur.until, until);
+      return;
+    }
+    const me = { until };
+    this.keyAuras.set(t.id, me);
+    keyAura(this.fxCtx(false, () => {}), () => new THREE.Vector3(t.x, 0, t.y), () => {
+      const ok = this.keyAuras.get(t.id) === me && !t.dead && this.players.get(t.id) === t && performance.now() < me.until;
+      if (!ok && this.keyAuras.get(t.id) === me) this.keyAuras.delete(t.id);
+      return ok;
     });
   }
 

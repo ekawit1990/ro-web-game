@@ -2,7 +2,7 @@ import { Room, type Client } from 'colyseus';
 import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ENDOW_SEC, ITEMS, type Element, elementMult, monsterElement, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
-  STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
+  STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, HEALER_BUFF_SEC, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
   skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, castTime, WAVE_FALL_MS, targetsPlayer, totalStats, outfitOf,
 } from '../../src/data/index.ts';
 import { GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
@@ -327,9 +327,9 @@ export class MapRoom extends Room<{ state: MapState }> {
     if (seat) {
       for (const [id, skill] of Object.entries(SKILLS)) {
         if (!isHealerBuff(skill)) continue;
-        const b = this.buffFor(skill, skill.maxLevel);
+        const b = this.buffFor(skill, skill.maxLevel, HEALER_BUFF_SEC);
         seat.buffs.set(id, b);
-        c.send('buff', { skill: id, seconds: skill.buff!.durationSec, blocks: b.blocks || undefined, from: 'healer' });
+        c.send('buff', { skill: id, seconds: HEALER_BUFF_SEC, blocks: b.blocks || undefined, from: 'healer' });
       }
       this.applyDerived(seat, p);
     }
@@ -1206,10 +1206,10 @@ export class MapRoom extends Room<{ state: MapState }> {
   // ------------------------------------------------------------ helpers
 
   /** The buff a skill gives at `lv` (aspd/def for 'buff', stats/shield for the keyboardist's buffs). */
-  private buffFor(skill: SkillDef, lv: number): SeatBuff {
+  private buffFor(skill: SkillDef, lv: number, sec = skill.buff!.durationSec): SeatBuff {
     const blocks = buffBlocks(skill, lv);
     return {
-      until: this.now + skill.buff!.durationSec * 1000,
+      until: this.now + sec * 1000,
       ...(skill.buff!.aspdPct ? { aspdPct: skill.buff!.aspdPct * lv } : {}),
       ...(skill.buff!.def ? { def: skill.buff!.def * lv } : {}),
       ...(skill.buff!.hitPct ? { hitPct: skill.buff!.hitPct * lv } : {}),

@@ -353,6 +353,8 @@ export const isBuffSkill = (s: SkillDef) => !!s.buff && (s.type === 'buff' || s.
  * The buffs ครูเพลงใจดี hands out at max level: every buff skill except hiding, taking a party's damage and
  * reflecting damage, which only make sense for the class that owns them.
  */
+/** ครูเพลงใจดี's buffs last this long (s), whatever the skill's own time (2026-11-08: 5 minutes). */
+export const HEALER_BUFF_SEC = 300;
 export const isHealerBuff = (s: SkillDef) => isBuffSkill(s) && !s.buff!.guardPct && !s.buff!.reflectPct;
 /** Every skill costs this share of its listed SP (halved 2026-11-05). */
 export const SP_COST_RATE = 0.5;
