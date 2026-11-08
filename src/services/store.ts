@@ -57,6 +57,8 @@ export interface GameStore {
   storagePut(charId: string, invId: string, qty: number): Promise<void>;
   /** Storage -> this character's bag. */
   storageTake(charId: string, rowId: string, qty: number): Promise<void>;
+  /** บูรพา: where the character comes back after dying (must be the map it's on now). */
+  setSavePoint(charId: string, map: string, x: number, y: number): Promise<Character>;
   /** Puts a card from the bag into a free card slot of a piece of equipment (the card remover NPC can take it out again). */
   insertCard(charId: string, cardInv: string, equipInv: string): Promise<void>;
   /** One try at the refiner: costs a material and zeny; past the safe level a failure destroys the item. */

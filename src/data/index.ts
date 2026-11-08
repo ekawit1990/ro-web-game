@@ -447,6 +447,10 @@ export interface Character extends Stats, Appearance {
   map: string;
   pos_x: number;
   pos_y: number;
+  /** Respawn point saved at บูรพา (missing/null = the town's default spot). */
+  save_map?: string | null;
+  save_x?: number | null;
+  save_y?: number | null;
 }
 
 export interface InvItem {

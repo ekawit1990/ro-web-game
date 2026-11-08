@@ -6,6 +6,7 @@ import {
 import { THEMES, WARP_TOWNS, getMap, type GameMap, type Npc } from '../game/maps';
 import type { Session } from '../game/session';
 import type { World3D, WorldHooks } from '../three/World3D';
+import { potionPct, setAutoPotionPct } from '../game/autoPrefs';
 import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
@@ -1205,12 +1206,24 @@ export class Hud implements WorldHooks {
     b.innerHTML = `<div class="wm-wrap">
         <canvas id="wm-cv" width="320" height="320"></canvas>
         <div class="wm-side">
+          <div class="wm-tip">แตะ/คลิกบนแผนที่ เพื่อเดินไปจุดนั้น</div>
           <div class="wm-sec">${this.map.safe ? 'เมือง (ไม่มีมอนสเตอร์)' : `มอนสเตอร์ในแผนที่นี้ (${list.length} ชนิด) · แตะเพื่อดูจุดเกิด`}</div>
           <div class="wm-list">${rows || '<p class="hint">ปลอดภัย ไม่มีมอนสเตอร์</p>'}</div>
           ${portals ? `<div class="wm-sec">ทางออก</div>${portals}` : ''}
           <div class="wm-legend"><span><i class="me"></i>คุณ</span><span><i class="pl"></i>ผู้เล่นอื่น</span><span><i class="np"></i>NPC</span><span><i class="pt"></i>ทางออก</span></div>
         </div>
       </div>`;
+    const cv = b.querySelector<HTMLCanvasElement>('#wm-cv')!;
+    cv.addEventListener('click', (e) => {
+      const scene = this.actions.scene();
+      if (!scene) return;
+      const r = cv.getBoundingClientRect();
+      const per = Math.max(this.map.w, this.map.h);
+      const x = ((e.clientX - r.left) / r.width) * per;
+      const y = ((e.clientY - r.top) / r.height) * per;
+      if (x < 0 || y < 0 || x >= this.map.w || y >= this.map.h) return;
+      if (!scene.walkToMapSpot(x, y)) this.toast('ไปจุดนั้นไม่ได้', 'bad');
+    });
     b.querySelectorAll<HTMLElement>('[data-mon]').forEach((el) =>
       el.addEventListener('click', () => {
         this.mapPick = this.mapPick === el.dataset.mon ? '' : el.dataset.mon!;
@@ -1267,6 +1280,33 @@ export class Hud implements WorldHooks {
     }
     c.fillStyle = '#ff7bd5';
     for (const o of dots.others) c.fillRect(o.x * s - 3, o.y * s - 3, 6, 6);
+    // where you're walking to (picked on this map, or anywhere): a dotted line and a red pin
+    const goal = scene.walkGoal();
+    if (goal) {
+      c.save();
+      c.strokeStyle = 'rgba(255,255,255,0.85)';
+      c.lineWidth = 2;
+      c.setLineDash([4, 4]);
+      c.beginPath();
+      c.moveTo(dots.me.x * s, dots.me.y * s);
+      c.lineTo(goal.x * s, goal.y * s);
+      c.stroke();
+      c.restore();
+      const gx = goal.x * s, gy = goal.y * s;
+      c.fillStyle = '#ff3b3b';
+      c.strokeStyle = '#000';
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.moveTo(gx, gy);
+      c.arc(gx, gy - 11, 6, Math.PI * 0.8, Math.PI * 2.2);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      c.fillStyle = '#fff';
+      c.beginPath();
+      c.arc(gx, gy - 11, 2.2, 0, Math.PI * 2);
+      c.fill();
+    }
     c.fillStyle = '#ffffff';
     c.strokeStyle = '#000';
     c.lineWidth = 1.5;
@@ -1450,7 +1490,8 @@ export class Hud implements WorldHooks {
         + '• ช่างจูน ตีบวก ใกล้ไกด์: ตีบวกอาวุธ/ชุดให้แรงขึ้น · การ์ดมอนสเตอร์เสียบในอุปกรณ์ที่มีช่อง [1] [2]\n'
         + '• ช่างถอดการ์ด ข้างช่างจูน: ถอดการ์ดออกจากอุปกรณ์คืนเข้ากระเป๋า · ครูเริ่มใหม่ ฝั่งขวา: รีเซ็ตสเตตัส/สกิล\n'
         + '• คลิกขวาที่ไอเท็ม (มือถือ: แตะ) เพื่อดูรายละเอียด\n'
-        + '• บูรพาข้างน้ำพุกลางเมือง: วาร์ปไปเมืองทะเลทรายตะโพน (เมืองมือกลอง) และฝากของในคลังกลางที่ทุกตัวละครใน ID ใช้ร่วมกัน',
+        + '• บูรพาข้างน้ำพุกลางเมืองและข้างทางออกทุกแผนที่: วาร์ปไปเมืองอื่น ฝากของในคลังกลางที่ทุกตัวละครใน ID ใช้ร่วมกัน และบันทึกจุดเกิด\n'
+        + '• เปิดแผนที่ใหญ่แล้วแตะ/คลิกบนแผนที่ ตัวละครจะเดินไปจุดนั้นเอง',
     };
     const w = this.win('npc', escapeHtml(n.name), 'npc');
     const b = this.body('npc')!;
@@ -1495,10 +1536,14 @@ export class Hud implements WorldHooks {
     const zeny = this.s.char.zeny;
     const towns = WARP_TOWNS.filter((t) => t.map !== this.map.id);
     const warps = towns.map((t) => `<button class="ok" data-warp="${t.map}" ${zeny < t.cost ? 'disabled' : ''}>วาร์ปไป${escapeHtml(getMap(t.map).name)} (${t.cost.toLocaleString()} z)</button>`).join('');
-    b.innerHTML = `<div class="npc-text">ข้าคือบูรพา ผู้ดูแลการเดินทางและคลังกลางของทุกเมือง<br>
+    const c = this.s.char;
+    const saved = c.save_map ? `${escapeHtml(getMap(c.save_map).name)} (${Math.floor(c.save_x ?? 0)}, ${Math.floor(c.save_y ?? 0)})` : `${escapeHtml(getMap('town').name)} (ค่าเริ่มต้น)`;
+    b.innerHTML = `<div class="npc-text">ข้าคือบูรพา ผู้ดูแลการเดินทางและคลังกลาง อยู่กลางเมืองและข้างทางออกทุกแผนที่<br>
       • วาร์ปไปเมืองอื่นได้ทันที เสียค่าเดินทางเป็น Zeny (ตอนนี้มี ${zeny.toLocaleString()} z)<br>
-      • คลังกลาง: ฝากของไว้ ตัวละครทุกตัวใน ID เดียวกันเปิดใช้ร่วมกันได้จากบูรพาทุกเมือง</div>
-      <div class="npc-btns job-btns">${warps}<button class="ok" data-storage>เปิดคลังกลาง</button><button class="close">ปิด</button></div>`;
+      • คลังกลาง: ฝากของไว้ ตัวละครทุกตัวใน ID เดียวกันเปิดใช้ร่วมกันได้จากบูรพาทุกที่<br>
+      • บันทึกจุดเกิด: หมดสติแล้วกดฟื้น จะกลับมาเกิดตรงนี้ (ฟรี)<br>
+      <span class="muted">จุดเกิดตอนนี้: ${saved}</span></div>
+      <div class="npc-btns job-btns">${warps}<button class="ok" data-save>บันทึกจุดเกิดที่นี่</button><button class="ok" data-storage>เปิดคลังกลาง</button><button class="close">ปิด</button></div>`;
     b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
     b.querySelectorAll<HTMLButtonElement>('[data-warp]').forEach((btn) =>
       btn.addEventListener('click', () => {
@@ -1516,6 +1561,24 @@ export class Hud implements WorldHooks {
     b.querySelector('[data-storage]')!.addEventListener('click', () => {
       this.closeWin('npc');
       this.openStorage();
+    });
+    b.querySelector<HTMLButtonElement>('[data-save]')!.addEventListener('click', async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      const me = this.actions.scene()?.minimapDots().me;
+      if (!me) return;
+      btn.disabled = true;
+      try {
+        await this.s.setSavePoint(this.map.id, Math.round(me.x * 10) / 10, Math.round(me.y * 10) / 10);
+        sfx('item');
+        this.toast(`บันทึกจุดเกิดที่${this.map.name}แล้ว`, 'good');
+        this.line('sys', `บันทึกจุดเกิดแล้ว: ${escapeHtml(this.map.name)} (${Math.floor(me.x)}, ${Math.floor(me.y)}) หมดสติแล้วกดฟื้นจะกลับมาที่นี่`);
+        this.talkBurapa(n);
+      } catch (err) {
+        const m = (err as Error).message;
+        // the database from before save points has no set_save_point(): say what to do
+        this.toast(/set_save_point|function|schema cache/i.test(m) ? 'ฐานข้อมูลยังไม่มีระบบจุดเกิด (ต้องรัน add-save-point.sql ใน Supabase)' : m, 'bad');
+        btn.disabled = false;
+      }
     });
   }
 
@@ -2113,8 +2176,22 @@ export class Hud implements WorldHooks {
     this.root.querySelector('#bi-auto')?.classList.toggle('on', on);
     this.root.querySelector('#auto-badge')?.remove();
     if (on) {
-      this.root.insertAdjacentHTML('beforeend', '<div id="auto-badge" class="auto-badge">AUTO · ตีและใช้สกิลอัตโนมัติ</div>');
-      this.line('sys', 'เปิดออโต้: ตีมอนสเตอร์ใกล้ ๆ ใช้สกิลและยาเอง (พิมพ์ /auto อีกครั้ง หรือคลิกพื้นเพื่อหยุด)');
+      const pct = potionPct();
+      const opts = [0, 10, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90]
+        .map((v) => `<option value="${v}" ${v === pct ? 'selected' : ''}>${v ? `ต่ำกว่า ${v}%` : 'ไม่ใช้ยา'}</option>`).join('');
+      const extra = [0, 10, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90].includes(pct) ? '' : `<option value="${pct}" selected>ต่ำกว่า ${pct}%</option>`;
+      this.root.insertAdjacentHTML('beforeend', `<div id="auto-badge" class="auto-badge">
+        <span class="ab-t">AUTO · ตีและใช้สกิลอัตโนมัติ</span>
+        <label class="ab-pot" title="ดื่มยาฟื้น HP อัตโนมัติ (ซ้ำได้ทุก 1 วินาที)">ยาปั๊ม HP <select id="ab-pot">${extra}${opts}</select></label>
+        <button id="ab-stop" title="หยุดออโต้">หยุด</button></div>`);
+      const sel = this.root.querySelector<HTMLSelectElement>('#ab-pot')!;
+      sel.addEventListener('change', () => {
+        setAutoPotionPct(Number(sel.value));
+        const v = Number(sel.value);
+        this.line('sys', v ? `ออโต้จะดื่มยาเมื่อ HP ต่ำกว่า ${v}% (ซ้ำได้ทุก 1 วินาที)` : 'ออโต้จะไม่ดื่มยา');
+      });
+      this.root.querySelector('#ab-stop')!.addEventListener('click', () => this.actions.scene()?.setAuto(false));
+      this.line('sys', `เปิดออโต้: ตีมอนสเตอร์ใกล้ ๆ ใช้สกิลเอง ${pct ? `ดื่มยาเมื่อ HP ต่ำกว่า ${pct}% (เปลี่ยนได้ที่แถบ AUTO ด้านบน)` : 'ไม่ดื่มยา'} · พิมพ์ /auto อีกครั้ง หรือคลิกพื้นเพื่อหยุด`);
     } else this.line('sys', 'ปิดออโต้แล้ว');
   }
 

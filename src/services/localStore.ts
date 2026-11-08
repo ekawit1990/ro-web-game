@@ -401,12 +401,20 @@ export class LocalStore implements GameStore {
     this.persist();
   }
 
+  /** set_save_point() in SQL (minus the current-map check: this copy's `map` isn't kept up to date while playing). */
+  async setSavePoint(charId: string, map: string, x: number, y: number) {
+    const c = this.char(charId);
+    Object.assign(c, { save_map: map, save_x: Math.min(Math.max(x, 0), 200), save_y: Math.min(Math.max(y, 0), 200) });
+    this.persist();
+    return this.getCharacter(charId);
+  }
+
   async onDeath(charId: string) {
     const c = this.char(charId);
     c.exp = Math.max(0, c.exp - Math.floor(expToNext(c.level) * 0.05));
-    c.map = TOWN_SPAWN.map;
-    c.pos_x = TOWN_SPAWN.x;
-    c.pos_y = TOWN_SPAWN.y;
+    c.map = c.save_map ?? TOWN_SPAWN.map;
+    c.pos_x = c.save_map ? c.save_x ?? TOWN_SPAWN.x : TOWN_SPAWN.x;
+    c.pos_y = c.save_map ? c.save_y ?? TOWN_SPAWN.y : TOWN_SPAWN.y;
     this.persist();
     return this.getCharacter(charId);
   }

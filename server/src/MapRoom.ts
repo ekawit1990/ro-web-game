@@ -356,7 +356,9 @@ export class MapRoom extends Room<{ state: MapState }> {
   private async onNpcWarp(c: Client, msg: { to: string }) {
     const p = this.state.players.get(c.sessionId);
     const seat = this.seats.get(c.sessionId);
-    const npc = this.map.npcs.find((n) => n.id === 'warper');
+    // บูรพา stands in towns and beside every gate: the nearest one
+    const npc = p && this.map.npcs.filter((n) => n.id === 'warper')
+      .sort((a, b) => dist(p.x, p.y, a.x + 0.5, a.y + 0.5) - dist(p.x, p.y, b.x + 0.5, b.y + 0.5))[0];
     const dest = WARP_TOWNS.find((t) => t.map === msg?.to);
     if (!p || !seat || p.dead || seat.busy || !npc || !dest || dest.map === this.map.id) return;
     if (dist(p.x, p.y, npc.x + 0.5, npc.y + 0.5) > 3) return c.send('error', { text: 'เดินเข้าไปใกล้บูรพาก่อน' });

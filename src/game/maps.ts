@@ -952,6 +952,36 @@ function addJobNpc(m: GameMap) {
   }
 }
 
+/**
+ * บูรพา also waits beside every gate of every map (2026-11-08): warp to a town, open the storage, or save
+ * your respawn point there. Stands off to the side of the gate so the way through stays clear.
+ */
+function addGateBurapas(m: GameMap) {
+  for (const pt of m.portals) {
+    const cx = pt.x + 0.5, cy = pt.y + 0.5;
+    // which edge the gate is on: "along" runs beside the wall, "inward" into the map
+    const onSide = Math.min(cx, m.w - cx) < Math.min(cy, m.h - cy);
+    let best = null as { x: number; y: number; d: number } | null;
+    // close beside the gate if there's room, else a little further in (the town's north gate runs through the castle)
+    for (const reach of [10, 22]) {
+      for (let y = 1; y < m.h - 1; y++) {
+        for (let x = 1; x < m.w - 1; x++) {
+          const along = onSide ? Math.abs(y + 0.5 - cy) : Math.abs(x + 0.5 - cx);
+          const inward = onSide ? Math.abs(x + 0.5 - cx) : Math.abs(y + 0.5 - cy);
+          if (along < 3 || along > 9 || inward < 2 || inward > reach) continue;
+          if (!free(m, x - 1, y - 1, 3, 3) || m.npcs.some((n) => Math.abs(n.x - x) < 3 && Math.abs(n.y - y) < 3)) continue;
+          const d = along * 1.5 + inward;
+          if (!best || d < best.d) best = { x, y, d };
+        }
+      }
+      if (best) break;
+    }
+    if (!best) continue;
+    m.npcs.push({ ...BURAPA, x: best.x, y: best.y });
+    block(m, best.x, best.y);
+  }
+}
+
 const built = new Map<string, GameMap>();
 const BUILDERS: Record<string, () => GameMap> = {
   town: buildTown, field: buildField, forest: buildForest, marsh: buildMarsh, canyon: buildCanyon, snow: buildSnow, volcano: buildVolcano,
@@ -975,6 +1005,7 @@ export function getMap(id: string): GameMap {
   if (!built.has(id)) {
     const m = BUILDERS[id]();
     if (id === START_MAP) addJobNpc(m);
+    addGateBurapas(m);
     built.set(id, m);
   }
   return built.get(id)!;

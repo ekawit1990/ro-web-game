@@ -77,6 +77,10 @@ alter table public.characters add column if not exists skills jsonb not null def
 alter table public.characters add column if not exists map text not null default 'town';
 -- job-change quest: -1 = not taken, else kills so far (see change_job)
 alter table public.characters add column if not exists job_quest int not null default -1;
+-- respawn point saved at บูรพา (null = the town's default spot), see set_save_point / on_death
+alter table public.characters add column if not exists save_map text;
+alter table public.characters add column if not exists save_x real;
+alter table public.characters add column if not exists save_y real;
 create index if not exists characters_user_idx on public.characters (user_id);
 
 create table if not exists public.inventory (
@@ -448,7 +452,21 @@ declare c public.characters;
 begin
   c := public._own_char(p_char, p_user);
   update public.characters
-    set exp = greatest(0, exp - floor(public.exp_to_next(level) * 0.05)::int), map = 'town', pos_x = 48.5, pos_y = 55.5
+    set exp = greatest(0, exp - floor(public.exp_to_next(level) * 0.05)::int),
+        map = coalesce(c.save_map, 'town'), pos_x = coalesce(c.save_x, 48.5), pos_y = coalesce(c.save_y, 55.5)
+    where id = p_char returning * into c;
+  return c;
+end $$;
+
+-- บูรพา: save where you come back after dying (browser). Only on the map the character is on right now.
+create or replace function public.set_save_point(p_char uuid, p_map text, p_x real, p_y real) returns public.characters
+language plpgsql security definer set search_path = public as $$
+declare c public.characters;
+begin
+  c := public._own_char(p_char);
+  if p_map is distinct from c.map then raise exception 'บันทึกจุดเกิดได้เฉพาะแผนที่ที่อยู่ตอนนี้'; end if;
+  update public.characters
+    set save_map = p_map, save_x = least(greatest(p_x, 0), 200), save_y = least(greatest(p_y, 0), 200)
     where id = p_char returning * into c;
   return c;
 end $$;
@@ -689,6 +707,7 @@ revoke execute on function public.refine_item(uuid, uuid) from public, anon;
 revoke execute on function public.reset_stats(uuid) from public, anon;
 revoke execute on function public.reset_skills(uuid) from public, anon;
 revoke execute on function public.remove_cards(uuid, uuid) from public, anon;
+revoke execute on function public.set_save_point(uuid, text, real, real) from public, anon;
 grant execute on function public.create_character(text, text, int, int, int) to authenticated;
 grant execute on function public.start_job_quest(uuid) to authenticated;
 grant execute on function public.change_job(uuid, text) to authenticated;
@@ -704,6 +723,7 @@ grant execute on function public.refine_item(uuid, uuid) to authenticated;
 grant execute on function public.reset_stats(uuid) to authenticated;
 grant execute on function public.reset_skills(uuid) to authenticated;
 grant execute on function public.remove_cards(uuid, uuid) to authenticated;
+grant execute on function public.set_save_point(uuid, text, real, real) to authenticated;
 
 revoke execute on function public.report_kill(uuid, uuid, text) from public, anon, authenticated;
 revoke execute on function public.grant_reward(uuid, uuid, int, int, int, text[], boolean) from public, anon, authenticated;

@@ -1,3 +1,4 @@
+import { potionPct, AUTO_POTION_EVERY } from '../game/autoPrefs';
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
 import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVEL, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf, vrmHatOf } from '../data';
@@ -54,7 +55,7 @@ const DASH_MS = 160;
 
 /** /auto: how far (tiles) the character looks for the next monster, and when it drinks a potion / heals. */
 const AUTO_RANGE = 12;
-const AUTO_POTION_HP = 0.35;
+/** /auto drinks a potion when HP is under this % (the player picks it on the AUTO bar; 0 = never). */
 const AUTO_HEAL_HP = 0.6;
 
 interface RemotePlayer {
@@ -621,6 +622,50 @@ export class World3D {
     (this.marker.material as THREE.MeshBasicMaterial).opacity = 1;
   }
 
+  /**
+   * Walk to a spot picked on the big map: anywhere on this map, however far. A blocked spot (a house,
+   * water, a tree) walks to the nearest open tile instead. Returns false when there's no way there.
+   */
+  walkToMapSpot(x: number, y: number) {
+    if (this.dead) return false;
+    let tx = Math.floor(x), ty = Math.floor(y);
+    if (!walkable(this.map, tx + 0.5, ty + 0.5)) {
+      let best: { x: number; y: number } | null = null;
+      let bestD = Infinity;
+      for (let dy = -6; dy <= 6; dy++) {
+        for (let dx = -6; dx <= 6; dx++) {
+          const d = Math.hypot(dx, dy);
+          if (d < bestD && walkable(this.map, tx + dx + 0.5, ty + dy + 0.5)) {
+            bestD = d;
+            best = { x: tx + dx, y: ty + dy };
+          }
+        }
+      }
+      if (!best) return false;
+      tx = best.x;
+      ty = best.y;
+      x = tx + 0.5;
+      y = ty + 0.5;
+    }
+    const p = findPath(this.map, Math.floor(this.me.x), Math.floor(this.me.y), tx, ty, this.map.w * this.map.h + 10);
+    if (!p) return false;
+    this.cancelTargeting();
+    this.target = null;
+    this.pendingSkill = null;
+    if (this.auto) this.setAuto(false); // walking somewhere yourself takes back control
+    if (p.length) p[p.length - 1] = { x, y };
+    this.path = p;
+    this.marker.position.set(x, 0.03, y);
+    (this.marker.material as THREE.MeshBasicMaterial).opacity = 1;
+    return true;
+  }
+
+  /** Where the character is walking to (the end of its path), for the big map. */
+  walkGoal() {
+    const last = this.path[this.path.length - 1];
+    return last ? { x: last.x, y: last.y } : null;
+  }
+
   walkNear(x: number, y: number, range: number) {
     if (Math.hypot(this.me.x - x, this.me.y - y) <= range) {
       this.path = [];
@@ -714,13 +759,13 @@ export class World3D {
     const me = this.me;
     const d = s.derived;
 
-    if (s.hp < d.maxHp * AUTO_POTION_HP && t >= this.autoPotionAt) {
+    if (potionPct() > 0 && s.hp < d.maxHp * (potionPct() / 100) && t >= this.autoPotionAt) {
       const pot = s.inv
         .filter((i) => ITEMS[i.item_id]?.type === 'consumable' && ITEMS[i.item_id].heal)
         .sort((a, b) => (ITEMS[b.item_id].heal ?? 0) - (ITEMS[a.item_id].heal ?? 0))[0];
       if (pot) {
         s.use(pot.id);
-        this.autoPotionAt = t + 1500;
+        this.autoPotionAt = t + AUTO_POTION_EVERY;
       }
     }
     if (this.pendingSkill || this.targetingSkill || me.cast) return;
