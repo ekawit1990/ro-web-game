@@ -230,9 +230,12 @@ export interface SpawnDef {
   respawnSec?: number;
 }
 
-/** heal_target and buff_target pick yourself or one other player; buff_party buffs you and your party on the map. */
-export type SkillType = 'single' | 'aoe' | 'aoe_self' | 'line' | 'heal' | 'heal_target' | 'buff' | 'buff_target' | 'buff_party' | 'passive';
-export const targetsPlayer = (s: SkillDef) => s.type === 'heal_target' || s.type === 'buff_target';
+/**
+ * heal_target and buff_target pick yourself or one other player; buff_party buffs you and your party on the map;
+ * revive picks a player who is down (ชุบชีวิต).
+ */
+export type SkillType = 'single' | 'aoe' | 'aoe_self' | 'line' | 'heal' | 'heal_target' | 'buff' | 'buff_target' | 'buff_party' | 'revive' | 'passive';
+export const targetsPlayer = (s: SkillDef) => s.type === 'heal_target' || s.type === 'buff_target' || s.type === 'revive';
 /** Skills aimed at a monster (a 'line' skill only uses it for the direction). */
 export const targetsMonster = (s: SkillDef) => s.type === 'single' || s.type === 'aoe' || s.type === 'line';
 
@@ -285,6 +288,13 @@ export interface SkillDef {
   shape?: 'x';
   /** Cast time: standing still this long before it goes off (moving cancels). */
   castMs?: number;
+  /** The cast gets shorter with DEX (castTime). */
+  castDex?: boolean;
+  /** 'aoe' over a square of side 2 x radius round the target (ตัวโน้ตทำลาย's 3x3 tiles) instead of a circle. */
+  square?: boolean;
+  /** Damage comes down in this many volleys, waveMs apart; every monster in the area at each volley is hit. */
+  waves?: number;
+  waveMs?: number;
   /** Palm muting: pulls monsters in the radius next to you and lowers their Def by defDownPct for debuffSec [Lv 1, per level] seconds. */
   pull?: boolean;
   defDownPct?: number;
@@ -324,6 +334,15 @@ export function wearBlock(it: ItemDef | undefined, c: { cls: ClassKey; gender: G
 
 /** หมุนตัวแทง counts at most this many monsters around you. */
 export const CROWD_MAX = 8;
+
+/** Cast time in ms: castDex skills lose 1/150 of it per DEX (DEX 150 = instant) but never go under 0.5 s. */
+export function castTime(s: SkillDef, dex: number) {
+  if (!s.castMs) return 0;
+  if (!s.castDex) return s.castMs;
+  return Math.round(Math.max(500, s.castMs * Math.max(0, 1 - dex / 150)));
+}
+/** When the first volley of a 'waves' skill lands after it goes off (the notes falling out of the sky). */
+export const WAVE_FALL_MS = 300;
 
 export const skillsOf = (cls: ClassKey) => Object.entries(SKILLS).filter(([, s]) => s.cls === cls);
 /** Only your own class's skills: the job change refunds Teen skills (see change_job in SQL). */

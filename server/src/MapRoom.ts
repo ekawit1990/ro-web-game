@@ -3,7 +3,7 @@ import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ENDOW_SEC, ITEMS, type Element, elementMult, monsterElement, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
   STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
-  skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, targetsPlayer, totalStats, outfitOf,
+  skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, castTime, WAVE_FALL_MS, targetsPlayer, totalStats, outfitOf,
 } from '../../src/data/index.ts';
 import { GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
 import type { RewardShare, TradeOffer } from '../../src/services/store.ts';
@@ -516,6 +516,12 @@ export class MapRoom extends Room<{ state: MapState }> {
       if (!m || m.dead) return;
       if (dist(p.x, p.y, m.x, m.y) > (skill.range ?? 1) + MONSTERS[m.key].size * 0.3 + 0.8) return;
       Object.assign(aim, { monster: msg.target, x: m.x, y: m.y });
+    } else if (skill.type === 'revive') {
+      // ชุบชีวิต: only someone who is down
+      const a = this.state.players.get(msg.target ?? '');
+      if (!a || !a.dead) return c.send('error', { text: 'เลือกเพื่อนที่หมดสติ' });
+      if (dist(p.x, p.y, a.x, a.y) > (skill.range ?? 1) + 0.8) return;
+      Object.assign(aim, { ally: msg.target, x: a.x, y: a.y });
     } else if (targetsPlayer(skill)) {
       aim.ally = msg.target && this.state.players.has(msg.target) ? msg.target : c.sessionId;
       const a = this.state.players.get(aim.ally)!;
@@ -527,8 +533,9 @@ export class MapRoom extends Room<{ state: MapState }> {
     p.sp -= sp;
     p.sitting = false;
     seat.cooldowns.set(msg.id, this.now + (skill.cooldown ?? 1000));
-    if (skill.castMs) {
-      // เสียงสูง: stand still and sing for castMs, then it goes off towards where the target was
+    const castMs = castTime(skill, totalStats(seat.char, seat.derived).dex);
+    if (castMs > 0) {
+      // เสียงสูง / ตัวโน้ตทำลาย: stand still for the cast, then it goes off at where the target was
       const sid = c.sessionId;
       const timer = this.clock.setTimeout(() => {
         if (seat.cast?.timer !== timer) return;
@@ -537,9 +544,9 @@ export class MapRoom extends Room<{ state: MapState }> {
         if (!me || me.dead || this.seats.get(sid) !== seat) return;
         this.broadcast('castEnd', { by: sid, skill: msg.id, done: true });
         this.useSkill(c, seat, me, msg.id, skill, lv, aim);
-      }, skill.castMs);
+      }, castMs);
       seat.cast = { id: msg.id, sp, timer };
-      this.broadcast('cast', { by: sid, skill: msg.id, ms: skill.castMs, x: aim.x, y: aim.y });
+      this.broadcast('cast', { by: sid, skill: msg.id, ms: castMs, x: aim.x, y: aim.y });
       return;
     }
     this.useSkill(c, seat, p, msg.id, skill, lv, aim);
@@ -627,6 +634,40 @@ export class MapRoom extends Room<{ state: MapState }> {
           if (!m.dead && this.seats.has(c.sessionId) && dmg > 0) this.damageMonster(mid, m, brain, c.sessionId, dmg);
         }, at);
       });
+    } else if (skill.waves) {
+      // ตัวโน้ตทำลาย: volleys of notes come down on the area; each hits whatever is standing in it right then
+      const r = skill.radius ?? 1;
+      const inArea = (m: MonsterState) => {
+        const reach = r + MONSTERS[m.key].size * 0.3;
+        return skill.square ? Math.abs(m.x - tx) <= reach && Math.abs(m.y - ty) <= reach : dist(tx, ty, m.x, m.y) <= reach;
+      };
+      const sid = c.sessionId;
+      const left = new Map<string, number>(); // HP left after the volleys so far: no numbers on a monster already down
+      for (let w = 0; w < skill.waves; w++) {
+        const at = WAVE_FALL_MS + w * (skill.waveMs ?? 300);
+        this.state.monsters.forEach((m, mid) => {
+          if (m.dead || !inArea(m) || (left.get(mid) ?? m.hp) <= 0) return;
+          const brain = this.brains.get(mid)!;
+          // rolled now (the browser shows the numbers as the notes land); a monster that walked out is spared
+          const dmg = rollDamage(m, brain);
+          left.set(mid, (left.get(mid) ?? m.hp) - dmg);
+          fx.hits.push({ m: mid, dmg, at });
+          this.clock.setTimeout(() => {
+            if (m.dead || !this.seats.has(sid) || !inArea(m)) return;
+            if (dmg > 0) this.damageMonster(mid, m, brain, sid, dmg);
+            else this.engage(brain, sid);
+          }, at);
+        });
+      }
+    } else if (skill.type === 'revive') {
+      const a = this.state.players.get(ally ?? '');
+      if (a?.dead) {
+        a.dead = false;
+        a.sitting = false;
+        a.hp = Math.max(1, Math.round((a.maxHp * Math.min(100, skillHeal(skill, lv))) / 100));
+        fx.hits.push({ p: ally!, dmg: -a.hp });
+        this.broadcast('system', { text: `${seat.char.name} ชุบชีวิต ${this.seats.get(ally!)?.char.name ?? ''} สำเร็จ!` });
+      }
     } else if (skill.type === 'aoe' || skill.type === 'aoe_self') {
       const until = this.now + debuffSec(skill, lv) * 1000;
       const pulled: string[] = [];

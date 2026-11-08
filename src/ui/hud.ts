@@ -670,7 +670,7 @@ export class Hud implements WorldHooks {
     const lv = this.s.char.skills?.[id] ?? 0;
     const el = sk.power ? `<div class="muted">ธาตุ: ${sk.element ? elementLabel(sk.element) : 'ตามอาวุธ'}</div>` : '';
     return `<b>${sk.icon} ${escapeHtml(sk.name)}</b> (Lv ${lv}/${sk.maxLevel})<div>${escapeHtml(sk.desc)}</div>${el}
-      ${sk.cooldown ? `<div class="muted">คูลดาวน์ ${(sk.cooldown / 1000).toFixed(1)} วิ</div>` : ''}`;
+      ${sk.cooldown ? `<div class="muted">คูลดาวน์ ${sk.cooldown >= 60000 ? `${+(sk.cooldown / 60000).toFixed(1)} นาที` : `${(sk.cooldown / 1000).toFixed(1)} วิ`}</div>` : ''}`;
   }
 
   // ------------------------------------------------------------ hotkeys

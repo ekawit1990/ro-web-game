@@ -670,3 +670,71 @@ export function sfxBend(vol = 1, big = false, at = 0) {
   tone(294, t, 1.1, { type: 'sawtooth', to: 330, gain: 0.07 * vol, filter: 1500, release: 0.35, wet: 0.4 });
   noise(t, 1.2, { gain: 0.28 * vol, type: 'bandpass', freq: 300, freqTo: 1600, q: 0.6, release: 0.3, wet: 0.4 });
 }
+
+// ------------------------------------------------------------ keyboardist (blue set)
+
+/** A glassy electric-piano note: sine + bell partials, quick decay, lots of reverb. */
+function epiano(f: number, at: number, dur: number, g: number) {
+  tone(f, at, dur, { type: 'sine', gain: g, release: dur / 2.5, wet: 0.55 });
+  tone(f * 2, at, dur * 0.6, { type: 'sine', gain: g * 0.35, release: dur / 4, wet: 0.55 });
+  tone(f * 3.01, at, dur * 0.25, { type: 'triangle', gain: g * 0.18, release: dur / 8, wet: 0.6 });
+}
+
+/** ตัวโน้ตทำลาย: a falling-note "ติ๊ง!" (big = the last volley: a chord crash with a low boom). */
+export function sfxNoteFall(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const root = 72 + Math.floor(Math.random() * 5) * 2;
+  epiano(midi(root + 12), t, 0.5, 0.18 * vol);
+  noise(t, 0.06, { gain: 0.18 * vol, type: 'highpass', freq: 4000, release: 0.04, wet: 0.3 });
+  if (big) {
+    for (const n of [60, 64, 67, 71, 74]) epiano(midi(n), t + 0.01, 1.4, 0.11 * vol);
+    tone(120, t, 0.45, { type: 'sine', to: 38, gain: 0.55 * vol, release: 0.15 });
+    noise(t, 0.6, { gain: 0.2 * vol, type: 'bandpass', freq: 2500, freqTo: 400, q: 0.6, wet: 0.5 });
+  }
+}
+
+/** The cast of ตัวโน้ตทำลาย: a rising arpeggio that keeps climbing. */
+export function sfxNoteCharge(vol = 1, ms = 5000) {
+  if (!ready() || vol <= 0) return;
+  const t = now();
+  const steps = Math.max(4, Math.min(24, Math.round(ms / 220)));
+  const scale = [0, 2, 4, 7, 9];
+  for (let i = 0; i < steps; i++) {
+    const n = 60 + scale[i % 5] + Math.floor(i / 5) * 12;
+    epiano(midi(n), t + (i * ms) / 1000 / steps, 0.4, 0.07 * vol);
+  }
+}
+
+/** The keyboardist's support spells: an e-piano phrase per skill; `big` = the hit/landing sparkle. */
+export function sfxKeySpell(kind: 'blast' | 'heal' | 'tempo' | 'control' | 'solo' | 'shield' | 'revive', vol = 1, big = false) {
+  if (!ready() || vol <= 0) return;
+  const t = now();
+  const run = (notes: number[], gap: number, dur: number, g: number) => notes.forEach((n, i) => epiano(midi(n), t + i * gap, dur, g * vol));
+  if (kind === 'blast') {
+    if (big) {
+      for (const n of [76, 79, 83]) epiano(midi(n), t, 0.7, 0.12 * vol);
+      tone(140, t, 0.3, { type: 'sine', to: 45, gain: 0.4 * vol, release: 0.1 });
+      noise(t, 0.25, { gain: 0.2 * vol, type: 'highpass', freq: 3000, release: 0.1, wet: 0.4 });
+    } else run([72, 76, 79], 0.05, 0.35, 0.12);
+  } else if (kind === 'heal') run([67, 72, 76, 79, 84], 0.08, 0.9, 0.11);
+  else if (kind === 'tempo') {
+    run([72, 74, 76, 79, 81, 84, 86, 88], 0.035, 0.3, 0.1);
+    noise(t, 0.35, { gain: 0.2 * vol, type: 'bandpass', freq: 800, freqTo: 6000, q: 0.8, release: 0.1, wet: 0.3 });
+  } else if (kind === 'control') {
+    for (let i = 0; i < 4; i++) noise(t + i * 0.22, 0.02, { gain: 0.25 * vol, type: 'bandpass', freq: 2200, q: 4, release: 0.02 });
+    run([60, 67, 72, 76], 0.22, 0.6, 0.1);
+  } else if (kind === 'solo') {
+    run([79, 83, 86, 91, 95], 0.06, 0.6, 0.1);
+    for (let i = 0; i < 6; i++) tone(midi(96 + (i % 3) * 3), t + 0.3 + i * 0.07, 0.15, { type: 'sine', gain: 0.05 * vol, wet: 0.7 });
+  } else if (kind === 'shield') {
+    for (const n of [55, 62, 67, 71]) epiano(midi(n), t, 1.4, 0.1 * vol);
+    tone(midi(79), t + 0.35, 1, { type: 'triangle', gain: 0.06 * vol, vibrato: 0.01, wet: 0.7 });
+  } else if (kind === 'revive') {
+    if (big) {
+      // the choir swells as they stand up
+      for (const n of [60, 64, 67, 72, 76]) tone(midi(n), t, 1.8, { type: 'sawtooth', gain: 0.035 * vol, filter: 1800, attack: 0.25, vibrato: 0.006, release: 0.8, wet: 0.8 });
+      for (const n of [84, 88, 91]) epiano(midi(n), t, 1.2, 0.08 * vol);
+    } else run([60, 67, 72, 76, 79, 84, 88], 0.09, 1.2, 0.09);
+  }
+}

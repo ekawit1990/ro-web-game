@@ -10,7 +10,8 @@ import { animateMaxAura, buildMaxAura } from './levelAura';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
+import { chorusFx, controlFx, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
@@ -575,6 +576,12 @@ export class World3D {
     const npc = hit ? this.npcHits.get(hit) : undefined;
     if (this.targetingSkill) {
       const type = SKILLS[this.targetingSkill].type;
+      if (type === 'revive') {
+        // ชุบชีวิต: only a player who is down
+        if (pid && this.players.get(pid)?.dead) return this.castAt(this.targetingSkill, pid);
+        this.hooks.toast('เลือกเพื่อนที่หมดสติ', 'bad');
+        return this.cancelTargeting();
+      }
       if (targetsPlayer(SKILLS[this.targetingSkill])) return this.castAt(this.targetingSkill, pid ?? this.room.sessionId);
       if (mid && !this.monsters.get(mid)?.dead) return this.castAt(this.targetingSkill, mid);
       return this.cancelTargeting();
@@ -652,7 +659,7 @@ export class World3D {
       if (t && !t.dead) return this.castAt(id, t.id);
       this.startTargeting(id);
     } else if (targetsPlayer(skill)) {
-      if (this.targetingSkill === id) return this.castAt(id, this.room.sessionId); // press twice = self
+      if (this.targetingSkill === id && skill.type !== 'revive') return this.castAt(id, this.room.sessionId); // press twice = self
       this.startTargeting(id);
     } else {
       this.room.send('skill', { id });
@@ -869,6 +876,13 @@ export class World3D {
       this.face(a, msg.x, msg.y);
       this.castFx(a, skill, msg.ms);
       if (a === this.me) this.path = [];
+      if (skill.waves) {
+        // ตัวโน้ตทำลาย: the 3x3 area lights up and charges while the keyboardist casts
+        const start = a.cast?.start;
+        const vol = this.vol(msg.x, msg.y, a === this.me);
+        sfxNoteCharge(vol, msg.ms);
+        noteRainCharge(this.fxCtx(false, () => {}), msg.x, msg.y, skill.radius ?? 1.5, msg.ms, () => !!a.cast && a.cast.start === start && this.players.get(a.id) === a);
+      }
     });
     on('castEnd', (msg: { by: string; done: boolean }) => {
       const a = this.players.get(msg.by);
@@ -1451,6 +1465,10 @@ export class World3D {
       }
     }
     if (a && skill.scale === 'crowd') a.spin = 0.55;
+    if (skill.cls === 'keyboardist') {
+      this.keyboardFx(a, msg);
+      return;
+    }
     if (JOB_FX.has(skill.cls)) {
       this.jobSkillFx(a, msg);
       return;
@@ -1803,6 +1821,60 @@ export class World3D {
         this.flash(m.rig.root, c);
         m.anim?.hit();
       }, h.at !== undefined ? h.at + 60 : numbersFrom + i * numberGap);
+    });
+  }
+
+  /** The keyboardist's skills in blue (keyfx.ts): falling notes, healing light, buffs, the shield and ชุบชีวิต. */
+  private keyboardFx(a: PlayerActor | undefined, msg: { by: string; skill: string; x: number; y: number; target?: string; allies?: string[]; hits: { m?: string; p?: string; dmg: number; at?: number }[] }) {
+    const id = msg.skill;
+    const skill = SKILLS[id];
+    const mine = a === this.me;
+    const vol = this.vol(msg.x, msg.y, mine);
+    if (a) {
+      this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
+      this.face(a, msg.x, msg.y);
+      a.attack = 1;
+      a.combat = COMBAT_TIME;
+      a.ready = READY_TIME;
+    }
+    const follow = (t: PlayerActor) => () => new THREE.Vector3(t.x, 0, t.y);
+    if (skill.waves) {
+      const waves = skill.waves;
+      noteRainStrike(this.fxCtx(mine, () => {}), msg.x, msg.y, skill.radius ?? 1.5, waves, skill.waveMs ?? 300, (i) => sfxNoteFall(vol, i === waves - 1));
+    } else if (skill.type === 'heal_target' || skill.type === 'revive') {
+      const t = this.players.get(msg.target ?? '') ?? a;
+      if (t) {
+        const big = skill.type === 'revive';
+        const ctx = this.fxCtx(mine, (b) => sfxKeySpell(big ? 'revive' : 'heal', vol, b));
+        if (big) reviveFx(ctx, follow(t));
+        else restoreFx(ctx, follow(t));
+      }
+    } else if (skill.type === 'buff_party') {
+      const kind = ({ tempo: 'tempo', control: 'control', solo_star: 'solo', shield: 'shield' } as const)[skill.fx as 'tempo'] ?? 'tempo';
+      const draw = { tempo: tempoFx, control: controlFx, solo: soloFx, shield: chorusFx }[kind];
+      let first = true;
+      for (const sid of msg.allies ?? [msg.by]) {
+        const t = this.players.get(sid);
+        if (!t) continue;
+        // one sound for the whole party
+        const play = first;
+        first = false;
+        draw(this.fxCtx(mine, (b) => play && sfxKeySpell(kind, vol, b)), follow(t));
+      }
+    }
+    msg.hits.forEach((h, i) => {
+      setTimeout(() => {
+        if (h.m) {
+          const m = this.monsters.get(h.m);
+          if (!m) return;
+          this.floatText(this.top(m).add(new THREE.Vector3(0, (i % 4) * 0.1, 0)), String(h.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
+          this.flash(m.rig.root, 0x38d4ff);
+          m.anim?.hit();
+        } else if (h.p) {
+          const p = this.players.get(h.p);
+          if (p) this.floatText(new THREE.Vector3(p.x, 1.8, p.y), `+${-h.dmg}`, 'heal');
+        }
+      }, h.at !== undefined ? h.at + 40 : skill.type === 'revive' ? 700 : 300 + i * 110);
     });
   }
 
