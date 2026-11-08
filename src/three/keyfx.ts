@@ -264,13 +264,19 @@ function grid() {
         const x = 8 + i * 82;
         const y = 8 + j * 82;
         const g = c.createLinearGradient(x, y, x + 76, y + 76);
-        g.addColorStop(0, 'rgba(120,220,255,0.35)');
-        g.addColorStop(1, 'rgba(30,100,255,0.15)');
+        g.addColorStop(0, 'rgba(120,220,255,0.7)');
+        g.addColorStop(1, 'rgba(30,100,255,0.45)');
         c.fillStyle = g;
         c.fillRect(x, y, 76, 76);
-        c.strokeStyle = 'rgba(235,250,255,0.95)';
-        c.lineWidth = 4;
-        c.strokeRect(x, y, 76, 76);
+        c.strokeStyle = 'rgba(245,252,255,1)';
+        c.lineWidth = 7;
+        c.strokeRect(x + 3, y + 3, 70, 70);
+        // a note in each square
+        c.fillStyle = 'rgba(245,252,255,0.95)';
+        c.beginPath();
+        c.ellipse(x + 32, y + 50, 10, 7, -0.4, 0, Math.PI * 2);
+        c.fill();
+        c.fillRect(x + 39, y + 18, 4, 32);
       }
     }
   }));
@@ -578,12 +584,13 @@ export function noteRainCharge(ctx: XSlashCtx, x: number, z: number, half: numbe
   const size = half * 2;
   const g = groundPlane(grid(), size, true);
   const gd = groundPlane(grid(), size);
-  (gd.material as THREE.MeshBasicMaterial).color.set(KB.blue);
+  (gd.material as THREE.MeshBasicMaterial).color.set(0x2a70ff);
   const c1 = groundPlane(circle(), size * 1.45);
   const c1g = groundPlane(circle(), size * 1.45, true);
   (c1g.material as THREE.MeshBasicMaterial).color.set(0x3aa8ff);
   for (const m of [g, gd, c1, c1g]) m.position.set(x, 0.05, z);
-  g.position.y = 0.07;
+  gd.position.y = 0.065;
+  g.position.y = 0.075;
   ctx.scene.add(c1, c1g, gd, g);
   // a ring of notes slowly orbiting over the area, higher as the charge builds
   const nn = PHONE ? 6 : 10;
@@ -603,7 +610,7 @@ export function noteRainCharge(ctx: XSlashCtx, x: number, z: number, half: numbe
     const f = Math.min(1, t / 0.3) * Math.max(0, 1 - out / 0.3);
     const pulse = 0.75 + 0.25 * Math.sin(t * (6 + k * 18));
     (g.material as THREE.MeshBasicMaterial).opacity = (0.5 + 0.5 * k) * pulse * f;
-    (gd.material as THREE.MeshBasicMaterial).opacity = 0.45 * f;
+    (gd.material as THREE.MeshBasicMaterial).opacity = 0.9 * f;
     (c1.material as THREE.MeshBasicMaterial).opacity = 0.9 * f;
     (c1g.material as THREE.MeshBasicMaterial).opacity = (0.15 + 0.4 * k) * pulse * f;
     c1.rotation.z = t * (0.4 + k * 2.5);
@@ -666,7 +673,7 @@ export function noteRainStrike(ctx: XSlashCtx, x: number, z: number, half: numbe
       tail.visible = false;
       ctx.scene.add(tail);
       const d = delay + Math.random() * 0.12;
-      const big = last ? 0.85 : 0.65;
+      const big = last ? 1.1 : 0.85;
       anim(ctx, fall, d, (_t, k) => {
         s.visible = glow.visible = tail.visible = true;
         const y = 7.5 * (1 - k * k) + 0.4;

@@ -10,7 +10,7 @@ import { animateMaxAura, buildMaxAura } from './levelAura';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
-import { chorusFx, controlFx, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
+import { blueCircle, chorusFx, controlFx, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
 import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
@@ -881,6 +881,7 @@ export class World3D {
         const start = a.cast?.start;
         const vol = this.vol(msg.x, msg.y, a === this.me);
         sfxNoteCharge(vol, msg.ms);
+        blueCircle(this.fxCtx(false, () => {}), () => new THREE.Vector3(a.x, 0, a.y), 1.1, msg.ms / 1000, 0, 2.5);
         noteRainCharge(this.fxCtx(false, () => {}), msg.x, msg.y, skill.radius ?? 1.5, msg.ms, () => !!a.cast && a.cast.start === start && this.players.get(a.id) === a);
       }
     });
@@ -1939,6 +1940,7 @@ export class World3D {
     this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}...`, 'shout', 1200);
     const circle = new THREE.Mesh(new THREE.RingGeometry(0.75, 1, 6, 1), new THREE.MeshBasicMaterial({ color: c, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: blendFor(c) }));
     circle.rotation.x = -Math.PI / 2;
+    circle.visible = skill.cls !== 'keyboardist'; // the keyboardist casts on its own blue circle (keyfx)
     this.scene.add(circle);
     let tt = 0;
     let lastNote = 0;
