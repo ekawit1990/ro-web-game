@@ -12,13 +12,14 @@ import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } fro
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
 import { blueCircle, chorusFx, controlFx, keyAura, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
 import { MOODS, sunDir, useRim } from './look';
 import { FxOptions, playFx, preloadFx } from './pixelfx';
+import { bassAura, bassBuffCast, rootNoteChop, straightBeatQuake } from './bassfx';
 import { bendingStorm, hammerOnBlast, palmMuting, slideDash, vibratoAura } from './guitarfx';
 import { doubleKickBlast, sendOffDash, snareGhost, snareHit, snareStorm, xSlashWave } from './xslash';
 
@@ -1801,28 +1802,13 @@ export class World3D {
         if (mine) this.shake(0.35);
       }
     } else if (id === 'root_note' && a) {
-      // a straight-down chop: a tall green crescent, the ground cracks into a ring
-      setTimeout(() => {
-        const at = target();
-        sfxSlash(vol, true);
-        this.crescent(at, Math.PI / 2, 3.0, 0xffffff, 300);
-        this.crescent(at, Math.PI / 2, 2.5, c, 340, 50);
-        this.glow(at, c, 5, 260);
-        this.ring(at.x, at.z, 2.2, c);
-        this.burst(at, c, 30, 6);
-        this.pixelFx('stab_hit', { at: () => at, scale: 2.5 });
-        if (mine) this.shake(0.3);
-      }, 300);
+      // an emerald circle, a giant green chop out of the sky, jade spikes bursting out of the ground ("ดุ๊ม!")
+      numbersFrom = 340;
+      rootNoteChop(this.fxCtx(mine, (big) => sfxBassDrop(vol, big)), target, 300, sparkTexture());
     } else if (id === 'straight_beat' && a) {
-      // the bass line in three low pulses rolling out round the bassist
-      for (let i = 0; i < 3; i++) {
-        setTimeout(() => {
-          this.ring(a.x, a.y, (skill.radius ?? 5) * (0.55 + i * 0.22), i === 1 ? 0xffffff : c);
-          this.burst(new THREE.Vector3(a.x, 0.25, a.y), c, 16, 5);
-          if (mine) this.shake(0.15);
-        }, i * 180);
-      }
-      this.pillar(a.x, a.y, c, 1.0, 2.5);
+      // three sub-bass beats: a huge emerald circle, equalizer bars, rings of jade spikes rolling out
+      numbersFrom = 420;
+      straightBeatQuake(this.fxCtx(mine, (big) => sfxBassDrop(vol, big)), a.x, a.y, skill.radius ?? 5, sparkTexture());
     } else if (id === 'hammer_on' && a) {
       // the ground smash, in red: a crimson circle, a flaming crescent out of the sky, cracks, flames, rocks ("ตึ้ง!")
       a.combo = 2;
@@ -1990,6 +1976,37 @@ export class World3D {
     });
   }
 
+  /** Player id -> when each of their bass buffs ends (one green aura per player, showing the buffs that are on). */
+  private bassAuras = new Map<string, { guard: number; reflect: number; regen: number }>();
+
+  /** The green aura round a bassist while any of their buffs lasts (bassfx.ts). */
+  private bassAura(t: PlayerActor, kind: 'guard' | 'reflect' | 'regen', ms: number) {
+    const until = performance.now() + ms;
+    const cur = this.bassAuras.get(t.id);
+    if (cur) {
+      cur[kind] = Math.max(cur[kind], until);
+      return;
+    }
+    const me = { guard: 0, reflect: 0, regen: 0 };
+    me[kind] = until;
+    this.bassAuras.set(t.id, me);
+    const end = () => Math.max(me.guard, me.reflect, me.regen);
+    bassAura(
+      this.fxCtx(false, () => {}),
+      () => new THREE.Vector3(t.x, 0, t.y),
+      () => {
+        const ok = this.bassAuras.get(t.id) === me && !t.dead && this.players.get(t.id) === t && performance.now() < end();
+        if (!ok && this.bassAuras.get(t.id) === me) this.bassAuras.delete(t.id);
+        return ok;
+      },
+      () => {
+        const n = performance.now();
+        return { guard: n < me.guard, reflect: n < me.reflect, regen: n < me.regen };
+      },
+      sparkTexture(),
+    );
+  }
+
   /** The context the big skill effects in xslash.ts / guitarfx.ts draw with. */
   private fxCtx(mine: boolean, sound: (big: boolean) => void) {
     return {
@@ -2024,13 +2041,18 @@ export class World3D {
       );
       return;
     }
+    const bassKind = ({ kick_drum: 'guard', lift_beat: 'reflect', push_note: 'regen' } as const)[id as 'kick_drum'];
+    if (bassKind) {
+      // the bassist's buffs: a green cast burst, then the green aura for as long as the buff lasts
+      const vol = this.vol(t.x, t.y, t === this.me);
+      bassBuffCast(this.fxCtx(t === this.me, () => sfxBassBuff(vol)), () => new THREE.Vector3(t.x, 0, t.y), bassKind, sparkTexture());
+      this.bassAura(t, bassKind, (SKILLS[id]?.buff?.durationSec ?? 30) * 1000);
+      return;
+    }
     this.pillar(t.x, t.y, c, 0.6, 3.2);
     this.ring(t.x, t.y, 1.8, c);
     this.notes(t, c);
-    if (id === 'kick_drum') this.dome(t, c, 0.9);
-    else if (id === 'lift_beat') this.dome(t, 0xffffff, 0.75);
-    else if (id === 'push_note') this.pixelFx('heal_ring', { at: () => new THREE.Vector3(t.x, 0.02, t.y) });
-    else this.sparkle(t, c);
+    this.sparkle(t, c);
   }
 
   /** The cast of เสียงสูง: a bar over the head, a pulsing circle under the feet, singing. */
@@ -2284,29 +2306,6 @@ export class World3D {
         return t <= 1.1;
       });
     }
-  }
-
-  /** A see-through bubble round a player (Kick Drum, จังหวะยก). */
-  private dome(a: PlayerActor, color: number, opacity: number) {
-    const m = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 24, 14),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3 * opacity, wireframe: true, depthWrite: false, blending: blendFor(color) }),
-    );
-    this.scene.add(m);
-    let t = 0;
-    this.effects.push((dt) => {
-      t += dt / 1.2;
-      m.position.set(a.x, 0.9, a.y);
-      m.scale.setScalar(0.4 + Math.min(1, t * 3) * 0.9);
-      m.rotation.y += dt;
-      (m.material as THREE.MeshBasicMaterial).opacity = 0.35 * opacity * (1 - t);
-      if (t >= 1) {
-        this.scene.remove(m);
-        m.geometry.dispose();
-        (m.material as THREE.Material).dispose();
-      }
-      return t < 1;
-    });
   }
 
   /** A puff of smoke: hiding, or showing up again. */

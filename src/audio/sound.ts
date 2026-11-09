@@ -738,3 +738,29 @@ export function sfxKeySpell(kind: 'blast' | 'heal' | 'tempo' | 'control' | 'solo
     } else run([60, 67, 72, 76, 79, 84, 88], 0.09, 1.2, 0.09);
   }
 }
+
+// ------------------------------------------------------------ bassist (green set)
+
+/**
+ * "ดุ๊ม!": the bassist's hits. A fat slapped bass note (saw + sub sine through a closing filter) dropping in
+ * pitch, a sub-bass boom and a crack of noise; `big` = the heavy one (โน้ตราก, the last beat of จังหวะ Straight).
+ */
+export function sfxBassDrop(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = big ? 1.25 : 0.8;
+  noise(t, 0.03, { gain: 0.35 * vol * k, type: 'highpass', freq: 2200, release: 0.02 });
+  tone(55, t, 0.7, { type: 'sawtooth', to: 41, gain: 0.22 * vol * k, filter: 1600, filterTo: 160, release: 0.3, wet: 0.25 });
+  tone(110, t, 0.35, { type: 'square', to: 82, gain: 0.08 * vol * k, filter: 1200, filterTo: 200, release: 0.15 });
+  tone(160, t, big ? 0.7 : 0.45, { type: 'sine', to: 28, gain: 0.9 * vol * k, release: 0.2 });
+  noise(t + 0.01, big ? 0.6 : 0.35, { gain: 0.3 * vol * k, type: 'lowpass', freq: 900, freqTo: 70, release: 0.2, wet: 0.35 });
+}
+
+/** The bassist's buffs: a walking bass riff (root, fifth, octave) under a rising shimmer, with a sub thump. */
+export function sfxBassBuff(vol = 1) {
+  if (!ready() || vol <= 0) return;
+  const t = now();
+  [41.2, 61.7, 82.4, 98].forEach((f, i) => tone(f, t + i * 0.09, 0.32, { type: 'sawtooth', gain: 0.16 * vol, filter: 900, filterTo: 250, release: 0.14, wet: 0.25 }));
+  tone(120, t, 0.4, { type: 'sine', to: 35, gain: 0.6 * vol, release: 0.15 });
+  noise(t + 0.05, 0.7, { gain: 0.16 * vol, type: 'bandpass', freq: 600, freqTo: 4500, q: 0.7, release: 0.25, wet: 0.5 });
+}
