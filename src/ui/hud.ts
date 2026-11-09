@@ -379,8 +379,9 @@ export class Hud implements WorldHooks {
     const rows = STAT_KEYS.map((k) => {
       const cost = statCost(c[k]);
       const can = c.stat_points >= cost && c[k] < 99;
-      const plus = d.bonus?.[k] ? ` <em class="st-bonus">+${d.bonus[k]}</em>` : '';
-      return `<div class="st-row" title="${STAT_HELP[k]}"><label>${STAT_LABEL[k]}</label><b>${c[k]}${plus}</b>
+      // base value and the green equipment/card bonus in their own columns, so "+12" never wraps over the next row
+      const plus = d.bonus?.[k] ? `+${d.bonus[k]}` : '';
+      return `<div class="st-row" title="${STAT_HELP[k]}"><label>${STAT_LABEL[k]}</label><b>${c[k]}</b><em class="st-bonus">${plus}</em>
         <button class="up" data-stat="${k}" ${can ? '' : 'disabled'}>▲</button><small>${cost}</small></div>`;
     }).join('');
     const right: [string, string | number][] = [

@@ -9882,8 +9882,8 @@
    "range": 1.5,
    "cooldown": 1000,
    "sp": [
-    10,
-    2
+    5,
+    1
    ],
    "power": [
     120,
@@ -9902,8 +9902,8 @@
    "type": "buff",
    "cooldown": 5000,
    "sp": [
-    20,
-    2
+    10,
+    1
    ],
    "buff": {
     "guardPct": 5,
@@ -9920,8 +9920,8 @@
    "radius": 5,
    "cooldown": 5000,
    "sp": [
-    18,
-    2
+    9,
+    1
    ],
    "power": [
     45,
@@ -9942,8 +9942,8 @@
    "type": "buff",
    "cooldown": 15000,
    "sp": [
-    20,
-    2
+    10,
+    1
    ],
    "buff": {
     "reflectPct": 8,
@@ -9959,8 +9959,8 @@
    "type": "buff",
    "cooldown": 15000,
    "sp": [
-    20,
-    2
+    10,
+    1
    ],
    "buff": {
     "regenPct": 8,

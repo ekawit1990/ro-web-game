@@ -172,10 +172,11 @@ form { display: flex; flex-direction: column; gap: 10px; }
 .eq-slot b { font-weight: 400; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #eq-preview { background: radial-gradient(#e9f0fb, #c9d6ea); border-radius: 4px; }
 .st-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
-.st-row { display: grid; grid-template-columns: 28px 24px 22px 1fr; align-items: center; gap: 2px; height: 20px; }
+.st-row { display: grid; grid-template-columns: 28px 22px 30px 24px 1fr; align-items: center; column-gap: 3px; min-height: 22px; white-space: nowrap; }
 .st-row label { font-weight: 600; }
 .st-row b { text-align: right; }
-.st-row .up { padding: 0 3px; font-size: 9px; height: 16px; }
+.st-row .st-bonus { text-align: left; font-size: 12px; }
+.st-row .up { padding: 0; width: 24px; font-size: 9px; height: 18px; line-height: 1; }
 .st-row small { color: #7a8597; }
 .st-right div { display: flex; justify-content: space-between; height: 15px; }
 .st-right .sp-pts { margin-top: 4px; border-top: 1px solid #b8c3d6; padding-top: 2px; color: #b4441a; }
