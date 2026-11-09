@@ -249,6 +249,38 @@ export class World3D {
     this.raf = requestAnimationFrame(loop);
   }
 
+  /**
+   * The connection to the game server dropped and we joined the same map again (2026-11-09): carry on in
+   * this world with the new room instead of loading the whole map again. The server gave us a new session
+   * id and put us where it saved us.
+   */
+  /** Where our own character stands right now. */
+  myPos() {
+    return { x: this.me.x, y: this.me.y };
+  }
+
+  swapRoom(room: Room, x: number, y: number) {
+    const oldId = this.room.sessionId;
+    this.unsubs.forEach((u) => u());
+    this.unsubs = [];
+    this.room = room;
+    const me = this.me;
+    this.players.delete(oldId);
+    me.id = room.sessionId;
+    me.hit.userData.player = room.sessionId;
+    this.players.set(room.sessionId, me);
+    me.x = me.tx = this.sentX = x;
+    me.y = me.ty = this.sentY = y;
+    me.cast?.bar.parent?.remove(me.cast.bar);
+    me.cast = undefined;
+    this.path = [];
+    this.target = null;
+    this.pendingSkill = null;
+    this.warping = false;
+    this.lastAttack = 0;
+    this.listen();
+  }
+
   destroy() {
     cancelAnimationFrame(this.raf);
     this.ac.abort();

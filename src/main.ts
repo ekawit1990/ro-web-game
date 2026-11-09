@@ -21,6 +21,8 @@ let world: World3D | undefined;
 const SERVER_URL = (import.meta.env.VITE_COLYSEUS_URL as string | undefined) || 'ws://localhost:2567';
 const store: GameStore = supabase ? new SupabaseStore(supabase) : new LocalStore();
 const devStore = store instanceof LocalStore ? store : undefined;
+/** Close codes of a connection that dropped (network, a stalled tab, the server timing us out), not a real leave. */
+const DROPPED = new Set([1001, 1005, 1006, 4001, 4003, 4010]);
 
 const LOADING_ART = ['band1', 'band2', 'band3'].map((n) => `${import.meta.env.BASE_URL ?? '/'}loading/${n}.webp`);
 let shown = 0; // percent on the bar
@@ -75,13 +77,13 @@ function within<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
   });
 }
 
-function myPlayer(room: Room): Promise<{ x: number; y: number }> {
+function myPlayer(room: Room, wait = 8000): Promise<{ x: number; y: number }> {
   return new Promise((resolve, reject) => {
     const started = Date.now();
     const check = () => {
       const p = (room.state as { players?: { get(id: string): { x: number; y: number } | undefined } })?.players?.get(room.sessionId);
       if (p) return resolve({ x: p.x, y: p.y });
-      if (Date.now() - started > 8000) return reject(new Error('เซิร์ฟเวอร์ไม่ตอบสนอง'));
+      if (Date.now() - started > wait) return reject(new Error('เซิร์ฟเวอร์ไม่ตอบสนอง'));
       setTimeout(check, 50);
     };
     check();
@@ -181,11 +183,61 @@ async function play(char: Character): Promise<void> {
       r.onMessage('warp', (m) => {
         if (room === r) enter(m.map).catch(fail);
       });
+      // The server can't take a dropped player back (no allowReconnection), so the SDK's own retry only
+      // ever fails. Turn it off and join the map again ourselves (2026-11-09: a long load or a phone app
+      // switch dropped the socket; the game looked alive but walking/attacking reached nobody).
+      r.reconnection.enabled = false;
       r.onLeave((code) => {
-        if (done || switching || room !== r) return;
+        if (done || room !== r) return;
+        if (DROPPED.has(code) && world) return void rejoin(r);
+        if (switching) return;
         if (code > 1001) alert('หลุดการเชื่อมต่อกับเซิร์ฟเวอร์เกม');
         exit();
       });
+    };
+
+    /** Join the map we were on again and carry on in the same world (see wire). */
+    let rejoining = false;
+    const rejoin = async (lost: Room) => {
+      if (rejoining) return;
+      rejoining = true;
+      const mapId = session.char.map;
+      const me = world?.myPos();
+      if (me) Object.assign(session.char, { pos_x: me.x, pos_y: me.y }); // offline testing: the dev server trusts this
+      hud.toast('การเชื่อมต่อหลุด กำลังเชื่อมต่อใหม่…', 'bad');
+      for (let attempt = 0; attempt < 8 && !done && room === lost; attempt++) {
+        try {
+          await new Promise((ok) => setTimeout(ok, attempt ? Math.min(8000, 1000 * 2 ** attempt) : 300));
+          const token = supabase ? (await supabase.auth.getSession()).data.session?.access_token : undefined;
+          const dev = devStore ? { char: session.char, inv: session.inv } : undefined;
+          const r = await within(client.joinOrCreate(mapId, { token, charId: session.char.id, dev }), 30000, 'rejoin');
+          const pos = await myPlayer(r, 20000).catch((e) => {
+            r.leave();
+            throw e;
+          });
+          if (done || room !== lost || !world || session.char.map !== mapId) {
+            r.leave();
+            break;
+          }
+          room = r;
+          session.link = { send: (t, m) => r.send(t, m), devStore };
+          wire(r);
+          world.swapRoom(r, pos.x, pos.y);
+          hud.syncPartyWorld();
+          r.send('partyGet');
+          hud.toast('เชื่อมต่อเซิร์ฟเวอร์ใหม่แล้ว', 'good');
+          console.info(`rejoined ${mapId} after a dropped connection (attempt ${attempt + 1})`);
+          rejoining = false;
+          return;
+        } catch (e) {
+          console.warn('rejoin failed', (e as Error).message);
+        }
+      }
+      rejoining = false;
+      if (!done && room === lost) {
+        alert('หลุดการเชื่อมต่อกับเซิร์ฟเวอร์เกม');
+        exit();
+      }
     };
 
     const fail = (e: Error) => {
