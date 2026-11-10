@@ -117,7 +117,16 @@ async function play(char: Character): Promise<void> {
       room?.leave();
       resolve();
     };
-    const hud = new Hud(session, { scene: () => world, send: (t, m) => room?.send(t, m), exit });
+    // A game server from before PVP/guilds (2026-11-10) drops any client that sends a message it doesn't know
+    // (Colyseus in production). Those messages only go out once the server has shown it knows them ('pvp' on join).
+    const sendOrWarn = (t: string, m?: unknown) => {
+      if (NEW_MESSAGES.has(t) && !pvpServer) {
+        hud.toast('เซิร์ฟเวอร์ยังเป็นเวอร์ชันเก่า ยังใช้กิลด์/PVP ไม่ได้ (อัปไฟล์ server ขึ้น GitLab แล้วกด Manual Deploy บน Render)', 'bad');
+        return;
+      }
+      room?.send(t, m);
+    };
+    const hud = new Hud(session, { scene: () => world, send: sendOrWarn, exit });
     show('hud');
 
     const enter = async (mapId: string) => {
@@ -152,7 +161,6 @@ async function play(char: Character): Promise<void> {
       hud.syncPartyWorld();
       hud.syncPvpWorld();
       r.send('partyGet'); // the party window (and whose names to color) for this map
-      r.send('guildGet');
       const assets = setInterval(() => progress(70 + 30 * assetShare()), 100);
       await assetsIdle(15000);
       clearInterval(assets);
@@ -185,7 +193,10 @@ async function play(char: Character): Promise<void> {
       r.onMessage('guild', (m) => hud.guild(m));
       r.onMessage('guildInvite', (m) => hud.guildInvite(m));
       r.onMessage('guildChat', (m) => hud.guildChat(m.name, m.text));
-      r.onMessage('pvp', (m) => hud.pvp(m));
+      r.onMessage('pvp', (m) => {
+        pvpServer = true;
+        hud.pvp(m);
+      });
       r.onMessage('pvpScore', (m) => hud.pvpScore(m));
       r.onMessage('castleInfo', (m) => hud.castleInfo(m));
       r.onMessage('warp', (m) => {
@@ -234,8 +245,7 @@ async function play(char: Character): Promise<void> {
           hud.syncPartyWorld();
           hud.syncPvpWorld();
           r.send('partyGet');
-          r.send('guildGet');
-          hud.toast('เชื่อมต่อเซิร์ฟเวอร์ใหม่แล้ว', 'good');
+              hud.toast('เชื่อมต่อเซิร์ฟเวอร์ใหม่แล้ว', 'good');
           console.info(`rejoined ${mapId} after a dropped connection (attempt ${attempt + 1})`);
           rejoining = false;
           return;
@@ -265,6 +275,11 @@ async function play(char: Character): Promise<void> {
     enter(getMap(fresh.map).id).catch(fail);
   });
 }
+
+/** Messages only a game server with PVP and guilds understands (see sendOrWarn in play()). */
+const NEW_MESSAGES = new Set(['guildGet', 'guildCreate', 'guildInvite', 'guildRespond', 'guildLeave', 'guildKick', 'guildLeader', 'npcGo', 'castleInfo']);
+/** This game server sent 'pvp' at least once, so it knows NEW_MESSAGES. */
+let pvpServer = false;
 
 async function main() {
   unlockAudio();
