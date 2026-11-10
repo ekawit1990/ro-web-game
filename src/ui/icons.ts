@@ -2,6 +2,7 @@ import { ITEMS } from '../data';
 import * as THREE from 'three';
 import { buildCharacter, setEar, type CharRig, type Look } from '../three/models';
 import { animateRig, buildVrmCharacter, releaseVrm } from '../three/vrm';
+import { GUITAR_SHAPES } from '../three/guitarShapes';
 
 const cache = new Map<string, string>();
 
@@ -46,6 +47,8 @@ export function itemIcon(id: string): string {
     for (let y = 21; y <= 26; y += 2.5) c.fillRect(9, y, 14, 1);
     c.fillStyle = '#e0b21f';
     c.fillRect(21, 3, 4, 4);
+  } else if (item?.shape && GUITAR_SHAPES[item.shape]) {
+    guitarIcon(c, item.shape, item.color);
   } else if (item?.type === 'consumable' && !EMOJI[id]) {
     // potion bottle in the item's colour
     c.fillStyle = '#d9d9d9';
@@ -87,7 +90,7 @@ export function itemIcon(id: string): string {
       c.stroke();
     }
     c.fillText(EMOJI[id] ?? (item?.vrm ? (item.type === 'head' ? (item.part?.includes('Glasses') ? '👓' : '🎩') : item.gender === 'f' ? '👗' : '🥼') : '❔'), 16, 18);
-    if (item && (id.includes('bass') || id === 'golden_mic' || id === 'steel_dagger' || id === 'electric_guitar' || id === 'steel_sticks' || id === 'synth' || (item.type === 'weapon' && item.element))) {
+    if (item && !item.shape && (id.includes('bass') || id === 'golden_mic' || id === 'steel_dagger' || id === 'electric_guitar' || id === 'steel_sticks' || id === 'synth' || (item.type === 'weapon' && item.element))) {
       // tint upgraded variants so they read differently
       c.globalCompositeOperation = 'source-atop';
       c.fillStyle = item.color + '66';
@@ -142,4 +145,46 @@ function render(cv: HTMLCanvasElement, rig: CharRig, dir: 'f' | 'b' | number, ar
   c.clearRect(0, 0, cv.width, cv.height);
   c.drawImage(r.domElement, 0, 0, cv.width, cv.height);
   scene.remove(rig.root);
+}
+
+/** MVP guitars: the body outline of that guitar, neck up to the top-right, with a gold MVP glow. */
+function guitarIcon(c: CanvasRenderingContext2D, shape: string, color: string) {
+  const sh = GUITAR_SHAPES[shape];
+  c.save();
+  const glow = c.createRadialGradient(16, 16, 2, 16, 16, 16);
+  glow.addColorStop(0, 'rgba(255,215,80,0.55)');
+  glow.addColorStop(1, 'rgba(255,215,80,0)');
+  c.fillStyle = glow;
+  c.fillRect(0, 0, 32, 32);
+  // guitar frame -> icon: neck along +X, rotated so the headstock points to the top-right
+  c.translate(13, 19);
+  c.rotate(-Math.PI / 4);
+  const k = 30;
+  c.fillStyle = '#8a5a2a';
+  c.fillRect(0, -1.3, 0.62 * k, 2.6);
+  c.fillStyle = '#222';
+  c.fillRect(0.62 * k, -1.8, 0.1 * k, 3.6);
+  c.beginPath();
+  sh.outline.forEach(([x, y], i) => (i ? c.lineTo(x * k, -y * k) : c.moveTo(x * k, -y * k)));
+  c.closePath();
+  const fin = sh.finish;
+  c.fillStyle = fin.kind === 'solid' || fin.kind === 'wood' || fin.kind === 'flame' ? fin.color : fin.kind === 'burst' ? fin.stops[1] : fin.kind === 'zebra' ? fin.a : fin.color;
+  if (fin.kind === 'solid') c.fillStyle = color;
+  c.fill();
+  c.lineWidth = 1;
+  c.strokeStyle = fin.kind === 'band' ? '#f2f2f2' : '#1a1a1a';
+  c.stroke();
+  if (fin.kind === 'zebra') {
+    c.clip();
+    c.strokeStyle = fin.b;
+    c.lineWidth = 1.4;
+    for (let x = -16; x < 4; x += 3) {
+      c.beginPath();
+      c.moveTo(x, -8);
+      c.lineTo(x + 4, 0);
+      c.lineTo(x, 8);
+      c.stroke();
+    }
+  }
+  c.restore();
 }

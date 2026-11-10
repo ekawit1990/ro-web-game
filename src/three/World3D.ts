@@ -2661,10 +2661,15 @@ function crescentGeometry(radius: number, width: number, angle: number) {
 }
 
 function lookKey(rp: RemotePlayer) {
-  return `${rp.cls}_${rp.gender}_${rp.hair}_${rp.hairColor}_${rp.face}_${outfitOf(rp.body)}_${vrmHatOf(rp.head)}`;
+  return `${rp.cls}_${rp.gender}_${rp.hair}_${rp.hairColor}_${rp.face}_${outfitOf(rp.body)}_${vrmHatOf(rp.head)}_${guitarOf(rp)}`;
 }
 
 /** What a player looks like: their own appearance, or the model of the outfit they wear. */
 function lookOf(rp: RemotePlayer): Look {
-  return { cls: rp.cls as ClassKey, gender: rp.gender as 'm' | 'f', hair: rp.hair, hair_color: rp.hairColor, face: rp.face, outfit: outfitOf(rp.body) || undefined };
+  return { cls: rp.cls as ClassKey, gender: rp.gender as 'm' | 'f', hair: rp.hair, hair_color: rp.hairColor, face: rp.face, outfit: outfitOf(rp.body) || undefined, guitar: guitarOf(rp) || undefined };
+}
+
+/** The MVP guitar body shape a guitarist is carrying ('' = the standard guitar). */
+function guitarOf(rp: RemotePlayer) {
+  return rp.cls === 'guitarist' ? ITEMS[rp.weapon]?.shape ?? '' : '';
 }

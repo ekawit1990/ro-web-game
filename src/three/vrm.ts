@@ -496,7 +496,7 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
   rig.root.userData.vrmFace = EXPRESSIONS[look.face] ?? 'neutral';
   rig.root.userData.vrmFile = file;
   rig.root.userData.outfit = dressed ? look.outfit : '';
-  if (look.cls) rig.root.userData.gear = attachInstrument(vrm, look.cls, 1 / (HEIGHT / h), v0);
+  if (look.cls) rig.root.userData.gear = attachInstrument(vrm, look.cls, 1 / (HEIGHT / h), v0, look.guitar);
   rig.root.userData.cls = look.cls;
   setHat(rig, hat);
   return rig;
@@ -570,7 +570,7 @@ function piece(chest: THREE.Object3D, obj: THREE.Object3D, back: { pos: THREE.Ve
   return { obj, held, back: b };
 }
 
-function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean): Gear | undefined {
+function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean, shape?: string): Gear | undefined {
   const bone = (n: VRMHumanBoneName) => {
     const b = vrm.humanoid.getNormalizedBoneNode(n);
     if (!b || !v0) return b;
@@ -623,7 +623,7 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean): Gear
   } else if (cls === 'guitarist' || cls === 'bassist') {
     // slung low across the body on a strap: body at the right hip, neck rising to the left
     const bass = cls === 'bassist';
-    const inst = buildStringed(bass ? 'bass' : 'guitar');
+    const inst = buildStringed(bass ? 'bass' : 'guitar', bass ? undefined : shape);
     const hang = new THREE.Group();
     hang.add(inst.group);
     hang.scale.setScalar((bass ? 0.95 : 1) * fit);

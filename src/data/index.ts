@@ -133,6 +133,10 @@ export interface ItemDef {
   gender?: Gender;
   /** Stats the item itself gives while worn (outfits), added like a card's. */
   bonus?: CardBonus;
+  /** MVP guitars: the body shape the guitarist carries (see src/three/guitarShapes.ts). */
+  shape?: string;
+  /** Drops only from MVP bosses (shown in the item window). */
+  mvp?: boolean;
   /** Weapons: the element of your attacks. Armour: your defence element. */
   element?: Element;
   /** Element converters (consumables): put this element on your weapon for ENDOW_SEC seconds. */

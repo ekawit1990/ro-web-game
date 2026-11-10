@@ -3571,6 +3571,251 @@
      "atkPct": 8
     }
    }
+  },
+  "gtr_offset_mini": {
+   "name": "กีตาร์ออฟเซ็ตจิ๋ว \"ซีโฟม\"",
+   "type": "weapon",
+   "atk": 46,
+   "price": 4000,
+   "classes": [
+    "guitarist"
+   ],
+   "color": "#9fd8d0",
+   "weight": 70,
+   "slots": 1,
+   "shape": "offset_mini",
+   "mvp": true,
+   "bonus": {
+    "agi": 3
+   },
+   "desc": "กีตาร์ตัวเล็กเอวเบี้ยว สีเขียวน้ำทะเล เบามือ ฟาดได้คล่อง โจมตีเป็นธาตุลม (ดรอปจากบอส MVP ราชาเห็ดเสียงเพี้ยน)",
+   "element": "wind"
+  },
+  "gtr_ttype": {
+   "name": "กีตาร์ทรง T \"บัตเตอร์สก็อตช์\"",
+   "type": "weapon",
+   "atk": 50,
+   "price": 4000,
+   "classes": [
+    "guitarist"
+   ],
+   "color": "#e3a33a",
+   "weight": 70,
+   "slots": 1,
+   "shape": "ttype",
+   "mvp": true,
+   "bonus": {
+    "str": 2,
+    "vit": 2
+   },
+   "desc": "กีตาร์ตัวแบนเรียบ ไม้สีเนยทอง ปิ๊กการ์ดดำ เสียงแหลมใสแต่หนักแน่น โจมตีเป็นธาตุดิน (ดรอปจากบอส MVP ราชาเห็ดป่าโบราณ)",
+   "element": "earth"
+  },
+  "gtr_thinline": {
+   "name": "กีตาร์ทรง T กลวงครึ่ง \"ไข่มุก\"",
+   "type": "weapon",
+   "atk": 54,
+   "price": 4000,
+   "classes": [
+    "guitarist"
+   ],
+   "color": "#f2ecd8",
+   "weight": 70,
+   "slots": 1,
+   "shape": "thinline",
+   "mvp": true,
+   "bonus": {
+    "dex": 3,
+    "maxSpPct": 5
+   },
+   "desc": "กีตาร์ทรง T เจาะช่องเสียงรูปตัว f ปิ๊กการ์ดมุก เสียงกังวานเหมือนน้ำ โจมตีเป็นธาตุน้ำ (ดรอปจากบอส MVP ราชาฉลามบึงทุ้ม)",
+   "element": "water"
+  },
+  "gtr_doublehorn": {
+   "name": "กีตาร์เขาคู่ \"เชอร์รี่ร็อก\"",
+   "type": "weapon",
+   "atk": 60,
+   "price": 4000,
+   "classes": [
+    "guitarist"
+   ],
+   "color": "#8a1c24",
+   "weight": 70,
+   "slots": 1,
+   "shape": "doublehorn",
+   "mvp": true,
+   "bonus": {
+    "str": 3,
+    "crit": 3
+   },
+   "desc": "กีตาร์ตัวบางเขาแหลมสองข้าง สีเชอร์รี่ ร็อกจัดจ้าน โจมตีเป็นธาตุไฟ (ดรอปจากบอส MVP มังกรร็อกแอนด์โรล)",
+   "element": "fire"
+  },
+  "gtr_offset": {
+   "name": "กีตาร์ออฟเซ็ต \"ตะวันลับฟ้า\"",
+   "type": "weapon",
+   "atk": 64,
+   "price": 4000,
+   "classes": [
+    "guitarist"
+   ],
+   "color": "#c2662a",
+   "weight": 70,
+   "slots": 1,
+   "shape": "offset",
+   "mvp": true,
+   "bonus": {
+    "agi": 2,
+    "dex": 2,
+    "aspd": 2
+   },
+   "desc": "กีตาร์เอวเบี้ยวตัวยาว ลายซันเบิร์สต์ แผงโครเมียมเงาวับ โจมตีเป็นธาตุน้ำ (ดรอปจากบอส MVP ราชินีหิมะโซปราโน)",
+   "element": "water"
+  },
+  "gtr_stype": {
+   "name": "กีตาร์ทรง S \"ซันเบิร์สต์\"",
+   "type": "weapon",
+   "atk": 70,
+   "price": 4000,
+   "classes": [
+    "guitarist"
+   ],
+   "color": "#b5501c",
+   "weight": 70,
+   "slots": 1,
+   "shape": "stype",
+   "mvp": true,
+   "bonus": {
+    "str": 1,
+    "agi": 1,
+    "vit": 1,
+    "int": 1,
+    "dex": 1,
+    "luk": 1
+   },
+   "desc": "กีตาร์ทรงคลาสสิกเขาคู่ ปิ๊กอัพ 3 ตัว ลายซันเบิร์สต์ ใช้ได้ทุกแนวเพลง ค่าสถานะทุกอย่าง +1 (ดรอปจากบอส MVP จอมมารหน้ากากเมทัล)"
+  },
+  "gtr_flametop": {
+   "name": "กีตาร์ลายเปลว \"คลื่นมหาสมุทร\"",
+   "type": "weapon",
+   "atk": 76,
+   "price": 4000,
+   "classes": [
+    "guitarist"
+   ],
+   "color": "#1f4fa0",
+   "weight": 70,
+   "slots": 1,
+   "shape": "flametop",
+   "mvp": true,
+   "bonus": {
+    "atkPct": 5,
+    "dex": 2
+   },
+   "desc": "กีตาร์ไม้ลายเปลวสีน้ำเงินมหาสมุทร ฮาร์ดแวร์ทอง ทุ้มลึกเหมือนคลื่น โจมตีเป็นธาตุน้ำ (ดรอปจากบอส MVP ราชันย์หมึกยักษ์ซาวด์เวฟ)",
+   "element": "water"
+  },
+  "gtr_arrow": {
+   "name": "กีตาร์ทรงลูกศร \"สายฟ้าขาว\"",
+   "type": "weapon",
+   "atk": 84,
+   "price": 4000,
+   "classes": [
+    "guitarist"
+   ],
+   "color": "#eeeae0",
+   "weight": 70,
+   "slots": 1,
+   "shape": "arrow",
+   "mvp": true,
+   "bonus": {
+    "crit": 5,
+    "hit": 5,
+    "str": 2
+   },
+   "desc": "กีตาร์ทรงเหลี่ยมคมเหมือนหัวลูกศร สีขาว ปิ๊กการ์ดดำ ฟาดทีเดียวแตกกระจาย โจมตีเป็นธาตุดิน (ดรอปจากบอส MVP ราชาคริสตัลเสียงก้อง)",
+   "element": "earth"
+  },
+  "gtr_hollow": {
+   "name": "กีตาร์ตัวกลวง \"หงส์ขาว\"",
+   "type": "weapon",
+   "atk": 90,
+   "price": 4000,
+   "classes": [
+    "guitarist"
+   ],
+   "color": "#f4f1e6",
+   "weight": 70,
+   "slots": 1,
+   "shape": "hollow",
+   "mvp": true,
+   "bonus": {
+    "maxHpPct": 8,
+    "int": 3
+   },
+   "desc": "กีตาร์ตัวกลวงขนาดใหญ่ สีขาวขลิบทอง คันโยกเสียงสั่น เสียงอบอุ่นศักดิ์สิทธิ์ โจมตีเป็นธาตุศักดิ์สิทธิ์ (ดรอปจากบอส MVP ราชินีบันชีเสียงกรีดร้อง)",
+   "element": "holy"
+  },
+  "gtr_singlecut": {
+   "name": "กีตาร์ซิงเกิลคัท \"ราตรีทองคำ\"",
+   "type": "weapon",
+   "atk": 98,
+   "price": 4000,
+   "classes": [
+    "guitarist"
+   ],
+   "color": "#141418",
+   "weight": 70,
+   "slots": 1,
+   "shape": "singlecut",
+   "mvp": true,
+   "bonus": {
+    "atkPct": 8,
+    "vit": 3
+   },
+   "desc": "กีตาร์ตัวหนักเว้าข้างเดียว สีดำขลิบครีม ฮาร์ดแวร์ทอง เสียงหนาแน่นทรงพลัง โจมตีเป็นธาตุมืด (ดรอปจากบอส MVP ราชาไร้บัลลังก์แห่งโอเปร่า)",
+   "element": "shadow"
+  },
+  "gtr_vshape": {
+   "name": "กีตาร์ทรง V \"ม้าลายสายฟ้า\"",
+   "type": "weapon",
+   "atk": 106,
+   "price": 4000,
+   "classes": [
+    "guitarist"
+   ],
+   "color": "#f0e6c8",
+   "weight": 70,
+   "slots": 1,
+   "shape": "vshape",
+   "mvp": true,
+   "bonus": {
+    "agi": 4,
+    "aspd": 3,
+    "crit": 3
+   },
+   "desc": "กีตาร์ทรงตัววีลายขาวดำเหมือนม้าลาย ฟาดเร็วเหมือนสายฟ้า โจมตีเป็นธาตุลม (ดรอปจากบอส MVP จักรพรรดิภูเขาไฟเมทัล)",
+   "element": "wind"
+  },
+  "gtr_spike": {
+   "name": "กีตาร์หนามปีศาจ \"จอมเวทหนาม\"",
+   "type": "weapon",
+   "atk": 112,
+   "price": 4000,
+   "classes": [
+    "guitarist"
+   ],
+   "color": "#101012",
+   "weight": 70,
+   "slots": 1,
+   "shape": "spike",
+   "mvp": true,
+   "bonus": {
+    "str": 5,
+    "atkPct": 8
+   },
+   "desc": "กีตาร์ทรงหนามแหลมรอบตัว สีดำลวดลายขาว ของรางวัลสูงสุดจากจักรพรรดิภูเขาไฟ โจมตีเป็นธาตุมืด (ดรอปจากบอส MVP จักรพรรดิภูเขาไฟเมทัล)",
+   "element": "shadow"
   }
  },
  "shop": [
@@ -4222,6 +4467,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "gtr_offset_mini",
+     0.08
     ]
    ],
    "boss": true,
@@ -4423,6 +4672,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "gtr_ttype",
+     0.08
     ]
    ],
    "model": "Big_MushroomKing",
@@ -4623,6 +4876,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "gtr_thinline",
+     0.08
     ]
    ],
    "model": "Big_Fish",
@@ -4872,6 +5129,10 @@
     [
      "outfit_shadow_battle",
      0.06
+    ],
+    [
+     "gtr_doublehorn",
+     0.08
     ]
    ],
    "model": "Flying_Dragon_Evolved",
@@ -5129,6 +5390,10 @@
     [
      "ears_frost_fox",
      0.06
+    ],
+    [
+     "gtr_offset",
+     0.08
     ]
    ],
    "model": "Flying_Goleling_Evolved",
@@ -5394,6 +5659,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "gtr_stype",
+     0.08
     ]
    ],
    "model": "Flying_Tribal",
@@ -6981,6 +7250,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "gtr_flametop",
+     0.08
     ]
    ],
    "glow": "#5a3cff",
@@ -7335,6 +7608,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "gtr_arrow",
+     0.08
     ]
    ],
    "glow": "#7fd8ff",
@@ -7683,6 +7960,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "gtr_hollow",
+     0.08
     ]
    ],
    "glow": "#c8b0ff",
@@ -8055,6 +8336,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "gtr_singlecut",
+     0.08
     ]
    ],
    "glow": "#c060ff",
@@ -8446,6 +8731,14 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "gtr_vshape",
+     0.08
+    ],
+    [
+     "gtr_spike",
+     0.08
     ]
    ],
    "glow": "#ff6a00",
