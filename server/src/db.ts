@@ -25,6 +25,23 @@ export interface ServerDb {
   /** Takes `cost` zeny and moves the character to `s` in one go (บูรพา's warp). Throws if they can't pay. */
   payWarp(userId: string, charId: string, cost: number, s: SavedState): Promise<Character>;
   trade(a: TradeSide, b: TradeSide): Promise<void>;
+
+  // guilds (supabase/add-guild-war.sql)
+  guildsLoad(): Promise<{ guilds: GuildRow[]; castles: { castle: string; guild: string | null }[] }>;
+  /** Takes `cost` zeny and makes the guild with this character as its leader; returns the new guild's id. */
+  guildCreate(userId: string, charId: string, name: string, cost: number): Promise<string>;
+  guildJoin(guildId: string, charId: string): Promise<void>;
+  guildLeave(charId: string): Promise<void>;
+  guildLeader(guildId: string, charId: string): Promise<void>;
+  guildDelete(guildId: string): Promise<void>;
+  castleSet(castle: string, guildId: string | null): Promise<void>;
+}
+
+export interface GuildRow {
+  id: string;
+  name: string;
+  leader: string | null;
+  members: { char: string; name: string; cls: string; level: number }[];
 }
 
 export interface SavedState {
@@ -121,6 +138,49 @@ export class SupabaseDb implements ServerDb {
       }),
     );
   }
+
+  async guildsLoad() {
+    const [g, m, c] = await Promise.all([
+      this.sb.from('guilds').select('id, name, leader'),
+      this.sb.from('guild_members').select('char_id, guild_id, joined_at, characters(name, cls, level)').order('joined_at'),
+      this.sb.from('guild_castles').select('castle, guild_id'),
+    ]);
+    const rows = new Map<string, GuildRow>();
+    for (const r of check(g) as { id: string; name: string; leader: string | null }[]) rows.set(r.id, { ...r, members: [] });
+    for (const r of check(m) as unknown as { char_id: string; guild_id: string; characters: { name: string; cls: string; level: number } | null }[]) {
+      const ch = r.characters;
+      if (ch) rows.get(r.guild_id)?.members.push({ char: r.char_id, name: ch.name, cls: ch.cls, level: ch.level });
+    }
+    return {
+      guilds: [...rows.values()],
+      castles: (check(c) as { castle: string; guild_id: string | null }[]).map((x) => ({ castle: x.castle, guild: x.guild_id })),
+    };
+  }
+
+  async guildCreate(userId: string, charId: string, name: string, cost: number) {
+    return check(await this.sb.rpc('guild_create', { p_user: userId, p_char: charId, p_name: name, p_cost: cost })) as string;
+  }
+
+  async guildJoin(guildId: string, charId: string) {
+    const r = await this.sb.from('guild_members').insert({ guild_id: guildId, char_id: charId });
+    if (r.error) throw new Error(/duplicate/i.test(r.error.message) ? 'อยู่ในกิลด์อื่นแล้ว' : r.error.message);
+  }
+
+  async guildLeave(charId: string) {
+    check(await this.sb.from('guild_members').delete().eq('char_id', charId));
+  }
+
+  async guildLeader(guildId: string, charId: string) {
+    check(await this.sb.from('guilds').update({ leader: charId }).eq('id', guildId));
+  }
+
+  async guildDelete(guildId: string) {
+    check(await this.sb.from('guilds').delete().eq('id', guildId));
+  }
+
+  async castleSet(castle: string, guildId: string | null) {
+    check(await this.sb.from('guild_castles').upsert({ castle, guild_id: guildId, since: new Date().toISOString() }));
+  }
 }
 
 /**
@@ -169,5 +229,55 @@ export class DevDb implements ServerDb {
 
   trade(a: TradeSide, b: TradeSide) {
     return this.store.trade(a.charId, a.offer, b.charId, b.offer);
+  }
+
+  // guilds: memory only (gone when the dev server stops)
+  private guilds = new Map<string, { id: string; name: string; leader: string | null; members: string[] }>();
+  private castles = new Map<string, string | null>();
+  private gseq = 0;
+
+  async guildsLoad() {
+    const guilds: GuildRow[] = [];
+    for (const g of this.guilds.values()) {
+      const members = [];
+      for (const id of g.members) {
+        const c = await this.store.getCharacter(id).catch(() => null);
+        if (c) members.push({ char: id, name: c.name, cls: c.cls, level: c.level });
+      }
+      guilds.push({ id: g.id, name: g.name, leader: g.leader, members });
+    }
+    return { guilds, castles: [...this.castles].map(([castle, guild]) => ({ castle, guild })) };
+  }
+
+  async guildCreate(_u: string, charId: string, name: string, cost: number) {
+    const c = await this.store.getCharacter(charId);
+    if (c.zeny < cost) throw new Error(`Zeny ไม่พอ (ค่าสร้างกิลด์ ${cost.toLocaleString()} z)`);
+    if ([...this.guilds.values()].some((g) => g.name.toLowerCase() === name.toLowerCase())) throw new Error('ชื่อกิลด์นี้มีคนใช้แล้ว');
+    await this.store.grantReward(charId, { exp: 0, jobExp: 0, zeny: -cost, items: [], quest: false });
+    const id = `g${++this.gseq}`;
+    this.guilds.set(id, { id, name, leader: charId, members: [charId] });
+    return id;
+  }
+
+  async guildJoin(guildId: string, charId: string) {
+    this.guilds.get(guildId)?.members.push(charId);
+  }
+
+  async guildLeave(charId: string) {
+    for (const g of this.guilds.values()) g.members = g.members.filter((m) => m !== charId);
+  }
+
+  async guildLeader(guildId: string, charId: string) {
+    const g = this.guilds.get(guildId);
+    if (g) g.leader = charId;
+  }
+
+  async guildDelete(guildId: string) {
+    this.guilds.delete(guildId);
+    for (const [k, v] of this.castles) if (v === guildId) this.castles.set(k, null);
+  }
+
+  async castleSet(castle: string, guildId: string | null) {
+    this.castles.set(castle, guildId);
   }
 }

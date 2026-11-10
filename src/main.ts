@@ -150,7 +150,9 @@ async function play(char: Character): Promise<void> {
       resetAssets();
       world = new World3D(container, { session, room: r, map, hooks: hud, x: pos.x, y: pos.y });
       hud.syncPartyWorld();
+      hud.syncPvpWorld();
       r.send('partyGet'); // the party window (and whose names to color) for this map
+      r.send('guildGet');
       const assets = setInterval(() => progress(70 + 30 * assetShare()), 100);
       await assetsIdle(15000);
       clearInterval(assets);
@@ -180,6 +182,12 @@ async function play(char: Character): Promise<void> {
       r.onMessage('party', (m) => hud.party(m));
       r.onMessage('partyInvite', (m) => hud.partyInvite(m));
       r.onMessage('partyChat', (m) => hud.partyChat(m.name, m.text));
+      r.onMessage('guild', (m) => hud.guild(m));
+      r.onMessage('guildInvite', (m) => hud.guildInvite(m));
+      r.onMessage('guildChat', (m) => hud.guildChat(m.name, m.text));
+      r.onMessage('pvp', (m) => hud.pvp(m));
+      r.onMessage('pvpScore', (m) => hud.pvpScore(m));
+      r.onMessage('castleInfo', (m) => hud.castleInfo(m));
       r.onMessage('warp', (m) => {
         if (room === r) enter(m.map).catch(fail);
       });
@@ -224,7 +232,9 @@ async function play(char: Character): Promise<void> {
           wire(r);
           world.swapRoom(r, pos.x, pos.y);
           hud.syncPartyWorld();
+          hud.syncPvpWorld();
           r.send('partyGet');
+          r.send('guildGet');
           hud.toast('เชื่อมต่อเซิร์ฟเวอร์ใหม่แล้ว', 'good');
           console.info(`rejoined ${mapId} after a dropped connection (attempt ${attempt + 1})`);
           rejoining = false;

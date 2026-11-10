@@ -710,6 +710,29 @@ export function buildMonster(id: string): MonsterRig {
   let height = sz * 1.1;
 
   switch (def.shape ?? id) {
+    case 'emperium': {
+      // คริสตัลแห่งเสียง: a tall glowing crystal floating over a stone pedestal, ringed by small shards
+      const ped = mesh(CYL(0.42, 0.5, 0.22, 8), toon('#8a8f9c'), 0, 0.11, 0);
+      body.add(ped);
+      body.add(mesh(CYL(0.34, 0.42, 0.1, 8), toon('#c9ccd6'), 0, 0.27, 0));
+      const gem = new THREE.Group();
+      gem.name = 'gem';
+      const glass = new THREE.MeshToonMaterial({ color: '#8fd8ff', emissive: '#2a8fd0', emissiveIntensity: 0.9, transparent: true, opacity: 0.9 });
+      const top = mesh(new THREE.ConeGeometry(0.26, 0.62, 6), glass, 0, 0.31, 0);
+      const bot = mesh(new THREE.ConeGeometry(0.26, 0.36, 6), glass, 0, -0.18, 0);
+      bot.rotation.x = Math.PI;
+      gem.add(top, bot);
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2;
+        const shard = mesh(new THREE.OctahedronGeometry(0.07), glass, Math.cos(a) * 0.42, 0.05, Math.sin(a) * 0.42);
+        shard.name = 'shard';
+        gem.add(shard);
+      }
+      gem.position.y = 0.9;
+      body.add(gem);
+      height = 1.7;
+      break;
+    }
     case 'drop': {
       const b = mesh(S(0.36, 20, 16), toon(col, { transparent: true, opacity: 0.92 }), 0, 0.33, 0);
       b.scale.set(1, 0.9, 1);
@@ -893,6 +916,13 @@ export function animateMonster(rig: MonsterRig, id: string, t: number, phase: nu
     b.position.y = 0;
     const squash = Math.sin(t * 2.6 + phase) * 0.04;
     b.scale.set(k * (1 + squash), k * (1 - squash), k * (1 + squash));
+  }
+  const gem = b.getObjectByName('gem');
+  if (gem) {
+    b.position.y = 0;
+    b.scale.setScalar(k);
+    gem.rotation.y = t * 0.8;
+    gem.position.y = 0.9 + Math.sin(t * 1.6) * 0.06;
   }
   const p = b.getObjectByName('pendulum');
   if (p) p.rotation.z = Math.sin(t * 4 + phase) * 0.6;

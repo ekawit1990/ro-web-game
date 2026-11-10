@@ -2,6 +2,7 @@ import { defineRoom, defineServer, listen } from 'colyseus';
 import { MAP_IDS } from '../../src/game/maps.ts';
 import { setupAuthRoutes } from './auth.ts';
 import { DevDb, SupabaseDb } from './db.ts';
+import { Guilds } from './guild.ts';
 import { MapRoom } from './MapRoom.ts';
 
 const url = process.env.SUPABASE_URL;
@@ -15,6 +16,7 @@ if (url && serviceKey) {
   throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or ALLOW_DEV_DB=true for testing).');
 }
 console.log(`Music Land server: database = ${MapRoom.db.name}`);
+void Guilds.init(MapRoom.db);
 
 // one room per map: "town", "field"
 const server = defineServer({

@@ -147,7 +147,9 @@ export interface ItemDef {
 export type CardSlot = 'weapon' | 'armor' | 'head' | 'shoes' | 'accessory';
 /** What a card adds: flat stats and numbers, or percentages (…Pct, aspd). */
 export type CardBonus = Partial<Record<StatKey | 'atk' | 'matk' | 'def' | 'mdef' | 'hit' | 'flee' | 'crit' | 'aspd'
-  | 'maxHp' | 'maxSp' | 'maxHpPct' | 'maxSpPct' | 'atkPct' | 'matkPct', number>>;
+  | 'maxHp' | 'maxSp' | 'maxHpPct' | 'maxSpPct' | 'atkPct' | 'matkPct'
+  /** PVP (2026-11-10): % more damage to players / % less damage taken from players */
+  | 'pvpAtkPct' | 'pvpDefPct', number>>;
 
 export const cardFits = (card: ItemDef | undefined, equip: ItemDef | undefined) =>
   !!card?.card && !!equip && (card.card.slot === equip.type || (card.card.slot === 'head' && equip.type === 'earring'));
@@ -213,6 +215,8 @@ export interface MonsterDef {
   color: string;
   size: number;
   boss?: boolean;
+  /** Guild war crystal (คริสตัลแห่งเสียง): never moves or fights back, not in the guide, no rewards. */
+  structure?: boolean;
   /** Which body to draw (another monster's id); defaults to the monster's own id. */
   shape?: string;
   /** Rigged model in public/models/monsters/ that replaces the drawn body once loaded. */
@@ -317,6 +321,11 @@ export interface SkillDef {
 export const CLASSES = raw.classes as Record<ClassKey, ClassDef>;
 export const ITEMS = raw.items as Record<string, ItemDef>;
 export const MONSTERS = raw.monsters as unknown as Record<string, MonsterDef>;
+// the guild war crystal in ปราสาทแห่งเสียง (src/game/pvp.ts): placed by the server, not by SPAWNS
+MONSTERS.emperium = {
+  name: 'คริสตัลแห่งเสียง', level: 1, hp: 30000, atk: 0, def: 0, exp: 0, jobExp: 0, zeny: [0, 0], speed: 0, aggressive: false,
+  color: '#8fd8ff', glow: '#5ec8ff', size: 1.6, structure: true, drops: [],
+};
 export const SPAWNS = raw.spawns as SpawnDef[];
 export const SHOP = raw.shop as string[];
 export const WEAPON_SHOP = raw.weaponShop as string[];
@@ -501,6 +510,9 @@ export interface Derived {
   /** Element of your attacks (weapon, or a converter on it) and your defence element (armour or a card in it). */
   atkElement?: Element;
   defElement?: Element;
+  /** PVP: % more damage to players, % less taken from players (equipment and cards). */
+  pvpAtk?: number;
+  pvpDef?: number;
 }
 
 /** Walking speed multiplier (10% slower since 2026-11-05). */
@@ -512,7 +524,7 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
   // cards in worn equipment
   const card: Required<CardBonus> = {
     str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0, atk: 0, matk: 0, def: 0, mdef: 0, hit: 0, flee: 0, crit: 0, aspd: 0,
-    maxHp: 0, maxSp: 0, maxHpPct: 0, maxSpPct: 0, atkPct: 0, matkPct: 0,
+    maxHp: 0, maxSp: 0, maxHpPct: 0, maxSpPct: 0, atkPct: 0, matkPct: 0, pvpAtkPct: 0, pvpDefPct: 0,
   };
   for (const row of worn) {
     for (const [k, v] of Object.entries(ITEMS[row.item_id].bonus ?? {}) as [keyof CardBonus, number][]) card[k] += v;
@@ -567,6 +579,8 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
     bonus,
     atkElement: buffs.endow ?? weaponElement(worn),
     defElement: armorElement(worn),
+    pvpAtk: card.pvpAtkPct,
+    pvpDef: Math.min(60, card.pvpDefPct),
   };
 }
 

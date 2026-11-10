@@ -4,6 +4,7 @@ import {
   refineBonus, refineChance, refineFee, refineMaterial, refineSafe, skillSp, skillsOf, statCost, statRefund,
 } from '../data';
 import { THEMES, WARP_TOWNS, getMap, type GameMap, type Npc } from '../game/maps';
+import { ARENA_MAP, CASTLE_MAP, GUILD_COST, GUILD_MAX, PVP_DAMAGE, WAR_PRIZE, durationText, warScheduleText, type GuildView, type PvpInfo, type PvpScore } from '../game/pvp';
 import type { Session } from '../game/session';
 import type { World3D, WorldHooks } from '../three/World3D';
 import { potionPct, setAutoPotionPct, setAutoSpPotionPct, spPotionPct } from '../game/autoPrefs';
@@ -12,7 +13,7 @@ import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
 import { monsterPortrait } from '../three/portrait';
 
-type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'guide';
+type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'guide' | 'guild';
 /** A bag row, or what we know of someone else's (trade): the + level and cards travel with it. */
 type ItemRow = Pick<InvItem, 'refine' | 'cards'> & { qty?: number; equipped?: boolean };
 type Slot = { t: 's' | 'i'; id: string } | null;
@@ -74,15 +75,15 @@ const pct = (r: number) => `${+(r * 100).toFixed(r < 0.01 ? 2 : r < 0.1 ? 1 : 0)
 const BONUS_LABEL: Record<keyof CardBonus, string> = {
   str: 'Str', agi: 'Agi', vit: 'Vit', int: 'Int', dex: 'Dex', luk: 'Luk', atk: 'Atk', matk: 'Matk', def: 'Def', mdef: 'Mdef',
   hit: 'Hit', flee: 'Flee', crit: 'Critical', aspd: 'Aspd', maxHp: 'MaxHP', maxSp: 'MaxSP', maxHpPct: 'MaxHP', maxSpPct: 'MaxSP',
-  atkPct: 'Atk', matkPct: 'Matk',
+  atkPct: 'Atk', matkPct: 'Matk', pvpAtkPct: 'ตีผู้เล่น', pvpDefPct: 'ลดดาเมจจากผู้เล่น',
 };
-const PCT_BONUS = new Set(['aspd', 'maxHpPct', 'maxSpPct', 'atkPct', 'matkPct']);
+const PCT_BONUS = new Set(['aspd', 'maxHpPct', 'maxSpPct', 'atkPct', 'matkPct', 'pvpAtkPct', 'pvpDefPct']);
 /** "Agi +1 · Aspd +3%" */
 export const bonusText = (b: CardBonus) =>
   (Object.entries(b) as [keyof CardBonus, number][]).map(([k, v]) => `${BONUS_LABEL[k]} +${v}${PCT_BONUS.has(k) ? '%' : ''}`).join(' · ');
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
-  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40], guide: [-1, 30],
+  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40], guide: [-1, 30], guild: [8, 250],
 };
 
 /** The RO-style windows over the game: Basic Info, Equipment+Status, Inventory, Skill Tree, hotkeys, minimap, chat. */
@@ -95,6 +96,9 @@ export class Hud implements WorldHooks {
   private hotkeys: Slot[];
   private trade: TradeView | null = null;
   private partyView: PartyView | null = null;
+  private guildView: GuildView | null = null;
+  private pvpInfo: PvpInfo = { on: false };
+  private pvpScores: PvpScore[] = [];
   private shopKind: 'shop' | 'weapons' = 'shop';
   private shopTab: 'buy' | 'sell' = 'buy';
   private storageTab: 'put' | 'take' = 'put';
@@ -153,6 +157,7 @@ export class Hud implements WorldHooks {
     this.closeWin('refine');
     this.closeWin('uncard');
     this.closeWin('worldmap');
+    this.renderPvpBar();
     this.closeTrade();
     // a new map starts with /auto off
     this.root.querySelector('#bi-auto')?.classList.remove('on');
@@ -220,6 +225,7 @@ export class Hud implements WorldHooks {
     if (id === 'skill') this.openSkills();
     if (id === 'option') this.openOption();
     if (id === 'party') this.openParty();
+    if (id === 'guild') this.openGuild();
   }
 
   private z = 20;
@@ -286,6 +292,7 @@ export class Hud implements WorldHooks {
         <button data-open="skill" title="Alt+S">สกิล<i id="bi-spts" class="dot hidden"></i></button>
         <button data-open="inv" title="Alt+E">ไอเท็ม</button>
         <button data-open="party" title="Alt+Z">ปาร์ตี้</button>
+        <button data-open="guild" title="Alt+G">กิลด์</button>
         <button data-open="map" title="Tab">แผนที่</button>
         <button data-open="sit" title="Insert">นั่ง</button>
         <button data-open="auto" id="bi-auto" title="/auto · ตีและใช้สกิลอัตโนมัติ">ออโต้</button>
@@ -1018,7 +1025,7 @@ export class Hud implements WorldHooks {
     const hit = (name: string) => !q || name.toLowerCase().includes(q);
     if (g.tab === 'mon') {
       return Object.keys(MONSTERS)
-        .filter((k) => hit(MONSTERS[k].name))
+        .filter((k) => hit(MONSTERS[k].name) && !MONSTERS[k].structure)
         .filter((k) => {
           const m = MONSTERS[k];
           if (g.filter === 'boss') return !!m.boss;
@@ -1439,6 +1446,10 @@ export class Hud implements WorldHooks {
     this.line('chat', `<b>${escapeHtml(name)}</b> : ${escapeHtml(text)}`);
   }
 
+  guildChat(name: string, text: string) {
+    this.line('chat', `<span class="gc">[กิลด์] <b>${escapeHtml(name)}</b> : ${escapeHtml(text)}</span>`);
+  }
+
   partyChat(name: string, text: string) {
     this.line('chat', `<span class="pt">[ปาร์ตี้] <b>${escapeHtml(name)}</b> : ${escapeHtml(text)}</span>`);
   }
@@ -1471,6 +1482,9 @@ export class Hud implements WorldHooks {
   // ------------------------------------------------------------ npc + shop
 
   talk(n: Npc) {
+    if (n.id === 'guild') return this.talkGuild(n);
+    if (n.id === 'pvp') return this.talkArena(n);
+    if (n.id === 'gvg') return this.talkCastle(n);
     if (n.id === 'jobs') return this.talkJobs(n);
     if (n.id === 'warper') return this.talkBurapa(n);
     if (n.id === 'refiner') return this.talkRefiner(n);
@@ -1485,6 +1499,9 @@ export class Hud implements WorldHooks {
       refiner: '',
       reset: '',
       uncard: '',
+      guild: '',
+      pvp: '',
+      gvg: '',
       guide: 'ยินดีต้อนรับสู่เมืองเมโลเดีย! เดินออกประตูทิศตะวันออกไปทุ่งเมโลดี้เพื่อล่ามอนสเตอร์\n'
         + '• คลิกพื้นเพื่อเดิน คลิกมอนสเตอร์เพื่อตี\n• Alt+Q สถานะ, Alt+E ไอเท็ม, Alt+S สกิล\n• F1-F9 หรือ 1-9 ใช้ปุ่มลัด\n'
         + '• คลิกผู้เล่นอื่นเพื่อแลกเปลี่ยนไอเท็มหรือเงิน\n'
@@ -1492,7 +1509,8 @@ export class Hud implements WorldHooks {
         + '• ช่างถอดการ์ด ข้างช่างจูน: ถอดการ์ดออกจากอุปกรณ์คืนเข้ากระเป๋า · ครูเริ่มใหม่ ฝั่งขวา: รีเซ็ตสเตตัส/สกิล\n'
         + '• คลิกขวาที่ไอเท็ม (มือถือ: แตะ) เพื่อดูรายละเอียด\n'
         + '• บูรพาข้างน้ำพุกลางเมืองและข้างทางออกทุกแผนที่: วาร์ปไปเมืองอื่น ฝากของในคลังกลางที่ทุกตัวละครใน ID ใช้ร่วมกัน และบันทึกจุดเกิด\n'
-        + '• เปิดแผนที่ใหญ่แล้วแตะ/คลิกบนแผนที่ ตัวละครจะเดินไปจุดนั้นเอง',
+        + '• เปิดแผนที่ใหญ่แล้วแตะ/คลิกบนแผนที่ ตัวละครจะเดินไปจุดนั้นเอง\n'
+        + '• นายทะเบียนกิลด์: สร้างกิลด์ · ผู้คุมลานประลอง: ไปตีกับผู้เล่น (PVP) · ทหารประกาศสงครามกิลด์: ไปปราสาทแห่งเสียง (กิลวอร์)',
     };
     const w = this.win('npc', escapeHtml(n.name), 'npc');
     const b = this.body('npc')!;
@@ -1917,9 +1935,15 @@ export class Hud implements WorldHooks {
     m.style.top = `${y}px`;
     const inParty = this.partyView?.members.some((x) => x.sid === sessionId);
     const canInvite = !inParty && (!this.partyView || this.partyView.leader === this.partyView.me);
+    const g = this.guildView;
+    const canGuild = !!g && g.leader === g.me && g.members.length < g.max && !g.members.some((x) => x.name === name);
     m.innerHTML = `<b>${escapeHtml(name)}</b><button data-a="trade">ขอแลกเปลี่ยน</button>`
-      + `${canInvite ? '<button data-a="party">ชวนเข้าปาร์ตี้</button>' : ''}<button data-a="close">ยกเลิก</button>`;
+      + `${canInvite ? '<button data-a="party">ชวนเข้าปาร์ตี้</button>' : ''}${canGuild ? '<button data-a="guild">ชวนเข้ากิลด์</button>' : ''}<button data-a="close">ยกเลิก</button>`;
     this.root.appendChild(m);
+    m.querySelector('[data-a=guild]')?.addEventListener('click', () => {
+      this.actions.send('guildInvite', { to: sessionId });
+      m.remove();
+    });
     m.querySelector('[data-a=party]')?.addEventListener('click', () => {
       this.actions.send('partyInvite', { to: sessionId });
       m.remove();
@@ -2134,6 +2158,227 @@ export class Hud implements WorldHooks {
     }));
   }
 
+  // ------------------------------------------------------------ guild, PVP and the guild war
+
+  /** The server sent our guild (null = not in one). */
+  guild(v: GuildView | null) {
+    const was = this.guildView;
+    this.guildView = v;
+    if (!v && was) this.lastSig.guild = '';
+    if (v && (!was || was.id !== v.id) && !this.isOpen('guild')) this.openGuild();
+    else this.renderGuild();
+  }
+
+  guildInvite(msg: { guild: string; from: string }) {
+    this.root.querySelector('.ginvite')?.remove();
+    const d = document.createElement('div');
+    d.className = 'rw pinvite ginvite';
+    d.innerHTML = `<div class="rw-title"><span>คำชวนเข้ากิลด์</span></div><div class="rw-body">
+      <p><b>${escapeHtml(msg.from)}</b> ชวนคุณเข้ากิลด์ <b>"${escapeHtml(msg.guild)}"</b></p>
+      <p class="hint">สมาชิกกิลด์เดียวกันตีกันไม่ได้ในลานประลองและสงครามกิลด์ · แชทกิลด์ พิมพ์ /g ข้อความ</p>
+      <div class="npc-btns"><button class="ok">เข้าร่วม</button><button class="close">ปฏิเสธ</button></div></div>`;
+    this.root.appendChild(d);
+    this.bringFront(d);
+    const answer = (accept: boolean) => {
+      this.actions.send('guildRespond', { accept });
+      d.remove();
+    };
+    d.querySelector('.ok')!.addEventListener('click', () => answer(true));
+    d.querySelector('.close')!.addEventListener('click', () => answer(false));
+    setTimeout(() => d.remove(), 30000);
+  }
+
+  private openGuild() {
+    this.win('guild', 'กิลด์', 'party');
+    this.lastSig.guild = '';
+    this.actions.send('guildGet');
+    this.renderGuild();
+  }
+
+  private renderGuild() {
+    const b = this.body('guild');
+    if (!b || !this.isOpen('guild')) return;
+    const v = this.guildView;
+    const sig = JSON.stringify(v);
+    if (this.lastSig.guild === sig) return;
+    this.lastSig.guild = sig;
+    const w = this.wins.get('guild')!;
+    w.querySelector('.rw-title span')!.textContent = v ? `กิลด์ : ${v.name} (${v.members.length}/${v.max})` : 'กิลด์';
+    const rule = '<p class="hint">แชทกิลด์: พิมพ์ <b>/g ข้อความ</b> · สมาชิกกิลด์เดียวกันตีกันไม่ได้ในลานประลองและสงครามกิลด์</p>';
+    if (!v) {
+      b.innerHTML = `<p>คุณยังไม่มีกิลด์ (สูงสุด ${GUILD_MAX} คน)</p>
+        <p class="hint">สร้างกิลด์ได้ที่ <b>นายทะเบียนกิลด์</b> กลางเมืองเมโลเดีย ค่าสร้าง ${GUILD_COST.toLocaleString()} z หรือรอหัวหน้ากิลด์อื่นชวน</p>${rule}`;
+      return;
+    }
+    const lead = v.leader === v.me;
+    const rows = v.members.map((m) => {
+      const where = !m.online ? '<em class="off">ออฟไลน์</em>' : escapeHtml(getMap(m.map)?.name ?? m.map);
+      const tools = lead && m.id !== v.me
+        ? `<button data-lead="${m.id}" title="มอบหัวหน้า">👑</button><button data-kick="${m.id}" title="เชิญออก">✕</button>` : '';
+      return `<div class="pt-row ${m.online ? '' : 'offline'} ${m.id === v.me ? 'me' : ''}">
+        <div class="pt-who"><b>${m.id === v.leader ? '👑 ' : ''}${escapeHtml(m.name)}</b>
+          <small>${escapeHtml(CLASSES[m.cls as ClassKey]?.name ?? m.cls)} · Lv ${m.level} · ${where}</small></div>
+        <div class="pt-tools">${tools}</div></div>`;
+    }).join('');
+    b.innerHTML = `${v.castle ? '<p class="gd-castle">🏰 กิลด์ของคุณครองปราสาทแห่งเสียง</p>' : ''}<div class="pt-list">${rows}</div>
+      ${lead && v.members.length < v.max ? '<div class="pt-form"><input id="gd-invite" maxlength="30" placeholder="ชื่อตัวละครที่จะชวน"/><button class="ok" id="gd-inv">ชวน</button></div>' : ''}
+      <div class="npc-btns"><button class="close" id="gd-leave">${v.members.length <= 1 ? 'ยุบกิลด์' : 'ออกจากกิลด์'}</button></div>${rule}`;
+    const inv = b.querySelector<HTMLInputElement>('#gd-invite');
+    const invite = () => {
+      if (!inv?.value.trim()) return;
+      this.actions.send('guildInvite', { name: inv.value.trim() });
+      inv.value = '';
+    };
+    b.querySelector('#gd-inv')?.addEventListener('click', invite);
+    inv?.addEventListener('keydown', (e) => e.key === 'Enter' && invite());
+    b.querySelector('#gd-leave')!.addEventListener('click', () => {
+      if (confirm(v.members.length <= 1 ? `ยุบกิลด์ "${v.name}"? (ค่าสร้างไม่ได้คืน)` : 'ออกจากกิลด์?')) this.actions.send('guildLeave');
+    });
+    b.querySelectorAll<HTMLButtonElement>('[data-kick]').forEach((el) => el.addEventListener('click', () => {
+      const name = v.members.find((m) => m.id === el.dataset.kick)?.name ?? '';
+      if (confirm(`เชิญ ${name} ออกจากกิลด์?`)) this.actions.send('guildKick', { id: el.dataset.kick });
+    }));
+    b.querySelectorAll<HTMLButtonElement>('[data-lead]').forEach((el) => el.addEventListener('click', () => {
+      const name = v.members.find((m) => m.id === el.dataset.lead)?.name ?? '';
+      if (confirm(`มอบหัวหน้ากิลด์ให้ ${name}?`)) this.actions.send('guildLeader', { id: el.dataset.lead });
+    }));
+  }
+
+  private talkGuild(n: Npc) {
+    this.win('npc', escapeHtml(n.name), 'npc');
+    const b = this.body('npc')!;
+    const g = this.guildView;
+    const zeny = this.s.char.zeny;
+    b.innerHTML = g
+      ? `<div class="npc-text">ท่านเป็นสมาชิกกิลด์ <b>"${escapeHtml(g.name)}"</b> อยู่แล้ว<br>เปิดหน้าต่างกิลด์ (ปุ่ม "กิลด์" หรือ Alt+G) เพื่อดูสมาชิก ชวนคน หรือออกจากกิลด์</div>
+        <div class="npc-btns"><button class="ok" data-open>เปิดหน้าต่างกิลด์</button><button class="close">ปิด</button></div>`
+      : `<div class="npc-text">ข้ารับจดทะเบียนกิลด์ ค่าธรรมเนียม <b>${GUILD_COST.toLocaleString()} z</b> (ตอนนี้มี ${zeny.toLocaleString()} z)<br>
+        • ผู้ก่อตั้งเป็นหัวหน้ากิลด์ ชวนสมาชิกได้สูงสุด ${GUILD_MAX} คน<br>
+        • สมาชิกกิลด์เดียวกันตีกันไม่ได้ และร่วมกันยึดปราสาทแห่งเสียงในสงครามกิลด์<br>
+        • ชื่อกิลด์ 2-16 ตัวอักษร ห้ามซ้ำกับกิลด์อื่น</div>
+        <div class="pt-form"><input id="gd-name" maxlength="16" placeholder="ชื่อกิลด์"/><button class="ok" id="gd-create" ${zeny < GUILD_COST ? 'disabled' : ''}>ก่อตั้งกิลด์</button></div>
+        <div class="npc-btns"><button class="close">ปิด</button></div>`;
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
+    b.querySelector('[data-open]')?.addEventListener('click', () => {
+      this.closeWin('npc');
+      this.openGuild();
+    });
+    b.querySelector('#gd-create')?.addEventListener('click', () => {
+      const name = (b.querySelector('#gd-name') as HTMLInputElement).value.trim();
+      if (!name) return this.toast('ตั้งชื่อกิลด์ก่อน', 'bad');
+      if (!confirm(`ก่อตั้งกิลด์ "${name}" ค่าธรรมเนียม ${GUILD_COST.toLocaleString()} z?`)) return;
+      this.actions.send('guildCreate', { name });
+      this.closeWin('npc');
+    });
+  }
+
+  private talkArena(n: Npc) {
+    this.win('npc', escapeHtml(n.name), 'npc');
+    const b = this.body('npc')!;
+    b.innerHTML = `<div class="npc-text">ลานประลองจังหวะ เปิดให้ประลองฝีมือกับผู้เล่นคนอื่นตลอดเวลา (PVP)<br>
+      • คลิก/แตะผู้เล่นที่ชื่อเป็นสีแดงเพื่อโจมตี ใช้สกิลโจมตีกับผู้เล่นได้<br>
+      • คนในปาร์ตี้หรือกิลด์เดียวกันตีกันไม่ได้<br>
+      • ดาเมจที่ตีผู้เล่นเหลือ ${Math.round(PVP_DAMAGE * 100)}% ของปกติ ปรับเพิ่ม/ลดได้ด้วยอุปกรณ์และการ์ดที่มีค่า "ตีผู้เล่น" / "ลดดาเมจจากผู้เล่น"<br>
+      • หมดสติในลานไม่เสีย EXP กดฟื้นแล้วลุกขึ้นในลานทันที · มีตารางคะแนนคนล้มคู่ต่อสู้มากที่สุด</div>
+      <div class="npc-btns"><button class="ok" data-go>เข้าลานประลอง (ฟรี)</button><button class="close">ปิด</button></div>`;
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
+    b.querySelector('[data-go]')!.addEventListener('click', () => {
+      this.closeWin('npc');
+      this.goWithNpc(ARENA_MAP);
+    });
+  }
+
+  /** The herald asks the server who holds the castle; this draws the answer. */
+  castleInfo(i: { owner: string; warEnds?: number; nextWar: number; schedule: string }) {
+    const b = this.body('npc');
+    const box = b?.querySelector('#gvg-info');
+    if (!box) return;
+    const now = Date.now();
+    box.innerHTML = `ปราสาทแห่งเสียงตอนนี้: <b>${i.owner ? `กิลด์ "${escapeHtml(i.owner)}"` : 'ยังไม่มีผู้ครอง'}</b><br>`
+      + (i.warEnds ? `<b class="war-on">⚔ สงครามกิลด์กำลังดำเนินอยู่!</b> เหลือเวลา ${durationText(i.warEnds - now)}` : `สงครามครั้งถัดไปเริ่มในอีก ${durationText(i.nextWar - now)}`);
+  }
+
+  private talkCastle(n: Npc) {
+    this.win('npc', escapeHtml(n.name), 'npc');
+    const b = this.body('npc')!;
+    b.innerHTML = `<div class="npc-text"><div id="gvg-info">กำลังถามข่าวจากปราสาท…</div><br>
+      สงครามกิลด์จัดที่ปราสาทแห่งเสียง ${escapeHtml(warScheduleText())} (เวลาไทย)<br>
+      • ระหว่างสงคราม ในปราสาทตีผู้เล่นต่างกิลด์ได้ · ต้องมีกิลด์ถึงจะตีคริสตัลแห่งเสียงในลานบัลลังก์ได้<br>
+      • กิลด์ที่ตีคริสตัลแตก (ทำดาเมจรวมมากที่สุด) ยึดปราสาท แล้วคริสตัลเกิดใหม่ให้กิลด์อื่นแย่งต่อ<br>
+      • จบสงคราม กิลด์ที่ครองปราสาท สมาชิกที่ออนไลน์ได้คนละ ${WAR_PRIZE.toLocaleString()} z<br>
+      • นอกเวลาสงครามเข้าไปเที่ยวชมได้ แต่ตีกันไม่ได้ · หมดสติในปราสาทไม่เสีย EXP</div>
+      <div class="npc-btns"><button class="ok" data-go>ไปปราสาทแห่งเสียง (ฟรี)</button><button class="close">ปิด</button></div>`;
+    this.actions.send('castleInfo');
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
+    b.querySelector('[data-go]')!.addEventListener('click', () => {
+      this.closeWin('npc');
+      this.goWithNpc(CASTLE_MAP);
+    });
+  }
+
+  private goWithNpc(to: string) {
+    this.actions.send('npcGo', { to });
+    const from = this.map;
+    const errs = this.errors;
+    setTimeout(() => {
+      if (this.map === from && this.errors === errs && !this.ac.signal.aborted) {
+        this.toast('เซิร์ฟเวอร์ไม่ตอบ (เซิร์ฟเวอร์อาจยังเป็นเวอร์ชันเก่า: อัปไฟล์ขึ้น GitLab แล้วกด Manual Deploy บน Render)', 'bad');
+      }
+    }, 8000);
+  }
+
+  /** A freshly built map: tell it about PVP (the server's message may have come before the world was ready). */
+  syncPvpWorld() {
+    this.actions.scene()?.setPvp(this.pvpInfo.on);
+    this.renderPvpBar();
+  }
+
+  /** The server says whether players can fight here (and, in the castle, the war state). */
+  pvp(info: PvpInfo) {
+    const was = this.pvpInfo.on;
+    this.pvpInfo = info;
+    this.actions.scene()?.setPvp(info.on);
+    // the castle's message carries the war clock (this can come before setMap() for the new map)
+    if (info.on && !was) this.toast(info.nextWar ? '⚔ สงครามกิลด์! ตีผู้เล่นต่างกิลด์ได้ (ชื่อสีแดง)' : '⚔ เขต PVP: ตีผู้เล่นคนอื่นได้ (ชื่อสีแดง)', 'bad');
+    this.renderPvpBar();
+  }
+
+  pvpScore(rows: PvpScore[]) {
+    this.pvpScores = rows;
+    this.renderPvpBar();
+  }
+
+  /** The bar at the top of the screen on the PVP maps: PVP on/off, the castle's holder and war clock, the arena scoreboard. */
+  private pvpTimer = 0;
+  private renderPvpBar() {
+    let bar = this.root.querySelector<HTMLElement>('#pvp-bar');
+    const show = this.map && (this.map.id === ARENA_MAP || this.map.id === CASTLE_MAP);
+    if (!show) {
+      bar?.remove();
+      clearInterval(this.pvpTimer);
+      this.pvpTimer = 0;
+      return;
+    }
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'pvp-bar';
+      bar.addEventListener('click', () => bar!.classList.toggle('open'));
+      this.root.appendChild(bar);
+    }
+    if (!this.pvpTimer) this.pvpTimer = window.setInterval(() => this.renderPvpBar(), 15000);
+    const i = this.pvpInfo;
+    const now = Date.now();
+    let head = i.on ? '<b class="war-on">⚔ PVP เปิด</b>' : '<b>🕊 ตีกันไม่ได้ตอนนี้</b>';
+    if (this.map.id === CASTLE_MAP) {
+      head += ` · 🏰 ${i.owner ? escapeHtml(i.owner) : 'ยังไม่มีผู้ครอง'}`;
+      head += i.warEnds ? ` · เหลือ ${durationText(i.warEnds - now)}` : i.nextWar ? ` · สงครามถัดไปอีก ${durationText(i.nextWar - now)}` : '';
+    }
+    const rows = this.map.id === ARENA_MAP && this.pvpScores.length
+      ? `<table>${this.pvpScores.map((r, n) => `<tr><td>${n + 1}</td><td>${escapeHtml(r.name)}${r.guild ? ` <small>[${escapeHtml(r.guild)}]</small>` : ''}</td><td>⚔${r.kills}</td><td>☠${r.deaths}</td></tr>`).join('')}</table>`
+      : this.map.id === ARENA_MAP ? '<small>ยังไม่มีใครล้มใคร</small>' : '';
+    bar.innerHTML = `<div>${head}</div>${rows ? `<div class="pvp-score">${rows}</div>` : ''}`;
+  }
+
   // ------------------------------------------------------------ misc windows
 
   private openOption() {
@@ -2286,6 +2531,7 @@ export class Hud implements WorldHooks {
       else if (e.altKey && k === 's') this.toggle('skill');
       else if (e.altKey && k === 'a') this.toggle('equip');
       else if (e.altKey && k === 'z') this.toggle('party');
+      else if (e.altKey && k === 'g') this.toggle('guild');
       else if (e.altKey && k === 'g') this.toggleGuide();
       else if (k === 'tab') this.root.querySelector('#minimap')!.classList.toggle('hidden');
       else if (k === 'insert') this.actions.scene()?.toggleSit();

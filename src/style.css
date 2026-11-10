@@ -619,3 +619,22 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
   .gd-mon { grid-template-columns: 110px 1fr; }
   .gd-mon .card-pic { height: 110px; }
 }
+
+/* ---- guilds, PVP and the guild war (2026-11-10) */
+
+.wl .gd { display: table; font-size: 11px; color: #ffd97a; white-space: nowrap; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+.wl.foe .nm { color: #ff6b6b; }
+.chat-log .gc, .chat-log .gc b { color: #ffd97a; }
+.gd-castle { color: #b8860b; font-weight: bold; margin: 2px 0 6px; }
+.war-on { color: #e53935; }
+#pvp-bar {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 15; max-width: calc(100vw - 32px);
+  background: rgba(20, 22, 34, 0.82); color: #fff; border: 1px solid #c9a24a; border-radius: 8px; padding: 5px 12px;
+  font-size: 12px; text-align: center; cursor: pointer; pointer-events: auto;
+}
+#pvp-bar .war-on { color: #ff7070; }
+#pvp-bar .pvp-score { display: none; margin-top: 4px; }
+#pvp-bar.open .pvp-score { display: block; }
+#pvp-bar table { border-collapse: collapse; margin: 0 auto; }
+#pvp-bar td { padding: 1px 6px; text-align: left; }
+#pvp-bar small { color: #ffd97a; }

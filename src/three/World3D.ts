@@ -62,6 +62,8 @@ const AUTO_HEAL_HP = 0.6;
 interface RemotePlayer {
   name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number; head: string; weapon: string; ear: string; body?: string;
   x: number; y: number; hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean; sitting: boolean; hidden?: boolean;
+  /** guild name ('' = none) */
+  guild?: string;
 }
 interface RemoteMonster { key: string; x: number; y: number; hp: number; maxHp: number; dead: boolean }
 interface RemoteState {
@@ -112,6 +114,9 @@ interface PlayerActor {
   bubble?: { el: HTMLElement; until: number };
   /** Base Lv 99: the golden aura at the feet. */
   maxAura?: THREE.Group;
+  /** the guild name shown under the name */
+  guild?: string;
+  guildEl?: HTMLElement;
 }
 
 interface MonsterActor {
@@ -131,7 +136,8 @@ interface MonsterActor {
   fade: number;
 }
 
-type Target = { kind: 'monster'; id: string } | { kind: 'npc'; npc: Npc };
+/** 'foe' = another player, in PVP. */
+type Target = { kind: 'monster'; id: string } | { kind: 'npc'; npc: Npc } | { kind: 'foe'; id: string };
 
 interface Float { el: HTMLElement; pos: THREE.Vector3; born: number; life: number; dx: number; rise: number }
 type Effect = (dt: number) => boolean; // false = finished
@@ -148,6 +154,8 @@ export class World3D {
   private map: GameMap;
   private hooks: WorldHooks;
   private partyIds = new Set<string>();
+  /** Players can fight each other on this map right now (the server's 'pvp' message). */
+  private pvp = false;
   private container: HTMLElement;
   private overlay: HTMLElement;
   private scene = new THREE.Scene();
@@ -451,6 +459,21 @@ export class World3D {
   }
 
   /** Party members on this map (session ids): their names are drawn in the party color. */
+  setPvp(on: boolean) {
+    this.pvp = on;
+    if (!on && this.target?.kind === 'foe') this.target = null;
+    for (const a of this.players.values()) a.label.el.classList.toggle('foe', on && this.hostile(a.id));
+  }
+
+  /** We may hit this player (same rules as the server: PVP on, not in our party or guild). */
+  hostile(id: string) {
+    if (!this.pvp || id === this.room.sessionId || this.partyIds.has(id)) return false;
+    const a = this.players.get(id);
+    if (!a || a.dead) return false;
+    const mine = this.me?.guild ?? '';
+    return !mine || a.guild !== mine;
+  }
+
   setParty(ids: Set<string>) {
     this.partyIds = ids;
     for (const [id, a] of this.players) a.label.el.classList.toggle('party', ids.has(id));
@@ -474,7 +497,7 @@ export class World3D {
     rig.root.add(hit);
     this.hits.push(hit);
     const [mel, melv] = monsterElement(def);
-    const label = this.makeLabel(`${def.boss ? '★ ' : ''}${escapeHtml(def.name)} <span class="lv">Lv.${def.level}</span> <span class="el" title="${ELEMENTS[mel].name} ${melv}">${ELEMENTS[mel].icon}${melv}</span>`, true);
+    const label = this.makeLabel(def.structure ? `💎 ${escapeHtml(def.name)}` : `${def.boss ? '★ ' : ''}${escapeHtml(def.name)} <span class="lv">Lv.${def.level}</span> <span class="el" title="${ELEMENTS[mel].name} ${melv}">${ELEMENTS[mel].icon}${melv}</span>`, true);
     label.el.classList.add('mon');
     if (def.boss) label.el.classList.add('boss');
     const m: MonsterActor = {
@@ -619,10 +642,16 @@ export class World3D {
       }
       if (targetsPlayer(SKILLS[this.targetingSkill])) return this.castAt(this.targetingSkill, pid ?? this.room.sessionId);
       if (mid && !this.monsters.get(mid)?.dead) return this.castAt(this.targetingSkill, mid);
+      if (pid && this.hostile(pid)) return this.castAt(this.targetingSkill, pid);
       return this.cancelTargeting();
     }
     if (mid && !this.monsters.get(mid)?.dead) {
       this.target = { kind: 'monster', id: mid };
+      this.path = [];
+      return;
+    }
+    if (pid && this.hostile(pid)) {
+      this.target = { kind: 'foe', id: pid };
       this.path = [];
       return;
     }
@@ -736,6 +765,7 @@ export class World3D {
     if (targetsMonster(skill)) {
       const t = this.target?.kind === 'monster' ? this.monsters.get(this.target.id) : undefined;
       if (t && !t.dead) return this.castAt(id, t.id);
+      if (this.target?.kind === 'foe' && this.hostile(this.target.id)) return this.castAt(id, this.target.id);
       this.startTargeting(id);
     } else if (targetsPlayer(skill)) {
       if (this.targetingSkill === id && skill.type !== 'revive') return this.castAt(id, this.room.sessionId); // press twice = self
@@ -754,7 +784,7 @@ export class World3D {
   private castAt(id: string, target: string) {
     this.cancelTargeting();
     this.pendingSkill = { id, target };
-    if (!targetsPlayer(SKILLS[id])) this.target = { kind: 'monster', id: target };
+    if (!targetsPlayer(SKILLS[id])) this.target = this.monsters.has(target) ? { kind: 'monster', id: target } : { kind: 'foe', id: target };
   }
 
   cancelTargeting() {
@@ -914,6 +944,33 @@ export class World3D {
         sfxAttack(a.cls, this.vol(a.x, a.y, a === this.me));
         this.attackFx(a, m, land);
       } else land();
+    });
+    on('phit', (msg: { by?: string; to: string; dmg: number; crit?: boolean; block?: boolean }) => {
+      // PVP: a player hit another player
+      const v = this.players.get(msg.to);
+      const a = msg.by ? this.players.get(msg.by) : undefined;
+      if (!v) return;
+      const land = () => {
+        const p = new THREE.Vector3(v.x, 1.8, v.y);
+        if (v === this.me) sfx(msg.dmg === 0 ? 'miss' : 'hurt');
+        else sfx(msg.dmg === 0 ? 'miss' : msg.crit ? 'crit' : 'hit', this.vol(v.x, v.y, a === this.me));
+        if (msg.block) this.floatText(p, 'Block', 'miss');
+        else if (msg.dmg === 0) this.floatText(p, 'Miss', 'miss');
+        else {
+          this.floatText(p, String(msg.dmg), v === this.me ? 'take' : msg.crit ? 'crit' : a === this.me ? 'deal' : 'other');
+          this.flash(v.rig.root, 0xff3333);
+        }
+      };
+      if (a) {
+        this.face(a, v.x, v.y);
+        a.attack = 1;
+        a.combat = COMBAT_TIME;
+        a.ready = READY_TIME;
+        sfxAttack(a.cls, this.vol(a.x, a.y, a === this.me));
+        this.attackFx(a, this.asTarget(v), land);
+      } else land();
+      // hit back: someone who attacks us becomes our target if we aren't doing anything
+      if (v === this.me && a && this.hostile(a.id) && !this.target && !this.path.length && msg.dmg > 0) this.target = { kind: 'foe', id: a.id };
     });
     on('mhit', (msg: { m: string; to: string; dmg: number; block?: boolean; guard?: string }) => {
       const v = this.players.get(msg.to);
@@ -1131,6 +1188,19 @@ export class World3D {
         a = undefined;
       }
       if (!a) a = this.makePlayer(id, rp);
+      if ((rp.guild ?? '') !== (a.guild ?? '')) {
+        a.guild = rp.guild ?? '';
+        a.guildEl?.remove();
+        a.guildEl = undefined;
+        if (a.guild) {
+          a.guildEl = document.createElement('span');
+          a.guildEl.className = 'gd';
+          a.guildEl.textContent = `[${a.guild}]`;
+          a.label.el.appendChild(a.guildEl);
+        }
+        if (a === this.me) for (const o of this.players.values()) o.label.el.classList.toggle('foe', this.pvp && this.hostile(o.id));
+      }
+      a.label.el.classList.toggle('foe', this.pvp && this.hostile(id));
       if (a === this.me && a.look !== lookKey(rp)) {
         // our own job change: swap the model in place (keeps the camera and our label)
         a.look = lookKey(rp);
@@ -1266,6 +1336,30 @@ export class World3D {
           }
         }
       }
+    } else if (this.target?.kind === 'foe') {
+      const f = this.players.get(this.target.id);
+      if (!f || !this.hostile(f.id)) {
+        this.target = null;
+        this.pendingSkill = null;
+      } else {
+        const skill = this.pendingSkill ? SKILLS[this.pendingSkill.id] : null;
+        const reach = (skill ? skill.range ?? 1 : CLASSES[this.session.char.cls].range) + 0.3 + 0.3;
+        const d = Math.hypot(f.x - me.x, f.y - me.y);
+        if (d > reach) {
+          if (!this.path.length || time % 400 < 20) this.walkNear(f.x, f.y, Math.max(1, reach - 0.4));
+        } else {
+          this.path = [];
+          this.face(me, f.x, f.y);
+          if (this.pendingSkill) {
+            this.room.send('skill', this.pendingSkill);
+            this.pendingSkill = null;
+            this.lastAttack = time;
+          } else if (time - this.lastAttack >= this.session.derived.attackDelay) {
+            this.lastAttack = time;
+            this.room.send('attack', { id: f.id });
+          }
+        }
+      }
     } else if (this.pendingSkill) {
       const p = state.players.get(this.pendingSkill.target ?? '');
       if (!p) this.pendingSkill = null;
@@ -1356,7 +1450,7 @@ export class World3D {
     for (const m of this.monsters.values()) {
       const def = MONSTERS[m.key];
       const targeted = this.target?.kind === 'monster' && this.target.id === m.id;
-      const named = !!def.boss || this.hoverMonster === m || targeted
+      const named = !!def.boss || !!def.structure || this.hoverMonster === m || targeted
         || (TOUCH && Math.hypot(m.x - this.me.x, m.y - this.me.y) < TOUCH_NAME_RANGE);
       const show = !m.dead && (named || m.hp < m.maxHp);
       this.place(m.label.el, new THREE.Vector3(m.x, 0, m.y), show);
@@ -1380,6 +1474,16 @@ export class World3D {
   private vol(x: number, y: number, mine: boolean) {
     if (mine) return 1;
     return Math.max(0, 1 - Math.hypot(x - this.me.x, y - this.me.y) / 14) * 0.45;
+  }
+
+  /** A player dressed up as a monster target, for the attack effects (follows them as they move). */
+  private asTarget(v: PlayerActor): MonsterActor {
+    return {
+      get x() { return v.x; },
+      get y() { return v.y; },
+      id: v.id, key: '', rig: { root: v.rig.root, body: v.rig.root, height: 1.7 } as MonsterRig,
+      dead: v.dead, hp: v.hp, maxHp: v.maxHp, phase: 0, moving: false, label: v.label, hit: v.hit, fade: 0,
+    } as unknown as MonsterActor;
   }
 
   private top(m: MonsterActor) {
@@ -1470,7 +1574,7 @@ export class World3D {
       const uy = (m.y - a.y) / d;
       // pixel effects are drawn facing right: mirror them when the target is left of the player on screen
       const flip = new THREE.Vector3(m.x, 1, m.y).project(this.camera).x < new THREE.Vector3(a.x, 1, a.y).project(this.camera).x;
-      const r = Math.min(0.5, MONSTERS[m.key].size * 0.3);
+      const r = Math.min(0.5, (MONSTERS[m.key]?.size ?? 1) * 0.3);
       const hitAt = new THREE.Vector3(m.x - ux * r, m.rig.height * 0.45, m.y - uy * r);
       const armed = a.armed !== false;
       setTimeout(() => {
@@ -1620,15 +1724,23 @@ export class World3D {
           if (!m) return;
           this.floatText(this.top(m).add(new THREE.Vector3(0, i * 0.12, 0)), String(h.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
           this.flash(m.rig.root);
-        } else if (h.p) {
-          const p = this.players.get(h.p);
-          if (p) this.floatText(new THREE.Vector3(p.x, 1.8, p.y), `+${-h.dmg}`, 'heal');
-        }
+        } else if (h.p) this.playerNumber(h.p, h.dmg, msg.by, i);
       }, 240 + i * 110);
     });
   }
 
   // ------------------------------------------------------------ drummer / guitarist / bassist / singer
+
+  /** A skill's number on a player: a heal (dmg < 0) in green, PVP damage (dmg > 0) like a hit. */
+  private playerNumber(sid: string, dmg: number, by: string, i: number, color = 0xff3333) {
+    const p = this.players.get(sid);
+    if (!p) return;
+    const at = new THREE.Vector3(p.x, 1.8 + (i % 4) * 0.1, p.y);
+    if (dmg < 0) return this.floatText(at, `+${-dmg}`, 'heal');
+    this.floatText(at, String(dmg), p === this.me ? 'take' : by === this.room.sessionId ? 'skill' : 'other');
+    this.flash(p.rig.root, color);
+    if (p === this.me) sfx('hurt');
+  }
 
   /** Class effect colour (drummer purple, bassist green, guitarist red, singer yellow). */
   private fxColor(cls: ClassKey) {
@@ -1650,7 +1762,7 @@ export class World3D {
     const d = Math.hypot(m.x - a.x, m.y - a.y) || 1;
     const ux = (m.x - a.x) / d;
     const uy = (m.y - a.y) / d;
-    const r = Math.min(0.5, MONSTERS[m.key].size * 0.3);
+    const r = Math.min(0.5, (MONSTERS[m.key]?.size ?? 1) * 0.3);
     const hitAt = () => new THREE.Vector3(m.x - ux * r, m.rig.height * 0.5, m.y - uy * r);
     if (a.cls === 'singer') {
       // the mic leaves the hand at the release and flies in an arc
@@ -1704,9 +1816,10 @@ export class World3D {
     }
     const monsterAt = (mid?: string) => {
       const m = mid ? this.monsters.get(mid) : undefined;
-      return m ? new THREE.Vector3(m.x, m.rig.height * 0.5, m.y) : new THREE.Vector3(msg.x, 0.7, msg.y);
+      const f = !m && mid ? this.players.get(mid) : undefined; // PVP: a player
+      return m ? new THREE.Vector3(m.x, m.rig.height * 0.5, m.y) : f ? new THREE.Vector3(f.x, 0.85, f.y) : new THREE.Vector3(msg.x, 0.7, msg.y);
     };
-    const target = () => monsterAt(msg.hits[0]?.m ?? msg.target);
+    const target = () => monsterAt(msg.hits[0]?.m ?? msg.hits.find((h) => h.dmg > 0)?.p ?? msg.target);
     // damage numbers: at the given time for waves, else one after another
     let numbersFrom = 240;
     let numberGap = 110;
@@ -1893,6 +2006,7 @@ export class World3D {
     msg.hits.forEach((h, i) => {
       setTimeout(() => {
         const m = h.m ? this.monsters.get(h.m) : undefined;
+        if (!m && h.p) return this.playerNumber(h.p, h.dmg, msg.by, i, c);
         if (!m) return;
         this.floatText(this.top(m).add(new THREE.Vector3(0, (i % 4) * 0.1, 0)), String(h.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
         this.flash(m.rig.root, c);
@@ -1948,10 +2062,7 @@ export class World3D {
           this.floatText(this.top(m).add(new THREE.Vector3(0, (i % 4) * 0.1, 0)), String(h.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
           this.flash(m.rig.root, 0x38d4ff);
           m.anim?.hit();
-        } else if (h.p) {
-          const p = this.players.get(h.p);
-          if (p) this.floatText(new THREE.Vector3(p.x, 1.8, p.y), `+${-h.dmg}`, 'heal');
-        }
+        } else if (h.p) this.playerNumber(h.p, h.dmg, msg.by, i, 0x38d4ff);
       }, h.at !== undefined ? h.at + 40 : skill.type === 'revive' ? 700 : 300 + i * 110);
     });
   }
@@ -2408,7 +2519,8 @@ export class World3D {
     const accent = new THREE.Color(CLASSES[skill.cls].color).getHex();
     const hitAt = (id?: string) => {
       const m = id ? this.monsters.get(id) : undefined;
-      return m ? new THREE.Vector3(m.x, m.rig.height * 0.5, m.y) : new THREE.Vector3(msg.x, 0.7, msg.y);
+      const f = !m && id ? this.players.get(id) : undefined;
+      return m ? new THREE.Vector3(m.x, m.rig.height * 0.5, m.y) : f ? new THREE.Vector3(f.x, 0.85, f.y) : new THREE.Vector3(msg.x, 0.7, msg.y);
     };
     if (skill.scale === 'distance') {
       // พุ่งแทง: a wind streak along the dash, then an X of crescents and a shockwave where the blade lands
