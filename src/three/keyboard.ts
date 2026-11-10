@@ -31,13 +31,13 @@ function tex(w: number, h: number, draw: (c: CanvasRenderingContext2D) => void) 
   return t;
 }
 
-function grille() {
-  return mat('grille', () => new THREE.MeshStandardMaterial({
+function grille(base = '#26282c', dots = '#0b0b0d') {
+  return mat(`grille${base}`, () => new THREE.MeshStandardMaterial({
     roughness: 0.8,
     map: tex(128, 128, (c) => {
-      c.fillStyle = '#26282c';
+      c.fillStyle = base;
       c.fillRect(0, 0, 128, 128);
-      c.fillStyle = '#0b0b0d';
+      c.fillStyle = dots;
       for (let y = 4; y < 128; y += 8) for (let x = (y / 8) % 2 ? 8 : 4; x < 128; x += 8) {
         c.beginPath();
         c.arc(x, y, 2.4, 0, Math.PI * 2);
@@ -71,31 +71,41 @@ function box(w: number, h: number, d: number, m: THREE.Material, x: number, y: n
   return o;
 }
 
-export function buildKeyboard(): KeyboardProp {
+/** The 4 MVP keyboards (item `shape` of keyboardist weapons). */
+export const KEYBOARD_STYLES: Record<string, { body: number; trim: number; grille: string; dots: string; keys: number; width: number; slim?: boolean }> = {
+  kb_white: { body: 0xf4f4f0, trim: 0xd8d8d2, grille: '#e6e6e0', dots: '#b8b8b0', keys: 36, width: 1.0 },
+  kb_slim: { body: 0x141416, trim: 0x2a2a2e, grille: '#1e1e22', dots: '#050505', keys: 36, width: 0.9, slim: true },
+  kb_stage: { body: 0x1a1b1f, trim: 0x55575e, grille: '#2a2c31', dots: '#0b0b0d', keys: 36, width: 1.02 },
+  kb_red: { body: 0xc8202a, trim: 0x8a1018, grille: '#a8141c', dots: '#5a0a0e', keys: 36, width: 0.92, slim: true },
+};
+
+export function buildKeyboard(styleId?: string): KeyboardProp {
+  const st = styleId ? KEYBOARD_STYLES[styleId] : undefined;
   const g = new THREE.Group();
-  const W = 0.86, D = 0.27, H = 0.06;
-  const body = std(0x17181b, 0.45);
+  const W = st ? st.width : 0.86, D = st?.slim ? 0.24 : 0.27, H = st?.slim ? 0.05 : 0.06;
+  const body = std(st ? st.body : 0x17181b, 0.45);
   // chassis with a raised back panel and a thin chrome-ish trim
   g.add(box(W, H, D, body, 0, H / 2, 0));
-  g.add(box(W - 0.01, 0.004, 0.006, std(0x6b6f78, 0.3, 0.6), 0, H - 0.002, D / 2 - 0.004));
+  g.add(box(W - 0.01, 0.004, 0.006, std(st ? st.trim : 0x6b6f78, 0.3, 0.6), 0, H - 0.002, D / 2 - 0.004));
 
   // speaker grilles at both ends
-  for (const sx of [-1, 1]) {
-    const s = box(0.085, 0.004, 0.22, grille(), sx * (W / 2 - 0.05), H + 0.001, -0.015);
+  for (const sx of st?.slim ? [] : [-1, 1]) {
+    const s = box(0.085, 0.004, D - 0.05, grille(st?.grille, st?.dots), sx * (W / 2 - 0.05), H + 0.001, -0.015);
     g.add(s);
   }
 
   // 49 keys: 29 white, black keys in the usual 2-3 groups
-  const keysW = 0.66, top = H;
-  const whiteW = keysW / 29;
+  const nWhite = st ? st.keys : 29;
+  const keysW = st ? W - (st.slim ? 0.07 : 0.2) : 0.66, top = H;
+  const whiteW = keysW / nWhite;
   const whiteMat = std(0xf6f6f2, 0.35);
   const blackMat = std(0x0c0c0e, 0.3);
   const kz = -D / 2 + 0.07; // keys run from the front lip back into the body
-  for (let i = 0; i < 29; i++) {
+  for (let i = 0; i < nWhite; i++) {
     const x = keysW / 2 - whiteW * (i + 0.5);
     g.add(box(whiteW * 0.92, 0.014, 0.125, whiteMat, x, top + 0.004, kz - 0.005));
     const n = i % 7; // C D E F G A B
-    if (i < 28 && n !== 2 && n !== 6) g.add(box(whiteW * 0.56, 0.014, 0.075, blackMat, x - whiteW / 2, top + 0.013, kz + 0.02));
+    if (i < nWhite - 1 && n !== 2 && n !== 6) g.add(box(whiteW * 0.56, 0.014, 0.075, blackMat, x - whiteW / 2, top + 0.013, kz + 0.02));
   }
   g.add(box(keysW + 0.01, 0.006, 0.012, body, 0, top + 0.012, kz + 0.064)); // felt strip behind the keys
 

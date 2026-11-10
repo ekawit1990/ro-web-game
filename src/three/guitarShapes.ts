@@ -11,12 +11,13 @@ import type { StringedProp } from './bass';
 type P = [number, number] | [number, number, 1];
 type Finish =
   | { kind: 'solid'; color: string }
+  | { kind: 'metal'; color: string }
   | { kind: 'wood'; color: string; grain: string }
   | { kind: 'burst'; stops: string[] }
   | { kind: 'flame'; color: string; light: string; edge: string }
   | { kind: 'zebra'; a: string; b: string }
   | { kind: 'band'; color: string; band: string };
-type Pickup = { x: number; type: 'single' | 'hum'; angle?: number; color?: string; frame?: string };
+type Pickup = { x: number; type: 'single' | 'hum' | 'pbass' | 'jbass' | 'soap'; angle?: number; color?: string; frame?: string };
 
 export interface GuitarShape {
   outline: P[];
@@ -27,20 +28,25 @@ export interface GuitarShape {
   binding?: string;
   guard?: { outline: P[]; mat: 'pearl' | 'white' | 'black' | 'tort' | 'cream' | 'gold' };
   pickups: Pickup[];
-  bridge: 'trem' | 'tele' | 'tom' | 'bigsby' | 'offset';
-  head: 'inline' | 'threes' | 'pointy' | 'hockey';
+  bridge: 'trem' | 'tele' | 'tom' | 'bigsby' | 'offset' | 'bass';
+  head: 'inline' | 'threes' | 'pointy' | 'hockey' | 'bassInline' | 'bassSplit';
+  /** basses: 4 or 5 strings (guitars 6) */
+  strings?: number;
+  /** nut to bridge in metres (guitars 0.73) */
+  scale?: number;
+  frets?: number;
   headColor?: string;
   board: 'maple' | 'rosewood' | 'ebony';
   gold?: boolean;
   knobs: [number, number][];
   plates?: [number, number, number, number, number][]; // x, y, w, h, rotation (chrome control plates)
   fholes?: [number, number, number][]; // x, y, rotation
+  /** block inlays instead of dots */
+  blocks?: boolean;
 }
 
 const NUT = 0.47;
-const SCALE = 0.73;
-const BRIDGE = NUT - SCALE; // -0.26
-const fretX = (n: number) => NUT - SCALE * (1 - Math.pow(2, -n / 12));
+const SCALE = 0.73; // guitars: the bridge sits at NUT - SCALE = -0.26
 
 export const GUITAR_SHAPES: Record<string, GuitarShape> = {
   stype: {
@@ -180,6 +186,67 @@ export const GUITAR_SHAPES: Record<string, GuitarShape> = {
   },
 };
 
+/** An outline scaled about the neck joint (bass bodies are guitar shapes made bigger). */
+const big = (pts: P[], k: number, ky = k): P[] => pts.map((p) => (p[2] ? [p[0] * k, p[1] * ky, 1] : [p[0] * k, p[1] * ky]));
+
+/** A modern bass body: long pointed upper horn, small treble horn. */
+const SR: P[] = [[0, 0.034], [0.06, 0.05], [0.14, 0.085], [0.19, 0.118, 1], [0.14, 0.126], [0.06, 0.12], [-0.06, 0.115], [-0.16, 0.14], [-0.27, 0.16],
+  [-0.37, 0.145], [-0.43, 0.08], [-0.445, 0], [-0.425, -0.09], [-0.36, -0.15], [-0.25, -0.16], [-0.14, -0.13], [-0.06, -0.115], [0.02, -0.1],
+  [0.065, -0.085, 1], [0.03, -0.055], [0, -0.034]];
+
+/** The 6 MVP basses (item `shape` of bassist weapons). */
+export const BASS_SHAPES: Record<string, GuitarShape> = {
+  mikro: {
+    outline: big(SR, 0.88, 1.02), strings: 4, scale: 0.726, thick: 1.05,
+    finish: { kind: 'wood', color: '#5e3c22', grain: '#3a2212' }, side: '#3a2212',
+    pickups: [{ x: -0.12, type: 'pbass', color: '#141414' }, { x: -0.205, type: 'jbass', color: '#141414' }],
+    bridge: 'bass', head: 'bassSplit', headColor: '#111', board: 'rosewood',
+    knobs: [[-0.285, -0.085], [-0.31, -0.1], [-0.335, -0.112]],
+  },
+  pbass: {
+    outline: big(GUITAR_SHAPES.stype.outline, 1.22), strings: 4, scale: 0.864, thick: 1.1,
+    finish: { kind: 'burst', stops: ['#f4bb4a', '#c8561c', '#5e220c', '#2c0e06'] }, side: '#2a0e06',
+    guard: { mat: 'white', outline: big([[0, 0.036], [0.06, 0.058], [0.07, 0.09], [0.02, 0.112], [-0.08, 0.1], [-0.14, 0.11], [-0.2, 0.09], [-0.22, 0.03],
+      [-0.25, -0.05], [-0.3, -0.11], [-0.22, -0.13], [-0.1, -0.11], [-0.01, -0.06], [0, -0.036]], 1.22) },
+    pickups: [{ x: -0.24, type: 'pbass', color: '#141414' }],
+    bridge: 'bass', head: 'bassInline', board: 'rosewood',
+    knobs: [[-0.42, -0.1], [-0.46, -0.115]],
+    plates: [[-0.44, -0.11, 0.1, 0.034, 0.25]],
+  },
+  jag_short: {
+    outline: big(GUITAR_SHAPES.offset.outline, 1.02), strings: 4, scale: 0.762, frets: 19,
+    finish: { kind: 'metal', color: '#c9cdd3' }, side: '#a8adb4',
+    guard: { mat: 'black', outline: big(GUITAR_SHAPES.offset.guard!.outline, 1.02) },
+    pickups: [{ x: -0.16, type: 'pbass', color: '#141414' }, { x: -0.245, type: 'jbass', color: '#141414' }],
+    bridge: 'bass', head: 'bassInline', headColor: '#111', board: 'rosewood',
+    knobs: [[-0.35, -0.12], [-0.385, -0.115], [-0.33, -0.14]],
+    plates: [[-0.36, -0.125, 0.12, 0.034, 0.3]],
+  },
+  sr: {
+    outline: big(SR, 1.1, 1.22), strings: 4, scale: 0.864, thick: 0.95,
+    finish: { kind: 'burst', stops: ['#f6c464', '#d08a30', '#7a3a10', '#3a1806'] }, side: '#3a1806',
+    pickups: [{ x: -0.22, type: 'soap', color: '#141414' }, { x: -0.32, type: 'soap', color: '#141414' }],
+    bridge: 'bass', head: 'bassSplit', headColor: '#2a1a0e', board: 'rosewood',
+    knobs: [[-0.4, -0.11], [-0.43, -0.125], [-0.38, -0.14], [-0.41, -0.15]],
+  },
+  jazz5: {
+    outline: big(GUITAR_SHAPES.offset.outline, 1.15), strings: 5, scale: 0.864, thick: 1.1,
+    finish: { kind: 'wood', color: '#e9d2a2', grain: '#c8a46a' }, side: '#c8a46a',
+    guard: { mat: 'black', outline: big(GUITAR_SHAPES.offset.guard!.outline, 1.15) },
+    pickups: [{ x: -0.2, type: 'jbass', color: '#141414' }, { x: -0.33, type: 'jbass', color: '#141414' }],
+    bridge: 'bass', head: 'bassInline', board: 'maple', blocks: true,
+    knobs: [[-0.43, -0.135], [-0.465, -0.125], [-0.5, -0.11]],
+    plates: [[-0.465, -0.125, 0.12, 0.034, 0.3]],
+  },
+  sire5: {
+    outline: big(SR, 1.13, 1.25), strings: 5, scale: 0.889, thick: 1.0,
+    finish: { kind: 'wood', color: '#1d5f8e', grain: '#0b3658' }, side: '#0b3658',
+    pickups: [{ x: -0.24, type: 'soap', color: '#141414' }, { x: -0.34, type: 'soap', color: '#141414' }],
+    bridge: 'bass', head: 'bassSplit', headColor: '#1d5f8e', board: 'maple', blocks: true,
+    knobs: [[-0.42, -0.11], [-0.45, -0.125], [-0.42, -0.15], [-0.45, -0.165]],
+  },
+};
+
 // ---------------------------------------------------------------- materials
 
 const mats = new Map<string, THREE.Material>();
@@ -220,6 +287,7 @@ function rng(seed: number) {
 
 function finishMat(id: string, s: GuitarShape): THREE.Material {
   const f = s.finish;
+  if (f.kind === 'metal') return mat(`metal${f.color}`, () => new THREE.MeshPhysicalMaterial({ color: f.color, metalness: 0.75, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.1 }));
   if (f.kind === 'solid') return mat(`solid${f.color}`, () => new THREE.MeshPhysicalMaterial({ color: f.color, roughness: 0.26, clearcoat: 1, clearcoatRoughness: 0.06 }));
   return canvasTex(`fin_${id}`, 512, 368, (g, w, h) => {
     const r = rng(7);
@@ -427,7 +495,17 @@ function fhole(g: THREE.Group, x: number, y: number, rot: number, z: number) {
 // ---------------------------------------------------------------- the guitar
 
 export function buildShaped(s: GuitarShape): StringedProp {
-  const id = Object.keys(GUITAR_SHAPES).find((k) => GUITAR_SHAPES[k] === s)!;
+  const id = Object.keys(GUITAR_SHAPES).find((k) => GUITAR_SHAPES[k] === s) ?? 'b_' + Object.keys(BASS_SHAPES).find((k) => BASS_SHAPES[k] === s);
+  const N = s.strings ?? 6;
+  const bass = N < 6;
+  const SC = s.scale ?? SCALE;
+  const BRIDGE = NUT - SC;
+  const fretX = (n: number) => NUT - SC * (1 - Math.pow(2, -n / 12));
+  const FRETS = s.frets ?? (bass ? 20 : 22);
+  // string spread at the nut and the bridge, and each string's offset across the neck (thickest on +Y)
+  const nutHalf = bass ? (N === 5 ? 0.0175 : 0.0145) : 0.018;
+  const brHalf = bass ? (N === 5 ? 0.034 : 0.029) : 0.026;
+  const across = (i: number, half: number) => -half + (2 * half * i) / (N - 1);
   const g = new THREE.Group();
   const T = 0.036 * (s.thick ?? 1); // body thickness
   const bodyShape = shapeOf(s.outline);
@@ -447,8 +525,8 @@ export function buildShaped(s: GuitarShape): StringedProp {
   for (const [x, y, r] of s.fholes ?? []) fhole(g, x, y, r, face - 0.0005);
 
   // neck and fretboard
-  const boardEnd = fretX(22.4);
-  const wNut = 0.043, wHeel = 0.056;
+  const boardEnd = fretX(FRETS + 0.4);
+  const wNut = bass ? (N === 5 ? 0.047 : 0.042) : 0.043, wHeel = bass ? (N === 5 ? 0.072 : 0.062) : 0.056;
   const heelX = boardEnd;
   const widthAt = (x: number) => wHeel + (wNut - wHeel) * ((x - heelX) / (NUT - heelX));
   const tapered = (x0: number, x1: number, d: number, m: THREE.Material, z: number) => {
@@ -466,15 +544,15 @@ export function buildShaped(s: GuitarShape): StringedProp {
   g.add(tapered(heelX, NUT, 0.022, neckWood, face + 0.004));
   g.add(tapered(boardEnd, NUT, 0.006, boardMat, face + 0.018));
   const boardTop = face + 0.021;
-  for (let n = 1; n <= 22; n++) {
+  for (let n = 1; n <= FRETS; n++) {
     const x = fretX(n);
     g.add(box(0.0018, widthAt(x) * 0.97, 0.002, chrome(), x, 0, boardTop + 0.0008));
   }
-  for (const n of [3, 5, 7, 9, 12, 15, 17, 19, 21]) {
+  for (const n of [3, 5, 7, 9, 12, 15, 17, 19, 21].filter((n) => n <= FRETS)) {
     const x = (fretX(n) + fretX(n - 1)) / 2;
     const ys = n === 12 ? [-0.012, 0.012] : [0];
     for (const y of ys) {
-      if (s.board === 'ebony' || s.head === 'pointy') g.add(box(0.012, widthAt(x) * 0.8, 0.0006, std(0xf4f1ea, 0, 0.3), x, 0, boardTop + 0.0002)); // block inlays
+      if (s.blocks || s.board === 'ebony' || s.head === 'pointy') g.add(box(0.012, widthAt(x) * 0.8, 0.0006, std(0xf4f1ea, 0, 0.3), x, 0, boardTop + 0.0002)); // block inlays
       else g.add(cyl(0.0035, 0.001, dotMat, x, y, boardTop + 0.0002, 'z', 10));
     }
   }
@@ -496,6 +574,29 @@ export function buildShaped(s: GuitarShape): StringedProp {
       posts.push(new THREE.Vector3(x, -w, headTop), new THREE.Vector3(x, w, headTop));
       keys.push([new THREE.Vector3(x, -w, headZ), -1], [new THREE.Vector3(x, w, headZ), 1]);
     }
+  } else if (s.head === 'bassSplit') {
+    // basses: tuners split across both sides (2+2, or 3+2 for five strings)
+    const up = Math.ceil(N / 2), down = N - up;
+    headPts = [[NUT - 0.002, -0.022], [NUT + 0.06, -0.04], [NUT + 0.17, -0.05], [NUT + 0.2, -0.03], [NUT + 0.205, 0.0], [NUT + 0.2, 0.034], [NUT + 0.17, 0.052], [NUT + 0.06, 0.042], [NUT - 0.002, 0.022]];
+    for (let i = 0; i < up; i++) {
+      const x = NUT + 0.05 + i * (0.12 / Math.max(1, up - 1));
+      posts.push(new THREE.Vector3(x, 0.03, headTop));
+      keys.push([new THREE.Vector3(x, 0.03, headZ), 1]);
+    }
+    for (let i = 0; i < down; i++) {
+      const x = NUT + 0.05 + i * (0.12 / Math.max(1, down - 1));
+      posts.push(new THREE.Vector3(x, -0.028, headTop));
+      keys.push([new THREE.Vector3(x, -0.028, headZ), -1]);
+    }
+  } else if (s.head === 'bassInline') {
+    // the long bass headstock, all tuners on the upper side
+    headPts = [[NUT - 0.002, -0.022], [NUT - 0.002, 0.022], [NUT + 0.05, 0.034], [NUT + 0.13, 0.05], [NUT + 0.22, 0.066], [NUT + 0.255, 0.05], [NUT + 0.25, 0.01], [NUT + 0.16, -0.012], [NUT + 0.06, -0.028]];
+    for (let i = 0; i < N; i++) {
+      const x = NUT + 0.05 + i * (0.19 / (N - 1));
+      const y = 0.026 + i * 0.006;
+      posts.push(new THREE.Vector3(x, y, headTop));
+      keys.push([new THREE.Vector3(x, y, headZ), 1]);
+    }
   } else {
     const pointy = s.head === 'pointy' || s.head === 'hockey';
     headPts = s.head === 'pointy'
@@ -514,10 +615,10 @@ export function buildShaped(s: GuitarShape): StringedProp {
   for (const [p, side] of keys) {
     g.add(cyl(0.0045, 0.02, hw(s), p.x, p.y, headTop + 0.008 - 0.0 * side));
     g.add(cyl(0.008, 0.004, hw(s), p.x, p.y, headTop + 0.001));
-    const key = new THREE.Mesh(new THREE.SphereGeometry(0.011, 12, 8), hw(s));
-    key.scale.set(1, 0.55, 0.32);
-    key.position.set(p.x, p.y + side * 0.03, headZ);
-    g.add(key, rod(p, new THREE.Vector3(p.x, p.y + side * 0.024, headZ), 0.0028, hw(s)));
+    const key = new THREE.Mesh(new THREE.SphereGeometry(bass ? 0.018 : 0.011, 12, 8), hw(s));
+    key.scale.set(bass ? 0.8 : 1, 0.55, 0.32);
+    key.position.set(p.x, p.y + side * (bass ? 0.04 : 0.03), headZ);
+    g.add(key, rod(p, new THREE.Vector3(p.x, p.y + side * (bass ? 0.03 : 0.024), headZ), bass ? 0.004 : 0.0028, hw(s)));
   }
 
   // pickups
@@ -531,6 +632,17 @@ export function buildShaped(s: GuitarShape): StringedProp {
       const cover = box(0.017, 0.074, 0.012, col, 0, 0, 0.006);
       grp.add(cover);
       for (let i = 0; i < 6; i++) grp.add(cyl(0.0022, 0.002, chrome(), 0, -0.026 + i * 0.0104, 0.0125, 'z', 8));
+    } else if (pu.type === 'pbass') {
+      // split pickup: two halves, offset along the neck
+      for (const [dx, y] of [[0.006, 0.022], [-0.006, -0.022]]) {
+        grp.add(box(0.022, 0.046, 0.014, col, dx, y, 0.007));
+        for (const py of [-0.01, 0.01]) grp.add(cyl(0.0028, 0.002, chrome(), dx, y + py, 0.0145, 'z', 8));
+      }
+    } else if (pu.type === 'jbass') {
+      grp.add(box(0.02, 0.098, 0.014, col, 0, 0, 0.007));
+      for (let i = 0; i < 2 * N; i++) grp.add(cyl(0.0022, 0.002, chrome(), 0, -0.04 + (i * 0.08) / (2 * N - 1), 0.0145, 'z', 8));
+    } else if (pu.type === 'soap') {
+      grp.add(box(0.036, 0.094, 0.015, col, 0, 0, 0.0075));
     } else {
       grp.add(box(0.044, 0.084, 0.006, std(pu.frame ?? '#111', 0, 0.4), 0, 0, 0.003));
       grp.add(box(0.036, 0.072, 0.012, col, 0, 0, 0.006));
@@ -567,6 +679,13 @@ export function buildShaped(s: GuitarShape): StringedProp {
       tail = bx + 0.03;
       tailZ = face + 0.018;
     }
+  } else if (s.bridge === 'bass') {
+    // heavy bass bridge plate with one saddle per string
+    g.add(box(0.075, 0.036 + 2 * brHalf, 0.004, H, BRIDGE - 0.03, 0, face + 0.002));
+    g.add(box(0.008, 0.036 + 2 * brHalf, 0.014, H, BRIDGE - 0.066, 0, face + 0.007));
+    for (let i = 0; i < N; i++) g.add(box(0.022, (2 * brHalf) / N * 0.8, 0.011, H, BRIDGE - 0.006, across(i, brHalf), face + 0.008));
+    tail = BRIDGE - 0.062;
+    tailZ = face + 0.009;
   } else {
     // floating bridge + vibrato plate (offset guitars)
     g.add(box(0.012, 0.075, 0.012, H, BRIDGE, 0, face + 0.008));
@@ -581,14 +700,17 @@ export function buildShaped(s: GuitarShape): StringedProp {
   }
 
   // strings: thickest on +Y
-  for (let i = 0; i < 6; i++) {
-    const f = i / 5;
-    const a = new THREE.Vector3(NUT, -0.018 + 0.036 * f, boardTop + 0.004);
-    const b = new THREE.Vector3(tail, -0.026 + 0.052 * f, tailZ);
-    const bridge = new THREE.Vector3(BRIDGE, -0.026 + 0.052 * f, face + 0.016);
+  for (let i = 0; i < N; i++) {
+    const f = i / (N - 1);
+    const a = new THREE.Vector3(NUT, across(i, nutHalf), boardTop + 0.004);
+    const b = new THREE.Vector3(tail, across(i, brHalf), tailZ);
+    const bridge = new THREE.Vector3(BRIDGE, across(i, brHalf), face + 0.016);
     // threes: treble strings to the posts on the -Y side; inline: string 0 (thin) goes to the far post
-    const post = s.head === 'threes' ? posts[[0, 2, 4, 5, 3, 1][i]] : posts[5 - i];
-    const r = 0.0004 + 0.0005 * f;
+    const up = Math.ceil(N / 2);
+    const post = s.head === 'threes' ? posts[[0, 2, 4, 5, 3, 1][i]]
+      : s.head === 'bassSplit' ? (i >= N - up ? posts[i - (N - up)] : posts[up + (N - up - 1 - i)])
+        : posts[N - 1 - i];
+    const r = bass ? 0.0009 + 0.0009 * f : 0.0004 + 0.0005 * f;
     g.add(rod(a, bridge, r, stringMat()), rod(a, post, r, stringMat()));
     if (tail !== BRIDGE - 0.004) g.add(rod(bridge, b, r, stringMat()));
   }
@@ -604,9 +726,9 @@ export function buildShaped(s: GuitarShape): StringedProp {
     if (p[0] < tailPt[0] || (p[0] === tailPt[0] && Math.abs(p[1]) < Math.abs(tailPt[1]))) tailPt = p;
   }
   const grip = new THREE.Object3D();
-  grip.position.set(fretX(6), -0.03, face + 0.01);
+  grip.position.set(fretX(bass ? 5 : 6), -0.03, face + 0.01);
   const pluck = new THREE.Object3D();
-  pluck.position.set(-0.16, 0.06, face + 0.045);
+  pluck.position.set(bass ? BRIDGE + 0.17 : -0.16, 0.06, face + 0.045);
   g.add(grip, pluck);
   g.userData.strapPins = [new THREE.Vector3(horn[0] - 0.01, horn[1] - 0.01, T / 2), new THREE.Vector3(tailPt[0] + 0.008, tailPt[1] * 0.5, T / 2)];
   return { group: g, grip, pluck };

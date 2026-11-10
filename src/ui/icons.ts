@@ -2,7 +2,9 @@ import { ITEMS } from '../data';
 import * as THREE from 'three';
 import { buildCharacter, setEar, type CharRig, type Look } from '../three/models';
 import { animateRig, buildVrmCharacter, releaseVrm } from '../three/vrm';
-import { GUITAR_SHAPES } from '../three/guitarShapes';
+import { BASS_SHAPES, GUITAR_SHAPES } from '../three/guitarShapes';
+import { STICK_STYLES } from '../three/sticks';
+import { KEYBOARD_STYLES } from '../three/keyboard';
 
 const cache = new Map<string, string>();
 
@@ -47,8 +49,47 @@ export function itemIcon(id: string): string {
     for (let y = 21; y <= 26; y += 2.5) c.fillRect(9, y, 14, 1);
     c.fillStyle = '#e0b21f';
     c.fillRect(21, 3, 4, 4);
-  } else if (item?.shape && GUITAR_SHAPES[item.shape]) {
+  } else if (item?.shape && (GUITAR_SHAPES[item.shape] || BASS_SHAPES[item.shape])) {
     guitarIcon(c, item.shape, item.color);
+  } else if (item?.shape && STICK_STYLES[item.shape]) {
+    mvpGlow(c);
+    for (const [x, a] of [[12, -0.35], [20, 0.35]] as const) {
+      c.save();
+      c.translate(x, 17);
+      c.rotate(a);
+      c.fillStyle = STICK_STYLES[item.shape].color;
+      c.fillRect(-1.6, -9, 3.2, 22);
+      c.fillStyle = '#e3c18f';
+      c.beginPath();
+      c.moveTo(-1.6, -9);
+      c.lineTo(-0.7, -14);
+      c.lineTo(0.7, -14);
+      c.lineTo(1.6, -9);
+      c.fill();
+      c.beginPath();
+      c.arc(0, -14.5, 1.3, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
+    }
+  } else if (item?.shape && KEYBOARD_STYLES[item.shape]) {
+    mvpGlow(c);
+    const k = KEYBOARD_STYLES[item.shape];
+    c.fillStyle = '#' + k.body.toString(16).padStart(6, '0');
+    c.fillRect(2, 10, 28, 13);
+    c.strokeStyle = '#555';
+    c.lineWidth = 0.6;
+    c.strokeRect(2, 10, 28, 13);
+    c.fillStyle = '#fafafa';
+    c.fillRect(5, 15, 22, 7);
+    c.fillStyle = '#111';
+    for (let i = 0; i < 10; i++) if (i % 7 !== 2 && i % 7 !== 6) c.fillRect(6.6 + i * 2.2, 15, 1.2, 4);
+    c.strokeStyle = '#bbb';
+    for (let i = 0; i <= 10; i++) {
+      c.beginPath();
+      c.moveTo(5 + i * 2.2, 15);
+      c.lineTo(5 + i * 2.2, 22);
+      c.stroke();
+    }
   } else if (item?.type === 'consumable' && !EMOJI[id]) {
     // potion bottle in the item's colour
     c.fillStyle = '#d9d9d9';
@@ -148,27 +189,33 @@ function render(cv: HTMLCanvasElement, rig: CharRig, dir: 'f' | 'b' | number, ar
 }
 
 /** MVP guitars: the body outline of that guitar, neck up to the top-right, with a gold MVP glow. */
-function guitarIcon(c: CanvasRenderingContext2D, shape: string, color: string) {
-  const sh = GUITAR_SHAPES[shape];
-  c.save();
+function mvpGlow(c: CanvasRenderingContext2D) {
   const glow = c.createRadialGradient(16, 16, 2, 16, 16, 16);
   glow.addColorStop(0, 'rgba(255,215,80,0.55)');
   glow.addColorStop(1, 'rgba(255,215,80,0)');
   c.fillStyle = glow;
   c.fillRect(0, 0, 32, 32);
+}
+
+function guitarIcon(c: CanvasRenderingContext2D, shape: string, color: string) {
+  const bass = !GUITAR_SHAPES[shape];
+  const sh = GUITAR_SHAPES[shape] ?? BASS_SHAPES[shape];
+  c.save();
+  mvpGlow(c);
   // guitar frame -> icon: neck along +X, rotated so the headstock points to the top-right
-  c.translate(13, 19);
+  c.translate(bass ? 12 : 13, bass ? 20 : 19);
   c.rotate(-Math.PI / 4);
-  const k = 30;
+  const k = bass ? 25 : 30;
+  const neck = bass ? 0.75 : 0.62;
   c.fillStyle = '#8a5a2a';
-  c.fillRect(0, -1.3, 0.62 * k, 2.6);
+  c.fillRect(0, -1.3, neck * k, 2.6);
   c.fillStyle = '#222';
-  c.fillRect(0.62 * k, -1.8, 0.1 * k, 3.6);
+  c.fillRect(neck * k, -1.8, 0.1 * k, 3.6);
   c.beginPath();
   sh.outline.forEach(([x, y], i) => (i ? c.lineTo(x * k, -y * k) : c.moveTo(x * k, -y * k)));
   c.closePath();
   const fin = sh.finish;
-  c.fillStyle = fin.kind === 'solid' || fin.kind === 'wood' || fin.kind === 'flame' ? fin.color : fin.kind === 'burst' ? fin.stops[1] : fin.kind === 'zebra' ? fin.a : fin.color;
+  c.fillStyle = fin.kind === 'solid' || fin.kind === 'metal' || fin.kind === 'wood' || fin.kind === 'flame' ? fin.color : fin.kind === 'burst' ? fin.stops[1] : fin.kind === 'zebra' ? fin.a : fin.color;
   if (fin.kind === 'solid') c.fillStyle = color;
   c.fill();
   c.lineWidth = 1;

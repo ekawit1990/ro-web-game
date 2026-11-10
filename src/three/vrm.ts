@@ -6,6 +6,7 @@ import { HAIR_COLORS, ITEMS, type ClassKey } from '../data';
 import { animateCharacter, buildDagger, setHat, type CharRig, type Look } from './models';
 import { buildStringed } from './bass';
 import { buildKeyboard } from './keyboard';
+import { STICK_STYLES, buildStick } from './sticks';
 import { mesh, toon } from './toon';
 import { PHONE } from './device';
 import { track } from '../ui/loadProgress';
@@ -496,7 +497,7 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
   rig.root.userData.vrmFace = EXPRESSIONS[look.face] ?? 'neutral';
   rig.root.userData.vrmFile = file;
   rig.root.userData.outfit = dressed ? look.outfit : '';
-  if (look.cls) rig.root.userData.gear = attachInstrument(vrm, look.cls, 1 / (HEIGHT / h), v0, look.guitar);
+  if (look.cls) rig.root.userData.gear = attachInstrument(vrm, look.cls, 1 / (HEIGHT / h), v0, look.gear);
   rig.root.userData.cls = look.cls;
   setHat(rig, hat);
   return rig;
@@ -610,7 +611,7 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean, shape
   } else if (cls === 'drummer' && handR && handL) {
     const pieces: Piece[] = [];
     for (const [h, side] of [[handR, -1], [handL, 1]] as const) {
-      const stick = mesh(new THREE.CylinderGeometry(0.014, 0.02, 0.4, 8), toon('#e3c18f'));
+      const stick = shape && STICK_STYLES[shape] ? buildStick(shape) : mesh(new THREE.CylinderGeometry(0.014, 0.02, 0.4, 8), toon('#e3c18f'));
       stick.scale.setScalar(s * 0.9);
       stick.position.set(side * 0.08 * s, 0, 0.12 * s);
       stick.rotation.x = Math.PI / 2;
@@ -623,7 +624,7 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean, shape
   } else if (cls === 'guitarist' || cls === 'bassist') {
     // slung low across the body on a strap: body at the right hip, neck rising to the left
     const bass = cls === 'bassist';
-    const inst = buildStringed(bass ? 'bass' : 'guitar', bass ? undefined : shape);
+    const inst = buildStringed(bass ? 'bass' : 'guitar', shape);
     const hang = new THREE.Group();
     hang.add(inst.group);
     hang.scale.setScalar((bass ? 0.95 : 1) * fit);
@@ -659,7 +660,7 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean, shape
     };
   } else if (cls === 'keyboardist') {
     // held flat in front of the waist, hands resting on the keys
-    const kb = buildKeyboard();
+    const kb = buildKeyboard(shape);
     kb.group.scale.setScalar(fit);
     kb.group.position.set(0, -0.36 * fit, 0.3 * fit);
     kb.group.rotation.x = 0.12;

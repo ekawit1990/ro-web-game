@@ -3816,6 +3816,330 @@
    },
    "desc": "กีตาร์ทรงหนามแหลมรอบตัว สีดำลวดลายขาว ของรางวัลสูงสุดจากจักรพรรดิภูเขาไฟ โจมตีเป็นธาตุมืด (ดรอปจากบอส MVP จักรพรรดิภูเขาไฟเมทัล)",
    "element": "shadow"
+  },
+  "stk_pink": {
+   "name": "ไม้กลองสีชมพู \"ซากุระบีต\"",
+   "type": "weapon",
+   "atk": 44,
+   "price": 4000,
+   "classes": [
+    "drummer"
+   ],
+   "color": "#f27aa6",
+   "weight": 70,
+   "slots": 1,
+   "shape": "stick_pink",
+   "mvp": true,
+   "bonus": {
+    "agi": 2,
+    "luk": 2
+   },
+   "desc": "ไม้กลองคู่สีชมพูหวาน หัวไม้ธรรมชาติ ตีเบาๆ แต่จังหวะแม่น โจมตีเป็นธาตุศักดิ์สิทธิ์ (ดรอปจากบอส MVP ราชาเห็ดเสียงเพี้ยน)",
+   "element": "holy"
+  },
+  "stk_green": {
+   "name": "ไม้กลองสีเขียว \"ใบไม้ไหว\"",
+   "type": "weapon",
+   "atk": 48,
+   "price": 4000,
+   "classes": [
+    "drummer"
+   ],
+   "color": "#8fdc6a",
+   "weight": 70,
+   "slots": 1,
+   "shape": "stick_green",
+   "mvp": true,
+   "bonus": {
+    "agi": 3,
+    "aspd": 2
+   },
+   "desc": "ไม้กลองคู่สีเขียวอ่อน เบาเหมือนใบไม้ ตีรัวได้เร็ว โจมตีเป็นธาตุลม (ดรอปจากบอส MVP ราชาเห็ดป่าโบราณ)",
+   "element": "wind"
+  },
+  "stk_blue": {
+   "name": "ไม้กลองสีฟ้า \"คลื่นน้ำใส\"",
+   "type": "weapon",
+   "atk": 52,
+   "price": 4000,
+   "classes": [
+    "drummer"
+   ],
+   "color": "#56c2ee",
+   "weight": 70,
+   "slots": 1,
+   "shape": "stick_blue",
+   "mvp": true,
+   "bonus": {
+    "dex": 3,
+    "hit": 5
+   },
+   "desc": "ไม้กลองคู่สีฟ้าน้ำทะเล จังหวะลื่นไหลเหมือนคลื่น โจมตีเป็นธาตุน้ำ (ดรอปจากบอส MVP ราชาฉลามบึงทุ้ม)",
+   "element": "water"
+  },
+  "stk_red": {
+   "name": "ไม้กลองสีแดง \"เพลิงร็อก\"",
+   "type": "weapon",
+   "atk": 58,
+   "price": 4000,
+   "classes": [
+    "drummer"
+   ],
+   "color": "#e8361f",
+   "weight": 70,
+   "slots": 1,
+   "shape": "stick_red",
+   "mvp": true,
+   "bonus": {
+    "str": 3,
+    "crit": 3
+   },
+   "desc": "ไม้กลองคู่สีแดงเพลิง ตีแรงจนกลองแทบลุกเป็นไฟ โจมตีเป็นธาตุไฟ (ดรอปจากบอส MVP มังกรร็อกแอนด์โรล)",
+   "element": "fire"
+  },
+  "stk_purple": {
+   "name": "ไม้กลองสีม่วง \"วิญญาณลาเวนเดอร์\"",
+   "type": "weapon",
+   "atk": 88,
+   "price": 4000,
+   "classes": [
+    "drummer"
+   ],
+   "color": "#c7a2ec",
+   "weight": 70,
+   "slots": 1,
+   "shape": "stick_purple",
+   "mvp": true,
+   "bonus": {
+    "agi": 4,
+    "aspd": 3
+   },
+   "desc": "ไม้กลองคู่สีม่วงลาเวนเดอร์ ได้ยินเสียงสะท้อนจากอีกภพ โจมตีเป็นธาตุวิญญาณ (ดรอปจากบอส MVP ราชินีบันชีเสียงกรีดร้อง)",
+   "element": "ghost"
+  },
+  "stk_black": {
+   "name": "ไม้กลองดำกากเพชร \"ราตรีระยิบ\"",
+   "type": "weapon",
+   "atk": 96,
+   "price": 4000,
+   "classes": [
+    "drummer"
+   ],
+   "color": "#1c1c22",
+   "weight": 70,
+   "slots": 1,
+   "shape": "stick_black",
+   "mvp": true,
+   "bonus": {
+    "str": 4,
+    "atkPct": 8
+   },
+   "desc": "ไม้กลองคู่สีดำโรยกากเพชรระยิบระยับ ของหายากจากราชาไร้บัลลังก์ โจมตีเป็นธาตุมืด (ดรอปจากบอส MVP ราชาไร้บัลลังก์แห่งโอเปร่า)",
+   "element": "shadow"
+  },
+  "kbd_red": {
+   "name": "คีย์บอร์ดสีแดง \"เปลวเพลง\"",
+   "type": "weapon",
+   "atk": 22,
+   "price": 4000,
+   "classes": [
+    "keyboardist"
+   ],
+   "color": "#c8202a",
+   "weight": 70,
+   "slots": 1,
+   "shape": "kb_red",
+   "mvp": true,
+   "bonus": {
+    "int": 3,
+    "matkPct": 4
+   },
+   "desc": "คีย์บอร์ดตัวบางสีแดงสด ลำโพงในตัว เสียงร้อนแรง โจมตีเป็นธาตุไฟ (ดรอปจากบอส MVP จอมมารหน้ากากเมทัล)",
+   "matk": 72,
+   "element": "fire"
+  },
+  "kbd_white": {
+   "name": "คีย์บอร์ดสีขาว \"เปียโนเมฆ\"",
+   "type": "weapon",
+   "atk": 24,
+   "price": 4000,
+   "classes": [
+    "keyboardist"
+   ],
+   "color": "#f4f4f0",
+   "weight": 70,
+   "slots": 1,
+   "shape": "kb_white",
+   "mvp": true,
+   "bonus": {
+    "int": 3,
+    "maxSpPct": 8
+   },
+   "desc": "เปียโนไฟฟ้าสีขาว 61 คีย์ ลำโพงสองข้าง เสียงนุ่มใส โจมตีเป็นธาตุน้ำ (ดรอปจากบอส MVP ราชันย์หมึกยักษ์ซาวด์เวฟ)",
+   "matk": 78,
+   "element": "water"
+  },
+  "kbd_slim": {
+   "name": "คีย์บอร์ดสีดำ \"สลิมไนท์\"",
+   "type": "weapon",
+   "atk": 27,
+   "price": 4000,
+   "classes": [
+    "keyboardist"
+   ],
+   "color": "#141416",
+   "weight": 70,
+   "slots": 1,
+   "shape": "kb_slim",
+   "mvp": true,
+   "bonus": {
+    "int": 4,
+    "dex": 2
+   },
+   "desc": "คีย์บอร์ดสีดำตัวบางเบา พกพาง่าย เสียงหนักแน่น โจมตีเป็นธาตุดิน (ดรอปจากบอส MVP ราชาคริสตัลเสียงก้อง)",
+   "matk": 86,
+   "element": "earth"
+  },
+  "kbd_stage": {
+   "name": "คีย์บอร์ดสเตจ \"แกรนด์ราตรี\"",
+   "type": "weapon",
+   "atk": 32,
+   "price": 4000,
+   "classes": [
+    "keyboardist"
+   ],
+   "color": "#1a1b1f",
+   "weight": 70,
+   "slots": 1,
+   "shape": "kb_stage",
+   "mvp": true,
+   "bonus": {
+    "int": 5,
+    "matkPct": 8
+   },
+   "desc": "เปียโนไฟฟ้าตัวใหญ่สำหรับขึ้นเวที สีดำขลิบเงิน เสียงยิ่งใหญ่ โจมตีเป็นธาตุมืด (ดรอปจากบอส MVP ราชาไร้บัลลังก์แห่งโอเปร่า)",
+   "matk": 102,
+   "element": "shadow"
+  },
+  "bss_mikro": {
+   "name": "เบสจิ๋ว \"วอลนัท\"",
+   "type": "weapon",
+   "atk": 45,
+   "price": 4000,
+   "classes": [
+    "bassist"
+   ],
+   "color": "#5e3c22",
+   "weight": 70,
+   "slots": 1,
+   "shape": "mikro",
+   "mvp": true,
+   "bonus": {
+    "agi": 2,
+    "vit": 2
+   },
+   "desc": "เบสสเกลสั้นตัวเล็ก ไม้วอลนัท หัว 2+2 ถือง่ายฟาดคล่อง โจมตีเป็นธาตุดิน (ดรอปจากบอส MVP ราชาเห็ดเสียงเพี้ยน)",
+   "element": "earth"
+  },
+  "bss_pbass": {
+   "name": "เบสคลาสสิก \"ซันเบิร์สต์\"",
+   "type": "weapon",
+   "atk": 52,
+   "price": 4000,
+   "classes": [
+    "bassist"
+   ],
+   "color": "#c8561c",
+   "weight": 70,
+   "slots": 1,
+   "shape": "pbass",
+   "mvp": true,
+   "bonus": {
+    "vit": 3,
+    "maxHpPct": 5
+   },
+   "desc": "เบส 4 สายทรงคลาสสิก ปิ๊กอัพแยกคู่ ลายซันเบิร์สต์ เสียงทุ้มหนา โจมตีเป็นธาตุน้ำ (ดรอปจากบอส MVP ราชาฉลามบึงทุ้ม)",
+   "element": "water"
+  },
+  "bss_sr": {
+   "name": "เบสเขายาว \"อำพัน\"",
+   "type": "weapon",
+   "atk": 58,
+   "price": 4000,
+   "classes": [
+    "bassist"
+   ],
+   "color": "#d08a30",
+   "weight": 70,
+   "slots": 1,
+   "shape": "sr",
+   "mvp": true,
+   "bonus": {
+    "str": 3,
+    "crit": 3
+   },
+   "desc": "เบสตัวบางเขายาวแหลม สีอำพันไล่เฉด เบามือ โจมตีเป็นธาตุไฟ (ดรอปจากบอส MVP มังกรร็อกแอนด์โรล)",
+   "element": "fire"
+  },
+  "bss_jag_short": {
+   "name": "เบสออฟเซ็ตสั้น \"เงินจันทร์\"",
+   "type": "weapon",
+   "atk": 64,
+   "price": 4000,
+   "classes": [
+    "bassist"
+   ],
+   "color": "#c9cdd3",
+   "weight": 70,
+   "slots": 1,
+   "shape": "jag_short",
+   "mvp": true,
+   "bonus": {
+    "agi": 3,
+    "aspd": 2
+   },
+   "desc": "เบสสเกลสั้นทรงเอวเบี้ยว สีเงินเมทัลลิก ปิ๊กการ์ดดำ โจมตีเป็นธาตุลม (ดรอปจากบอส MVP ราชินีหิมะโซปราโน)",
+   "element": "wind"
+  },
+  "bss_jazz5": {
+   "name": "เบส 5 สาย \"ไม้แอชทอง\"",
+   "type": "weapon",
+   "atk": 84,
+   "price": 4000,
+   "classes": [
+    "bassist"
+   ],
+   "color": "#e9d2a2",
+   "weight": 70,
+   "slots": 1,
+   "shape": "jazz5",
+   "mvp": true,
+   "bonus": {
+    "vit": 4,
+    "maxHpPct": 8
+   },
+   "desc": "เบส 5 สายไม้แอชสีธรรมชาติ คอเมเปิลอินเลย์บล็อก เสียงคมชัด โจมตีเป็นธาตุดิน (ดรอปจากบอส MVP ราชาคริสตัลเสียงก้อง)",
+   "element": "earth"
+  },
+  "bss_sire5": {
+   "name": "เบส 5 สาย \"มหาสมุทรลึก\"",
+   "type": "weapon",
+   "atk": 108,
+   "price": 4000,
+   "classes": [
+    "bassist"
+   ],
+   "color": "#1d5f8e",
+   "weight": 70,
+   "slots": 1,
+   "shape": "sire5",
+   "mvp": true,
+   "bonus": {
+    "str": 5,
+    "atkPct": 8
+   },
+   "desc": "เบส 5 สายสเกลยาวสีน้ำเงินลายไม้ ของรางวัลสูงสุดจากจักรพรรดิภูเขาไฟ โจมตีเป็นธาตุมืด (ดรอปจากบอส MVP จักรพรรดิภูเขาไฟเมทัล)",
+   "element": "shadow"
   }
  },
  "shop": [
@@ -4471,6 +4795,14 @@
     [
      "gtr_offset_mini",
      0.08
+    ],
+    [
+     "stk_pink",
+     0.08
+    ],
+    [
+     "bss_mikro",
+     0.08
     ]
    ],
    "boss": true,
@@ -4676,6 +5008,10 @@
     [
      "gtr_ttype",
      0.08
+    ],
+    [
+     "stk_green",
+     0.08
     ]
    ],
    "model": "Big_MushroomKing",
@@ -4879,6 +5215,14 @@
     ],
     [
      "gtr_thinline",
+     0.08
+    ],
+    [
+     "stk_blue",
+     0.08
+    ],
+    [
+     "bss_pbass",
      0.08
     ]
    ],
@@ -5132,6 +5476,14 @@
     ],
     [
      "gtr_doublehorn",
+     0.08
+    ],
+    [
+     "stk_red",
+     0.08
+    ],
+    [
+     "bss_sr",
      0.08
     ]
    ],
@@ -5393,6 +5745,10 @@
     ],
     [
      "gtr_offset",
+     0.08
+    ],
+    [
+     "bss_jag_short",
      0.08
     ]
    ],
@@ -5662,6 +6018,10 @@
     ],
     [
      "gtr_stype",
+     0.08
+    ],
+    [
+     "kbd_red",
      0.08
     ]
    ],
@@ -7254,6 +7614,10 @@
     [
      "gtr_flametop",
      0.08
+    ],
+    [
+     "kbd_white",
+     0.08
     ]
    ],
    "glow": "#5a3cff",
@@ -7612,6 +7976,14 @@
     [
      "gtr_arrow",
      0.08
+    ],
+    [
+     "kbd_slim",
+     0.08
+    ],
+    [
+     "bss_jazz5",
+     0.08
     ]
    ],
    "glow": "#7fd8ff",
@@ -7963,6 +8335,10 @@
     ],
     [
      "gtr_hollow",
+     0.08
+    ],
+    [
+     "stk_purple",
      0.08
     ]
    ],
@@ -8339,6 +8715,14 @@
     ],
     [
      "gtr_singlecut",
+     0.08
+    ],
+    [
+     "stk_black",
+     0.08
+    ],
+    [
+     "kbd_stage",
      0.08
     ]
    ],
@@ -8738,6 +9122,10 @@
     ],
     [
      "gtr_spike",
+     0.08
+    ],
+    [
+     "bss_sire5",
      0.08
     ]
    ],

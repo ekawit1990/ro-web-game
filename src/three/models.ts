@@ -12,8 +12,8 @@ export interface Look extends Appearance {
   body?: string; // NPC outfit colour
   /** Worn outfit: a VRoid model file that replaces the character's own model (see ItemDef.vrm). */
   outfit?: string;
-  /** Guitarists: the body shape of the equipped MVP guitar (ItemDef.shape), '' = the standard guitar. */
-  guitar?: string;
+  /** The look of the equipped MVP instrument (ItemDef.shape: guitar/bass body, stick colour, keyboard style), '' = the standard one. */
+  gear?: string;
 }
 
 export interface CharRig {
