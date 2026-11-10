@@ -5,7 +5,7 @@ WORKDIR /app
 COPY server/package.json server/package-lock.json ./server/
 RUN cd server && npm ci --omit=dev
 COPY src/data ./src/data
-COPY src/game/maps.ts ./src/game/maps.ts
+COPY src/game ./src/game
 COPY src/services/localStore.ts src/services/store.ts src/services/supabaseStore.ts ./src/services/
 COPY server/src ./server/src
 WORKDIR /app/server
