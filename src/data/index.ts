@@ -135,6 +135,8 @@ export interface ItemDef {
   bonus?: CardBonus;
   /** MVP guitars: the body shape the guitarist carries (see src/three/guitarShapes.ts). */
   shape?: string;
+  /** Music hats (2026-11-10): the 3D hat built in src/three/hats.ts. */
+  hat?: { kind: string; c: string[]; v?: string };
   /** Drops only from MVP bosses (shown in the item window). */
   mvp?: boolean;
   /** Weapons: the element of your attacks. Armour: your defence element. */

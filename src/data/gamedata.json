@@ -4197,6 +4197,1476 @@
    },
    "desc": "เบส 5 สายสเกลยาวสีน้ำเงินลายไม้ ของรางวัลสูงสุดจากจักรพรรดิภูเขาไฟ โจมตีเป็นธาตุมืด (ดรอปจากบอส MVP จักรพรรดิภูเขาไฟเมทัล)",
    "element": "shadow"
+  },
+  "hat_note_cap": {
+   "name": "หมวกแก๊ปโน้ตแดง",
+   "type": "head",
+   "def": 1,
+   "price": 230,
+   "color": "#e53935",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "dex": 1
+   },
+   "hat": {
+    "kind": "cap",
+    "c": [
+     "#e53935",
+     "#fafafa",
+     "#ffd600"
+    ]
+   },
+   "desc": "หมวกแก๊ปสีแดงปักตัวโน้ตสีทอง ของคนเพิ่งเริ่มเล่นดนตรี (ดรอปจากเจลลี่โน้ต Lv 1, ไม่มีขายในร้าน)"
+  },
+  "hat_mint_beanie": {
+   "name": "บีนนี่มินต์ป๊อป",
+   "type": "head",
+   "def": 1,
+   "price": 260,
+   "color": "#7fd8be",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "agi": 1
+   },
+   "hat": {
+    "kind": "beanie",
+    "c": [
+     "#7fd8be",
+     "#4db6ac",
+     "#ffffff"
+    ]
+   },
+   "desc": "หมวกไหมพรมสีมินต์มีปอมปอม ใส่แล้วอารมณ์ดีเหมือนเพลงป๊อป (ดรอปจากวุ้นเขียวบีท Lv 2, ไม่มีขายในร้าน)"
+  },
+  "hat_cat_band": {
+   "name": "คาดผมหูแมวฮัมเพลง",
+   "type": "head",
+   "def": 1,
+   "price": 260,
+   "color": "#ff9f43",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "agi": 1
+   },
+   "hat": {
+    "kind": "ears",
+    "c": [
+     "#ff9f43",
+     "#ffe0c2",
+     "#6d4c41"
+    ],
+    "v": "cat"
+   },
+   "desc": "คาดผมหูแมวสีส้ม ได้ยินเสียงฮัมเพลงไกลขึ้น (ดรอปจากแมวส้มฮัมเพลง Lv 2, ไม่มีขายในร้าน)"
+  },
+  "hat_chick": {
+   "name": "ลูกเจี๊ยบนักร้องบนหัว",
+   "type": "head",
+   "def": 1,
+   "price": 290,
+   "color": "#ffe066",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "luk": 1
+   },
+   "hat": {
+    "kind": "critter",
+    "c": [
+     "#ffe066",
+     "#ff9800",
+     "#ff7043"
+    ],
+    "v": "chick"
+   },
+   "desc": "ลูกเจี๊ยบตัวน้อยนั่งร้องเพลงอยู่บนหัว ไม่ยอมลงง่าย ๆ (ดรอปจากไก่น้อยร้องเพลง Lv 3, ไม่มีขายในร้าน)"
+  },
+  "hat_beat_bandana": {
+   "name": "ผ้าโพกหัวบีทบ็อกซ์",
+   "type": "head",
+   "def": 1,
+   "price": 290,
+   "color": "#1e88e5",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "str": 1
+   },
+   "hat": {
+    "kind": "bandana",
+    "c": [
+     "#1e88e5",
+     "#ffffff"
+    ]
+   },
+   "desc": "ผ้าโพกหัวลายจุดของนักบีทบ็อกซ์ข้างถนน (ดรอปจากหมาน้อยบีทบ็อกซ์ Lv 3, ไม่มีขายในร้าน)"
+  },
+  "hat_mushroom": {
+   "name": "หมวกเห็ดเงียบ",
+   "type": "head",
+   "def": 1,
+   "price": 320,
+   "color": "#c62828",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "vit": 1
+   },
+   "hat": {
+    "kind": "mushroom",
+    "c": [
+     "#c62828",
+     "#fff8e1",
+     "#ffd54f"
+    ]
+   },
+   "desc": "หมวกทรงดอกเห็ดแดงจุดขาว ใส่แล้วเสียงรอบตัวเบาลง (ดรอปจากเห็ดเงียบ Lv 4, ไม่มีขายในร้าน)"
+  },
+  "hat_bunny_band": {
+   "name": "คาดผมหูกระต่ายจังหวะ",
+   "type": "head",
+   "def": 1,
+   "price": 350,
+   "color": "#fafafa",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "agi": 1
+   },
+   "hat": {
+    "kind": "ears",
+    "c": [
+     "#fafafa",
+     "#f8bbd0",
+     "#ec407a"
+    ],
+    "v": "bunny"
+   },
+   "desc": "คาดผมหูกระต่ายยาว กระดิกตามจังหวะเพลง (ดรอปจากกระต่ายจังหวะ Lv 5, ไม่มีขายในร้าน)"
+  },
+  "hat_spring_notes": {
+   "name": "คาดผมสปริงตัวโน้ต",
+   "type": "head",
+   "def": 1,
+   "price": 380,
+   "color": "#7e57c2",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "dex": 1
+   },
+   "hat": {
+    "kind": "antenna",
+    "c": [
+     "#7e57c2",
+     "#ff4081",
+     "#40c4ff"
+    ]
+   },
+   "desc": "คาดผมมีสปริงสองเส้น ปลายเป็นตัวโน้ตเด้งดึ๋งทุกก้าว (ดรอปจากนกพิราบป๊อป Lv 6, ไม่มีขายในร้าน)"
+  },
+  "hat_bee_beanie": {
+   "name": "บีนนี่ลายผึ้งหึ่ง",
+   "type": "head",
+   "def": 1,
+   "price": 410,
+   "color": "#ffca28",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "agi": 1
+   },
+   "hat": {
+    "kind": "beanie",
+    "c": [
+     "#ffca28",
+     "#212121",
+     "#212121"
+    ],
+    "v": "stripes"
+   },
+   "desc": "หมวกไหมพรมลายเหลืองดำ ได้ยินเสียงหึ่งเบา ๆ ตลอดเวลา (ดรอปจากผึ้งเสียงหึ่ง Lv 7, ไม่มีขายในร้าน)"
+  },
+  "hat_frog": {
+   "name": "หมวกกบเบส",
+   "type": "head",
+   "def": 1,
+   "price": 440,
+   "color": "#66bb6a",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "vit": 1
+   },
+   "hat": {
+    "kind": "critter",
+    "c": [
+     "#66bb6a",
+     "#1b5e20",
+     "#26c6da"
+    ],
+    "v": "frog"
+   },
+   "desc": "กบเบสตัวกลมนั่งบนหัว ร้องอ๊บด้วยเสียงทุ้มต่ำ (ดรอปจากกบเบส Lv 8, ไม่มีขายในร้าน)"
+  },
+  "hat_bat_wings": {
+   "name": "ปีกค้างคาวโซนิค",
+   "type": "head",
+   "def": 2,
+   "price": 500,
+   "color": "#4a3b5c",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "agi": 1
+   },
+   "hat": {
+    "kind": "wings",
+    "c": [
+     "#4a3b5c",
+     "#212121"
+    ]
+   },
+   "desc": "ปีกค้างคาวคู่เล็กติดคาดผม รับคลื่นเสียงสะท้อนได้ไว (ดรอปจากค้างคาวโซนิค Lv 10, ไม่มีขายในร้าน)"
+  },
+  "hat_owl_beret": {
+   "name": "เบเรต์นกฮูกเบสทุ้ม",
+   "type": "head",
+   "def": 2,
+   "price": 530,
+   "color": "#3949ab",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "int": 1
+   },
+   "hat": {
+    "kind": "beret",
+    "c": [
+     "#3949ab",
+     "#ffd54f"
+    ]
+   },
+   "desc": "เบเรต์สีน้ำเงินกลัดเข็มตัวโน้ต สไตล์นักดนตรีแจ๊สยามดึก (ดรอปจากนกฟ้าเบสทุ้ม Lv 11, ไม่มีขายในร้าน)"
+  },
+  "hat_flower_chorus": {
+   "name": "มงกุฎดอกไม้คอรัส",
+   "type": "head",
+   "def": 2,
+   "price": 590,
+   "color": "#f48fb1",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "int": 1,
+    "vit": 1
+   },
+   "hat": {
+    "kind": "flowers",
+    "c": [
+     "#f48fb1",
+     "#fff59d",
+     "#ffffff"
+    ]
+   },
+   "desc": "มงกุฎดอกไม้สีหวาน ร้องประสานเสียงได้กลมกล่อมขึ้น (ดรอปจากภูตเถาวัลย์คอรัส Lv 13, ไม่มีขายในร้าน)"
+  },
+  "hat_wizard_note": {
+   "name": "หมวกพ่อมดโน้ตม่วง",
+   "type": "head",
+   "def": 2,
+   "price": 590,
+   "color": "#5e35b1",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "int": 1,
+    "dex": 1
+   },
+   "hat": {
+    "kind": "witch",
+    "c": [
+     "#5e35b1",
+     "#ffd54f",
+     "#ffeb3b"
+    ]
+   },
+   "desc": "หมวกปลายแหลมสีม่วงประดับดาวและตัวโน้ต ร่ายเพลงเวทย์คล่องขึ้น (ดรอปจากพ่อมดน้อยโน้ตม่วง Lv 13, ไม่มีขายในร้าน)"
+  },
+  "hat_metronome_top": {
+   "name": "หมวกทรงสูงเมโทรนอม",
+   "type": "head",
+   "def": 2,
+   "price": 620,
+   "color": "#263238",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "dex": 1,
+    "agi": 1
+   },
+   "hat": {
+    "kind": "tophat",
+    "c": [
+     "#263238",
+     "#c62828",
+     "#8d6e63"
+    ],
+    "v": "metronome"
+   },
+   "desc": "หมวกทรงสูงติดเมโทรนอมจิ๋ว ตีจังหวะได้แม่นยำ (ดรอปจากกลับลูกตุ้มจังหวะ Lv 14, ไม่มีขายในร้าน)"
+  },
+  "hat_tuba_bell": {
+   "name": "หมวกปากแตรทูบา",
+   "type": "head",
+   "def": 2,
+   "price": 620,
+   "color": "#e0b040",
+   "weight": 40,
+   "slots": 1,
+   "bonus": {
+    "vit": 1,
+    "str": 1
+   },
+   "hat": {
+    "kind": "horn",
+    "c": [
+     "#e0b040",
+     "#8d6e1f",
+     "#cfd8dc"
+    ]
+   },
+   "desc": "ปากแตรทูบาทองเหลืองใส่เป็นหมวก ดังทุกครั้งที่ลมพัด (ดรอปจากปลาทูบาบึง Lv 14, ไม่มีขายในร้าน)"
+  },
+  "hat_ninja_band": {
+   "name": "ผ้าคาดหัวนินจาเงา",
+   "type": "head",
+   "def": 2,
+   "price": 620,
+   "color": "#263238",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "agi": 1,
+    "str": 1
+   },
+   "hat": {
+    "kind": "bandana",
+    "c": [
+     "#263238",
+     "#b0bec5",
+     "#ff5252"
+    ],
+    "v": "plate"
+   },
+   "desc": "ผ้าคาดหัวนินจามีแผ่นเหล็กสลักโน้ต ก้าวเท้าเงียบไม่มีเสียง (ดรอปจากนินจาเงาไม้ Lv 14, ไม่มีขายในร้าน)"
+  },
+  "hat_jazz_fedora": {
+   "name": "เฟดอร่าแจ๊ส",
+   "type": "head",
+   "def": 2,
+   "price": 650,
+   "color": "#5d4037",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "dex": 1,
+    "luk": 1
+   },
+   "hat": {
+    "kind": "fedora",
+    "c": [
+     "#5d4037",
+     "#212121",
+     "#ff7043"
+    ]
+   },
+   "desc": "หมวกเฟดอร่าของนักแซกโซโฟนแจ๊ส เสียบขนนกสีส้ม (ดรอปจากปลาหมึกบินแจ๊ส Lv 15, ไม่มีขายในร้าน)"
+  },
+  "hat_alien_goggles": {
+   "name": "แว่นกันลมเอเลี่ยน",
+   "type": "head",
+   "def": 2,
+   "price": 650,
+   "color": "#5d4037",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "dex": 1,
+    "int": 1
+   },
+   "hat": {
+    "kind": "goggles",
+    "c": [
+     "#5d4037",
+     "#76ff03",
+     "#37474f"
+    ]
+   },
+   "desc": "แว่นกันลมเลนส์เขียวเรืองแสง มองเห็นคลื่นเสียงเป็นสี (ดรอปจากเอเลี่ยนเถาวัลย์บึง Lv 15, ไม่มีขายในร้าน)"
+  },
+  "hat_viking_drum": {
+   "name": "หมวกไวกิ้งกลองศึก",
+   "type": "head",
+   "def": 2,
+   "price": 680,
+   "color": "#9e9e9e",
+   "weight": 40,
+   "slots": 1,
+   "bonus": {
+    "str": 1,
+    "vit": 1
+   },
+   "hat": {
+    "kind": "viking",
+    "c": [
+     "#9e9e9e",
+     "#795548",
+     "#fff3e0"
+    ]
+   },
+   "desc": "หมวกเหล็กมีเขาโค้ง ของนักตีกลองศึกในบึง (ดรอปจากออร์คโคลนบึง Lv 16, ไม่มีขายในร้าน)"
+  },
+  "hat_mariachi": {
+   "name": "ซอมเบรโรมาเรียชี",
+   "type": "head",
+   "def": 2,
+   "price": 710,
+   "color": "#e8c070",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "vit": 1,
+    "luk": 1
+   },
+   "hat": {
+    "kind": "cowboy",
+    "c": [
+     "#e8c070",
+     "#c62828",
+     "#43a047"
+    ],
+    "v": "sombrero"
+   },
+   "desc": "หมวกปีกกว้างสุด ๆ ของวงมาเรียชี กันแดดทะเลทรายได้ทั้งวง (ดรอปจากกระบองเพชรมาเรียชี Lv 17, ไม่มีขายในร้าน)"
+  },
+  "hat_cowboy_solo": {
+   "name": "หมวกคาวบอยโซโล",
+   "type": "head",
+   "def": 2,
+   "price": 740,
+   "color": "#8d6e63",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "str": 1,
+    "dex": 1
+   },
+   "hat": {
+    "kind": "cowboy",
+    "c": [
+     "#8d6e63",
+     "#3e2723",
+     "#ffd54f"
+    ]
+   },
+   "desc": "หมวกคาวบอยปีกงอน ใส่แล้วอยากเล่นโซโลกีตาร์กลางทุ่ง (ดรอปจากไดโนหอนโซโล Lv 18, ไม่มีขายในร้าน)"
+  },
+  "hat_ngob": {
+   "name": "งอบนักร้องลูกทุ่ง",
+   "type": "head",
+   "def": 2,
+   "price": 740,
+   "color": "#d7b36a",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "vit": 1,
+    "agi": 1
+   },
+   "hat": {
+    "kind": "ngob",
+    "c": [
+     "#d7b36a",
+     "#8d6e3c"
+    ]
+   },
+   "desc": "งอบสานไม้ไผ่ของนักร้องลูกทุ่ง กันแดดเวลาร้องเพลงกลางทุ่ง (ดรอปจากอัลปาคิงทะเลทราย Lv 18, ไม่มีขายในร้าน)"
+  },
+  "hat_party_cone": {
+   "name": "หมวกปาร์ตี้ตัวโน้ต",
+   "type": "head",
+   "def": 2,
+   "price": 770,
+   "color": "#ab47bc",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "luk": 1,
+    "agi": 1
+   },
+   "hat": {
+    "kind": "party",
+    "c": [
+     "#ab47bc",
+     "#ffeb3b",
+     "#00e5ff"
+    ]
+   },
+   "desc": "หมวกกรวยปาร์ตี้ลายทาง ใส่ไปงานคอนเสิร์ตวันเกิด (ดรอปจากกระบองเพชรจิ๋วหมวกปีก Lv 19, ไม่มีขายในร้าน)"
+  },
+  "hat_tribal_plume": {
+   "name": "มงกุฎขนนกกลองเผ่า",
+   "type": "head",
+   "def": 3,
+   "price": 800,
+   "color": "#e65100",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "str": 1,
+    "vit": 1
+   },
+   "hat": {
+    "kind": "flowers",
+    "c": [
+     "#e65100",
+     "#ffb300",
+     "#4e342e"
+    ],
+    "v": "laurel"
+   },
+   "desc": "มงกุฎใบไม้และขนนกของนักรบตีกลองเผ่า (ดรอปจากนักรบหน้ากากกลอง Lv 20, ไม่มีขายในร้าน)"
+  },
+  "hat_yeti_beanie": {
+   "name": "บีนนี่ขนเยติ",
+   "type": "head",
+   "def": 3,
+   "price": 830,
+   "color": "#eceff1",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "vit": 1,
+    "int": 1
+   },
+   "hat": {
+    "kind": "beanie",
+    "c": [
+     "#eceff1",
+     "#90a4ae",
+     "#ffffff"
+    ]
+   },
+   "desc": "หมวกไหมพรมขนฟูสีขาว อุ่นจนร้องเพลงได้กลางพายุหิมะ (ดรอปจากเยติน้อยคอรัส Lv 21, ไม่มีขายในร้าน)"
+  },
+  "hat_samurai": {
+   "name": "หมวกเกราะซามูไรคอร์ด",
+   "type": "head",
+   "def": 3,
+   "price": 830,
+   "color": "#37474f",
+   "weight": 40,
+   "slots": 1,
+   "bonus": {
+    "str": 1,
+    "dex": 1
+   },
+   "hat": {
+    "kind": "viking",
+    "c": [
+     "#37474f",
+     "#b71c1c",
+     "#ffd54f"
+    ],
+    "v": "samurai"
+   },
+   "desc": "หมวกเกราะซามูไรประดับพระจันทร์เสี้ยวสีทอง (ดรอปจากซามูไรดาบคอร์ด Lv 21, ไม่มีขายในร้าน)"
+  },
+  "hat_ice_tiara": {
+   "name": "ทีอาร่าน้ำแข็งเสียงสูง",
+   "type": "head",
+   "def": 3,
+   "price": 860,
+   "color": "#b3e5fc",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "int": 1,
+    "dex": 1
+   },
+   "hat": {
+    "kind": "tiara",
+    "c": [
+     "#b3e5fc",
+     "#4fc3f7",
+     "#ffffff"
+    ]
+   },
+   "desc": "ทีอาร่าน้ำแข็งใส ส่งเสียงกังวานเวลาร้องโน้ตสูง (ดรอปจากนกน้ำแข็งเสียงสูง Lv 22, ไม่มีขายในร้าน)"
+  },
+  "hat_santa_bell": {
+   "name": "หมวกซานต้าระฆังเงิน",
+   "type": "head",
+   "def": 3,
+   "price": 920,
+   "color": "#d32f2f",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "luk": 2,
+    "vit": 1
+   },
+   "hat": {
+    "kind": "santa",
+    "c": [
+     "#d32f2f",
+     "#ffffff",
+     "#ffd54f"
+    ]
+   },
+   "desc": "หมวกแดงขอบขาวห้อยกระดิ่ง ร้องเพลงคริสต์มาสได้ทั้งปี (ดรอปจากเยติเบสหนัก Lv 24, ไม่มีขายในร้าน)"
+  },
+  "hat_flame_crown": {
+   "name": "มงกุฎเปลวเมทัล",
+   "type": "head",
+   "def": 3,
+   "price": 980,
+   "color": "#ff5722",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "str": 2,
+    "dex": 1
+   },
+   "hat": {
+    "kind": "flamecrown",
+    "c": [
+     "#ff5722",
+     "#ffca28",
+     "#3e2723"
+    ]
+   },
+   "desc": "มงกุฎเปลวไฟลุกโชน ร้อนแรงเหมือนริฟฟ์เมทัล (ดรอปจากค้างคาวเพลิงเมทัล Lv 26, ไม่มีขายในร้าน)"
+  },
+  "hat_pumpkin": {
+   "name": "หมวกฟักทองร็อก",
+   "type": "head",
+   "def": 3,
+   "price": 1010,
+   "color": "#ff8f00",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "luk": 2,
+    "int": 1
+   },
+   "hat": {
+    "kind": "pumpkin",
+    "c": [
+     "#ff8f00",
+     "#33691e",
+     "#ffeb3b"
+    ]
+   },
+   "desc": "ฟักทองแกะสลักหน้ายิ้ม ส่องแสงในคอนเสิร์ตกลางคืน (ดรอปจากวิญญาณกะโหลกร็อก Lv 27, ไม่มีขายในร้าน)"
+  },
+  "hat_devil_horns": {
+   "name": "เขาปีศาจเมทัล",
+   "type": "head",
+   "def": 3,
+   "price": 1040,
+   "color": "#b71c1c",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "str": 2,
+    "luk": 1
+   },
+   "hat": {
+    "kind": "horns",
+    "c": [
+     "#b71c1c",
+     "#212121"
+    ]
+   },
+   "desc": "คาดผมเขาปีศาจคู่ ชูมือเมทัลแล้วยิ่งดูโหด (ดรอปจากปีศาจตรีศูลเมทัล Lv 28, ไม่มีขายในร้าน)"
+  },
+  "hat_punk_spikes": {
+   "name": "คาดผมหนามพังก์",
+   "type": "head",
+   "def": 4,
+   "price": 1100,
+   "color": "#212121",
+   "weight": 40,
+   "slots": 1,
+   "bonus": {
+    "str": 2,
+    "agi": 1
+   },
+   "hat": {
+    "kind": "mohawk",
+    "c": [
+     "#212121",
+     "#e91e63",
+     "#cfd8dc"
+    ]
+   },
+   "desc": "คาดผมหนามตั้งเป็นแนวโมฮอว์ก ของวงพังก์ใต้ดิน (ดรอปจากออร์คกะโหลกเมทัล Lv 30, ไม่มีขายในร้าน)"
+  },
+  "hat_synth_cloud": {
+   "name": "เมฆโน้ตลอยฟ้า",
+   "type": "head",
+   "def": 4,
+   "price": 1130,
+   "color": "#ffffff",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "int": 2,
+    "luk": 1
+   },
+   "hat": {
+    "kind": "cloud",
+    "c": [
+     "#ffffff",
+     "#7c4dff",
+     "#00b0ff"
+    ]
+   },
+   "desc": "ก้อนเมฆน้อยลอยเหนือหัว โปรยตัวโน้ตลงมาแทนฝน (ดรอปจากแมงกะพรุนซินธ์ Lv 31, ไม่มีขายในร้าน)"
+  },
+  "hat_captain": {
+   "name": "หมวกกัปตันวงดุริยางค์",
+   "type": "head",
+   "def": 4,
+   "price": 1160,
+   "color": "#fafafa",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "dex": 2,
+    "vit": 1
+   },
+   "hat": {
+    "kind": "captain",
+    "c": [
+     "#fafafa",
+     "#1a237e",
+     "#ffd54f"
+    ]
+   },
+   "desc": "หมวกกัปตันสีขาวติดตราโน้ตทอง นำวงดุริยางค์เรือ (ดรอปจากปลาหอยสังข์บีท Lv 32, ไม่มีขายในร้าน)"
+  },
+  "hat_gull_tricorn": {
+   "name": "หมวกสามมุมนางนวล",
+   "type": "head",
+   "def": 4,
+   "price": 1220,
+   "color": "#3e2723",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "agi": 2,
+    "dex": 1
+   },
+   "hat": {
+    "kind": "tricorn",
+    "c": [
+     "#3e2723",
+     "#ffd54f",
+     "#ffffff"
+    ]
+   },
+   "desc": "หมวกสามมุมของนักร้องเพลงกะลาสี (ดรอปจากนกนางนวลเสียงแหลม Lv 34, ไม่มีขายในร้าน)"
+  },
+  "hat_reggae_beanie": {
+   "name": "บีนนี่เร็กเก้",
+   "type": "head",
+   "def": 4,
+   "price": 1250,
+   "color": "#2e7d32",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "luk": 2,
+    "vit": 1
+   },
+   "hat": {
+    "kind": "beanie",
+    "c": [
+     "#2e7d32",
+     "#ffeb3b",
+     "#e53935"
+    ],
+    "v": "rasta"
+   },
+   "desc": "หมวกไหมพรมแถบเขียวเหลืองแดง ฟังเร็กเก้แล้วชิลล์ (ดรอปจากกบโต้คลื่นเร็กเก้ Lv 35, ไม่มีขายในร้าน)"
+  },
+  "hat_dj_goggles": {
+   "name": "แว่นดีเจพายุ",
+   "type": "head",
+   "def": 4,
+   "price": 1310,
+   "color": "#212121",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "dex": 2,
+    "agi": 2
+   },
+   "hat": {
+    "kind": "goggles",
+    "c": [
+     "#212121",
+     "#e040fb",
+     "#455a64"
+    ],
+    "v": "dj"
+   },
+   "desc": "แว่นดีเจเลนส์ชมพูนีออน คุมเพลงกลางพายุได้ไม่สะดุด (ดรอปจากหมึกพายุดีเจ Lv 37, ไม่มีขายในร้าน)"
+  },
+  "hat_speaker": {
+   "name": "หมวกลำโพงเบสหนัก",
+   "type": "head",
+   "def": 4,
+   "price": 1370,
+   "color": "#263238",
+   "weight": 40,
+   "slots": 1,
+   "bonus": {
+    "vit": 2,
+    "str": 2
+   },
+   "hat": {
+    "kind": "speaker",
+    "c": [
+     "#263238",
+     "#546e7a",
+     "#90a4ae"
+    ]
+   },
+   "desc": "ลำโพงตู้เล็กวางบนหัว เบสแน่นจนพื้นสะเทือน (ดรอปจากปะการังเบสหนัก Lv 39, ไม่มีขายในร้าน)"
+  },
+  "hat_crystal_band": {
+   "name": "มงกุฎคริสตัลค้างคาว",
+   "type": "head",
+   "def": 5,
+   "price": 1430,
+   "color": "#7e57c2",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "int": 2,
+    "agi": 2
+   },
+   "hat": {
+    "kind": "crown",
+    "c": [
+     "#7e57c2",
+     "#b388ff",
+     "#e1bee7"
+    ],
+    "v": "crystal"
+   },
+   "desc": "มงกุฎแท่งคริสตัลสีม่วงที่สะท้อนเสียงก้องถ้ำ (ดรอปจากค้างคาวคริสตัลก้อง Lv 41, ไม่มีขายในร้าน)"
+  },
+  "hat_echo_halo": {
+   "name": "วงแหวนเสียงสะท้อน",
+   "type": "head",
+   "def": 5,
+   "price": 1490,
+   "color": "#b2ff59",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "int": 2,
+    "luk": 2
+   },
+   "hat": {
+    "kind": "halo",
+    "c": [
+     "#b2ff59",
+     "#69f0ae"
+    ],
+    "v": "echo"
+   },
+   "desc": "วงแหวนเรืองแสงลอยเหนือหัว แผ่คลื่นเสียงออกเป็นวง (ดรอปจากสไลม์เสียงสะท้อน Lv 43, ไม่มีขายในร้าน)"
+  },
+  "hat_gem_turban": {
+   "name": "ผ้าโพกอัญมณีเบส",
+   "type": "head",
+   "def": 5,
+   "price": 1580,
+   "color": "#00897b",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "vit": 2,
+    "int": 2,
+    "maxHp": 138
+   },
+   "hat": {
+    "kind": "turban",
+    "c": [
+     "#00897b",
+     "#ffd54f",
+     "#e53935"
+    ]
+   },
+   "desc": "ผ้าโพกหัวพันหลายชั้นประดับทับทิม ของนักเบสพเนจร (ดรอปจากโกเลมอัญมณีเบส Lv 46, ไม่มีขายในร้าน)"
+  },
+  "hat_snare": {
+   "name": "หมวกกลองแสนร์",
+   "type": "head",
+   "def": 5,
+   "price": 1640,
+   "color": "#c62828",
+   "weight": 40,
+   "slots": 1,
+   "bonus": {
+    "str": 3,
+    "agi": 2,
+    "maxHp": 144
+   },
+   "hat": {
+    "kind": "drum",
+    "c": [
+     "#c62828",
+     "#fafafa",
+     "#e3c18f"
+    ]
+   },
+   "desc": "กลองแสนร์ใบจิ๋วบนหัวพร้อมไม้กลองไขว้ ตีได้จริง! (ดรอปจากออร์คขุดแร่กลองศึก Lv 48, ไม่มีขายในร้าน)"
+  },
+  "hat_jester": {
+   "name": "หมวกตัวตลกกระดิ่ง",
+   "type": "head",
+   "def": 6,
+   "price": 1700,
+   "color": "#8e24aa",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "luk": 3,
+    "agi": 2,
+    "maxSp": 50
+   },
+   "hat": {
+    "kind": "jester",
+    "c": [
+     "#8e24aa",
+     "#ffb300",
+     "#ffeb3b"
+    ]
+   },
+   "desc": "หมวกตัวตลกสองแฉกห้อยกระดิ่ง ดังกรุ๊งกริ๊งทุกครั้งที่ขยับ (ดรอปจากเห็ดเรืองแสงไซคีเดลิก Lv 50, ไม่มีขายในร้าน)"
+  },
+  "hat_vinyl": {
+   "name": "หมวกแผ่นเสียงหลงทาง",
+   "type": "head",
+   "def": 6,
+   "price": 1760,
+   "color": "#141414",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "dex": 3,
+    "int": 2,
+    "maxSp": 52
+   },
+   "hat": {
+    "kind": "vinyl",
+    "c": [
+     "#141414",
+     "#ff7043"
+    ]
+   },
+   "desc": "แผ่นเสียงไวนิลเก่าใส่เป็นหมวก ยังเล่นเพลงได้อยู่ (ดรอปจากผีไฟโน้ตหลง Lv 52, ไม่มีขายในร้าน)"
+  },
+  "hat_rap_cap": {
+   "name": "แก๊ปแร็พกลับหลัง",
+   "type": "head",
+   "def": 6,
+   "price": 1850,
+   "color": "#212121",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "agi": 3,
+    "str": 2,
+    "maxHp": 165
+   },
+   "hat": {
+    "kind": "cap",
+    "c": [
+     "#212121",
+     "#ffd54f",
+     "#ffd54f"
+    ],
+    "v": "back"
+   },
+   "desc": "แก๊ปสีดำใส่กลับหลังประดับดาวทอง ฟลูว์แร็พลื่นไหล (ดรอปจากอีกาโครงกระดูกแร็พ Lv 55, ไม่มีขายในร้าน)"
+  },
+  "hat_bog_witch": {
+   "name": "หมวกแม่มดเพลงศพ",
+   "type": "head",
+   "def": 7,
+   "price": 2030,
+   "color": "#2e4d2c",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "int": 3,
+    "luk": 3,
+    "maxSp": 61
+   },
+   "hat": {
+    "kind": "witch",
+    "c": [
+     "#2e4d2c",
+     "#6d4c41",
+     "#c6ff00"
+    ]
+   },
+   "desc": "หมวกแม่มดสีเขียวหม่น ร้องเพลงศพในหนองน้ำ (ดรอปจากแม่มดหนองเพลงศพ Lv 61, ไม่มีขายในร้าน)"
+  },
+  "hat_opera_beret": {
+   "name": "เบเรต์กำมะหยี่โอเปร่า",
+   "type": "head",
+   "def": 7,
+   "price": 2180,
+   "color": "#880e4f",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "int": 3,
+    "dex": 3,
+    "maxSp": 66
+   },
+   "hat": {
+    "kind": "beret",
+    "c": [
+     "#880e4f",
+     "#ffd54f"
+    ]
+   },
+   "desc": "เบเรต์กำมะหยี่แดงเลือดนก ของนักร้องโอเปร่าวิญญาณ (ดรอปจากวิญญาณนักร้องโอเปร่า Lv 66, ไม่มีขายในร้าน)"
+  },
+  "hat_knight_helm": {
+   "name": "หมวกอัศวินไร้ร่าง",
+   "type": "head",
+   "def": 7,
+   "price": 2270,
+   "color": "#90a4ae",
+   "weight": 40,
+   "slots": 1,
+   "bonus": {
+    "vit": 3,
+    "str": 3,
+    "maxHp": 207
+   },
+   "hat": {
+    "kind": "viking",
+    "c": [
+     "#90a4ae",
+     "#455a64",
+     "#1565c0"
+    ],
+    "v": "knight"
+   },
+   "desc": "หมวกเกราะอัศวินประดับพู่ขนนก ไม่มีใครรู้ว่าเจ้าของเดิมเป็นใคร (ดรอปจากอัศวินเกราะไร้ร่าง Lv 69, ไม่มีขายในร้าน)"
+  },
+  "hat_bell_fez": {
+   "name": "หมวกเฟซระฆังทอง",
+   "type": "head",
+   "def": 8,
+   "price": 2330,
+   "color": "#b71c1c",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "vit": 3,
+    "luk": 3,
+    "maxHp": 213
+   },
+   "hat": {
+    "kind": "fez",
+    "c": [
+     "#b71c1c",
+     "#ffd54f"
+    ]
+   },
+   "desc": "หมวกเฟซสีแดงห้อยระฆังทองเล็ก ๆ ดังทุกชั่วโมง (ดรอปจากการ์กอยล์ระฆังโบสถ์ Lv 71, ไม่มีขายในร้าน)"
+  },
+  "hat_shako": {
+   "name": "หมวกวงโยธวาทิต",
+   "type": "head",
+   "def": 8,
+   "price": 2390,
+   "color": "#1a237e",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "str": 4,
+    "dex": 3,
+    "maxHp": 219
+   },
+   "hat": {
+    "kind": "shako",
+    "c": [
+     "#1a237e",
+     "#ffd54f",
+     "#ffffff"
+    ]
+   },
+   "desc": "หมวกทรงสูงประดับพู่ขนนกของวงโยธวาทิต เดินแถวตามจังหวะกลองเดินแถว (ดรอปจากทหารกะโหลกวงโยธวาทิต Lv 73, ไม่มีขายในร้าน)"
+  },
+  "hat_hymn_board": {
+   "name": "หมวกบัณฑิตเพลงสวด",
+   "type": "head",
+   "def": 8,
+   "price": 2480,
+   "color": "#212121",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "int": 4,
+    "dex": 3,
+    "maxSp": 76
+   },
+   "hat": {
+    "kind": "mortarboard",
+    "c": [
+     "#212121",
+     "#ffd54f"
+    ]
+   },
+   "desc": "หมวกบัณฑิตสีดำพู่ทอง จบปริญญาดนตรีสวดเพลงมืด (ดรอปจากบาทหลวงมืดเพลงสวด Lv 76, ไม่มีขายในร้าน)"
+  },
+  "hat_angel_halo": {
+   "name": "รัศมีเทวดาระฆัง",
+   "type": "head",
+   "def": 8,
+   "price": 2540,
+   "color": "#ffd54f",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "int": 4,
+    "luk": 3,
+    "maxSp": 78
+   },
+   "hat": {
+    "kind": "halo",
+    "c": [
+     "#ffd54f",
+     "#ffffff"
+    ],
+    "v": "wings"
+   },
+   "desc": "รัศมีทองพร้อมปีกเล็กข้างหัว ร้องเพลงสวรรค์ได้ไพเราะ (ดรอปจากเทวดาระฆังทอง Lv 78, ไม่มีขายในร้าน)"
+  },
+  "hat_hell_horns": {
+   "name": "เขาหมาเพลิงแบล็กเมทัล",
+   "type": "head",
+   "def": 9,
+   "price": 2780,
+   "color": "#ff3d00",
+   "weight": 20,
+   "slots": 1,
+   "bonus": {
+    "str": 4,
+    "agi": 4,
+    "maxHp": 258
+   },
+   "hat": {
+    "kind": "horns",
+    "c": [
+     "#ff3d00",
+     "#3e2723"
+    ],
+    "v": "big"
+   },
+   "desc": "เขาโค้งใหญ่สีเพลิงของวงแบล็กเมทัลจากนรก (ดรอปจากหมาเพลิงนรกแบล็กเมทัล Lv 86, ไม่มีขายในร้าน)"
+  },
+  "hat_jelly_crown": {
+   "name": "มงกุฎทองราชาเพี้ยน",
+   "type": "head",
+   "def": 5,
+   "price": 2800,
+   "color": "#ffc107",
+   "weight": 20,
+   "slots": 2,
+   "bonus": {
+    "luk": 3,
+    "vit": 2,
+    "pvpDefPct": 3
+   },
+   "hat": {
+    "kind": "crown",
+    "c": [
+     "#ffc107",
+     "#e53935",
+     "#2196f3"
+    ]
+   },
+   "desc": "มงกุฎทองของราชาเห็ด ร้องเพี้ยนแค่ไหนก็ยังเป็นราชา (ดรอปจากบอส MVP ราชาเห็ดเสียงเพี้ยน Lv 20, ไม่มีขายในร้าน)",
+   "mvp": true
+  },
+  "hat_ancient_laurel": {
+   "name": "มงกุฎใบไม้โบราณ",
+   "type": "head",
+   "def": 5,
+   "price": 2920,
+   "color": "#558b2f",
+   "weight": 20,
+   "slots": 2,
+   "bonus": {
+    "vit": 3,
+    "int": 3,
+    "pvpDefPct": 3
+   },
+   "hat": {
+    "kind": "flowers",
+    "c": [
+     "#558b2f",
+     "#9ccc65",
+     "#ffeb3b"
+    ],
+    "v": "laurel"
+   },
+   "desc": "มงกุฎใบไม้จากต้นไม้พันปี ได้ยินเสียงป่าร้องเพลง (ดรอปจากบอส MVP ราชาเห็ดป่าโบราณ Lv 24, ไม่มีขายในร้าน)",
+   "mvp": true
+  },
+  "hat_marsh_tiara": {
+   "name": "ทีอาร่ามุกบึง",
+   "type": "head",
+   "def": 5,
+   "price": 3010,
+   "color": "#b0bec5",
+   "weight": 20,
+   "slots": 2,
+   "bonus": {
+    "int": 3,
+    "agi": 3,
+    "pvpDefPct": 3
+   },
+   "hat": {
+    "kind": "tiara",
+    "c": [
+     "#b0bec5",
+     "#26c6da",
+     "#fff8e1"
+    ]
+   },
+   "desc": "ทีอาร่าเงินประดับไข่มุกจากก้นบึง (ดรอปจากบอส MVP ราชาฉลามบึงทุ้ม Lv 27, ไม่มีขายในร้าน)",
+   "mvp": true
+  },
+  "hat_dragon_horns": {
+   "name": "เขามังกรร็อกแอนด์โรล",
+   "type": "head",
+   "def": 6,
+   "price": 3130,
+   "color": "#ffb300",
+   "weight": 20,
+   "slots": 2,
+   "bonus": {
+    "str": 3,
+    "vit": 3,
+    "pvpDefPct": 3
+   },
+   "hat": {
+    "kind": "horns",
+    "c": [
+     "#ffb300",
+     "#4e342e"
+    ],
+    "v": "big"
+   },
+   "desc": "เขามังกรสีทองคู่ใหญ่ ร็อกแอนด์โรลไม่มีวันตาย (ดรอปจากบอส MVP มังกรร็อกแอนด์โรล Lv 31, ไม่มีขายในร้าน)",
+   "mvp": true
+  },
+  "hat_snow_crown": {
+   "name": "มงกุฎเกล็ดหิมะโซปราโน",
+   "type": "head",
+   "def": 6,
+   "price": 3250,
+   "color": "#e3f2fd",
+   "weight": 20,
+   "slots": 2,
+   "bonus": {
+    "int": 3,
+    "dex": 3,
+    "pvpDefPct": 3
+   },
+   "hat": {
+    "kind": "crown",
+    "c": [
+     "#e3f2fd",
+     "#81d4fa",
+     "#ffffff"
+    ],
+    "v": "crystal"
+   },
+   "desc": "มงกุฎน้ำแข็งของราชินีหิมะ เสียงโซปราโนทะลุฟ้า (ดรอปจากบอส MVP ราชินีหิมะโซปราโน Lv 35, ไม่มีขายในร้าน)",
+   "mvp": true
+  },
+  "hat_metal_helm": {
+   "name": "หมวกเกราะหนามเมทัล",
+   "type": "head",
+   "def": 7,
+   "price": 3400,
+   "color": "#424242",
+   "weight": 40,
+   "slots": 2,
+   "bonus": {
+    "str": 4,
+    "vit": 3,
+    "pvpDefPct": 5
+   },
+   "hat": {
+    "kind": "mohawk",
+    "c": [
+     "#424242",
+     "#e0e0e0",
+     "#b71c1c"
+    ],
+    "v": "helm"
+   },
+   "desc": "หมวกเกราะเหล็กหนามแหลมของจอมมารเมทัล (ดรอปจากบอส MVP จอมมารหน้ากากเมทัล Lv 40, ไม่มีขายในร้าน)",
+   "mvp": true
+  },
+  "hat_kraken_tricorn": {
+   "name": "หมวกสามมุมราชันย์ทะเล",
+   "type": "head",
+   "def": 7,
+   "price": 3550,
+   "color": "#0d47a1",
+   "weight": 20,
+   "slots": 2,
+   "bonus": {
+    "dex": 4,
+    "str": 3,
+    "maxSp": 45,
+    "pvpDefPct": 5
+   },
+   "hat": {
+    "kind": "tricorn",
+    "c": [
+     "#0d47a1",
+     "#ffd54f",
+     "#4dd0e1"
+    ]
+   },
+   "desc": "หมวกสามมุมสีน้ำเงินขลิบทองของราชันย์แห่งท้องทะเล (ดรอปจากบอส MVP ราชันย์หมึกยักษ์ซาวด์เวฟ Lv 45, ไม่มีขายในร้าน)",
+   "mvp": true
+  },
+  "hat_crystal_crown": {
+   "name": "มงกุฎคริสตัลเสียงก้อง",
+   "type": "head",
+   "def": 8,
+   "price": 3940,
+   "color": "#ce93d8",
+   "weight": 20,
+   "slots": 2,
+   "bonus": {
+    "int": 4,
+    "vit": 4,
+    "maxSp": 58,
+    "pvpDefPct": 5
+   },
+   "hat": {
+    "kind": "crown",
+    "c": [
+     "#ce93d8",
+     "#ea80fc",
+     "#80deea"
+    ],
+    "v": "crystal"
+   },
+   "desc": "มงกุฎคริสตัลแท้ ทุกเสียงที่ร้องจะก้องกังวานสามเท่า (ดรอปจากบอส MVP ราชาคริสตัลเสียงก้อง Lv 58, ไม่มีขายในร้าน)",
+   "mvp": true
+  },
+  "hat_banshee_halo": {
+   "name": "รัศมีวิญญาณบันชี",
+   "type": "head",
+   "def": 9,
+   "price": 4240,
+   "color": "#b388ff",
+   "weight": 20,
+   "slots": 2,
+   "bonus": {
+    "int": 5,
+    "agi": 4,
+    "maxSp": 68,
+    "pvpDefPct": 5
+   },
+   "hat": {
+    "kind": "halo",
+    "c": [
+     "#b388ff",
+     "#4a148c"
+    ],
+    "v": "wings"
+   },
+   "desc": "รัศมีม่วงพร้อมปีกวิญญาณ ได้ยินเสียงกรีดร้องจากอีกภพ (ดรอปจากบอส MVP ราชินีบันชีเสียงกรีดร้อง Lv 68, ไม่มีขายในร้าน)",
+   "mvp": true
+  },
+  "hat_phantom_top": {
+   "name": "หมวกทรงสูงราชาโอเปร่า",
+   "type": "head",
+   "def": 11,
+   "price": 4660,
+   "color": "#1a1a1a",
+   "weight": 20,
+   "slots": 2,
+   "bonus": {
+    "dex": 5,
+    "int": 5,
+    "maxSp": 82,
+    "pvpDefPct": 5
+   },
+   "hat": {
+    "kind": "tophat",
+    "c": [
+     "#1a1a1a",
+     "#ffd54f",
+     "#fafafa"
+    ],
+    "v": "mask"
+   },
+   "desc": "หมวกทรงสูงขลิบทองกับหน้ากากครึ่งหน้า ของราชาไร้บัลลังก์ (ดรอปจากบอส MVP ราชาไร้บัลลังก์แห่งโอเปร่า Lv 82, ไม่มีขายในร้าน)",
+   "mvp": true
+  },
+  "hat_inferno_chada": {
+   "name": "ชฎาเพลิงจักรพรรดิ",
+   "type": "head",
+   "def": 12,
+   "price": 5170,
+   "color": "#ffc107",
+   "weight": 20,
+   "slots": 2,
+   "bonus": {
+    "str": 6,
+    "int": 6,
+    "maxHp": 297,
+    "pvpDefPct": 5
+   },
+   "hat": {
+    "kind": "chada",
+    "c": [
+     "#ffc107",
+     "#ff7043",
+     "#d50000"
+    ],
+    "v": "flame"
+   },
+   "desc": "ชฎาทองยอดเปลวไฟ ของจักรพรรดิแห่งภูเขาไฟ หมวกที่หายากที่สุดในโลก (ดรอปจากบอส MVP จักรพรรดิภูเขาไฟเมทัล Lv 99, ไม่มีขายในร้าน)",
+   "mvp": true
   }
  },
  "shop": [
@@ -4260,6 +5730,10 @@
     [
      "card_jelly",
      0.004
+    ],
+    [
+     "hat_note_cap",
+     0.01
     ]
    ],
    "model": "Blob_PinkBlob",
@@ -4308,6 +5782,10 @@
     [
      "card_drop",
      0.004
+    ],
+    [
+     "hat_mint_beanie",
+     0.01
     ]
    ],
    "model": "Blob_GreenBlob",
@@ -4360,6 +5838,10 @@
     [
      "card_chick",
      0.004
+    ],
+    [
+     "hat_chick",
+     0.01
     ]
    ],
    "model": "Blob_Chicken",
@@ -4412,6 +5894,10 @@
     [
      "card_mushy",
      0.004
+    ],
+    [
+     "hat_mushroom",
+     0.01
     ]
    ],
    "model": "Blob_Mushnub",
@@ -4464,6 +5950,10 @@
     [
      "card_rabbit",
      0.004
+    ],
+    [
+     "hat_bunny_band",
+     0.01
     ]
    ],
    "model": "Big_Bunny",
@@ -4520,6 +6010,10 @@
     [
      "outfit_aqua_hoodie",
      0.005
+    ],
+    [
+     "hat_bee_beanie",
+     0.01
     ]
    ],
    "model": "Flying_Armabee",
@@ -4576,6 +6070,10 @@
     [
      "outfit_light_hoodie",
      0.005
+    ],
+    [
+     "hat_frog",
+     0.01
     ]
    ],
    "model": "Big_Frog",
@@ -4640,6 +6138,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_bat_wings",
+     0.01
     ]
    ],
    "model": "Flying_Ghost",
@@ -4768,6 +6270,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_metronome_top",
+     0.01
     ]
    ],
    "model": "Flying_Glub",
@@ -4860,6 +6366,10 @@
     [
      "bss_mikro",
      0.08
+    ],
+    [
+     "hat_jelly_crown",
+     0.05
     ]
    ],
    "boss": true,
@@ -4926,6 +6436,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_owl_beret",
+     0.01
     ]
    ],
    "model": "Blob_Birb",
@@ -4987,6 +6501,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_flower_chorus",
+     0.01
     ]
    ],
    "model": "Blob_Alien",
@@ -5069,6 +6587,10 @@
     [
      "stk_green",
      0.08
+    ],
+    [
+     "hat_ancient_laurel",
+     0.05
     ]
    ],
    "model": "Big_MushroomKing",
@@ -5130,6 +6652,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_tuba_bell",
+     0.01
     ]
    ],
    "model": "Blob_Fish",
@@ -5281,6 +6807,10 @@
     [
      "bss_pbass",
      0.08
+    ],
+    [
+     "hat_marsh_tiara",
+     0.05
     ]
    ],
    "model": "Big_Fish",
@@ -5342,6 +6872,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_mariachi",
+     0.01
     ]
    ],
    "model": "Big_Cactoro",
@@ -5403,6 +6937,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_cowboy_solo",
+     0.01
     ]
    ],
    "model": "Big_Dino",
@@ -5464,6 +7002,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_party_cone",
+     0.01
     ]
    ],
    "model": "Blob_Cactoro",
@@ -5542,6 +7084,10 @@
     [
      "bss_sr",
      0.08
+    ],
+    [
+     "hat_dragon_horns",
+     0.05
     ]
    ],
    "model": "Flying_Dragon_Evolved",
@@ -5603,6 +7149,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_yeti_beanie",
+     0.01
     ]
    ],
    "model": "Blob_Yeti",
@@ -5668,6 +7218,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_ice_tiara",
+     0.01
     ]
    ],
    "model": "Big_Birb",
@@ -5729,6 +7283,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_santa_bell",
+     0.01
     ]
    ],
    "model": "Big_Yeti",
@@ -5807,6 +7365,10 @@
     [
      "bss_jag_short",
      0.08
+    ],
+    [
+     "hat_snow_crown",
+     0.05
     ]
    ],
    "model": "Flying_Goleling_Evolved",
@@ -5868,6 +7430,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_flame_crown",
+     0.01
     ]
    ],
    "model": "Flying_Demon",
@@ -6080,6 +7646,10 @@
     [
      "kbd_red",
      0.08
+    ],
+    [
+     "hat_metal_helm",
+     0.05
     ]
    ],
    "model": "Flying_Tribal",
@@ -6129,6 +7699,10 @@
     [
      "card_cat",
      0.004
+    ],
+    [
+     "hat_cat_band",
+     0.01
     ]
    ],
    "element": [
@@ -6177,6 +7751,10 @@
     [
      "card_dog",
      0.004
+    ],
+    [
+     "hat_beat_bandana",
+     0.01
     ]
    ],
    "element": [
@@ -6225,6 +7803,10 @@
     [
      "card_pigeon",
      0.004
+    ],
+    [
+     "hat_spring_notes",
+     0.01
     ]
    ],
    "element": [
@@ -6349,6 +7931,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_wizard_note",
+     0.01
     ]
    ],
    "element": [
@@ -6409,6 +7995,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_ninja_band",
+     0.01
     ]
    ],
    "element": [
@@ -6469,6 +8059,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_jazz_fedora",
+     0.01
     ]
    ],
    "element": [
@@ -6529,6 +8123,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_alien_goggles",
+     0.01
     ]
    ],
    "element": [
@@ -6589,6 +8187,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_viking_drum",
+     0.01
     ]
    ],
    "element": [
@@ -6709,6 +8311,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_ngob",
+     0.01
     ]
    ],
    "element": [
@@ -6829,6 +8435,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_tribal_plume",
+     0.01
     ]
    ],
    "element": [
@@ -6889,6 +8499,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_samurai",
+     0.01
     ]
    ],
    "element": [
@@ -7129,6 +8743,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_pumpkin",
+     0.01
     ]
    ],
    "element": [
@@ -7189,6 +8807,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_devil_horns",
+     0.01
     ]
    ],
    "element": [
@@ -7249,6 +8871,10 @@
     [
      "velvet_patch",
      0.05
+    ],
+    [
+     "hat_punk_spikes",
+     0.007
     ]
    ],
    "element": [
@@ -7395,6 +9021,10 @@
     [
      "card_sea_jelly",
      0.004
+    ],
+    [
+     "hat_synth_cloud",
+     0.007
     ]
    ],
    "glow": "#3fc6ff",
@@ -7437,6 +9067,10 @@
     [
      "card_conch_fish",
      0.004
+    ],
+    [
+     "hat_captain",
+     0.007
     ]
    ],
    "def": 22
@@ -7478,6 +9112,10 @@
     [
      "card_gull",
      0.004
+    ],
+    [
+     "hat_gull_tricorn",
+     0.007
     ]
    ],
    "def": 24
@@ -7519,6 +9157,10 @@
     [
      "card_surf_frog",
      0.004
+    ],
+    [
+     "hat_reggae_beanie",
+     0.007
     ]
    ],
    "def": 24
@@ -7560,6 +9202,10 @@
     [
      "card_storm_squid",
      0.004
+    ],
+    [
+     "hat_dj_goggles",
+     0.007
     ]
    ],
    "glow": "#8fb0ff",
@@ -7602,6 +9248,10 @@
     [
      "card_coral_golem",
      0.004
+    ],
+    [
+     "hat_speaker",
+     0.007
     ]
    ],
    "def": 27
@@ -7675,6 +9325,10 @@
     [
      "kbd_white",
      0.08
+    ],
+    [
+     "hat_kraken_tricorn",
+     0.05
     ]
    ],
    "glow": "#5a3cff",
@@ -7726,6 +9380,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_crystal_band",
+     0.007
     ]
    ],
    "glow": "#6fd8ff",
@@ -7772,6 +9430,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_echo_halo",
+     0.007
     ]
    ],
    "glow": "#8a3cff",
@@ -7822,6 +9484,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_gem_turban",
+     0.007
     ]
    ],
    "glow": "#b06bff",
@@ -7872,6 +9538,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_snare",
+     0.007
     ]
    ],
    "def": 34
@@ -7917,6 +9587,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_jester",
+     0.007
     ]
    ],
    "glow": "#3cff6a",
@@ -8041,6 +9715,10 @@
     [
      "bss_jazz5",
      0.08
+    ],
+    [
+     "hat_crystal_crown",
+     0.05
     ]
    ],
    "glow": "#7fd8ff",
@@ -8088,6 +9766,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_vinyl",
+     0.007
     ]
    ],
    "glow": "#6dffb0",
@@ -8134,6 +9816,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_rap_cap",
+     0.007
     ]
    ],
    "glow": "#a07aff",
@@ -8274,6 +9960,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_bog_witch",
+     0.005
     ]
    ],
    "glow": "#b04aff",
@@ -8397,6 +10087,10 @@
     [
      "stk_purple",
      0.08
+    ],
+    [
+     "hat_banshee_halo",
+     0.05
     ]
    ],
    "glow": "#c8b0ff",
@@ -8448,6 +10142,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_opera_beret",
+     0.005
     ]
    ],
    "glow": "#a8c8ff",
@@ -8498,6 +10196,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_knight_helm",
+     0.005
     ]
    ],
    "def": 48
@@ -8551,6 +10253,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_bell_fez",
+     0.005
     ]
    ],
    "def": 50
@@ -8600,6 +10306,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_shako",
+     0.005
     ]
    ],
    "def": 51
@@ -8649,6 +10359,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_hymn_board",
+     0.005
     ]
    ],
    "glow": "#7a3cff",
@@ -8703,6 +10417,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_angel_halo",
+     0.005
     ]
    ],
    "glow": "#ffd84a",
@@ -8781,6 +10499,10 @@
     [
      "kbd_stage",
      0.08
+    ],
+    [
+     "hat_phantom_top",
+     0.05
     ]
    ],
    "glow": "#c060ff",
@@ -8944,6 +10666,10 @@
     [
      "gold_velvet",
      0.05
+    ],
+    [
+     "hat_hell_horns",
+     0.005
     ]
    ],
    "glow": "#ff3a1a",
@@ -9184,6 +10910,10 @@
     [
      "bss_sire5",
      0.08
+    ],
+    [
+     "hat_inferno_chada",
+     0.05
     ]
    ],
    "glow": "#ff6a00",

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { Appearance, ClassKey, HAIR_COLORS, MONSTERS } from '../data';
+import { Appearance, ClassKey, HAIR_COLORS, ITEMS, MONSTERS } from '../data';
 import { canvasTexture, mesh, outline, shade, shadows, toon } from './toon';
+import { buildHat } from './hats';
 
 /**
  * Chibi anime characters and monsters built from primitives (no third-party models).
@@ -378,7 +379,7 @@ export function setHat(rig: CharRig, item: string) {
     brim.scale.set(1.2, 1, 0.8);
     g.add(brim);
     g.add(mesh(new THREE.OctahedronGeometry(0.06), toon('#ffd600'), 0, 0.3, 0.27));
-  } else return;
+  } else if (!buildHat(g, ITEMS[item]?.hat)) return;
   outline(g, 0.012);
   shadows(g);
   rig.hatSlot.add(g);

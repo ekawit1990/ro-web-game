@@ -1,6 +1,8 @@
 import { ITEMS } from '../data';
 import * as THREE from 'three';
 import { buildCharacter, setEar, type CharRig, type Look } from '../three/models';
+import { buildHat } from '../three/hats';
+import { outline } from '../three/toon';
 import { animateRig, buildVrmCharacter, releaseVrm } from '../three/vrm';
 import { BASS_SHAPES, GUITAR_SHAPES } from '../three/guitarShapes';
 import { STICK_STYLES } from '../three/sticks';
@@ -29,6 +31,13 @@ export function itemIcon(id: string): string {
   const hit = cache.get(id);
   if (hit) return hit;
   const item = ITEMS[id];
+  if (item?.hat) {
+    const url = hatIcon(id);
+    if (url) {
+      cache.set(id, url);
+      return url;
+    }
+  }
   const cv = document.createElement('canvas');
   cv.width = 32;
   cv.height = 32;
@@ -141,6 +150,54 @@ export function itemIcon(id: string): string {
   const url = cv.toDataURL();
   cache.set(id, url);
   return url;
+}
+
+let hatCam: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null = null;
+
+/** Music hats: the 3D hat itself, drawn once at 64x64 (shared little renderer) with an MVP glow for boss hats. */
+function hatIcon(id: string): string | null {
+  try {
+    if (!hatCam) {
+      const r = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+      r.setSize(64, 64, false);
+      r.outputColorSpace = THREE.SRGBColorSpace;
+      const scene = new THREE.Scene();
+      scene.add(new THREE.AmbientLight(0xffffff, 1.6));
+      const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+      sun.position.set(1, 2, 2);
+      scene.add(sun);
+      const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
+      hatCam = { r, scene, cam };
+    }
+    const { r, scene, cam } = hatCam;
+    const g = new THREE.Group();
+    if (!buildHat(g, ITEMS[id].hat)) return null;
+    outline(g, 0.012);
+    g.rotation.y = -0.5;
+    scene.add(g);
+    // frame the hat: fit its bounding sphere
+    const box = new THREE.Box3().setFromObject(g);
+    const sph = box.getBoundingSphere(new THREE.Sphere());
+    const dist = sph.radius / Math.sin((cam.fov * Math.PI) / 360) * 0.82;
+    cam.position.set(sph.center.x, sph.center.y + dist * 0.35, sph.center.z + dist * 0.94);
+    cam.lookAt(sph.center);
+    r.setClearColor(0x000000, 0);
+    r.render(scene, cam);
+    scene.remove(g);
+    g.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 64;
+    const c = cv.getContext('2d')!;
+    if (ITEMS[id].mvp) {
+      c.scale(2, 2);
+      mvpGlow(c);
+      c.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    c.drawImage(r.domElement, 0, 0, 64, 64);
+    return cv.toDataURL();
+  } catch {
+    return null;
+  }
 }
 
 let preview: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null = null;
