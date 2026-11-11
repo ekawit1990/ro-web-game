@@ -472,7 +472,12 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .wf.num > span { display: inline-block; transform: translateX(-50%); transform-origin: 50% 70%; margin-left: 0.11em; animation: wf-pop 0.22s cubic-bezier(.2,.9,.3,1.25) both; }
 @keyframes wf-pop { 0% { transform: translateX(-50%) scale(2.3); color: #fff; } 55% { transform: translateX(-50%) scale(0.92); } 100% { transform: translateX(-50%) scale(1); color: var(--c); } }
 .wf.num.deal { --c: #ffffff; }
-.wf.num.crit { --c: #ffe23a; font-size: 32px; }
+.wf.num.crit { --c: #ffe23a; font-size: 38px; }
+/* critical: the yellow number sits on a jagged dark-red starburst that pops in with it */
+.wf.num.crit > span { position: relative; z-index: 0; }
+.wf.num.crit > span::before, .wf.num.crit > span::after { content: ''; position: absolute; z-index: -1; left: -0.55em; right: -0.35em; top: -0.75em; bottom: -0.7em; clip-path: polygon(50.0% 2.5%, 56.7% 22.2%, 70.6% 9.3%, 71.2% 24.7%, 83.2% 24.8%, 77.0% 37.6%, 93.9% 40.5%, 84.0% 50.0%, 89.0% 58.5%, 77.0% 62.4%, 89.1% 79.6%, 71.2% 75.3%, 72.8% 94.9%, 56.7% 77.8%, 50.0% 97.5%, 42.4% 81.5%, 29.4% 90.7%, 31.3% 72.3%, 16.8% 75.2%, 19.4% 64.0%, 6.1% 59.5%, 20.0% 50.0%, 11.0% 41.5%, 19.4% 36.0%, 10.9% 20.4%, 31.3% 27.7%, 27.2% 5.1%, 42.4% 18.5%); }
+.wf.num.crit > span::before { background: #e0703a; transform: scale(1.06); }
+.wf.num.crit > span::after { background: radial-gradient(circle, #8a2c14 0%, #6a1e0e 60%, #4e1408 100%); }
 .wf.num.skill { --c: #ffd92e; font-size: 29px; }
 .wf.num.other { --c: #d7e4ff; font-size: 19px; }
 .wf.num.take { --c: #ff4646; }

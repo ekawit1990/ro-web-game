@@ -412,6 +412,119 @@ export function sfxWheet(vol = 1, at = 0, soft = false) {
   noise(t, dur, { gain: 0.1 * vol * k, type: 'bandpass', freq: 3000, freqTo: 8000, q: 1.2, release: 0.08 });
 }
 
+// ------------------------------------------------------------ monster voices
+
+type Voice = 'squish' | 'wail' | 'growl' | 'chirp' | 'buzz' | 'ribbit' | 'bark' | 'meow' | 'blub' | 'warble' | 'roar' | 'squeak' | 'rattle' | 'crunch';
+
+/** Which kind of voice a monster model has (by the creature in its model name). */
+function voiceOf(model: string): Voice {
+  const m = model.toLowerCase();
+  if (/skull/.test(m)) return 'rattle';
+  if (/ghost/.test(m)) return 'wail';
+  if (/armabee|hywirl/.test(m)) return 'buzz';
+  if (/pigeon|birb|chicken/.test(m)) return 'chirp';
+  if (/frog/.test(m)) return 'ribbit';
+  if (/dog/.test(m)) return 'bark';
+  if (/cat\b|_cat/.test(m)) return 'meow';
+  if (/fish|glub|squidle/.test(m)) return 'blub';
+  if (/alien|alpaking/.test(m)) return 'warble';
+  if (/dragon|goleling|dino/.test(m)) return 'roar';
+  if (/bunny|mushnub/.test(m)) return 'squeak';
+  if (/cactoro/.test(m)) return 'crunch';
+  if (/demon|orc|yeti|tribal|ninja|monkroose|mushroomking/.test(m)) return 'growl';
+  return 'squish';
+}
+
+/** A steady 0.8..1.25 pitch factor from the monster's key, so two monsters of the same kind still sound different. */
+function keyPitch(key: string) {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+  return 0.8 + ((h >>> 0) % 1000) / 1000 * 0.45;
+}
+
+/**
+ * A monster's own voice: `hurt` is a short yelp when it is hit, `die` a longer cry as it bursts apart (with a
+ * wet pop under it). The voice kind comes from the model, the pitch from the monster's key and size (bigger is
+ * deeper), so every monster sounds like itself.
+ */
+export function sfxMonster(key: string, model: string, size: number, kind: 'hurt' | 'die', vol = 1, boss = false) {
+  if (!ready() || vol <= 0) return;
+  const t = now();
+  const v = voiceOf(model);
+  const die = kind === 'die';
+  const f = keyPitch(key) / Math.sqrt(Math.max(0.5, size)) * (boss ? 0.7 : 1);
+  const L = (die ? 2.2 : 1) * (boss ? 1.4 : 1); // length
+  const g = (die ? 1.15 : 0.8) * vol;
+  switch (v) {
+    case 'squish':
+      tone(520 * f, t, 0.12 * L, { type: 'sine', to: 200 * f, gain: 0.3 * g, vibrato: 0.06, release: 0.05 * L });
+      tone(1040 * f, t, 0.08 * L, { type: 'triangle', to: 380 * f, gain: 0.08 * g, release: 0.04 });
+      noise(t, 0.06, { gain: 0.12 * g, type: 'lowpass', freq: 900, release: 0.03 });
+      break;
+    case 'squeak':
+      tone(1300 * f, t, 0.09 * L, { type: 'sine', to: 1900 * f, gain: 0.16 * g, release: 0.03 * L });
+      tone(1900 * f, t + 0.08 * L, 0.07 * L, { type: 'sine', to: 900 * f, gain: 0.12 * g, release: 0.03 * L });
+      break;
+    case 'wail':
+      tone(700 * f, t, 0.35 * L, { type: 'sine', to: 300 * f, gain: 0.16 * g, vibrato: 0.04, attack: 0.04, release: 0.12 * L, wet: 0.6 });
+      tone(1050 * f, t, 0.3 * L, { type: 'triangle', to: 450 * f, gain: 0.05 * g, vibrato: 0.04, attack: 0.05, release: 0.1 * L, wet: 0.6 });
+      noise(t, 0.3 * L, { gain: 0.06 * g, type: 'bandpass', freq: 1200, q: 2, release: 0.1, wet: 0.5 });
+      break;
+    case 'rattle':
+      for (let i = 0; i < (die ? 7 : 3); i++) noise(t + i * 0.035, 0.02, { gain: (0.3 - i * 0.02) * g, type: 'bandpass', freq: (1800 + (i % 2) * 700) * f, q: 4, release: 0.01 });
+      tone(240 * f, t, 0.2 * L, { type: 'square', to: 120 * f, gain: 0.05 * g, filter: 900, release: 0.06 });
+      break;
+    case 'growl':
+      tone(150 * f, t, 0.22 * L, { type: 'sawtooth', to: 90 * f, gain: 0.25 * g, filter: 700, filterTo: 300, q: 3, vibrato: 0.08, release: 0.08 * L });
+      tone(75 * f, t, 0.2 * L, { type: 'square', to: 50 * f, gain: 0.08 * g, filter: 400, release: 0.08 * L });
+      noise(t, 0.2 * L, { gain: 0.12 * g, type: 'lowpass', freq: 600, release: 0.08 });
+      break;
+    case 'roar':
+      tone(260 * f, t, 0.3 * L, { type: 'sawtooth', to: 140 * f, gain: 0.22 * g, filter: 1800, filterTo: 500, q: 2, vibrato: 0.05, release: 0.1 * L, wet: 0.35 });
+      noise(t, 0.3 * L, { gain: 0.16 * g, type: 'bandpass', freq: 900, freqTo: 400, q: 0.8, release: 0.1 * L });
+      break;
+    case 'chirp':
+      for (let i = 0; i < (die ? 3 : 2); i++) tone(2000 * f, t + i * 0.07, 0.05, { type: 'sine', to: 3200 * f, gain: 0.12 * g, release: 0.02 });
+      if (die) tone(2600 * f, t + 0.22, 0.25, { type: 'sine', to: 900 * f, gain: 0.1 * g, release: 0.08 });
+      noise(t, 0.04, { gain: 0.1 * g, type: 'highpass', freq: 4000, release: 0.02 });
+      break;
+    case 'buzz':
+      tone(190 * f, t, 0.18 * L, { type: 'sawtooth', to: (die ? 70 : 160) * f, gain: 0.12 * g, filter: 1500, q: 5, vibrato: 0.1, release: 0.06 * L });
+      tone(380 * f, t, 0.16 * L, { type: 'square', gain: 0.04 * g, filter: 2000, release: 0.05 });
+      break;
+    case 'ribbit':
+      for (let i = 0; i < 2; i++) tone(300 * f, t + i * 0.09 * L, 0.06 * L, { type: 'square', to: 220 * f, gain: 0.12 * g, filter: 900, q: 6, release: 0.02 });
+      break;
+    case 'bark':
+      tone(520 * f, t, 0.08 * L, { type: 'sawtooth', to: 260 * f, gain: 0.22 * g, filter: 1800, filterTo: 500, q: 3, release: 0.03 * L });
+      noise(t, 0.06, { gain: 0.2 * g, type: 'bandpass', freq: 1100, q: 1, release: 0.02 });
+      if (die) tone(420 * f, t + 0.12, 0.3, { type: 'sawtooth', to: 200 * f, gain: 0.12 * g, filter: 1000, vibrato: 0.03, release: 0.1 });
+      break;
+    case 'meow':
+      tone(600 * f, t, 0.22 * L, { type: 'sawtooth', to: 420 * f, gain: 0.12 * g, filter: 900, filterTo: 2200, q: 5, vibrato: 0.02, attack: 0.03, release: 0.08 * L });
+      break;
+    case 'blub':
+      for (let i = 0; i < (die ? 4 : 2); i++) tone((300 + i * 120) * f, t + i * 0.06, 0.06, { type: 'sine', to: (700 + i * 200) * f, gain: 0.18 * g, release: 0.02 });
+      break;
+    case 'warble':
+      tone(900 * f, t, 0.25 * L, { type: 'sine', to: 500 * f, gain: 0.14 * g, vibrato: 0.15, release: 0.08 * L, wet: 0.5 });
+      tone(1350 * f, t, 0.2 * L, { type: 'triangle', to: 1800 * f, gain: 0.05 * g, vibrato: 0.2, release: 0.06 * L, wet: 0.5 });
+      break;
+    case 'crunch':
+      noise(t, 0.08, { gain: 0.3 * g, type: 'bandpass', freq: 2200 * f, q: 1.5, release: 0.03 });
+      tone(380 * f, t, 0.1 * L, { type: 'triangle', to: 180 * f, gain: 0.15 * g, release: 0.04 * L });
+      break;
+  }
+  if (die) {
+    // bursting into pieces: a wet pop, a soft boom and the bits clattering down
+    const b = t + 0.04;
+    noise(b, 0.05, { gain: 0.5 * vol, type: 'bandpass', freq: 1500, q: 0.7, release: 0.02 });
+    noise(b, 0.35, { gain: 0.35 * vol, type: 'lowpass', freq: 1200, freqTo: 150, release: 0.12, wet: 0.35 });
+    tone(140, b, 0.25, { type: 'sine', to: 40, gain: 0.45 * vol, release: 0.08 });
+    for (let i = 0; i < 5; i++) noise(b + 0.18 + i * 0.05 + Math.random() * 0.03, 0.015, { gain: (0.14 - i * 0.02) * vol, type: 'bandpass', freq: 2500 + Math.random() * 2500, q: 3, release: 0.01 });
+  }
+}
+
 /** A skill: a quick flourish on the class instrument, plus a whoosh/boom for area skills. */
 export function sfxSkill(cls: ClassKey, type: string, vol = 1) {
   if (!ready() || vol <= 0) return;
@@ -441,15 +554,14 @@ export function sfx(name: Sfx, vol = 1) {
       tone(420, t, 0.04, { type: 'square', to: 200, gain: 0.07 * vol, filter: 2200, release: 0.02 });
       break;
     case 'crit':
-      // "ปั้ก!!": two cracks right after each other, a heavier thump and a bright metallic ring
-      for (const d of [0, 0.055]) {
-        noise(t + d, 0.03, { gain: 0.6 * vol, type: 'highpass', freq: 3200, release: 0.014 });
-        noise(t + d, 0.2, { gain: 0.45 * vol, type: 'bandpass', freq: 3000, freqTo: 1100, q: 0.55, release: 0.09 });
-      }
-      noise(t, 0.14, { gain: 0.38 * vol, type: 'lowpass', freq: 1300, release: 0.07 });
-      tone(200, t, 0.16, { type: 'sine', to: 50, gain: 0.55 * vol, release: 0.07 });
-      tone(260, t, 0.1, { type: 'square', to: 90, gain: 0.14 * vol, filter: 1800, release: 0.05 });
-      [2960, 4180].forEach((f, i) => tone(f, t + 0.02, 0.22, { type: 'sine', gain: (0.05 / (i + 1)) * vol, release: 0.1, wet: 0.35 }));
+      // "ป๊าก!": a hard plosive snap (ป), a short bright vowel body (า) cut off dead (ก), a heavy thump and a ring
+      noise(t, 0.022, { gain: 0.85 * vol, type: 'highpass', freq: 3000, release: 0.008 });
+      noise(t, 0.09, { gain: 0.5 * vol, type: 'bandpass', freq: 1700, q: 0.9, release: 0.03 });
+      tone(560, t + 0.005, 0.085, { type: 'sawtooth', to: 380, gain: 0.26 * vol, filter: 2600, filterTo: 900, q: 4, release: 0.018 });
+      tone(1120, t + 0.005, 0.07, { type: 'square', to: 760, gain: 0.06 * vol, filter: 3500, release: 0.015 });
+      tone(210, t, 0.14, { type: 'sine', to: 55, gain: 0.6 * vol, release: 0.05 });
+      noise(t + 0.06, 0.03, { gain: 0.35 * vol, type: 'highpass', freq: 4200, release: 0.01 });
+      [2960, 4180].forEach((f, i) => tone(f, t + 0.02, 0.25, { type: 'sine', gain: (0.045 / (i + 1)) * vol, release: 0.1, wet: 0.4 }));
       break;
     case 'miss':
       noise(t, 0.18, { gain: 0.18 * vol, type: 'bandpass', freq: 600, freqTo: 2400, q: 2 });

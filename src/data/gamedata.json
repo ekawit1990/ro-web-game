@@ -11917,7 +11917,9 @@
     75,
     15
    ],
-   "hits": 2
+   "hits": 2,
+   "castMs": 500,
+   "castDex": true
   },
   "dash_stab": {
    "cls": "teen",
@@ -11936,7 +11938,9 @@
     60,
     10
    ],
-   "scale": "distance"
+   "scale": "distance",
+   "castMs": 1000,
+   "castDex": true
   },
   "whirl_stab": {
    "cls": "teen",
@@ -11955,7 +11959,9 @@
     40,
     10
    ],
-   "scale": "crowd"
+   "scale": "crowd",
+   "castMs": 1200,
+   "castDex": true
   },
   "pump_up": {
    "cls": "teen",
@@ -11973,7 +11979,9 @@
     "aspdPct": 4,
     "def": 2,
     "durationSec": 60
-   }
+   },
+   "castMs": 800,
+   "castDex": true
   },
   "tough_body": {
    "cls": "teen",
@@ -12007,7 +12015,9 @@
     "hit"
    ],
    "desc": "ปาไมค์ใส่อารมณ์ โดนศัตรู 1 ตัว 2 ครั้ง (ดับเบิ้ลดาเมจ) ดาเมจคิดจาก ATK และ HIT (คูลดาวน์ 5 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 1000,
+   "castDex": true
   },
   "warm_up": {
    "cls": "singer",
@@ -12024,7 +12034,9 @@
     "durationSec": 30
    },
    "desc": "บัฟตัวเอง หลบหลีก (Flee) +8% ต่อเลเวล (Lv 10 = 80%) นาน 30 วินาที (คูลดาวน์ 15 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 800,
+   "castDex": true
   },
   "enunciation": {
    "cls": "singer",
@@ -12041,7 +12053,9 @@
     "durationSec": 30
    },
    "desc": "บัฟตัวเอง ความแม่นยำ (HIT) +8% ต่อเลเวล (Lv 10 = 80%) นาน 30 วินาที (คูลดาวน์ 15 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 800,
+   "castDex": true
   },
   "ear_training": {
    "cls": "singer",
@@ -12063,7 +12077,9 @@
    ],
    "knockback": 2,
    "desc": "ปาไมค์แรง ๆ 1 ครั้ง มอนสเตอร์กระเด็นถอยหลัง 2 ช่อง ดาเมจคิดจาก ATK และ DEX (คูลดาวน์ 5 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 1000,
+   "castDex": true
   },
   "breath_control": {
    "cls": "singer",
@@ -12126,7 +12142,9 @@
    ],
    "knockback": 2,
    "desc": "ฟาดกีตาร์แรง ๆ 1 ครั้ง มอนสเตอร์กระเด็นถอยหลัง 2 ช่อง ดาเมจคิดจาก ATK และ STR (คูลดาวน์ 5 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 1000,
+   "castDex": true
   },
   "slide": {
    "cls": "guitarist",
@@ -12149,7 +12167,9 @@
     "mult": 2
    },
    "desc": "พุ่งเข้าหาเป้าหมายระยะ 2 ช่อง ดาเมจ = ATK x ระยะที่พุ่ง ถ้ามีบัฟ Vibrato อยู่ดาเมจ x2 (คูลดาวน์ 10 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 1000,
+   "castDex": true
   },
   "vibrato": {
    "cls": "guitarist",
@@ -12166,7 +12186,9 @@
     "durationSec": 30
    },
    "desc": "บัฟตัวเอง ตีเร็วขึ้น (ASPD) 8% ต่อเลเวล (Lv 10 = 80%) นาน 30 วินาที (คูลดาวน์ 15 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 800,
+   "castDex": true
   },
   "bending": {
    "cls": "guitarist",
@@ -12186,7 +12208,9 @@
    ],
    "desc": "หมุนตัวฟาดกีตาร์โดนมอนสเตอร์ทุกตัวในระยะ 2 ช่อง ดาเมจ = ATK x % สกิล x จำนวนมอนรอบตัว (สูงสุด 8) ยิ่งรุมเยอะยิ่งแรง (คูลดาวน์ 10 วินาที)",
    "maxLevel": 10,
-   "element": "fire"
+   "element": "fire",
+   "castMs": 1200,
+   "castDex": true
   },
   "arpeggio": {
    "cls": "guitarist",
@@ -12217,7 +12241,9 @@
     2
    ],
    "desc": "คลื่นเสียงระยะ 12 ช่อง ดึงมอนสเตอร์ในระยะเข้ามารุมตัวเอง และลด Def ของมอนสเตอร์ลง 50% นาน 5 วินาที +1 วินาทีต่อเลเวล (คูลดาวน์ 15 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 1200,
+   "castDex": true
   },
   "snare_roll": {
    "cls": "drummer",
@@ -12239,7 +12265,9 @@
     "str"
    ],
    "desc": "รัวไม้กลองใส่ศัตรู 1 ตัว 16 ครั้งติด ดาเมจคิดจาก ATK และ STR (คูลดาวน์ 5 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 1000,
+   "castDex": true
   },
   "ghost_exit": {
    "cls": "drummer",
@@ -12256,7 +12284,9 @@
     "durationSec": 30
    },
    "desc": "หายตัว 30 วินาที ผู้เล่นอื่นและมอนสเตอร์มองไม่เห็น (ยกเว้นบอส MVP) โจมตีหรือใช้สกิลโจมตีเมื่อไรจะปรากฏตัว (คูลดาวน์ 5 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 500,
+   "castDex": true
   },
   "double_kick": {
    "cls": "drummer",
@@ -12278,7 +12308,9 @@
    ],
    "desc": "กระทืบกระเดื่องสร้างคลื่นเสียงเป็นวงรอบตัว 5 ช่อง ดาเมจคิดจาก ATK x INT (คูลดาวน์ 5 วินาที)",
    "maxLevel": 10,
-   "element": "earth"
+   "element": "earth",
+   "castMs": 1200,
+   "castDex": true
   },
   "send_off": {
    "cls": "drummer",
@@ -12301,7 +12333,9 @@
     "mult": 2
    },
    "desc": "พุ่งเข้าหาเป้าหมายระยะ 9 ช่อง ดาเมจ = ATK x ระยะที่พุ่ง ยิ่งไกลยิ่งแรง ถ้าใช้ตอนหายตัวดาเมจ x2 (คูลดาวน์ 10 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 1000,
+   "castDex": true
   },
   "x_wave": {
    "cls": "drummer",
@@ -12326,7 +12360,9 @@
     "int"
    ],
    "desc": "คลื่นเสียงรูปตัว X ลอยไปข้างหน้าช้า ๆ 5 ช่อง โดนทุกตัวที่ขวางทาง ดาเมจคิดจาก ATK x INT (คูลดาวน์ 15 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 1500,
+   "castDex": true
   },
   "collect_exp": {
    "cls": "drummer",
@@ -12361,7 +12397,9 @@
     "vit"
    ],
    "desc": "ฟาดเบสผ่ากลางใส่ศัตรู 1 ตัว ดาเมจคิดจาก ATK x VIT",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 600,
+   "castDex": true
   },
   "kick_drum": {
    "cls": "bassist",
@@ -12378,7 +12416,9 @@
     "durationSec": 30
    },
    "desc": "รับความเสียหายแทนเพื่อนในปาร์ตี้ (แผนที่เดียวกัน) 5% ต่อเลเวล (Lv 10 = 50%) มาลดเลือดตัวเองแทน นาน 30 วินาที (คูลดาวน์ 5 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 800,
+   "castDex": true
   },
   "straight_beat": {
    "cls": "bassist",
@@ -12401,7 +12441,9 @@
    ],
    "desc": "คลื่นเสียงเบสเป็นวงรอบตัว 5 ช่อง ดาเมจคิดจาก ATK x VIT x INT (คูลดาวน์ 5 วินาที)",
    "maxLevel": 10,
-   "element": "earth"
+   "element": "earth",
+   "castMs": 1200,
+   "castDex": true
   },
   "lift_beat": {
    "cls": "bassist",
@@ -12418,7 +12460,9 @@
     "durationSec": 30
    },
    "desc": "บัฟตัวเอง สะท้อนความเสียหายที่โดนกลับใส่มอนสเตอร์ 8% ต่อเลเวล (Lv 10 = 80%) นาน 30 วินาที (คูลดาวน์ 15 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 800,
+   "castDex": true
   },
   "push_note": {
    "cls": "bassist",
@@ -12435,7 +12479,9 @@
     "durationSec": 30
    },
    "desc": "บัฟตัวเอง ฟื้น HP เร็วขึ้น 8% ต่อเลเวล (Lv 10 = 80%) นาน 30 วินาที ฟื้นได้แม้กำลังสู้ (คูลดาวน์ 15 วินาที)",
-   "maxLevel": 10
+   "maxLevel": 10,
+   "castMs": 800,
+   "castDex": true
   },
   "pluck_control": {
    "cls": "bassist",
@@ -12493,7 +12539,9 @@
     50,
     30
    ],
-   "fx": "heal_ring"
+   "fx": "heal_ring",
+   "castMs": 1000,
+   "castDex": true
   },
   "tempo_up": {
    "cls": "keyboardist",
@@ -12516,7 +12564,9 @@
     },
     "durationSec": 180
    },
-   "fx": "tempo"
+   "fx": "tempo",
+   "castMs": 1000,
+   "castDex": true
   },
   "tempo_control": {
    "cls": "keyboardist",
@@ -12547,7 +12597,9 @@
     },
     "durationSec": 180
    },
-   "fx": "control"
+   "fx": "control",
+   "castMs": 1000,
+   "castDex": true
   },
   "solo": {
    "cls": "keyboardist",
@@ -12570,7 +12622,9 @@
     },
     "durationSec": 180
    },
-   "fx": "solo_star"
+   "fx": "solo_star",
+   "castMs": 1000,
+   "castDex": true
   },
   "chorus_ward": {
    "cls": "keyboardist",
@@ -12591,7 +12645,9 @@
     ],
     "durationSec": 180
    },
-   "fx": "shield"
+   "fx": "shield",
+   "castMs": 1000,
+   "castDex": true
   },
   "revive": {
    "cls": "keyboardist",
@@ -12610,7 +12666,9 @@
     20,
     20
    ],
-   "fx": "revive"
+   "fx": "revive",
+   "castMs": 3000,
+   "castDex": true
   }
  }
 }

@@ -12,7 +12,7 @@ import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } fro
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
 import { blueCircle, chorusFx, controlFx, keyAura, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet, sfxMonster } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
@@ -134,6 +134,8 @@ interface MonsterActor {
   label: Label;
   hit: THREE.Mesh;
   fade: number;
+  /** burst into pieces as it died: the body vanishes at once */
+  burst?: boolean;
 }
 
 /** 'foe' = another player, in PVP. */
@@ -491,6 +493,7 @@ export class World3D {
     const def = MONSTERS[rm.key];
     const rig = buildMonster(rm.key);
     rig.root.position.set(rm.x, 0, rm.y);
+    rig.root.userData.monKey = rm.key;
     this.scene.add(rig.root);
     const hit = this.hitCylinder(Math.max(0.4, def.size * 0.45), rig.height + 0.2);
     hit.userData.monster = id;
@@ -1150,13 +1153,19 @@ export class World3D {
       if (rm.dead && !m.dead) {
         m.dead = true;
         m.anim?.die();
-        sfx('mdie', Math.min(1, this.vol(m.x, m.y, false) * 2));
+        const def = MONSTERS[m.key];
+        if (def && !def.structure) {
+          sfxMonster(m.key, def.model ?? m.key, def.size, 'die', Math.min(1, this.vol(m.x, m.y, false) * 2.2), def.boss);
+          if (m.rig.root.visible) this.shatter(m);
+          m.burst = true;
+        } else sfx('mdie', Math.min(1, this.vol(m.x, m.y, false) * 2));
         if (this.target?.kind === 'monster' && this.target.id === id) this.target = null;
       } else if (!rm.dead && m.dead) {
         m.dead = false;
         m.x = rm.x;
         m.y = rm.y;
         m.fade = 0;
+        m.burst = false;
         m.rig.root.visible = true;
         m.anim?.revive();
       }
@@ -1169,7 +1178,7 @@ export class World3D {
       m.hp = rm.hp;
       m.maxHp = rm.maxHp;
       // a rigged monster plays its death clip before sinking away; a drawn one squashes flat
-      m.fade = Math.max(0, Math.min(1, m.fade + (m.dead ? -dt * (m.anim ? 0.7 : 2.5) : dt * 2.5)));
+      m.fade = Math.max(0, Math.min(1, m.fade + (m.dead ? -dt * (m.burst ? 9 : m.anim ? 0.7 : 2.5) : dt * 2.5)));
       m.rig.root.visible = m.fade > 0;
       m.rig.root.position.set(m.x, 0, m.y);
       if (m.anim) {
@@ -1542,6 +1551,79 @@ export class World3D {
   /** Hit spark (materials are shared between actors, so no tinting). */
   private flash(o: THREE.Object3D, color = 0xffffff) {
     this.burst(new THREE.Vector3(o.position.x, 0.6, o.position.z), color, 6, 2);
+    // a monster that is hit cries out in its own voice (at most every 140 ms, so multi-hits don't pile up)
+    const key = o.userData.monKey as string | undefined;
+    if (key && MONSTERS[key] && performance.now() - ((o.userData.voiceAt as number) ?? 0) > 140) {
+      o.userData.voiceAt = performance.now();
+      const def = MONSTERS[key];
+      sfxMonster(key, def.model ?? key, def.size, 'hurt', this.vol(o.position.x, o.position.z, false) * 2.2, def.boss);
+    }
+  }
+
+  /** A monster dying bursts into pieces of its colours that fly out, tumble, bounce once and fade. */
+  private shatter(m: MonsterActor) {
+    const def = MONSTERS[m.key];
+    const h = m.rig.height;
+    const cx = m.x;
+    const cz = m.y;
+    const base = new THREE.Color(def.color ?? '#cccccc');
+    const cols = [base, base.clone().offsetHSL(0, 0, 0.18), base.clone().offsetHSL(0, 0, -0.2), new THREE.Color(def.glow ?? '#ffffff')];
+    const n = Math.round(14 + Math.min(16, def.size * 8) + (def.boss ? 14 : 0));
+    const geos = [new THREE.TetrahedronGeometry(1), new THREE.BoxGeometry(1, 1, 1), new THREE.OctahedronGeometry(1)];
+    const pieces: { mesh: THREE.Mesh; v: THREE.Vector3; spin: THREE.Vector3; bounced: boolean }[] = [];
+    for (let i = 0; i < n; i++) {
+      const mat = new THREE.MeshLambertMaterial({ color: cols[i % cols.length], transparent: true, emissive: cols[i % cols.length], emissiveIntensity: 0.25 });
+      const mesh = new THREE.Mesh(geos[i % geos.length], mat);
+      const sz = (0.09 + Math.random() * 0.13) * Math.max(0.7, Math.min(2.2, def.size));
+      mesh.scale.set(sz, sz * (0.6 + Math.random() * 0.8), sz);
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.random() * 0.3 * def.size;
+      mesh.position.set(cx + Math.cos(a) * r, h * (0.25 + Math.random() * 0.6), cz + Math.sin(a) * r);
+      const sp = 1.6 + Math.random() * 2.6;
+      pieces.push({ mesh, v: new THREE.Vector3(Math.cos(a) * sp, 2 + Math.random() * 3.2, Math.sin(a) * sp), spin: new THREE.Vector3(Math.random() * 14 - 7, Math.random() * 14 - 7, Math.random() * 14 - 7), bounced: false });
+      this.scene.add(mesh);
+    }
+    // a quick white-hot flash where it stood
+    const glow = this.sprite(sparkTexture(), Math.max(1.4, def.size * 1.8), cols[3].getHex(), true);
+    glow.position.set(cx, h * 0.5, cz);
+    let t = 0;
+    this.effects.push((dt) => {
+      t += dt;
+      glow.material.opacity = Math.max(0, 1 - t / 0.25);
+      glow.scale.setScalar(Math.max(1.4, def.size * 1.8) * (1 + t * 3));
+      for (const p of pieces) {
+        p.v.y -= 9.8 * dt;
+        p.mesh.position.addScaledVector(p.v, dt);
+        if (p.mesh.position.y < 0.04) {
+          p.mesh.position.y = 0.04;
+          if (!p.bounced) {
+            p.bounced = true;
+            p.v.y = Math.abs(p.v.y) * 0.35;
+            p.v.x *= 0.5;
+            p.v.z *= 0.5;
+            p.spin.multiplyScalar(0.4);
+          } else {
+            p.v.set(0, 0, 0);
+            p.spin.set(0, 0, 0);
+          }
+        }
+        p.mesh.rotation.x += p.spin.x * dt;
+        p.mesh.rotation.y += p.spin.y * dt;
+        p.mesh.rotation.z += p.spin.z * dt;
+        (p.mesh.material as THREE.MeshLambertMaterial).opacity = t < 0.9 ? 1 : Math.max(0, 1 - (t - 0.9) / 0.5);
+      }
+      if (t > 1.4) {
+        this.scene.remove(glow);
+        glow.material.dispose();
+        for (const p of pieces) {
+          this.scene.remove(p.mesh);
+          (p.mesh.material as THREE.Material).dispose();
+        }
+        geos.forEach((g) => g.dispose());
+        return false;
+      }
+      return true;
+    });
   }
 
   private sprite(tex: THREE.Texture, size: number, color = 0xffffff, additive = false) {
