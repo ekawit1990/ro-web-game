@@ -396,6 +396,22 @@ export function sfxFring(vol = 1, big = false, at = 0) {
   }
 }
 
+/**
+ * "วีด": the whistle of a spell being cast. A few thin, high tones sliding up together (like air whistling
+ * past), on a soft breathy hiss. `soft` is the quieter repeat while a long cast is still charging.
+ */
+export function sfxWheet(vol = 1, at = 0, soft = false) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = soft ? 0.55 : 1;
+  const dur = 0.3;
+  [3400, 4500, 5700].forEach((f, i) =>
+    tone(f, t + i * 0.025, dur, { type: 'sine', to: f * 1.75, gain: (0.075 - i * 0.015) * vol * k, attack: 0.03, release: 0.08, wet: 0.45 }),
+  );
+  tone(1500, t, dur, { type: 'triangle', to: 2900, gain: 0.05 * vol * k, attack: 0.04, release: 0.08, wet: 0.3 });
+  noise(t, dur, { gain: 0.1 * vol * k, type: 'bandpass', freq: 3000, freqTo: 8000, q: 1.2, release: 0.08 });
+}
+
 /** A skill: a quick flourish on the class instrument, plus a whoosh/boom for area skills. */
 export function sfxSkill(cls: ClassKey, type: string, vol = 1) {
   if (!ready() || vol <= 0) return;
@@ -417,13 +433,23 @@ export function sfx(name: Sfx, vol = 1) {
   const t = now();
   switch (name) {
     case 'hit':
-      noise(t, 0.06, { gain: 0.35 * vol, type: 'lowpass', freq: 1200, release: 0.03 });
-      tone(180, t, 0.08, { type: 'sine', to: 90, gain: 0.3 * vol, release: 0.04 });
+      // "ปึก!": a dry crack on top, a crunchy full-range burst that dies fast, and a short body thump
+      noise(t, 0.025, { gain: 0.55 * vol, type: 'highpass', freq: 3500, release: 0.012 });
+      noise(t, 0.16, { gain: 0.42 * vol, type: 'bandpass', freq: 2600, freqTo: 1200, q: 0.6, release: 0.07 });
+      noise(t, 0.1, { gain: 0.32 * vol, type: 'lowpass', freq: 1000, release: 0.05 });
+      tone(170, t, 0.11, { type: 'sine', to: 60, gain: 0.42 * vol, release: 0.05 });
+      tone(420, t, 0.04, { type: 'square', to: 200, gain: 0.07 * vol, filter: 2200, release: 0.02 });
       break;
     case 'crit':
-      noise(t, 0.09, { gain: 0.45 * vol, type: 'lowpass', freq: 2500, release: 0.05 });
-      tone(240, t, 0.12, { type: 'square', to: 80, gain: 0.2 * vol, filter: 1500, release: 0.06 });
-      tone(midi(88), t + 0.02, 0.2, { type: 'triangle', gain: 0.12 * vol, wet: 0.4 });
+      // "ปั้ก!!": two cracks right after each other, a heavier thump and a bright metallic ring
+      for (const d of [0, 0.055]) {
+        noise(t + d, 0.03, { gain: 0.6 * vol, type: 'highpass', freq: 3200, release: 0.014 });
+        noise(t + d, 0.2, { gain: 0.45 * vol, type: 'bandpass', freq: 3000, freqTo: 1100, q: 0.55, release: 0.09 });
+      }
+      noise(t, 0.14, { gain: 0.38 * vol, type: 'lowpass', freq: 1300, release: 0.07 });
+      tone(200, t, 0.16, { type: 'sine', to: 50, gain: 0.55 * vol, release: 0.07 });
+      tone(260, t, 0.1, { type: 'square', to: 90, gain: 0.14 * vol, filter: 1800, release: 0.05 });
+      [2960, 4180].forEach((f, i) => tone(f, t + 0.02, 0.22, { type: 'sine', gain: (0.05 / (i + 1)) * vol, release: 0.1, wet: 0.35 }));
       break;
     case 'miss':
       noise(t, 0.18, { gain: 0.18 * vol, type: 'bandpass', freq: 600, freqTo: 2400, q: 2 });

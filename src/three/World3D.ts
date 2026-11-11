@@ -12,7 +12,7 @@ import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } fro
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
 import { blueCircle, chorusFx, controlFx, keyAura, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet } from '../audio/sound';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
@@ -104,7 +104,7 @@ interface PlayerActor {
   /** หนีไปกลับ PR */
   hidden?: boolean;
   /** casting เสียงสูง: the bar over the head */
-  cast?: { start: number; ms: number; bar: THREE.Group };
+  cast?: { start: number; ms: number; bar: HTMLElement; fill: HTMLElement };
   dead: boolean;
   sitting: boolean;
   hp: number;
@@ -280,7 +280,7 @@ export class World3D {
     this.players.set(room.sessionId, me);
     me.x = me.tx = this.sentX = x;
     me.y = me.ty = this.sentY = y;
-    me.cast?.bar.parent?.remove(me.cast.bar);
+    me.cast?.bar.remove();
     me.cast = undefined;
     this.path = [];
     this.target = null;
@@ -1001,6 +1001,10 @@ export class World3D {
       if (v === this.me && m && !m.dead && !this.target && !this.path.length) this.target = { kind: 'monster', id: m.id };
     });
     on('skill', (msg) => {
+      // every skill without a cast bar still gets its "วีด" as it goes off (cast skills whistle while casting)
+      const sk = SKILLS[msg.skill];
+      const caster = this.players.get(msg.by);
+      if (sk && !sk.castMs && caster) sfxWheet(this.vol(caster.x, caster.y, caster === this.me) * 0.8);
       this.skillFx(msg);
       if (msg.by === this.room.sessionId && SKILLS[msg.skill]) {
         this.autoReady.set(msg.skill, performance.now() + (SKILLS[msg.skill].cooldown ?? 1000));
@@ -1036,7 +1040,7 @@ export class World3D {
     on('castEnd', (msg: { by: string; done: boolean }) => {
       const a = this.players.get(msg.by);
       if (!a?.cast) return;
-      this.scene.remove(a.cast.bar);
+      a.cast.bar.remove();
       a.cast = undefined;
       a.performUntil = 0;
       if (!msg.done && a === this.me) this.hooks.toast('ขยับตัว ยกเลิกการร่ายสกิล', 'bad');
@@ -1288,10 +1292,7 @@ export class World3D {
       animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0 || a.ready > 0, armed: a.armed, combo: a.combo, perform: a.perform, ready: a.ready > 0 });
       if (a.cast) {
         const k = Math.min(1, (performance.now() - a.cast.start) / a.cast.ms);
-        a.cast.bar.position.set(a.x, 2.35, a.y);
-        a.cast.bar.quaternion.copy(this.camera.quaternion);
-        a.cast.bar.children[1].scale.x = Math.max(0.001, k);
-        a.cast.bar.children[1].position.x = -0.5 + k / 2;
+        a.cast.fill.style.width = `${(k * 100).toFixed(1)}%`;
       }
       if (a.spin && a.spin > 0) {
         a.spin = Math.max(0, a.spin - dt);
@@ -1493,10 +1494,18 @@ export class World3D {
   /** RO-style damage numbers and shouts, floating above a point in the world. */
   private floatText(pos: THREE.Vector3, text: string, kind: string, life = 900) {
     const el = document.createElement('div');
-    el.className = `wf ${kind}`;
-    el.textContent = text;
+    // numbers: chunky, wide-spaced digits with a thick outline that pop in big and white, settle into their
+    // colour and float straight up (stacking on multi-hits)
+    const num = /^[+]?\d+$/.test(text) && kind !== 'level' && kind !== 'shout';
+    el.className = `wf ${kind}${num ? ' num' : ''}`;
+    if (num) {
+      const inner = document.createElement('span');
+      inner.textContent = text;
+      el.appendChild(inner);
+    } else el.textContent = text;
     this.overlay.appendChild(el);
-    this.floats.push({ el, pos: pos.clone(), born: this.now, life, dx: kind === 'shout' || kind === 'level' ? 0 : (Math.random() - 0.5) * 0.8, rise: kind === 'level' ? 0.9 : 0.6 });
+    const dx = kind === 'shout' || kind === 'level' ? 0 : num ? (Math.random() - 0.5) * 0.15 : (Math.random() - 0.5) * 0.8;
+    this.floats.push({ el, pos: pos.clone(), born: this.now, life: num ? Math.max(life, 1100) : life, dx, rise: kind === 'level' ? 0.9 : num ? 0.85 : 0.6 });
   }
 
   bubble(id: string, text: string) {
@@ -2169,15 +2178,18 @@ export class World3D {
   /** The cast of เสียงสูง: a bar over the head, a pulsing circle under the feet, singing. */
   private castFx(a: PlayerActor, skill: { cls: ClassKey; name: string }, ms: number) {
     const c = this.fxColor(skill.cls);
-    if (a.cast) this.scene.remove(a.cast.bar);
-    const bar = new THREE.Group();
-    const back = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.1), new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.7, depthTest: false }));
-    const fill = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.08), new THREE.MeshBasicMaterial({ color: c, depthTest: false }));
-    back.renderOrder = fill.renderOrder = 10;
-    bar.add(back, fill);
-    this.scene.add(bar);
+    if (a.cast) a.cast.bar.remove();
+    // the cast bar: a dark framed slot under the name that fills up green
+    const bar = document.createElement('div');
+    bar.className = 'wcast';
+    const fill = document.createElement('i');
+    bar.appendChild(fill);
+    a.label.el.appendChild(bar);
     const start = performance.now();
-    a.cast = { start, ms, bar };
+    const vol = () => this.vol(a.x, a.y, a === this.me);
+    sfxWheet(vol());
+    let lastWheet = 0;
+    a.cast = { start, ms, bar, fill };
     a.performUntil = start + ms;
     a.combat = COMBAT_TIME;
     a.ready = READY_TIME;
@@ -2197,6 +2209,11 @@ export class World3D {
       if (tt - lastNote > 0.35) {
         lastNote = tt;
         this.notes(a, c, 2);
+      }
+      // "วีด" keeps whistling softly while the spell charges
+      if (tt - lastWheet > 0.45 && a.cast?.start === start && performance.now() - start < ms - 300) {
+        lastWheet = tt;
+        sfxWheet(vol(), 0, true);
       }
       if (!a.cast || a.cast.start !== start) {
         this.scene.remove(circle);
