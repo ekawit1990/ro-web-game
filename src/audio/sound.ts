@@ -412,6 +412,41 @@ export function sfxWheet(vol = 1, at = 0, soft = false) {
   noise(t, dur, { gain: 0.1 * vol * k, type: 'bandpass', freq: 3000, freqTo: 8000, q: 1.2, release: 0.08 });
 }
 
+/**
+ * The singer's big voice: an "อาาา!" sung as a bright chord (three voices through a vowel-like filter, with
+ * vibrato), a choir pad under it and a shimmer of bells on top. `big` holds it longer and adds a low boom.
+ */
+export function sfxDiva(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const dur = big ? 1.1 : 0.55;
+  const root = 72 + pick([0, 2, 4]);
+  [0, 4, 7].forEach((st, i) => {
+    tone(midi(root + st), t, dur, { type: 'sawtooth', gain: (0.11 - i * 0.02) * vol, attack: 0.04, filter: 1300, filterTo: 2200, q: 5, vibrato: 0.014, release: dur / 3, wet: 0.6 });
+    tone(midi(root + st), t, dur, { type: 'triangle', gain: 0.06 * vol, attack: 0.05, vibrato: 0.014, release: dur / 3, wet: 0.5 });
+  });
+  tone(midi(root - 12), t, dur * 1.2, { type: 'triangle', gain: 0.1 * vol, attack: 0.08, release: dur / 2, wet: 0.6 });
+  for (let i = 0; i < 6; i++) tone(midi(root + 24 + PENTA[i % 5]), t + 0.05 + i * 0.05, 0.3, { type: 'sine', gain: 0.045 * vol, release: 0.12, wet: 0.7 });
+  noise(t, 0.25, { gain: 0.12 * vol, type: 'bandpass', freq: 3500, freqTo: 8000, q: 1.2, release: 0.1, wet: 0.5 });
+  if (big) {
+    tone(90, t, 0.5, { type: 'sine', to: 35, gain: 0.45 * vol, release: 0.18 });
+    noise(t, 0.4, { gain: 0.2 * vol, type: 'lowpass', freq: 900, freqTo: 150, release: 0.15, wet: 0.4 });
+  }
+}
+
+/** A thrown mic landing, "ปั้ง!": a crack, the feedback squeal of a mic and a ringing tail. `big` hits harder. */
+export function sfxMicBoom(vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = big ? 1.35 : 1;
+  noise(t, 0.03, { gain: 0.7 * vol * k, type: 'highpass', freq: 2800, release: 0.012 });
+  noise(t, 0.14, { gain: 0.4 * vol * k, type: 'bandpass', freq: 1600, q: 0.8, release: 0.05 });
+  tone(big ? 150 : 190, t, 0.18, { type: 'sine', to: 45, gain: 0.55 * vol * k, release: 0.07 });
+  tone(big ? 2600 : 3100, t + 0.02, big ? 0.45 : 0.3, { type: 'sine', to: big ? 3300 : 3500, gain: 0.05 * vol * k, vibrato: 0.01, release: 0.12, wet: 0.5 });
+  tone(midi(84 + pick(PENTA)), t + 0.02, 0.35, { type: 'triangle', gain: 0.07 * vol * k, release: 0.14, wet: 0.6 });
+  if (big) noise(t + 0.03, 0.4, { gain: 0.22 * vol, type: 'lowpass', freq: 800, freqTo: 120, release: 0.15, wet: 0.4 });
+}
+
 // ------------------------------------------------------------ monster voices
 
 type Voice = 'squish' | 'wail' | 'growl' | 'chirp' | 'buzz' | 'ribbit' | 'bark' | 'meow' | 'blub' | 'warble' | 'roar' | 'squeak' | 'rattle' | 'crunch';

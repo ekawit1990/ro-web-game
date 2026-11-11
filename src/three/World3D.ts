@@ -12,7 +12,8 @@ import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } fro
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
 import { blueCircle, chorusFx, controlFx, keyAura, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet, sfxMonster } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet, sfxMonster, sfxDiva, sfxMicBoom } from '../audio/sound';
+import { dynamicsHit, earTrainingBlast, highVoiceBeam, singerBuff, singerCharge, SG } from './singerfx';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
@@ -1031,6 +1032,11 @@ export class World3D {
       this.face(a, msg.x, msg.y);
       this.castFx(a, skill, msg.ms);
       if (a === this.me) this.path = [];
+      if (skill.cls === 'singer') {
+        // the singer charges on a golden circle under a spotlight, notes rising round them
+        const start = a.cast?.start;
+        singerCharge(this.fxCtx(false, () => {}), () => new THREE.Vector3(a.x, 0, a.y), msg.ms, () => !!a.cast && a.cast.start === start && this.players.get(a.id) === a);
+      }
       if (skill.waves) {
         // ตัวโน้ตทำลาย: the 3x3 area lights up and charges while the keyboardist casts
         const start = a.cast?.start;
@@ -1897,7 +1903,7 @@ export class World3D {
     const vol = a ? this.vol(a.x, a.y, mine) : 0;
     const isBuff = skill.type === 'buff' || skill.type === 'buff_party' || skill.type === 'buff_target';
     if (a) {
-      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll' && id !== 'hammer_on' && id !== 'vibrato' && id !== 'slide' && id !== 'bending' && id !== 'palm_muting') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
+      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll' && id !== 'hammer_on' && id !== 'vibrato' && id !== 'slide' && id !== 'bending' && id !== 'palm_muting' && skill.cls !== 'singer') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       if (skill.type !== 'aoe_self' && !isBuff) this.face(a, msg.x, msg.y);
       a.combat = COMBAT_TIME;
@@ -2002,8 +2008,15 @@ export class World3D {
         );
         if (mine) this.shake(0.2);
       } else {
-        this.wave(fx, fy, msg.dirX ?? 0, msg.dirY ?? 1, skill.length ?? 5, skill.speed ?? 5, skill.width ?? 1.5, c, false);
-        if (mine) this.shake(0.35);
+        if (skill.cls === 'singer') {
+          // เสียงสูง: a cannon of golden sound rings on a staff ribbon, sung as a big "อาาา!"
+          a.performUntil = performance.now() + 900;
+          highVoiceBeam(this.fxCtx(mine, (big) => (big ? sfxDiva(vol, true) : sfxMicBoom(vol, true))), fx, fy, msg.dirX ?? 0, msg.dirY ?? 1, skill.length ?? 5, skill.speed ?? 5, skill.width ?? 1.5);
+          if (mine) this.shake(0.35);
+        } else {
+          this.wave(fx, fy, msg.dirX ?? 0, msg.dirY ?? 1, skill.length ?? 5, skill.speed ?? 5, skill.width ?? 1.5, c, false);
+          if (mine) this.shake(0.35);
+        }
       }
     } else if (id === 'root_note' && a) {
       // an emerald circle, a giant green chop out of the sky, jade spikes bursting out of the ground ("ดุ๊ม!")
@@ -2036,39 +2049,25 @@ export class World3D {
         target, kx, kz, hitMs, sparkTexture(),
       );
     } else if (id === 'ear_training' && a) {
-      const throwIt = id === 'ear_training';
-      const boom = () => {
-        const at = target();
-        sfxSlash(vol, true);
-        this.crescent(at, throwIt ? 0 : 1.2, 2.8, 0xffffff, 300);
-        this.crescent(at, throwIt ? Math.PI / 2 : 1.2, 2.3, c, 340, 50);
-        this.glow(at, c, 6, 300);
-        this.ring(at.x, at.z, 2.6, c);
-        setTimeout(() => this.ring(at.x, at.z, 3.4, 0xffffff), 110);
-        this.burst(at, c, 40, 8);
-        if (mine) this.shake(0.35);
-      };
-      if (throwIt) {
-        numbersFrom = 420;
-        a.attack = 1;
-        a.combo = 0;
-        setTimeout(() => this.micThrow(new THREE.Vector3(a.x, 1.45, a.y), target, 260, c, boom, 1.6), 280);
-      } else setTimeout(boom, 330);
+      // the big golden mic slams down: circle, spotlight, pillar of light, rolling sound rings, rays, a star storm
+      numbersFrom = 420;
+      a.attack = 1;
+      a.combo = 0;
+      const t0 = target();
+      const kl = Math.hypot(t0.x - a.x, t0.z - a.y) || 1;
+      const kx = (t0.x - a.x) / kl;
+      const kz = (t0.z - a.y) / kl;
+      setTimeout(() => this.micThrow(new THREE.Vector3(a.x, 1.45, a.y), target, 260, SG.gold, () => earTrainingBlast(this.fxCtx(mine, (big) => sfxMicBoom(vol, big)), target(), kx, kz), 1.8), 280);
     } else if (id === 'dynamics' && a) {
-      // two mics thrown in quick succession, each lands in a yellow star burst
+      // two golden mics in quick succession, each lands under a spotlight in stars and rings of sound
       numbersFrom = 420;
       numberGap = 230;
+      sfxDiva(vol * 0.6, false);
       for (let i = 0; i < 2; i++) {
         setTimeout(() => {
           a.attack = 1;
           a.combo = 0;
-          setTimeout(() => this.micThrow(new THREE.Vector3(a.x, 1.45, a.y), target, 230, c, () => {
-            const at = target();
-            this.glow(at, c, 4, 240);
-            this.ring(at.x, at.z, 1.6, c);
-            this.burst(at, 0xffffff, 18, 5);
-            this.pixelFx('stab_hit', { at: () => at, scale: 2 });
-          }, 1.2), 280);
+          setTimeout(() => this.micThrow(new THREE.Vector3(a.x, 1.45, a.y), target, 230, SG.gold, () => dynamicsHit(this.fxCtx(mine, (big) => sfxMicBoom(vol, big)), target(), i === 1), 1.4), 280);
         }, i * 230);
       }
     } else if (id === 'bending' && a) {
@@ -2249,6 +2248,12 @@ export class World3D {
       const vol = this.vol(t.x, t.y, t === this.me);
       bassBuffCast(this.fxCtx(t === this.me, () => sfxBassBuff(vol)), () => new THREE.Vector3(t.x, 0, t.y), bassKind, sparkTexture());
       this.bassAura(t, bassKind, (SKILLS[id]?.buff?.durationSec ?? 30) * 1000);
+      return;
+    }
+    if (id === 'warm_up' || id === 'enunciation') {
+      // the singer's buffs: a golden circle, a spotlight, a pillar of light and notes swirling up
+      const vol = this.vol(t.x, t.y, t === this.me);
+      singerBuff(this.fxCtx(t === this.me, () => sfxDiva(vol * 0.8, false)), () => new THREE.Vector3(t.x, 0, t.y), id === 'warm_up' ? SG.light : SG.pink);
       return;
     }
     this.pillar(t.x, t.y, c, 0.6, 3.2);
