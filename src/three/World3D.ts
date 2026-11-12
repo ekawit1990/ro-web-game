@@ -1,7 +1,7 @@
 import { potionPct, spPotionPct, AUTO_POTION_EVERY } from '../game/autoPrefs';
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVEL, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf, vrmHatOf } from '../data';
+import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVEL, MONSTERS, MONSTER_SKILLS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf, vrmHatOf } from '../data';
 import { findPath, GameMap, Npc, THEMES, isLava, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
@@ -12,7 +12,8 @@ import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } fro
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
 import { blueCircle, chorusFx, controlFx, keyAura, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet, sfxMonster, sfxDiva, sfxMicBoom } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet, sfxMonster, sfxDiva, sfxMicBoom, sfxReaper, sfxMvp } from '../audio/sound';
+import { hellfire, judgement, scytheSweep, soulChain, telegraph } from './reaperfx';
 import { dynamicsHit, earTrainingBlast, highVoiceBeam, singerBuff, singerCharge, SG } from './singerfx';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
@@ -324,7 +325,7 @@ export class World3D {
   private buildScene() {
     this.scene.background = new THREE.Color(THEMES[this.map.theme].sky);
     // lava maps see further (the big volcano), the cave and the haunted maps less far
-    const [near, far] = isLava(this.map.theme) ? [60, 150] : this.map.theme === 'cave' ? [26, 72] : this.map.theme === 'deadwood' || this.map.theme === 'ruins' ? [30, 88] : [42, 105];
+    const [near, far] = isLava(this.map.theme) ? [60, 150] : this.map.theme === 'cave' ? [26, 72] : this.map.theme === 'deadwood' || this.map.theme === 'ruins' || this.map.theme === 'abyss' ? [30, 88] : [42, 105];
     this.scene.fog = new THREE.Fog(this.scene.background, near, far);
     const mood = MOODS[this.map.theme];
     renderer!.toneMapping = THREE.NeutralToneMapping;
@@ -501,9 +502,10 @@ export class World3D {
     rig.root.add(hit);
     this.hits.push(hit);
     const [mel, melv] = monsterElement(def);
-    const label = this.makeLabel(def.structure ? `💎 ${escapeHtml(def.name)}` : `${def.boss ? '★ ' : ''}${escapeHtml(def.name)} <span class="lv">Lv.${def.level}</span> <span class="el" title="${ELEMENTS[mel].name} ${melv}">${ELEMENTS[mel].icon}${melv}</span>`, true);
+    const label = this.makeLabel(def.structure ? `💎 ${escapeHtml(def.name)}` : `${def.mvp ? '<span class="mvp-tag">MVP</span> ' : def.boss ? '<span class="mini-tag">มินิบอส</span> ' : ''}${escapeHtml(def.name)} <span class="lv">Lv.${def.level}</span> <span class="el" title="${ELEMENTS[mel].name} ${melv}">${ELEMENTS[mel].icon}${melv}</span>`, true);
     label.el.classList.add('mon');
     if (def.boss) label.el.classList.add('boss');
+    if (def.mvp) label.el.classList.add('mvp');
     const m: MonsterActor = {
       id, key: rm.key, rig, x: rm.x, y: rm.y, dead: rm.dead, hp: rm.hp, maxHp: rm.maxHp, phase: Math.random() * 6, moving: false, label, hit,
       fade: rm.dead ? 0 : 1,
@@ -1089,6 +1091,59 @@ export class World3D {
       this.levelFx(this.me, '', 0xffd36b);
       sfx('heal');
     });
+    on('mcast', (msg: { m: string; skill: string; x: number; y: number; ms: number; to?: string }) => {
+      // a boss charges a skill: it shouts the name and a red circle on the ground shows where it will land
+      const m = this.monsters.get(msg.m);
+      const sk = MONSTER_SKILLS[msg.skill];
+      if (!m || !sk) return;
+      const vol = this.vol(m.x, m.y, false);
+      sfxReaper('warn', vol);
+      this.floatText(this.top(m).add(new THREE.Vector3(0, 0.35, 0)), `${sk.name}!!`, 'shout', Math.max(1400, msg.ms + 400)).classList.add('boss-shout');
+      const alive = () => this.monsters.get(msg.m) === m && !m.dead;
+      const ctx = this.fxCtx(false, () => {});
+      if (sk.area === 'target') {
+        const v = msg.to ? this.players.get(msg.to) : undefined;
+        if (v) telegraph(ctx, () => new THREE.Vector3(v.x, 0, v.y), 0.9, msg.ms, () => alive() && this.players.get(v.id) === v);
+      } else if (sk.area === 'self') telegraph(ctx, () => new THREE.Vector3(m.x, 0, m.y), sk.radius, msg.ms, alive);
+      else telegraph(ctx, () => new THREE.Vector3(msg.x, 0, msg.y), sk.radius, msg.ms, alive);
+      if (m.anim) m.anim.attack();
+    });
+    on('mskill', (msg: { m: string; skill: string; x: number; y: number; hits: { p: string; dmg: number }[]; pulled?: { p: string } }) => {
+      const m = this.monsters.get(msg.m);
+      const sk = MONSTER_SKILLS[msg.skill];
+      if (!sk) return;
+      const meHit = msg.hits.some((h) => h.p === this.room.sessionId);
+      const vol = this.vol(msg.x, msg.y, meHit);
+      const kind = msg.skill === 'scythe_sweep' ? 'sweep' : msg.skill === 'soul_chain' ? 'chain' : msg.skill === 'hellfire' ? 'fire' : 'judge';
+      const ctx = this.fxCtx(meHit, () => sfxReaper(kind, vol));
+      if (m) {
+        if (m.anim) m.anim.attack();
+        else this.lunge(m.rig.root, 0, 0.01);
+      }
+      if (msg.skill === 'scythe_sweep') scytheSweep(ctx, msg.x, msg.y, sk.radius);
+      else if (msg.skill === 'hellfire') hellfire(ctx, msg.x, msg.y, sk.radius);
+      else if (msg.skill === 'judgement') judgement(ctx, msg.x, msg.y, sk.radius);
+      else if (msg.skill === 'soul_chain' && m) {
+        const v = this.players.get(msg.hits[0]?.p ?? msg.pulled?.p ?? '');
+        if (v) soulChain(ctx, () => new THREE.Vector3(m.x, 0, m.y), () => new THREE.Vector3(v.x, 0, v.y));
+      }
+      msg.hits.forEach((h, i) => {
+        const v = this.players.get(h.p);
+        if (!v) return;
+        setTimeout(() => {
+          if (this.players.get(h.p) !== v) return;
+          const p = new THREE.Vector3(v.x, 1.7, v.y);
+          if (h.dmg === 0) this.floatText(p, 'Miss', 'miss');
+          else {
+            this.floatText(p, String(h.dmg), 'take', 1300);
+            this.flash(v.rig.root, 0xff3333);
+            if (v === this.me) sfx('hurt');
+          }
+        }, msg.skill === 'soul_chain' ? 250 : 60 + i * 20);
+      });
+      if (msg.pulled?.p === this.room.sessionId) this.hooks.toast(`ถูก${sk.name}ลากเข้าไปหาบอส!`, 'bad');
+    });
+    on('mvp', (msg: { sid: string; name: string; monster: string }) => this.mvpFx(msg.sid, msg.name));
     on('chat', (msg: { id: string; text: string }) => this.bubble(msg.id, msg.text));
   }
 
@@ -1521,6 +1576,7 @@ export class World3D {
     this.overlay.appendChild(el);
     const dx = kind === 'shout' || kind === 'level' ? 0 : num ? (Math.random() - 0.5) * 0.15 : (Math.random() - 0.5) * 0.8;
     this.floats.push({ el, pos: pos.clone(), born: this.now, life: num ? Math.max(life, 1100) : life, dx, rise: kind === 'level' ? 0.9 : num ? 0.85 : 0.6 });
+    return el;
   }
 
   bubble(id: string, text: string) {
@@ -2818,6 +2874,31 @@ export class World3D {
         return t <= 0.7;
       });
     }
+  }
+
+  /** The MVP banner: a pink-red starburst with a big "MVP" pops up over the player who did the most damage. */
+  private mvpFx(sid: string, name: string) {
+    const a = this.players.get(sid);
+    if (!a) return;
+    sfxMvp(this.vol(a.x, a.y, a === this.me) || 0.35);
+    const el = document.createElement('div');
+    el.className = 'mvpb';
+    el.innerHTML = `<div class="mvpb-in"><i class="b1"></i><i class="b2"></i><b>MVP</b><small>${escapeHtml(name)}</small></div>`;
+    this.overlay.appendChild(el);
+    this.levelFx(a, '', 0xff4fa0);
+    this.burst(new THREE.Vector3(a.x, 2.2, a.y), 0xffd23a, 30, 4);
+    const born = this.now;
+    const life = 5000;
+    this.effects.push(() => {
+      const live = this.players.get(sid) === a && this.now - born < life;
+      if (!live) {
+        el.remove();
+        return false;
+      }
+      this.place(el, new THREE.Vector3(a.x, 2.35, a.y));
+      if (this.now - born > life - 500) el.classList.add('out');
+      return true;
+    });
   }
 
   private levelFx(a: PlayerActor, text: string, color: number) {

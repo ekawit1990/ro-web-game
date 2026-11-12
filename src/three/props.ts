@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { G, THEMES, isLava, type GameMap, type Obj } from '../game/maps';
 import { buildLava, paintBasalt } from './lava';
 import { buildRuinProps } from './ruins';
+import { buildMagicProps } from './magic';
 import { paintPaving, paintTerrain } from './ground';
 import { buildFortress } from './castle';
 import { buildDesertHouses, buildPalace } from './desert';
@@ -418,7 +419,7 @@ export function buildProps(map: GameMap): THREE.Group {
   for (const o of map.objects) {
     let obj: THREE.Object3D | null = null;
     switch (o.kind) {
-      case 'building': if (o.style !== 'desert') obj = building(o); break; // desert houses are merged below
+      case 'building': if (!o.style) obj = building(o); break; // desert houses are merged below
       case 'palace': obj = buildPalace(o); break;
       case 'stall': obj = stall(o); break;
       case 'tree': trees.push({ x: o.x + 0.5, z: o.y + 0.5, s: o.big ? 1.3 : 0.95 }); break;
@@ -461,6 +462,8 @@ export function buildProps(map: GameMap): THREE.Group {
   if (lava) g.add(lava);
   const ruins = buildRuinProps(map);
   if (ruins) g.add(ruins);
+  const magic = buildMagicProps(map);
+  if (magic) g.add(magic);
   return g;
 }
 

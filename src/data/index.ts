@@ -16,7 +16,7 @@ export const JOB_CHANGE = { level: 10, monsterLevel: 10, kills: 30 };
  * Which town's job-change NPC hands out each class 2 (map id). Drummers change in the desert town,
  * everyone else in Melodia. Must match change_job() in SQL.
  */
-export const JOB_TOWN: Partial<Record<ClassKey, string>> = { drummer: 'desert' };
+export const JOB_TOWN: Partial<Record<ClassKey, string>> = { drummer: 'desert', keyboardist: 'magic' };
 export const jobTown = (cls: ClassKey) => JOB_TOWN[cls] ?? 'town';
 
 /** บูรพา's account-wide storage: most rows (one per stack, one per piece of equipment). Must match storage_put() in SQL. */
@@ -216,7 +216,11 @@ export interface MonsterDef {
   aggressive: boolean;
   color: string;
   size: number;
+  /** Mini boss (the old bosses) or, with `mvp`, the MVP boss: the killer who did the most damage gets the MVP banner. */
   boss?: boolean;
+  mvp?: boolean;
+  /** Skills the monster casts in a fight (MONSTER_SKILLS). */
+  skills?: string[];
   /** Guild war crystal (คริสตัลแห่งเสียง): never moves or fights back, not in the guide, no rewards. */
   structure?: boolean;
   /** Which body to draw (another monster's id); defaults to the monster's own id. */
@@ -346,6 +350,31 @@ export function wearBlock(it: ItemDef | undefined, c: { cls: ClassKey; gender: G
   if (it.gender && it.gender !== c.gender) return it.gender === 'f' ? 'ชุดนี้สำหรับตัวละครหญิง' : 'ชุดนี้สำหรับตัวละครชาย';
   return '';
 }
+
+/**
+ * Skills a monster casts in a fight (the MVP boss of อเวจี). The server telegraphs each one ('mcast': a circle
+ * on the ground for castMs), then hits every player still in it ('mskill'). 'self' = round the monster,
+ * 'ground' = round where the target stood, 'target' = the target alone (soul_chain drags them in).
+ * Damage = monster ATK x mult (magic ignores half the Def). belowHp: only once its HP is under that share.
+ */
+export interface MonsterSkill {
+  name: string;
+  area: 'self' | 'ground' | 'target';
+  radius: number;
+  range?: number;
+  castMs: number;
+  mult: number;
+  magic?: boolean;
+  pull?: boolean;
+  cooldown: number;
+  belowHp?: number;
+}
+export const MONSTER_SKILLS: Record<string, MonsterSkill> = {
+  scythe_sweep: { name: 'เคียวโลหิตกวาดวิญญาณ', area: 'self', radius: 3.2, castMs: 900, mult: 1.6, cooldown: 7000 },
+  soul_chain: { name: 'โซ่ตรวนวิญญาณ', area: 'target', radius: 0, range: 9, castMs: 700, mult: 1.2, pull: true, cooldown: 9000 },
+  hellfire: { name: 'เพลิงนรกม่วง', area: 'ground', radius: 2.4, range: 9, castMs: 1600, mult: 2.2, magic: true, cooldown: 8000 },
+  judgement: { name: 'คำพิพากษาแห่งอเวจี', area: 'self', radius: 5.5, castMs: 2600, mult: 3, magic: true, cooldown: 20000, belowHp: 0.5 },
+};
 
 /** หมุนตัวแทง counts at most this many monsters around you. */
 export const CROWD_MAX = 8;

@@ -657,3 +657,26 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 #pvp-bar table { border-collapse: collapse; margin: 0 auto; }
 #pvp-bar td { padding: 1px 6px; text-align: left; }
 #pvp-bar small { color: #ffd97a; }
+
+/* mini bosses and the MVP boss */
+.wl .mini-tag, .wl .mvp-tag { display: inline-block; padding: 0 5px; border-radius: 4px; font-size: 10px; font-weight: 800; vertical-align: 1px; letter-spacing: 0.03em; }
+.wl .mini-tag { background: #6a4a10; color: #ffe08a; border: 1px solid #ffd54a; }
+.wl .mvp-tag { background: linear-gradient(#ff5a8a, #c0123a); color: #fff; border: 1px solid #ffd0dc; text-shadow: 0 1px 0 #6a0018; }
+.wl.mvp .nm { color: #ff8ab0; text-shadow: 0 0 4px #6a0018, 0 0 2px #000; }
+.wf.shout.boss-shout { color: #ffd0dc; font-size: 19px; width: 260px; margin-left: -130px; text-shadow: 0 0 3px #7a0018, 0 0 3px #7a0018, 0 0 4px #3a000a, 0 0 8px #ff2a4a; }
+
+/* MVP banner: a pink-red starburst with a white "MVP" outlined in red, popping in over the player's head */
+.mvpb { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 5; }
+.mvpb-in { position: relative; width: 170px; height: 120px; margin-left: -85px; margin-top: -120px; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: mvpb-pop 0.5s cubic-bezier(.2,1.6,.4,1) both; }
+.mvpb.out .mvpb-in { animation: mvpb-out 0.5s ease-in both; }
+.mvpb-in i { position: absolute; inset: 0; clip-path: polygon(50% 0%, 57% 22%, 72% 6%, 72% 27%, 92% 18%, 82% 37%, 100% 42%, 84% 52%, 97% 66%, 78% 66%, 84% 88%, 65% 76%, 58% 100%, 49% 80%, 36% 97%, 34% 76%, 14% 86%, 21% 66%, 1% 62%, 17% 50%, 3% 36%, 22% 34%, 14% 13%, 34% 24%, 37% 3%); }
+.mvpb-in i.b1 { background: #fff; transform: scale(1.07); }
+.mvpb-in i.b2 { background: radial-gradient(circle at 50% 45%, #ffb0c8 0%, #ff5a8a 45%, #e0204e 100%); animation: mvpb-spin 2.4s linear infinite; }
+.mvpb-in i.b1 { animation: mvpb-spin 2.4s linear infinite; }
+.mvpb-in b { position: relative; font-family: Impact, 'Arial Black', sans-serif; font-size: 44px; line-height: 1; color: #fff; letter-spacing: 0.04em; font-style: italic;
+  -webkit-text-stroke: 2px #c0123a; paint-order: stroke fill;
+  text-shadow: 3px 3px 0 #8a0024, -2px -2px 0 #c0123a, 2px -2px 0 #c0123a, -2px 2px 0 #c0123a, 0 0 10px #fff; }
+.mvpb-in small { position: relative; margin-top: 2px; font-family: 'Kanit', sans-serif; font-size: 12px; font-weight: 700; color: #fff; text-shadow: 0 0 3px #8a0024, 0 0 3px #8a0024; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes mvpb-pop { 0% { transform: scale(0.1) rotate(-25deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: scale(1) rotate(-6deg); } }
+@keyframes mvpb-out { to { transform: scale(1.4) rotate(-6deg); opacity: 0; } }
+@keyframes mvpb-spin { 0% { rotate: 0deg; } 50% { rotate: 8deg; } 100% { rotate: 0deg; } }

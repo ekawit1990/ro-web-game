@@ -278,9 +278,10 @@ begin
   if c.cls <> 'teen' then raise exception 'เปลี่ยนอาชีพไปแล้ว'; end if;
   if p_cls not in ('singer', 'guitarist', 'drummer', 'bassist', 'keyboardist') then raise exception 'ไม่มีอาชีพนี้'; end if;
   if c.level < 10 or c.job_quest < 30 then raise exception 'ยังทำเควสไม่สำเร็จ'; end if;
-  -- each class is handed out in its own town (JOB_TOWN in src/data/index.ts): drummers in the desert
-  if (p_cls = 'drummer') <> (c.map = 'desert') then
-    raise exception 'ต้องเปลี่ยนอาชีพนี้ที่%', case when p_cls = 'drummer' then 'เมืองทะเลทรายตะโพน' else 'เมืองเมโลเดีย' end;
+  -- each class is handed out in its own town (JOB_TOWN in src/data/index.ts): drummers in the desert,
+  -- keyboardists in the city of magic, everyone else in the first town
+  if c.map <> case p_cls when 'drummer' then 'desert' when 'keyboardist' then 'magic' else 'town' end then
+    raise exception 'ต้องเปลี่ยนอาชีพนี้ที่%', case p_cls when 'drummer' then 'เมืองทะเลทรายตะโพน' when 'keyboardist' then 'เมืองคีย์มนตรา' else 'เมืองเมโลเดีย' end;
   end if;
   select * into d from public.class_defs where id = p_cls;
   update public.inventory inv set equipped = false

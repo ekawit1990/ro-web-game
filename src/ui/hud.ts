@@ -59,7 +59,7 @@ const CARD_SLOT_LABEL: Record<string, string> = { weapon: 'อาวุธ', arm
 type GuideTab = 'mon' | 'equip' | 'card';
 const GUIDE_TABS: Record<GuideTab, string> = { mon: '👾 มอนสเตอร์', equip: '🛡️ อุปกรณ์', card: '🃏 การ์ด' };
 const GUIDE_FILTERS: Record<GuideTab, [string, string][]> = {
-  mon: [['', 'ทั้งหมด'], ['1-20', 'Lv 1-20'], ['21-40', '21-40'], ['41-60', '41-60'], ['61-80', '61-80'], ['81-99', '81-99'], ['boss', '★ บอส'], ['aggr', '⚔ ดุ']],
+  mon: [['', 'ทั้งหมด'], ['1-20', 'Lv 1-20'], ['21-40', '21-40'], ['41-60', '41-60'], ['61-80', '61-80'], ['81-99', '81-99'], ['boss', '★ บอส/MVP'], ['aggr', '⚔ ดุ']],
   equip: [['', 'ทั้งหมด'], ['weapon', 'อาวุธ'], ['armor', 'ชุด'], ['head', 'หมวก'], ['shoes', 'รองเท้า'], ['accessory', 'เครื่องประดับ'], ['earring', 'ต่างหู']],
   card: [['', 'ทั้งหมด'], ['weapon', 'อาวุธ'], ['armor', 'ชุด'], ['head', 'หมวก/หูฟัง'], ['shoes', 'รองเท้า'], ['accessory', 'เครื่องประดับ']],
 };
@@ -514,7 +514,7 @@ export class Hud implements WorldHooks {
     if (it.card?.element) lines.push(`<div class="it-bonus">เสียบในชุด: ตัวเป็นธาตุ ${elementLabel(it.card.element)}</div>`);
     if (it.bonus) lines.push(`<div class="it-bonus">${bonusText(it.bonus)}</div>`);
     if (it.vrm) {
-      const from = Object.values(MONSTERS).filter((m) => m.drops.some(([d]) => d === id)).map((m) => `${m.name}${m.boss ? ' (บอส)' : ''}`);
+      const from = Object.values(MONSTERS).filter((m) => m.drops.some(([d]) => d === id)).map((m) => `${m.name}${m.mvp ? ' (MVP)' : m.boss ? ' (มินิบอส)' : ''}`);
       const what = it.type === 'armor' ? '👗 ใส่แล้วเปลี่ยนเสื้อผ้าทั้งชุด (หน้าและผมยังเป็นของเรา)' : '🎩 ใส่แล้วเห็นบนหัวตัวละคร';
       lines.push(`<div class="muted">${what} · ไม่มีขายในร้าน${from.length ? ` · ดร็อปจาก ${escapeHtml(from.join(', '))}` : ''}</div>`);
     }
@@ -534,7 +534,7 @@ export class Hud implements WorldHooks {
       if (mon) {
         const m = MONSTERS[mon];
         lines.push(`<div class="card-art ${m.boss ? 'boss' : ''}"><div class="card-pic" data-portrait="${mon}"><span class="spin"></span></div>
-          <div class="card-name">${escapeHtml(m.name)}</div><div class="card-sub">Lv ${m.level}${m.boss ? ' · บอส' : ''}${m.element && m.element[0] !== 'neutral' ? ` · ${elementLabel(m.element[0])}` : ''}</div></div>`);
+          <div class="card-name">${escapeHtml(m.name)}</div><div class="card-sub">Lv ${m.level}${m.mvp ? ' · MVP' : m.boss ? ' · มินิบอส' : ''}${m.element && m.element[0] !== 'neutral' ? ` · ${elementLabel(m.element[0])}` : ''}</div></div>`);
       }
       lines.push(`<div class="it-sec">เสียบใน: ${CARD_SLOT_LABEL[it.card.slot]}</div><div class="it-bonus">${bonusText(it.card.bonus)}</div>`);
     }
@@ -879,7 +879,7 @@ export class Hud implements WorldHooks {
     }
     for (const o of m.objects) {
       if (o.kind === 'building' || o.kind === 'palace') {
-        c.fillStyle = o.kind === 'palace' ? '#3f7fb8' : o.style === 'desert' ? '#a8865a' : '#7b4a36';
+        c.fillStyle = o.kind === 'palace' ? '#3f7fb8' : o.style === 'desert' ? '#a8865a' : o.style === 'magic' ? '#6a4a9a' : '#7b4a36';
         c.fillRect(o.x * s, o.y * s, o.w * s, o.h * s);
       } else if (o.kind === 'tree') {
         c.fillStyle = '#2f5d2a';
@@ -1064,7 +1064,7 @@ export class Hud implements WorldHooks {
         const m = MONSTERS[id];
         const [el, lv] = monsterElement(m);
         return `<div class="gd-row ${pick === id ? 'on' : ''}" data-gid="${id}"><i class="gd-dot" style="background:${m.color}"></i>
-          <span><b>${m.boss ? '★ ' : ''}${escapeHtml(m.name)}</b><small>Lv.${m.level} · <em class="el-tag" style="background:${ELEMENTS[el].color}">${elementLabel(el, lv)}</em>${m.aggressive ? ' · ⚔' : ''}</small></span></div>`;
+          <span><b>${m.mvp ? '👑 ' : m.boss ? '★ ' : ''}${escapeHtml(m.name)}</b><small>Lv.${m.level} · <em class="el-tag" style="background:${ELEMENTS[el].color}">${elementLabel(el, lv)}</em>${m.aggressive ? ' · ⚔' : ''}</small></span></div>`;
       }
       const it = ITEMS[id];
       const sub = it.card ? `${CARD_SLOT_LABEL[it.card.slot]} · ${bonusText(it.card.bonus)}` : `${TYPE_LABEL[it.type] ?? it.type}${it.atk ? ` · Atk ${it.atk}` : ''}${it.matk ? ` · Matk ${it.matk}` : ''}${it.def ? ` · Def ${it.def}` : ''}${it.slots ? ` · [${it.slots}]` : ''}`;
@@ -1130,9 +1130,9 @@ export class Hud implements WorldHooks {
     const bad = weak.filter(([, x]) => x < 1).sort((a, b) => a[1] - b[1]).map(([a, x]) => `${elementLabel(a)} ${Math.round(x * 100)}%`);
     return `<div class="gd-mon">
       <div class="card-art ${m.boss ? 'boss' : ''}"><div class="card-pic" data-portrait="${id}"><span class="spin"></span></div>
-        <div class="card-name">${escapeHtml(m.name)}</div><div class="card-sub">Lv ${m.level}${m.boss ? ' · บอส' : ''}</div></div>
+        <div class="card-name">${escapeHtml(m.name)}</div><div class="card-sub">Lv ${m.level}${m.mvp ? ' · MVP' : m.boss ? ' · มินิบอส' : ''}</div></div>
       <div class="gd-info">
-        <div class="gd-title"><b>${m.boss ? '★ ' : ''}${escapeHtml(m.name)}</b>
+        <div class="gd-title"><b>${m.mvp ? '👑 ' : m.boss ? '★ ' : ''}${escapeHtml(m.name)}</b>
           ${diff >= 8 ? '<em class="wm-hard">อันตราย</em>' : diff <= -10 ? '<em class="wm-easy">ง่าย</em>' : ''}</div>
         <div class="gd-stats">
           <span>Lv <b>${m.level}</b></span><span>HP <b>${m.hp.toLocaleString()}</b></span>
@@ -1140,7 +1140,7 @@ export class Hud implements WorldHooks {
           <span>Base EXP <b>${m.exp.toLocaleString()}</b></span><span>Job EXP <b>${m.jobExp.toLocaleString()}</b></span>
           <span>Zeny <b>${m.zeny[0]}–${m.zeny[1]}</b></span><span>ธาตุ <b><em class="el-tag" style="background:${ELEMENTS[el].color}">${elementLabel(el, elv)}</em></b></span>
         </div>
-        <div class="muted">${m.aggressive ? '⚔ ดุ เข้ามาตีก่อน' : '😌 ไม่ตีก่อน'}${m.boss ? ' · บอส ดร็อปการ์ดง่ายกว่า' : ''}</div>
+        <div class="muted">${m.aggressive ? '⚔ ดุ เข้ามาตีก่อน' : '😌 ไม่ตีก่อน'}${m.mvp ? ' · บอส MVP ใช้สกิลได้ คนตีแรงสุดได้ MVP' : m.boss ? ' · มินิบอส ดร็อปการ์ดง่ายกว่า' : ''}</div>
         ${good.length ? `<div class="gd-el good">ตีแรงขึ้นด้วย: ${good.join(', ')}</div>` : ''}
         ${bad.length ? `<div class="gd-el bad">ตีเบาลงด้วย: ${bad.join(', ')}</div>` : ''}
       </div>
@@ -1157,7 +1157,7 @@ export class Hud implements WorldHooks {
       .sort((a, b) => b[1] - a[1]);
     const srcs = from.map(([k, r]) => {
       const m = MONSTERS[k];
-      return `<div class="gd-drop" data-gmon="${k}"><i class="gd-dot" style="background:${m.color}"></i><span>${m.boss ? '★ ' : ''}${escapeHtml(m.name)}<small>Lv.${m.level}</small></span><b>${pct(r)}</b></div>`;
+      return `<div class="gd-drop" data-gmon="${k}"><i class="gd-dot" style="background:${m.color}"></i><span>${m.mvp ? '👑 ' : m.boss ? '★ ' : ''}${escapeHtml(m.name)}<small>Lv.${m.level}</small></span><b>${pct(r)}</b></div>`;
     }).join('');
     const shop = SHOP.includes(id) ? 'ร้านของใช้' : WEAPON_SHOP.includes(id) ? 'ร้านเครื่องดนตรี' : '';
     return `${this.itemTip(id, undefined, true)}
@@ -1206,7 +1206,7 @@ export class Hud implements WorldHooks {
       const [mel, mlv] = monsterElement(d);
       return `<div class="wm-row ${this.mapPick === e.id ? 'on' : ''}" data-mon="${e.id}">
         <i style="background:${d.color}"></i>
-        <span><b>${d.boss ? '★ ' : ''}${escapeHtml(d.name)}</b> <small>Lv.${d.level}</small>
+        <span><b>${d.mvp ? '👑 ' : d.boss ? '★ ' : ''}${escapeHtml(d.name)}</b> <small>Lv.${d.level}</small>
           <em class="el-tag" style="background:${ELEMENTS[mel].color}">${elementLabel(mel, mlv)}</em>${tag}${quest}
           <small class="wm-sub">${d.aggressive ? '⚔ ดุ (เข้ามาตีก่อน)' : 'ไม่ตีก่อน'} · HP ${d.hp.toLocaleString()} · EXP ${d.exp}/${d.jobExp} · ${e.count} ตัว</small></span></div>`;
     }).join('');

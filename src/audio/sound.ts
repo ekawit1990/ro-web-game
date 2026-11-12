@@ -937,3 +937,51 @@ export function sfxBassBuff(vol = 1) {
   tone(120, t, 0.4, { type: 'sine', to: 35, gain: 0.6 * vol, release: 0.15 });
   noise(t + 0.05, 0.7, { gain: 0.16 * vol, type: 'bandpass', freq: 600, freqTo: 4500, q: 0.7, release: 0.25, wet: 0.5 });
 }
+
+// ------------------------------------------------------------ the abyss reaper and the MVP
+
+/** The reaper's skills: a whooshing slash, a chain rattle, a flame roar, the judgement boom. */
+export function sfxReaper(kind: 'warn' | 'sweep' | 'chain' | 'fire' | 'judge', vol = 1) {
+  if (!ready() || vol <= 0) return;
+  const t = now();
+  if (kind === 'warn') {
+    // a low choir-ish drone that rises while the reaper charges
+    tone(55, t, 0.9, { type: 'sawtooth', to: 82, gain: 0.08 * vol, release: 0.3, wet: 0.6 });
+    tone(110, t, 0.9, { type: 'triangle', to: 164, gain: 0.06 * vol, vibrato: 0.02, release: 0.3, wet: 0.7 });
+    noise(t, 0.6, { gain: 0.06 * vol, type: 'bandpass', freq: 400, freqTo: 1400, q: 2, release: 0.2, wet: 0.5 });
+  } else if (kind === 'sweep') {
+    noise(t, 0.35, { gain: 0.45 * vol, type: 'bandpass', freq: 600, freqTo: 3200, q: 1.2, release: 0.12 });
+    tone(900, t, 0.3, { type: 'sawtooth', to: 220, gain: 0.08 * vol, release: 0.1, wet: 0.3 });
+    tone(80, t + 0.05, 0.3, { type: 'sine', to: 40, gain: 0.5 * vol, release: 0.12 });
+  } else if (kind === 'chain') {
+    for (let i = 0; i < 7; i++) {
+      noise(t + i * 0.045, 0.03, { gain: 0.35 * vol, type: 'highpass', freq: 3500 + (i % 3) * 800, release: 0.02 });
+      tone(2400 + (i % 4) * 300, t + i * 0.045, 0.05, { type: 'square', gain: 0.03 * vol, release: 0.03 });
+    }
+    tone(140, t + 0.25, 0.25, { type: 'sine', to: 50, gain: 0.5 * vol, release: 0.1 });
+  } else if (kind === 'fire') {
+    noise(t, 1.0, { gain: 0.5 * vol, type: 'lowpass', freq: 1800, freqTo: 300, release: 0.4, wet: 0.4 });
+    noise(t, 0.2, { gain: 0.4 * vol, type: 'bandpass', freq: 900, q: 0.7, release: 0.08 });
+    tone(70, t, 0.6, { type: 'sawtooth', to: 35, gain: 0.18 * vol, release: 0.25 });
+  } else {
+    tone(60, t, 1.4, { type: 'sine', to: 25, gain: 0.8 * vol, release: 0.5 });
+    noise(t, 1.2, { gain: 0.6 * vol, type: 'lowpass', freq: 2400, freqTo: 150, release: 0.5, wet: 0.5 });
+    noise(t, 0.05, { gain: 0.7 * vol, type: 'highpass', freq: 2000, release: 0.02 });
+    tone(220, t + 0.05, 1.0, { type: 'sawtooth', to: 110, gain: 0.08 * vol, vibrato: 0.03, release: 0.4, wet: 0.7 });
+  }
+}
+
+/** The MVP fanfare: a bright brass-ish arpeggio up to a held chord with a cymbal. */
+export function sfxMvp(vol = 1) {
+  if (!ready() || vol <= 0) return;
+  const t = now();
+  const notes = [60, 64, 67, 72];
+  notes.forEach((n, i) => {
+    tone(midi(n), t + i * 0.11, 0.16, { type: 'sawtooth', gain: 0.07 * vol, release: 0.06, wet: 0.3 });
+    tone(midi(n + 12), t + i * 0.11, 0.16, { type: 'triangle', gain: 0.05 * vol, release: 0.06, wet: 0.3 });
+  });
+  for (const n of [72, 76, 79, 84]) tone(midi(n), t + 0.46, 1.1, { type: 'sawtooth', gain: 0.045 * vol, vibrato: 0.006, release: 0.5, wet: 0.5 });
+  tone(midi(48), t + 0.46, 1.0, { type: 'triangle', gain: 0.12 * vol, release: 0.4 });
+  noise(t + 0.46, 1.2, { gain: 0.22 * vol, type: 'highpass', freq: 6000, release: 0.6, wet: 0.5 });
+  noise(t + 0.46, 0.08, { gain: 0.4 * vol, type: 'lowpass', freq: 400, release: 0.04 });
+}

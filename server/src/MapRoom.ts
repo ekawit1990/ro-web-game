@@ -3,7 +3,7 @@ import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ENDOW_SEC, ITEMS, type Element, elementMult, monsterElement, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
   STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, HEALER_BUFF_SEC, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
-  skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, castTime, WAVE_FALL_MS, targetsPlayer, totalStats, outfitOf,
+  skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, castTime, WAVE_FALL_MS, targetsPlayer, totalStats, outfitOf, MONSTER_SKILLS,
 } from '../../src/data/index.ts';
 import { ARENA_SPAWNS, CASTLE_CRYSTAL, CASTLE_INNER, GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
 import { ARENA_MAP, CASTLE_MAP, EMPERIUM, PVP_DAMAGE, pvpOn, warNow, type PvpInfo, type PvpScore } from '../../src/game/pvp.ts';
@@ -114,6 +114,10 @@ interface Brain {
   defDownUntil?: number;
   defDownPct?: number;
   pulledUntil?: number;
+  /** monster skills: when the next one may start, per-skill cooldowns, and the one being cast */
+  skillAt?: number;
+  skillCd?: Map<string, number>;
+  casting?: { id: string; x: number; y: number; target: string; until: number };
 }
 
 /** Where a character arrives after taking a portal (set by the room they left). */
@@ -1312,6 +1316,12 @@ export class MapRoom extends Room<{ state: MapState }> {
 
     let goal: { x: number; y: number } | null = null;
     let speed = def.speed / TILE_PX;
+    // a monster with skills stands still while it casts, and starts a new one every few seconds in a fight
+    if (b.casting) {
+      if (this.now >= b.casting.until) this.monsterSkillLands(id, m, b);
+      return;
+    }
+    if (target && def.skills?.length && this.now >= (b.skillAt ?? 0) && this.monsterSkillStart(id, m, b, def, target)) return;
     if (target) {
       const reach = 1.0 + def.size * 0.35;
       if (dist(m.x, m.y, target.x, target.y) > reach) goal = { x: target.x, y: target.y };
@@ -1345,6 +1355,76 @@ export class MapRoom extends Room<{ state: MapState }> {
     } else if (this.monsterCanStand(nx, m.y)) m.x = nx;
     else if (this.monsterCanStand(m.x, ny)) m.y = ny;
     else b.wanderTo = null;
+  }
+
+  /** Picks a skill the monster can use on `target` now and telegraphs it; false if none fits. */
+  private monsterSkillStart(id: string, m: MonsterState, b: Brain, def: MonsterDef, target: PlayerState) {
+    const cd = (b.skillCd ??= new Map());
+    const d = dist(m.x, m.y, target.x, target.y);
+    const ok = (def.skills ?? []).filter((k) => {
+      const sk = MONSTER_SKILLS[k];
+      if (!sk || (cd.get(k) ?? 0) > this.now) return false;
+      if (sk.belowHp && m.hp > def.hp * sk.belowHp) return false;
+      if (sk.area === 'self') return d <= sk.radius;
+      return d <= (sk.range ?? 9);
+    });
+    if (!ok.length) return false;
+    // the big one first when it is ready, else any
+    const pick = ok.find((k) => MONSTER_SKILLS[k].belowHp) ?? ok[Math.floor(Math.random() * ok.length)];
+    const sk = MONSTER_SKILLS[pick];
+    cd.set(pick, this.now + sk.cooldown);
+    b.skillAt = this.now + sk.castMs + rand(2500, 4000);
+    const at = sk.area === 'self' ? { x: m.x, y: m.y } : { x: target.x, y: target.y };
+    b.casting = { id: pick, x: at.x, y: at.y, target: b.target!, until: this.now + sk.castMs };
+    this.broadcast('mcast', { m: id, skill: pick, x: at.x, y: at.y, ms: sk.castMs, to: b.target });
+    return true;
+  }
+
+  /** The telegraphed skill goes off: every player in the circle (or the chained target) takes the hit. */
+  private monsterSkillLands(id: string, m: MonsterState, b: Brain) {
+    const cast = b.casting!;
+    b.casting = undefined;
+    const def = MONSTERS[m.key];
+    const sk = MONSTER_SKILLS[cast.id];
+    if (!sk || m.dead) return;
+    const hits: { p: string; dmg: number }[] = [];
+    const victims: string[] = [];
+    if (sk.area === 'target') {
+      const p = this.state.players.get(cast.target);
+      if (p && !p.dead && dist(m.x, m.y, p.x, p.y) <= (sk.range ?? 9) + 1) victims.push(cast.target);
+    } else {
+      const cx = sk.area === 'self' ? m.x : cast.x;
+      const cy = sk.area === 'self' ? m.y : cast.y;
+      this.state.players.forEach((p, sid) => {
+        if (!p.dead && dist(cx, cy, p.x, p.y) <= sk.radius + 0.3) victims.push(sid);
+      });
+    }
+    let pulled: { p: string; x: number; y: number } | undefined;
+    for (const sid of victims) {
+      const seat = this.seats.get(sid);
+      const p = this.state.players.get(sid);
+      if (!seat || !p) continue;
+      const mult = elementMult(monsterElement(def)[0], seat.derived.defElement ?? 'neutral', 1);
+      const def2 = sk.magic ? seat.derived.def / 2 : seat.derived.def;
+      const dmg = mult === 0 ? 0 : Math.max(1, Math.round((def.atk * sk.mult * rand(0.9, 1.1) - def2) * mult));
+      hits.push({ p: sid, dmg });
+      if (sk.pull && !p.dead) {
+        // dragged in on the chain, right up to the reaper
+        const dd = dist(m.x, m.y, p.x, p.y) || 1;
+        const nx = m.x + ((p.x - m.x) / dd) * 1.2;
+        const ny = m.y + ((p.y - m.y) / dd) * 1.2;
+        if (walkable(this.map, nx, ny)) {
+          p.x = nx;
+          p.y = ny;
+          seat.lastMoveAt = this.now;
+          this.cancelCast(sid, seat, p);
+          seat.client.send('correct', { x: nx, y: ny });
+          pulled = { p: sid, x: nx, y: ny };
+        }
+      }
+      if (dmg > 0) this.hurt(sid, seat, p, dmg);
+    }
+    this.broadcast('mskill', { m: id, skill: cast.id, x: sk.area === 'self' ? m.x : cast.x, y: sk.area === 'self' ? m.y : cast.y, hits, pulled });
   }
 
   private monsterHit(id: string, m: MonsterState, sid: string, p: PlayerState) {
@@ -1431,6 +1511,18 @@ export class MapRoom extends Room<{ state: MapState }> {
       g.dmg += d;
       groups.set(key, g);
     }
+    // the MVP boss: whoever did the most damage gets the MVP banner, for everyone on the map to see
+    if (def.mvp) {
+      let top = '';
+      let most = 0;
+      for (const [sid, d] of b.damage) if (d > most && this.state.players.has(sid)) { most = d; top = sid; }
+      const seat = top ? this.seats.get(top) : undefined;
+      if (seat) {
+        this.broadcast('mvp', { sid: top, name: seat.char.name, monster: m.key });
+        this.broadcast('system', { text: `👑 ${seat.char.name} ได้รับ MVP จากการปราบ ${def.name}!` });
+      }
+    }
+    b.casting = undefined;
     b.damage.clear();
     b.target = null;
     for (const g of groups.values()) {
