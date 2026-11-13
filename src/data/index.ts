@@ -384,11 +384,15 @@ export const MONSTER_SKILLS: Record<string, MonsterSkill> = {
 /** หมุนตัวแทง counts at most this many monsters around you. */
 export const CROWD_MAX = 8;
 
-/** Cast time in ms: castDex skills lose 1/150 of it per DEX (DEX 150 = instant) but never go under 0.5 s. */
+/** The shortest a cast can get with lots of DEX (ms). */
+export const CAST_MIN_MS = 200;
+/**
+ * Cast time in ms: every skill (เสียงสูง too, 2026-11-13) loses 1/150 of its cast time per point of DEX
+ * (DEX 75 = half), down to CAST_MIN_MS. `dex` is the total with gear, cards and buffs.
+ */
 export function castTime(s: SkillDef, dex: number) {
   if (!s.castMs) return 0;
-  if (!s.castDex) return s.castMs;
-  return Math.round(Math.max(500, s.castMs * Math.max(0, 1 - dex / 150)));
+  return Math.round(Math.max(Math.min(s.castMs, CAST_MIN_MS), s.castMs * Math.max(0, 1 - dex / 150)));
 }
 /** When the first volley of a 'waves' skill lands after it goes off (the notes falling out of the sky). */
 export const WAVE_FALL_MS = 300;
@@ -579,6 +583,29 @@ export interface Derived {
 /** Walking speed multiplier (10% slower since 2026-11-05). */
 export const WALK_RATE = 0.9;
 
+// ---------------------------------------------------------------- attack speed (2026-11-13)
+/** ASPD tops out at 200. */
+export const ASPD_MAX = 200;
+/** What AGI (and a little DEX) alone can give: the rest up to 200 comes from the % bonuses. */
+export const ASPD_STAT_MAX = 190;
+/**
+ * ASPD: AGI first (0.9 a point), DEX a little (0.15 a point), from 135; the stats alone reach at most 190
+ * (AGI 61 or so). Then + % from equipment, cards, buffs and the class bonus, on top of that number, up to 200
+ * (the user's rule, 2026-11-13). Example: AGI 40, DEX 20 = 174; with +10% = 191.
+ */
+export function aspdOf(agi: number, dex: number, pct: number) {
+  const base = Math.min(ASPD_STAT_MAX, 135 + agi * 0.9 + dex * 0.15);
+  return Math.max(100, Math.min(ASPD_MAX, base * (1 + pct / 100)));
+}
+/**
+ * Time between normal attacks (ms). Up to ASPD 190 it is the same as before: 20 ms per point below 200
+ * (135 = 1.3 s, 185 = 0.3 s, 190 = 0.2 s); from 190 to 200 it goes on down to 0.15 s (about 6.7 hits a second).
+ */
+export function aspdDelay(aspd: number) {
+  if (aspd <= 190) return Math.round(20 * (200 - aspd));
+  return Math.round(200 - (aspd - 190) * 5);
+}
+
 export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Derived {
   const c = { ...base };
   const worn = inv.filter((i) => i.equipped && ITEMS[i.item_id]);
@@ -621,7 +648,8 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
   const atk = sum('atk') + card.atk + mainStat * 2 + Math.floor(c.level / 2) + Math.floor(c.luk / 3);
   const matk = sum('matk') + card.matk + c.int * 3 + Math.floor(c.level / 2);
   const aspdPct = sum('aspd') + card.aspd + (buffs.aspdPct ?? 0) + (cls.aspdPct ?? 0);
-  const attackDelay = Math.max(300, Math.round((1300 - c.agi * 18 - c.dex * 3) * (1 - aspdPct / 100)));
+  const aspd = aspdOf(c.agi, c.dex, aspdPct);
+  const attackDelay = aspdDelay(aspd);
   return {
     maxHp: Math.floor(((40 + c.vit * 8 + c.level * 12) * cls.hpMod + card.maxHp) * (1 + (p.maxHpPct + card.maxHpPct) / 100)),
     maxSp: Math.floor(((10 + c.int * 4 + c.level * 2) * cls.spMod + card.maxSp) * (1 + (p.maxSpPct + card.maxSpPct) / 100)),
@@ -632,7 +660,7 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
     hit: Math.floor((c.level + c.dex + p.hit + card.hit) * (1 + (buffs.hitPct ?? 0) / 100)),
     flee: Math.floor((c.level + c.agi + sum('flee') + card.flee + p.flee) * (1 + (buffs.fleePct ?? 0) / 100)),
     crit: Math.floor(1 + c.luk * 0.3 + c.dex * 0.1) + sum('crit') + card.crit,
-    aspd: Math.min(190, Math.floor(200 - attackDelay / 20)),
+    aspd: Math.floor(aspd),
     attackDelay,
     moveSpeed: Math.round((150 + Math.min(60, c.agi * 2)) * WALK_RATE),
     weight: inv.reduce((s, i) => s + (ITEMS[i.item_id]?.weight ?? 0) * i.qty, 0),

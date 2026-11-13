@@ -6,7 +6,7 @@
  * What they may not do: hit a monster a real player is already fighting (they back off when one joins in),
  * fight bosses, get rewards, die, trade, join parties or guilds, or go to the PVP maps.
  */
-import { CLASSES, ITEMS, MONSTERS, SHOP, SKILLS, SPAWNS, botShopPrice, type ClassKey, type SpawnDef } from '../../src/data/index.ts';
+import { CLASSES, ITEMS, MONSTERS, SHOP, SKILLS, SPAWNS, botShopPrice, castTime, type ClassKey, type SpawnDef } from '../../src/data/index.ts';
 import { type GameMap, walkable } from '../../src/game/maps.ts';
 
 export const BOT_PREFIX = 'bot:';
@@ -339,7 +339,7 @@ export class RoomBots {
     // a skill now and then (with its cast bar), otherwise a normal attack
     const skill = BOT_SKILL[bot.def.cls];
     if (skill && this.now >= bot.skillAt && this.now - bot.lastAttack >= bot.delay) {
-      const ms = SKILLS[skill]?.castMs ?? 0;
+      const ms = SKILLS[skill] ? castTime(SKILLS[skill], bot.def.level * 0.6) : 0; // bots have DEX too
       bot.skillAt = this.now + rand(6000, 11000);
       bot.cast = { skill, mid: bot.target!, until: this.now + ms };
       if (ms) this.host.broadcast('cast', { by: bot.sid, skill, ms, x: m.x, y: m.y });
