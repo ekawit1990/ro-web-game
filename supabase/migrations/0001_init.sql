@@ -28,6 +28,8 @@ alter table public.item_defs add column if not exists slots int not null default
 alter table public.item_defs add column if not exists card_slot text;
 -- outfits (VRoid models) only fit one gender: 'm' / 'f' (null = anyone). See wearBlock in src/data/index.ts
 alter table public.item_defs add column if not exists gender text;
+-- which NPC shop sells it: 'shop' = the item shop (ป้ามะลิ's list, cheaper with ต่อราคาเก่ง), 'weapons' = the weapon shop
+alter table public.item_defs add column if not exists shop_kind text;
 
 create table if not exists public.monster_defs (
   id text primary key,
@@ -247,7 +249,8 @@ declare c public.characters; s public.skill_defs; cur int;
 begin
   c := public._own_char(p_char);
   select * into s from public.skill_defs where id = p_skill;
-  if not found or s.cls <> c.cls then raise exception 'อาชีพนี้เรียนสกิลนี้ไม่ได้'; end if;
+  -- cls 'all' = every class (เปิดแผงขายของ)
+  if not found or (s.cls <> c.cls and s.cls <> 'all') then raise exception 'อาชีพนี้เรียนสกิลนี้ไม่ได้'; end if;
   cur := coalesce((c.skills->>p_skill)::int, 0);
   if cur >= s.max_level then raise exception 'สกิลเต็มแล้ว'; end if;
   if c.skill_points < 1 then raise exception 'แต้มสกิลไม่พอ'; end if;
@@ -309,7 +312,11 @@ language plpgsql security definer set search_path = public as $$
 declare c public.characters; v_price int;
 begin
   c := public._own_char(p_char);
-  select i.price into v_price from public.item_defs i where i.id = p_item and i.in_shop;
+  select case when i.shop_kind = 'shop'
+      -- ต่อราคาเก่ง (Teen): 2.5% off per level on the item shop's list (npcBuyPrice in src/data/index.ts)
+      then greatest(1, (i.price * (1000 - least(500, coalesce((c.skills->>'haggle')::int, 0) * 25))) / 1000)
+      else i.price end
+    into v_price from public.item_defs i where i.id = p_item and i.in_shop;
   if v_price is null or p_qty < 1 or p_qty > 99 then raise exception 'ซื้อไม่ได้'; end if;
   if c.zeny < v_price * p_qty then raise exception 'เงินไม่พอ'; end if;
   update public.characters set zeny = zeny - v_price * p_qty where id = p_char returning * into c;
@@ -327,7 +334,9 @@ begin
   select i.price into v_price from public.item_defs i where i.id = r.item_id;
   if r.qty = p_qty then delete from public.inventory where id = p_inv;
   else update public.inventory set qty = qty - p_qty where id = p_inv; end if;
-  update public.characters set zeny = zeny + (v_price / 2) * p_qty where id = p_char returning * into c;
+  -- ปากหวานขายเก่ง (Teen): 2.5% more per level (npcSellPrice in src/data/index.ts)
+  v_price := ((v_price / 2) * (1000 + coalesce((c.skills->>'sweet_talk')::int, 0) * 25)) / 1000;
+  update public.characters set zeny = zeny + v_price * p_qty where id = p_char returning * into c;
   return c;
 end $$;
 

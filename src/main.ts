@@ -187,6 +187,10 @@ async function play(char: Character): Promise<void> {
       r.onMessage('tradeState', (m) => hud.tradeState(m));
       r.onMessage('tradeClosed', (m) => hud.tradeClosed(m.text));
       r.onMessage('tradeDone', (m) => hud.tradeDone(m.ok, m.text));
+      r.onMessage('shopMine', (m) => hud.shopMine(m));
+      r.onMessage('shopList', (m) => hud.shopList(m));
+      r.onMessage('shopSold', (m) => hud.shopSold(m));
+      r.onMessage('shopBought', (m) => hud.shopBought(m));
       r.onMessage('party', (m) => hud.party(m));
       r.onMessage('partyInvite', (m) => hud.partyInvite(m));
       r.onMessage('partyChat', (m) => hud.partyChat(m.name, m.text));

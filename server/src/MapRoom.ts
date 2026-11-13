@@ -4,6 +4,7 @@ import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ENDOW_SEC, ITEMS, type Element, elementMult, monsterElement, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
   STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, HEALER_BUFF_SEC, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
   skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, castTime, WAVE_FALL_MS, targetsPlayer, totalStats, outfitOf, MONSTER_SKILLS,
+  VEND_SKILL, VEND_MAX_PRICE, VEND_MAX_TOTAL, vendSlots,
 } from '../../src/data/index.ts';
 import { ARENA_SPAWNS, CASTLE_CRYSTAL, CASTLE_INNER, GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
 import { ARENA_MAP, CASTLE_MAP, EMPERIUM, PVP_DAMAGE, pvpOn, warNow, type PvpInfo, type PvpScore } from '../../src/game/pvp.ts';
@@ -37,6 +38,7 @@ export const PlayerState = schema({
   sitting: t.boolean(),
   hidden: t.boolean(), // หนีไปกลับ PR: other players don't draw this one
   guild: t.string(), // guild name ('' = none), shown under the player's name
+  shop: t.string(), // player shop title ('' = no shop open): the sign over their head
 }, 'PlayerState');
 export type PlayerState = SchemaType<typeof PlayerState>;
 
@@ -91,6 +93,24 @@ interface Seat {
   /** PVP: when another player last hit them (no out-of-fight regen for a while), and who (for the kill). */
   pvpHitAt?: number;
   pvpHitBy?: string;
+  /** เปิดแผงขายของ: the stall they sit at, and a lock while one sale goes through the database */
+  shop?: Shop;
+  shopBusy?: boolean;
+}
+
+/** One kind of item in a player shop: `inv` is the seller's inventory row it comes out of. */
+interface ShopItem {
+  inv: string;
+  item: string;
+  qty: number;
+  price: number;
+  refine: number;
+  cards: string[];
+}
+
+interface Shop {
+  title: string;
+  items: ShopItem[];
 }
 
 interface Trade {
@@ -224,6 +244,14 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.onMessage('tradeLock', (c) => this.onTradeLock(c));
     this.onMessage('tradeConfirm', (c) => this.onTradeConfirm(c));
     this.onMessage('tradeCancel', (c) => this.cancelTrade(this.seats.get(c.sessionId)?.trade, 'ยกเลิกการแลกเปลี่ยน'));
+    // player shops (เปิดแผงขายของ): `to` is the seller's session id
+    this.onMessage('shopOpen', (c, msg: { title?: string; items?: { inv: string; qty: number; price: number }[] }) => this.onShopOpen(c, msg));
+    this.onMessage('shopClose', (c) => {
+      if (this.seats.get(c.sessionId)?.shop) this.closeShop(c.sessionId, 'ปิดร้านแล้ว');
+      else c.send('shopMine', { sid: c.sessionId, open: false }); // the browser thought one was open (after a reconnect)
+    });
+    this.onMessage('shopView', (c, msg: { to: string }) => this.onShopView(c, msg));
+    this.onMessage('shopBuy', (c, msg: { to: string; inv: string; qty: number }) => this.onShopBuy(c, msg));
     // parties (see party.ts): `to` is a session id in this room, `id` a character id
     this.onMessage('partyGet', (c) => this.party(c, (me) => Parties.refresh(me)));
     this.onMessage('partyCreate', (c, msg: { name?: string }) => this.party(c, (me) => Parties.create(me, msg?.name)));
@@ -290,7 +318,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const p = new PlayerState();
     Object.assign(p, {
       name: c.name, cls: c.cls, level: c.level, gender: c.gender, hair: c.hair, hairColor: c.hair_color, face: c.face,
-      head: '', weapon: '', ear: '', body: '', hidden: false, guild: Guilds.nameOf(c.id), x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
+      head: '', weapon: '', ear: '', body: '', hidden: false, guild: Guilds.nameOf(c.id), shop: '', x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
       hp: (carry.hp ?? c.hp) > 0 ? Math.min(carry.hp ?? c.hp, seat.derived.maxHp) : seat.derived.maxHp,
       sp: (carry.sp ?? c.sp) >= 0 ? Math.min(carry.sp ?? c.sp, seat.derived.maxSp) : seat.derived.maxSp,
       dead: false, sitting: false,
@@ -359,9 +387,10 @@ export class MapRoom extends Room<{ state: MapState }> {
     }
     seat.lastMoveAt = this.now;
     if (seat.cast && dist(p.x, p.y, msg.x, msg.y) > 0.05) this.cancelCast(c.sessionId, seat, p);
+    if (seat.shop && dist(p.x, p.y, msg.x, msg.y) > 0.05) this.closeShop(c.sessionId, 'เดินออกจากร้าน ปิดร้านแล้ว');
     p.x = msg.x;
     p.y = msg.y;
-    p.sitting = false;
+    p.sitting = !!seat.shop; // a shopkeeper stays seated at the stall
   }
 
   /** Moving breaks a cast: the SP comes back and the skill can be used again straight away. */
@@ -377,6 +406,7 @@ export class MapRoom extends Room<{ state: MapState }> {
 
   private onSit(c: Client) {
     const p = this.state.players.get(c.sessionId);
+    if (this.seats.get(c.sessionId)?.shop) return this.closeShop(c.sessionId, 'ลุกขึ้นยืน ปิดร้านแล้ว');
     if (p && !p.dead) p.sitting = !p.sitting;
   }
 
@@ -514,6 +544,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       seat.inv = inv;
       this.applyDerived(seat, p);
       if (seat.trade) this.cancelTrade(seat.trade, 'กระเป๋าเปลี่ยน ยกเลิกการแลกเปลี่ยน');
+      this.fitShop(c.sessionId, seat);
     } catch (e) {
       c.send('error', { text: (e as Error).message });
     }
@@ -546,6 +577,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const seat = this.seats.get(c.sessionId);
     const m = this.state.monsters.get(msg?.id);
     const brain = this.brains.get(msg?.id);
+    if (seat?.shop) return c.send('error', { text: 'กำลังเปิดร้านอยู่ ปิดร้านก่อนจึงจะโจมตีได้' });
     if (p && seat && !m && this.state.players.has(msg?.id)) return this.pvpAttack(c, seat, p, msg.id);
     if (!p || !seat || !m || !brain || p.dead || m.dead || seat.cast) return;
     if (this.now - seat.lastAttack < seat.derived.attackDelay * 0.9) return;
@@ -584,7 +616,8 @@ export class MapRoom extends Room<{ state: MapState }> {
     const skill = SKILLS[msg?.id];
     if (!p || !seat || !skill || p.dead || seat.cast) return;
     const lv = seat.char.skills?.[msg.id] ?? 0;
-    if (!canUseSkill(skill, seat.char.cls) || lv < 1 || skill.type === 'passive') return;
+    if (!canUseSkill(skill, seat.char.cls) || lv < 1 || skill.type === 'passive' || skill.type === 'vend') return;
+    if (seat.shop) return c.send('error', { text: 'กำลังเปิดร้านอยู่ ปิดร้านก่อนจึงจะใช้สกิลได้' });
     if ((seat.cooldowns.get(msg.id) ?? 0) > this.now) return;
     const sp = skillSp(skill, lv);
     if (p.sp < sp) return c.send('error', { text: 'SP ไม่พอ' });
@@ -1239,6 +1272,120 @@ export class MapRoom extends Room<{ state: MapState }> {
     }
   }
 
+  // ------------------------------------------------------------ player shops (เปิดแผงขายของ)
+
+  private onShopOpen(c: Client, msg: { title?: string; items?: { inv: string; qty: number; price: number }[] }) {
+    const seat = this.seats.get(c.sessionId);
+    const p = this.state.players.get(c.sessionId);
+    if (!seat || !p || p.dead) return;
+    const fail = (text: string) => c.send('error', { text });
+    const lv = seat.char.skills?.[VEND_SKILL] ?? 0;
+    if (lv < 1) return fail('ต้องเรียนสกิลเปิดแผงขายของก่อน');
+    if (!this.map.safe || this.pvp) return fail('เปิดร้านได้เฉพาะในเมือง');
+    if (seat.trade) return fail('กำลังแลกเปลี่ยนอยู่');
+    if (seat.shop) return fail('เปิดร้านอยู่แล้ว');
+    if (seat.cast) return fail('กำลังร่ายสกิลอยู่');
+    for (const [sid, o] of this.state.players) {
+      if (sid !== c.sessionId && o.shop && dist(o.x, o.y, p.x, p.y) < 1.2) return fail('ใกล้ร้านอื่นเกินไป ขยับออกไปอีกนิด');
+    }
+    const list = Array.isArray(msg?.items) ? msg.items : [];
+    if (!list.length) return fail('ยังไม่ได้เลือกของที่จะขาย');
+    const max = vendSlots(lv);
+    if (list.length > max) return fail(`สกิล Lv ${lv} วางของได้สูงสุด ${max} ชนิด`);
+    const items: ShopItem[] = [];
+    for (const o of list) {
+      const row = seat.inv.find((r) => r.id === o?.inv);
+      const qty = Math.floor(Number(o?.qty));
+      const price = Math.floor(Number(o?.price));
+      if (!row || row.equipped || items.some((i) => i.inv === row.id) || !(qty >= 1 && qty <= row.qty)) return fail('ของในร้านไม่ถูกต้อง (ถอดของที่ใส่อยู่ก่อน)');
+      if (!(price >= 1 && price <= VEND_MAX_PRICE)) return fail(`ตั้งราคาได้ 1 - ${VEND_MAX_PRICE.toLocaleString()} z`);
+      items.push({ inv: row.id, item: row.item_id, qty, price, refine: row.refine ?? 0, cards: row.cards ?? [] });
+    }
+    const title = cleanText(msg?.title, 30) || `ร้านของ ${seat.char.name}`;
+    seat.shop = { title, items };
+    p.shop = title;
+    p.sitting = true;
+    c.send('shopMine', this.shopOf(c.sessionId, seat));
+  }
+
+  /** The shop as the browsers see it (null = closed). */
+  private shopOf(sid: string, seat: Seat) {
+    const shop = seat.shop;
+    if (!shop) return { sid, open: false };
+    return { sid, open: true, name: seat.char.name, title: shop.title, items: shop.items };
+  }
+
+  private closeShop(sid: string, text?: string) {
+    const seat = this.seats.get(sid);
+    if (!seat?.shop) return;
+    seat.shop = undefined;
+    const p = this.state.players.get(sid);
+    if (p) {
+      p.shop = '';
+      p.sitting = false;
+    }
+    seat.client.send('shopMine', { sid, open: false, text });
+  }
+
+  /** After the seller's bag changed: drop what they no longer have, sell no more than they hold. */
+  private fitShop(sid: string, seat: Seat) {
+    const shop = seat.shop;
+    if (!shop) return;
+    shop.items = shop.items.filter((it) => {
+      const row = seat.inv.find((r) => r.id === it.inv);
+      if (!row || row.equipped || row.item_id !== it.item) return false;
+      it.qty = Math.min(it.qty, row.qty);
+      return it.qty > 0;
+    });
+    if (!shop.items.length) this.closeShop(sid, 'ของในร้านหมดแล้ว ปิดร้านอัตโนมัติ');
+    else seat.client.send('shopMine', this.shopOf(sid, seat));
+  }
+
+  private onShopView(c: Client, msg: { to: string }) {
+    const seller = this.seats.get(msg?.to);
+    if (!seller?.shop) return c.send('shopList', { sid: msg?.to, open: false });
+    c.send('shopList', this.shopOf(msg.to, seller));
+  }
+
+  private async onShopBuy(c: Client, msg: { to: string; inv: string; qty: number }) {
+    const buyer = this.seats.get(c.sessionId);
+    const seller = this.seats.get(msg?.to);
+    const shop = seller?.shop;
+    const fail = (text: string) => {
+      c.send('error', { text });
+      if (seller) c.send('shopList', this.shopOf(msg.to, seller));
+    };
+    if (!buyer || !seller || !shop || msg.to === c.sessionId) return fail('ร้านนี้ปิดไปแล้ว');
+    const it = shop.items.find((i) => i.inv === msg?.inv);
+    const qty = Math.floor(Number(msg?.qty));
+    if (!it || !(qty >= 1 && qty <= it.qty)) return fail('ของหมดแล้ว หรือจำนวนไม่ถูกต้อง');
+    if (buyer.trade || seller.trade) return fail('กำลังแลกเปลี่ยนอยู่ ลองใหม่อีกครั้ง');
+    if (seller.shopBusy) return fail('ร้านกำลังขายให้คนอื่นอยู่ ลองใหม่อีกครั้ง');
+    const total = it.price * qty;
+    if (total > VEND_MAX_TOTAL) return fail(`ซื้อครั้งละไม่เกิน ${VEND_MAX_TOTAL.toLocaleString()} z`);
+    if (buyer.char.zeny < total) return fail('เงินไม่พอ');
+    seller.shopBusy = true;
+    try {
+      // the same atomic swap as a trade: the seller hands over the items, the buyer the zeny
+      await MapRoom.db.trade(
+        { userId: seller.userId, charId: seller.char.id, offer: { items: [{ inv: it.inv, qty }], zeny: 0 } },
+        { userId: buyer.userId, charId: buyer.char.id, offer: { items: [], zeny: total } },
+      );
+      it.qty -= qty;
+      const name = ITEMS[it.item]?.name ?? it.item;
+      seller.client.send('shopSold', { item: it.item, name, qty, zeny: total, buyer: buyer.char.name });
+      c.send('shopBought', { item: it.item, name, qty, zeny: total, seller: seller.char.name });
+      // equipment moves as a whole row, a stack shrinks: reload both bags (fitShop trims the shop)
+      await this.resync(buyer);
+      if (this.seats.get(msg.to) === seller) await this.resync(seller);
+      c.send('shopList', this.shopOf(msg.to, seller));
+    } catch (e) {
+      fail(`ซื้อไม่สำเร็จ: ${(e as Error).message}`);
+    } finally {
+      seller.shopBusy = false;
+    }
+  }
+
   private sendTrade(trade: Trade) {
     for (const [me, other] of [[trade.a, trade.b], [trade.b, trade.a]]) {
       const seat = this.seats.get(me);
@@ -1701,6 +1848,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const { char, inv } = await MapRoom.db.reload(seat.userId, seat.char.id);
     seat.char = char;
     seat.inv = inv;
+    this.fitShop(seat.client.sessionId, seat);
     const p = this.state.players.get(seat.client.sessionId);
     if (p) this.applyDerived(seat, p);
     seat.client.send('sync', { character: seat.char, inventory: seat.inv });

@@ -44,11 +44,17 @@ export interface WorldHooks {
   toast(text: string, kind?: 'good' | 'bad'): void;
   talk(npc: Npc): void;
   playerMenu(sessionId: string, name: string, x: number, y: number): void;
+  /** เปิดแผงขายของ: look into another player's shop / set up (or look after) my own */
+  viewShop(sessionId: string): void;
+  openVend(): void;
   death(dead: boolean): void;
   targeting(skillName: string | null): void;
   /** /auto switched on or off (by the player, a manual move, death). */
   autoChanged(on: boolean): void;
 }
+
+/** The class whose look a skill's effects use (a skill every class has counts as the Teen's). */
+const clsOf = (s: { cls: ClassKey | 'all' }): ClassKey => (s.cls === 'all' ? 'teen' : s.cls);
 
 /** Touch screens have no hover: show name + Lv of monsters this close (tiles) all the time. */
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -66,6 +72,8 @@ interface RemotePlayer {
   x: number; y: number; hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean; sitting: boolean; hidden?: boolean;
   /** guild name ('' = none) */
   guild?: string;
+  /** player shop title ('' = none) */
+  shop?: string;
 }
 interface RemoteMonster { key: string; x: number; y: number; hp: number; maxHp: number; dead: boolean }
 interface RemoteState {
@@ -119,6 +127,9 @@ interface PlayerActor {
   /** the guild name shown under the name */
   guild?: string;
   guildEl?: HTMLElement;
+  /** เปิดแผงขายของ: the shop title, and its sign over the head */
+  shop?: string;
+  shopEl?: HTMLElement;
 }
 
 interface MonsterActor {
@@ -483,10 +494,30 @@ export class World3D {
     for (const [id, a] of this.players) a.label.el.classList.toggle('party', ids.has(id));
   }
 
+  /** The shop sign over a player's head: a bag icon and the shop's name; click to look inside. */
+  private setShopSign(a: PlayerActor, title: string) {
+    a.shop = title;
+    a.shopEl?.remove();
+    a.shopEl = undefined;
+    if (!title) return;
+    const el = document.createElement('div');
+    el.className = `vsign${a === this.me ? ' mine' : ''}`;
+    el.innerHTML = `<i class="vbag"></i><span>${escapeHtml(title)}</span>`;
+    el.title = `ร้านของ ${a.name}`;
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (a === this.me) this.hooks.openVend();
+      else this.hooks.viewShop(a.id);
+    });
+    this.overlay.appendChild(el);
+    a.shopEl = el;
+  }
+
   private destroyPlayer(a: PlayerActor) {
     this.scene.remove(a.rig.root);
     a.label.el.remove();
     a.bubble?.el.remove();
+    a.shopEl?.remove();
     this.hits = this.hits.filter((h) => h !== a.hit);
     this.players.delete(a.id);
   }
@@ -661,6 +692,7 @@ export class World3D {
       this.path = [];
       return;
     }
+    if (pid && this.players.get(pid)?.shop) return this.hooks.viewShop(pid);
     if (pid && pid !== this.room.sessionId) {
       const r = renderer!.domElement.getBoundingClientRect();
       return this.hooks.playerMenu(pid, this.players.get(pid)?.name ?? '', cx - r.left, cy - r.top - 20);
@@ -766,6 +798,7 @@ export class World3D {
     const skill = SKILLS[id];
     const lv = this.session.char.skills?.[id] ?? 0;
     if (!skill || !lv || skill.type === 'passive' || this.dead) return;
+    if (skill.type === 'vend') return this.hooks.openVend();
     if (this.session.sp < skillSp(skill, lv)) return this.hooks.toast('SP ไม่พอ', 'bad');
     if (this.me.cast) return this.hooks.toast('กำลังร่ายสกิลอยู่', 'bad');
     if (targetsMonster(skill)) {
@@ -1275,6 +1308,7 @@ export class World3D {
         if (a === this.me) for (const o of this.players.values()) o.label.el.classList.toggle('foe', this.pvp && this.hostile(o.id));
       }
       a.label.el.classList.toggle('foe', this.pvp && this.hostile(id));
+      if ((rp.shop ?? '') !== (a.shop ?? '')) this.setShopSign(a, rp.shop ?? '');
       if (a === this.me && a.look !== lookKey(rp)) {
         // our own job change: swap the model in place (keeps the camera and our label)
         a.look = lookKey(rp);
@@ -1510,6 +1544,7 @@ export class World3D {
     for (const s of this.staticLabels) this.place(s.el, s.pos);
     for (const a of this.players.values()) {
       this.place(a.label.el, new THREE.Vector3(a.x, 0, a.y));
+      if (a.shopEl) this.place(a.shopEl, new THREE.Vector3(a.x, a.sitting ? 1.75 : 2.2, a.y), !a.hidden);
       if (a.label.fill) a.label.fill.style.width = `${(a.hp / Math.max(1, a.maxHp)) * 100}%`;
       if (a.bubble) {
         if (this.now > a.bubble.until) {
@@ -1818,14 +1853,14 @@ export class World3D {
       this.keyboardFx(a, msg);
       return;
     }
-    if (JOB_FX.has(skill.cls)) {
+    if (JOB_FX.has(clsOf(skill))) {
       this.jobSkillFx(a, msg);
       return;
     }
-    const color = new THREE.Color(CLASSES[skill.cls].color).getHex();
+    const color = new THREE.Color(CLASSES[clsOf(skill)].color).getHex();
     const bladeSkill = skill.cls === 'teen' && (skill.type === 'single' || skill.type === 'aoe_self');
     if (a) {
-      if (!bladeSkill) sfxSkill(skill.cls, skill.type, this.vol(a.x, a.y, a === this.me));
+      if (!bladeSkill) sfxSkill(clsOf(skill), skill.type, this.vol(a.x, a.y, a === this.me));
       else this.bladeFx(a, msg, a === this.me);
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       this.face(a, msg.x, msg.y);
@@ -1861,7 +1896,7 @@ export class World3D {
       } else if (t && skill.type === 'heal_target') this.sparkle(t, 0x7dff9a);
       else if (t) this.levelFx(t, '', color);
     } else if (skill.type === 'single' && a) {
-      const glyph = ({ note: '♪', chord: '♫', wave: '〰', mic: '🎤' } as Record<string, string>)[CLASSES[skill.cls].projectile ?? ''] ?? '✦';
+      const glyph = ({ note: '♪', chord: '♫', wave: '〰', mic: '🎤' } as Record<string, string>)[CLASSES[clsOf(skill)].projectile ?? ''] ?? '✦';
       for (let i = 0; i < Math.min(3, skill.hits ?? 1); i++) {
         this.projectile(new THREE.Vector3(a.x, 1.0, a.y), new THREE.Vector3(msg.x, 0.6, msg.y), glyphTexture(glyph, '#ffffff'), 0.7, 200, undefined, i * 90);
       }
@@ -1954,12 +1989,12 @@ export class World3D {
   private jobSkillFx(a: PlayerActor | undefined, msg: { by: string; skill: string; x: number; y: number; target?: string; allies?: string[]; fromX?: number; fromY?: number; dirX?: number; dirY?: number; bonus?: boolean; pulled?: string[]; hits: { m?: string; p?: string; dmg: number; at?: number }[] }) {
     const skill = SKILLS[msg.skill];
     const id = msg.skill;
-    const c = this.fxColor(skill.cls);
+    const c = this.fxColor(clsOf(skill));
     const mine = !!a && a === this.me;
     const vol = a ? this.vol(a.x, a.y, mine) : 0;
     const isBuff = skill.type === 'buff' || skill.type === 'buff_party' || skill.type === 'buff_target';
     if (a) {
-      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll' && id !== 'hammer_on' && id !== 'vibrato' && id !== 'slide' && id !== 'bending' && id !== 'palm_muting' && skill.cls !== 'singer') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
+      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll' && id !== 'hammer_on' && id !== 'vibrato' && id !== 'slide' && id !== 'bending' && id !== 'palm_muting' && skill.cls !== 'singer') sfxSkill(clsOf(skill), skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       if (skill.type !== 'aoe_self' && !isBuff) this.face(a, msg.x, msg.y);
       a.combat = COMBAT_TIME;
@@ -2319,8 +2354,8 @@ export class World3D {
   }
 
   /** The cast of เสียงสูง: a bar over the head, a pulsing circle under the feet, singing. */
-  private castFx(a: PlayerActor, skill: { cls: ClassKey; name: string }, ms: number) {
-    const c = this.fxColor(skill.cls);
+  private castFx(a: PlayerActor, skill: { cls: ClassKey | 'all'; name: string }, ms: number) {
+    const c = this.fxColor(clsOf(skill));
     if (a.cast) a.cast.bar.remove();
     // the cast bar: a dark framed slot under the name that fills up green
     const bar = document.createElement('div');
@@ -2676,7 +2711,7 @@ export class World3D {
     const skill = SKILLS[msg.skill];
     const vol = this.vol(a.x, a.y, mine);
     const steel = 0xdff4ff;
-    const accent = new THREE.Color(CLASSES[skill.cls].color).getHex();
+    const accent = new THREE.Color(CLASSES[clsOf(skill)].color).getHex();
     const hitAt = (id?: string) => {
       const m = id ? this.monsters.get(id) : undefined;
       const f = !m && id ? this.players.get(id) : undefined;

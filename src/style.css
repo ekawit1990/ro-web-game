@@ -212,7 +212,7 @@ form { display: flex; flex-direction: column; gap: 10px; }
 /* Shop, npc, trade */
 .rw.shop { width: 330px; }
 .shop-list { background: #fff; border: 1px solid #b8c3d6; max-height: 300px; overflow-y: auto; }
-.shop-row { display: grid; grid-template-columns: 30px 1fr 70px 40px 40px; gap: 4px; align-items: center; padding: 2px 4px; border-bottom: 1px solid #e3e8f0; }
+.shop-row { display: grid; grid-template-columns: 30px 1fr minmax(70px, auto) 40px 40px; gap: 4px; align-items: center; padding: 2px 4px; border-bottom: 1px solid #e3e8f0; }
 .shop-row.dim span { color: #9aa3b2; }
 .shop-row img { width: 28px; height: 28px; }
 .shop-row b { text-align: right; font-weight: 400; color: #8a5a00; }
@@ -680,3 +680,31 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 @keyframes mvpb-pop { 0% { transform: scale(0.1) rotate(-25deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: scale(1) rotate(-6deg); } }
 @keyframes mvpb-out { to { transform: scale(1.4) rotate(-6deg); opacity: 0; } }
 @keyframes mvpb-spin { 0% { rotate: 0deg; } 50% { rotate: 8deg; } 100% { rotate: 0deg; } }
+
+/* player shops (เปิดแผงขายของ): the sign over a shopkeeper's head and the shop windows */
+.vsign { position: absolute; left: 0; top: 0; translate: -50% -100%; display: flex; align-items: center; gap: 5px; max-width: 190px; padding: 3px 9px 3px 4px;
+  background: linear-gradient(#fffdf6, #f3ead2); color: #4a3412; border: 1px solid #b08a3e; border-radius: 4px; font: 600 12px 'Kanit', Tahoma, sans-serif;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.45); white-space: nowrap; cursor: pointer; pointer-events: auto; }
+.vsign span { overflow: hidden; text-overflow: ellipsis; }
+.vsign:hover { background: linear-gradient(#fffbe8, #ffe9a8); border-color: #8a5a00; }
+.vsign.mine { border-color: #3e7ab0; }
+.vsign::after { content: ''; position: absolute; left: 50%; bottom: -5px; margin-left: -4px; border: 4px solid transparent; border-top-color: #b08a3e; border-bottom: 0; }
+.vbag { flex: none; position: relative; width: 18px; height: 16px; margin-top: 3px; border-radius: 2px 2px 4px 4px; background: linear-gradient(#f0b545, #c47a14); border: 1px solid #7a4a00; }
+.vbag::before { content: ''; position: absolute; left: 3px; right: 3px; top: -6px; height: 7px; border: 2px solid #7a4a00; border-bottom: 0; border-radius: 6px 6px 0 0; }
+.vbag::after { content: 'z'; position: absolute; inset: 0; text-align: center; font: 800 10px/14px Arial, sans-serif; color: #fff7d6; }
+.rw.vend { width: 380px; max-width: calc(100vw - 16px); }
+.vend-head { margin-bottom: 4px; }
+.vend-title { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.vend-title input { flex: 1; min-width: 0; padding: 2px 4px; }
+.vend-cols { display: grid; grid-template-columns: 50px 1fr 52px 84px; gap: 4px; font-size: 11px; color: #6a7488; padding: 0 4px; }
+.vend-row { display: grid; gap: 4px; align-items: center; padding: 2px 4px; border-bottom: 1px solid #e3e8f0; }
+.vend-row img { width: 28px; height: 28px; }
+.vend-row span small { display: block; color: #8a93a6; font-size: 10px; }
+.vend-row b { text-align: right; font-weight: 600; color: #8a5a00; }
+.vend-row.set { grid-template-columns: 18px 28px 1fr 52px 84px; }
+.vend-row.set.on { background: #fff6dc; }
+.vend-row.set input[type=number] { width: 100%; padding: 1px 2px; }
+.vend-row.buy { grid-template-columns: 30px 1fr 84px 44px 44px; }
+.vend-row.buy input { width: 44px; padding: 1px 2px; }
+.vend-row.mine { grid-template-columns: 30px 1fr 40px 90px; }
+.shop-row b s { color: #a0a8b8; font-weight: 400; margin-right: 2px; }

@@ -2,6 +2,7 @@ import {
   CLASSES, CLASS_KEYS, CardBonus, ELEMENTS, ELEMENT_KEYS, ENDOW_SEC, MONSTERS, elementLabel, elementMult, monsterElement, SPAWNS, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, REFINE, SERVICE_FEE, SHOP, SKILLS,
   START_CLASS, STAT_KEYS, STORAGE_SLOTS, StatKey, WEAPON_SHOP, canRefine, cardFits, expToNext, itemLabel, jobExpToNext, jobTown, outfitOf,
   refineBonus, refineChance, refineFee, refineMaterial, refineSafe, skillSp, skillsOf, statCost, statRefund,
+  VEND_MAX_PRICE, VEND_SKILL, npcBuyPrice, npcSellPrice, vendSlots,
 } from '../data';
 import { THEMES, WARP_TOWNS, getMap, type GameMap, type Npc } from '../game/maps';
 import { ARENA_MAP, CASTLE_MAP, GUILD_COST, GUILD_MAX, PVP_DAMAGE, WAR_PRIZE, durationText, warScheduleText, type GuildView, type PvpInfo, type PvpScore } from '../game/pvp';
@@ -13,7 +14,10 @@ import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
 import { monsterPortrait } from '../three/portrait';
 
-type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'guide' | 'guild';
+type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'guide' | 'guild'
+  | 'vend' | 'vshop';
+/** A player shop as the server sends it (shopMine / shopList). */
+type ShopView = { sid: string; open: boolean; name?: string; title?: string; text?: string; items?: { inv: string; item: string; qty: number; price: number; refine: number; cards: string[] }[] };
 /** A bag row, or what we know of someone else's (trade): the + level and cards travel with it. */
 type ItemRow = Pick<InvItem, 'refine' | 'cards'> & { qty?: number; equipped?: boolean };
 type Slot = { t: 's' | 'i'; id: string } | null;
@@ -84,6 +88,7 @@ export const bonusText = (b: CardBonus) =>
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
   option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40], guide: [-1, 30], guild: [8, 250],
+  vend: [-1, 60], vshop: [-1, 70],
 };
 
 /** The RO-style windows over the game: Basic Info, Equipment+Status, Inventory, Skill Tree, hotkeys, minimap, chat. */
@@ -100,6 +105,11 @@ export class Hud implements WorldHooks {
   private pvpInfo: PvpInfo = { on: false };
   private pvpScores: PvpScore[] = [];
   private shopKind: 'shop' | 'weapons' = 'shop';
+  /** เปิดแผงขายของ: my open shop (null = none), the shop being set up, and the other player's shop I'm looking at */
+  private myShop: ShopView | null = null;
+  private vendTitle = '';
+  private vendDraft = new Map<string, { on: boolean; qty: number; price: number }>();
+  private vshop: ShopView | null = null;
   private shopTab: 'buy' | 'sell' = 'buy';
   private storageTab: 'put' | 'take' = 'put';
   /** The item window: which bag row (or shop/storage item) it shows, and whether it's picking equipment for a card. */
@@ -159,6 +169,11 @@ export class Hud implements WorldHooks {
     this.closeWin('worldmap');
     this.renderPvpBar();
     this.closeTrade();
+    // shops belong to a map: mine closed when I left, and the one I was looking at is out of reach
+    this.myShop = null;
+    this.vshop = null;
+    this.closeWin('vshop');
+    this.lastSig.vend = '';
     // a new map starts with /auto off
     this.root.querySelector('#bi-auto')?.classList.remove('on');
     this.root.querySelector('#auto-badge')?.remove();
@@ -640,9 +655,9 @@ export class Hud implements WorldHooks {
       const passive = sk.type === 'passive';
       return `<div class="sk-row ${lv ? '' : 'locked'}">
         <div class="sk-icon" data-skill="${id}" draggable="${!passive && lv > 0}" title="${passive ? 'สกิลติดตัว' : 'ลากไปช่องปุ่มลัด / ดับเบิลคลิกเพื่อใช้'}">${sk.icon}</div>
-        <div class="sk-info" data-skinfo="${id}"><b>${escapeHtml(sk.name)} <span class="sk-more">${this.skOpen === id ? '▴' : 'ⓘ'}</span></b><small>${passive ? 'ติดตัว' : `Sp : ${skillSp(sk, Math.max(1, lv))}`}</small></div>
+        <div class="sk-info" data-skinfo="${id}"><b>${escapeHtml(sk.name)} <span class="sk-more">${this.skOpen === id ? '▴' : 'ⓘ'}</span></b><small>${passive ? 'ติดตัว' : sk.type === 'vend' ? 'ทุกอาชีพ' : `Sp : ${skillSp(sk, Math.max(1, lv))}`}</small></div>
         <div class="sk-lv">Lv : ${lv} / ${sk.maxLevel}</div>
-        <button class="up" data-learn="${id}" ${c.skill_points > 0 && lv < sk.maxLevel && sk.cls === c.cls ? '' : 'disabled'}>Lv Up</button>
+        <button class="up" data-learn="${id}" ${c.skill_points > 0 && lv < sk.maxLevel && (sk.cls === c.cls || sk.cls === 'all') ? '' : 'disabled'}>Lv Up</button>
       </div>${this.skOpen === id ? `<div class="sk-detail">${this.skillTip(id)}</div>` : ''}`;
     });
     const keep = b.querySelector('.sk-list')?.scrollTop ?? 0;
@@ -1882,7 +1897,7 @@ export class Hud implements WorldHooks {
   private renderShop() {
     const b = this.body('shop');
     if (!b || !this.isOpen('shop')) return;
-    const sig = JSON.stringify([this.shopKind, this.shopTab, this.s.inv, this.s.char.zeny]);
+    const sig = JSON.stringify([this.shopKind, this.shopTab, this.s.inv, this.s.char.zeny, this.s.char.skills]);
     if (this.lastSig.shop === sig) return;
     this.lastSig.shop = sig;
     const list = this.shopKind === 'shop' ? SHOP : WEAPON_SHOP;
@@ -1890,14 +1905,17 @@ export class Hud implements WorldHooks {
       ? list.map((id) => {
         const it = ITEMS[id];
         const wrong = it.classes && !it.classes.includes(this.s.char.cls);
+        // ต่อราคาเก่ง: the old price struck through next to the new one
+        const price = npcBuyPrice(id, this.s.char.skills);
+        const shown = price < it.price ? `<s>${it.price.toLocaleString()}</s> ${price.toLocaleString()} z` : `${price.toLocaleString()} z`;
         return `<div class="shop-row ${wrong ? 'dim' : ''}" data-item="${id}"><img src="${itemIcon(id)}"/>
-          <span>${escapeHtml(it.name)}</span><b>${it.price.toLocaleString()} z</b>
-          <input type="number" min="1" max="99" value="1"/><button class="buy" ${this.s.char.zeny < it.price ? 'disabled' : ''}>ซื้อ</button></div>`;
+          <span>${escapeHtml(it.name)}</span><b>${shown}</b>
+          <input type="number" min="1" max="99" value="1"/><button class="buy" ${this.s.char.zeny < price ? 'disabled' : ''}>ซื้อ</button></div>`;
       })
       : this.s.inv.filter((r) => !r.equipped).map((r) => {
         const it = ITEMS[r.item_id];
         return `<div class="shop-row" data-sell="${r.id}" data-item="${r.item_id}"><img src="${itemIcon(r.item_id)}"/>
-          <span>${escapeHtml(itemLabel(r.item_id, r))} x${r.qty}</span><b>${Math.floor(it.price / 2).toLocaleString()} z</b>
+          <span>${escapeHtml(itemLabel(r.item_id, r))} x${r.qty}</span><b>${npcSellPrice(r.item_id, this.s.char.skills).toLocaleString()} z</b>
           <input type="number" min="1" max="${r.qty}" value="${r.qty}"/><button class="sell">ขาย</button></div>`;
       });
     b.innerHTML = `<div class="tabs"><button data-st="buy" class="${this.shopTab === 'buy' ? 'on' : ''}">ซื้อ</button>
@@ -1923,6 +1941,162 @@ export class Hud implements WorldHooks {
         }));
       row.querySelector('.sell')?.addEventListener('click', () => this.run(() => this.s.sell(row.dataset.sell!, qty())));
     });
+  }
+
+  // ------------------------------------------------------------ player shops (เปิดแผงขายของ)
+
+  /** The shop skill: set up a shop, or look after the one that's open. */
+  openVend() {
+    const lv = this.s.char.skills?.[VEND_SKILL] ?? 0;
+    if (lv < 1) return this.toast('ต้องเรียนสกิลเปิดแผงขายของก่อน', 'bad');
+    this.win('vend', '🏪 เปิดแผงขายของ', 'vend');
+    this.lastSig.vend = '';
+    this.renderVend();
+  }
+
+  viewShop(sid: string) {
+    this.actions.send('shopView', { to: sid });
+  }
+
+  /** My own shop opened, changed or closed (from the server). */
+  shopMine(m: ShopView) {
+    const was = !!this.myShop;
+    this.myShop = m.open ? m : null;
+    if (m.text) this.system(`🏪 ${escapeHtml(m.text)}`);
+    if (m.open && !was) {
+      this.toast('เปิดร้านแล้ว! นั่งรอลูกค้าได้เลย', 'good');
+      this.vendDraft.clear();
+    }
+    this.lastSig.vend = '';
+    this.renderVend();
+  }
+
+  shopSold(m: { name: string; qty: number; zeny: number; buyer: string }) {
+    this.line('good', `🏪 ${escapeHtml(m.buyer)} ซื้อ ${escapeHtml(m.name)} x${m.qty} ได้เงิน ${m.zeny.toLocaleString()} z`);
+    this.toast(`ขาย ${m.name} x${m.qty} ได้ ${m.zeny.toLocaleString()} z`, 'good');
+    sfx('coin');
+  }
+
+  shopBought(m: { name: string; qty: number; zeny: number; seller: string }) {
+    this.line('good', `🛍️ ซื้อ ${escapeHtml(m.name)} x${m.qty} จากร้านของ ${escapeHtml(m.seller)} จ่าย ${m.zeny.toLocaleString()} z`);
+    sfx('coin');
+  }
+
+  /** Another player's shop: what's for sale (from the server). */
+  shopList(m: ShopView) {
+    if (!m.open || !m.items?.length) {
+      if (this.vshop?.sid === m.sid || !this.isOpen('vshop')) this.toast('ร้านนี้ปิดไปแล้ว', 'bad');
+      this.vshop = null;
+      return this.closeWin('vshop');
+    }
+    this.vshop = m;
+    this.win('vshop', `🏪 ${escapeHtml(m.title ?? '')}`, 'vend');
+    this.renderVShop();
+  }
+
+  private renderVShop() {
+    const b = this.body('vshop');
+    const v = this.vshop;
+    if (!b || !v?.items) return;
+    const rows = v.items.map((it) => `<div class="vend-row buy" data-inv="${it.inv}" data-item="${it.item}"><img src="${itemIcon(it.item)}"/>
+        <span>${escapeHtml(itemLabel(it.item, it))}${it.cards.length ? ` <small>[${it.cards.length} การ์ด]</small>` : ''}<small>เหลือ ${it.qty}</small></span>
+        <b>${it.price.toLocaleString()} z</b>
+        <input type="number" min="1" max="${it.qty}" value="1" ${it.qty < 2 ? 'disabled' : ''}/>
+        <button class="buy" ${this.s.char.zeny < it.price ? 'disabled' : ''}>ซื้อ</button></div>`);
+    b.innerHTML = `<div class="vend-head">ร้านของ <b>${escapeHtml(v.name ?? '')}</b></div>
+      <div class="shop-list">${rows.join('')}</div>
+      <div class="inv-foot"><span>Zeny ของคุณ : <b>${this.s.char.zeny.toLocaleString()}</b></span></div>`;
+    b.querySelectorAll<HTMLElement>('.vend-row').forEach((row) => {
+      const it = v.items!.find((x) => x.inv === row.dataset.inv)!;
+      const img = row.querySelector('img')!;
+      this.tooltip(img, () => this.itemTip(it.item, it));
+      img.addEventListener('click', () => lastTouch && this.openItem(it.item));
+      row.querySelector('.buy')!.addEventListener('click', () => {
+        const qty = Math.max(1, Math.min(it.qty, Math.floor(Number((row.querySelector('input') as HTMLInputElement).value) || 1)));
+        const total = it.price * qty;
+        if (total > this.s.char.zeny) return this.toast('เงินไม่พอ', 'bad');
+        if (!confirm(`ซื้อ ${itemLabel(it.item, it)} x${qty}\nรวม ${total.toLocaleString()} z ?`)) return;
+        this.actions.send('shopBuy', { to: v.sid, inv: it.inv, qty });
+      });
+    });
+  }
+
+  private renderVend() {
+    const b = this.body('vend');
+    if (!b || !this.isOpen('vend')) return;
+    const lv = this.s.char.skills?.[VEND_SKILL] ?? 0;
+    const max = vendSlots(lv);
+    const shop = this.myShop;
+    const sig = JSON.stringify([shop, this.s.inv, lv]);
+    if (this.lastSig.vend === sig) return;
+    this.lastSig.vend = sig;
+    if (shop?.items) {
+      // the shop is open: what's left, and a button to close it
+      const rows = shop.items.map((it) => `<div class="vend-row mine" data-item="${it.item}"><img src="${itemIcon(it.item)}"/>
+          <span>${escapeHtml(itemLabel(it.item, it))}</span><small>x${it.qty}</small><b>${it.price.toLocaleString()} z</b></div>`);
+      b.innerHTML = `<div class="vend-head">ร้าน <b>${escapeHtml(shop.title ?? '')}</b> กำลังเปิดอยู่</div>
+        <div class="shop-list">${rows.join('')}</div>
+        <p class="hint">ของที่ขายได้จะหายจากกระเป๋า เงินเข้าทันที · เดิน โจมตี ใช้สกิล หรือกดนั่งอีกครั้ง = ปิดร้าน</p>
+        <div class="npc-btns"><button id="vend-close" class="close">ปิดร้าน</button></div>`;
+      b.querySelectorAll<HTMLElement>('.vend-row img').forEach((img) => {
+        const it = shop.items!.find((x) => x.item === (img.parentElement as HTMLElement).dataset.item)!;
+        this.tooltip(img, () => this.itemTip(it.item, it));
+      });
+      b.querySelector('#vend-close')!.addEventListener('click', () => this.actions.send('shopClose'));
+      return;
+    }
+    // setting up: tick what to sell, how many, and the price of one
+    const bag = this.s.inv.filter((r) => !r.equipped);
+    for (const id of [...this.vendDraft.keys()]) if (!bag.some((r) => r.id === id)) this.vendDraft.delete(id);
+    const draft = (r: InvItem) => this.vendDraft.get(r.id) ?? { on: false, qty: r.qty, price: ITEMS[r.item_id]?.price ?? 1 };
+    const picked = () => [...this.vendDraft.values()].filter((d) => d.on).length;
+    const rows = bag.map((r) => {
+      const d = draft(r);
+      return `<div class="vend-row set ${d.on ? 'on' : ''}" data-inv="${r.id}" data-item="${r.item_id}">
+        <input type="checkbox" class="pick" ${d.on ? 'checked' : ''}/><img src="${itemIcon(r.item_id)}"/>
+        <span>${escapeHtml(itemLabel(r.item_id, r))}<small>มี ${r.qty}</small></span>
+        <input type="number" class="qty" min="1" max="${r.qty}" value="${Math.min(d.qty, r.qty)}" ${r.qty < 2 ? 'disabled' : ''} title="จำนวนที่ขาย"/>
+        <input type="number" class="price" min="1" max="${VEND_MAX_PRICE}" value="${d.price}" title="ราคาต่อชิ้น (z)"/></div>`;
+    });
+    b.innerHTML = `<label class="vend-title">ชื่อร้าน <input id="vend-name" maxlength="30" placeholder="ร้านของ ${escapeHtml(this.s.char.name)}" value="${escapeHtml(this.vendTitle)}"/></label>
+      <div class="vend-cols"><span></span><span>ไอเท็ม</span><span>จำนวน</span><span>ราคา/ชิ้น</span></div>
+      <div class="shop-list">${rows.join('') || '<p class="hint">ไม่มีของในกระเป๋าที่ขายได้ (ของที่ใส่อยู่ต้องถอดก่อน)</p>'}</div>
+      <div class="inv-foot"><span>เลือกแล้ว <b id="vend-count">${picked()}</b> / ${max} ชนิด (สกิล Lv ${lv})</span></div>
+      <p class="hint">เปิดได้เฉพาะในเมือง · ระหว่างเปิดร้านตัวละครจะนั่งอยู่กับที่</p>
+      <div class="npc-btns"><button id="vend-open" class="ok">เปิดร้าน</button><button id="vend-cancel" class="close">ยกเลิก</button></div>`;
+    b.querySelector<HTMLInputElement>('#vend-name')!.addEventListener('input', (e) => (this.vendTitle = (e.target as HTMLInputElement).value));
+    b.querySelectorAll<HTMLElement>('.vend-row').forEach((row) => {
+      const r = bag.find((x) => x.id === row.dataset.inv)!;
+      const save = () => {
+        const d = {
+          on: (row.querySelector('.pick') as HTMLInputElement).checked,
+          qty: Math.max(1, Math.min(r.qty, Math.floor(Number((row.querySelector('.qty') as HTMLInputElement).value) || 1))),
+          price: Math.max(1, Math.min(VEND_MAX_PRICE, Math.floor(Number((row.querySelector('.price') as HTMLInputElement).value) || 1))),
+        };
+        if (d.on && !this.vendDraft.get(r.id)?.on && picked() >= max) {
+          (row.querySelector('.pick') as HTMLInputElement).checked = false;
+          return this.toast(`สกิล Lv ${lv} วางของได้สูงสุด ${max} ชนิด`, 'bad');
+        }
+        this.vendDraft.set(r.id, d);
+        row.classList.toggle('on', d.on);
+        b.querySelector('#vend-count')!.textContent = String(picked());
+      };
+      row.querySelectorAll('input').forEach((i) => i.addEventListener('change', save));
+      // typing a price or amount ticks the row
+      row.querySelectorAll<HTMLInputElement>('.qty, .price').forEach((i) => i.addEventListener('input', () => {
+        const pick = row.querySelector('.pick') as HTMLInputElement;
+        if (!pick.checked && picked() < max) pick.checked = true;
+        save();
+      }));
+      const img = row.querySelector('img')!;
+      this.tooltip(img, () => this.itemTip(r.item_id, r));
+    });
+    b.querySelector('#vend-open')!.addEventListener('click', () => {
+      const items = [...this.vendDraft.entries()].filter(([, d]) => d.on).map(([inv, d]) => ({ inv, qty: d.qty, price: d.price }));
+      if (!items.length) return this.toast('ติ๊กเลือกของที่จะขายก่อน', 'bad');
+      this.actions.send('shopOpen', { title: this.vendTitle.trim(), items });
+    });
+    b.querySelector('#vend-cancel')!.addEventListener('click', () => this.closeWin('vend'));
   }
 
   // ------------------------------------------------------------ trading
@@ -2559,6 +2733,7 @@ export class Hud implements WorldHooks {
     this.renderInv();
     this.renderSkills();
     this.renderShop();
+    this.renderVend();
     this.renderStorage();
     this.renderItem();
     this.renderRefine();
