@@ -700,6 +700,41 @@ function eyes(g: THREE.Object3D, y: number, z: number, spread: number, r: number
   }
 }
 
+/** A tapered bone segment from a to b (radius r1 at a, r2 at b) with a ball on the joint at a. */
+function boneSeg(g: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3, r1: number, r2: number, mat: THREE.Material) {
+  const d = b.clone().sub(a);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r2, r1, d.length(), 7), mat);
+  m.position.copy(a).addScaledVector(d, 0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+  g.add(m);
+  g.add(mesh(S(r1, 8, 6), mat, a.x, a.y, a.z));
+}
+
+/** A big deer-style antler for the abyss reaper: a main beam sweeping up and out with tines, red tips. side = 1 right, -1 left. */
+function antler(side: number) {
+  const g = new THREE.Group();
+  const bone = toon('#e6d8bf');
+  const tipMat = toon('#9a1030');
+  const v = (x: number, y: number, z: number) => new THREE.Vector3(x * side, y, z);
+  const beam = [v(0.13, 0.17, -0.03), v(0.25, 0.3, -0.06), v(0.38, 0.44, -0.07), v(0.46, 0.62, -0.04), v(0.46, 0.8, 0.02), v(0.4, 0.94, 0.07)];
+  const r = (i: number) => 0.06 * (1 - (i / beam.length) * 0.6);
+  for (let i = 0; i < beam.length - 1; i++) boneSeg(g, beam[i], beam[i + 1], r(i), r(i + 1), bone);
+  const tine = (from: THREE.Vector3, pts: THREE.Vector3[], r0: number) => {
+    let a = from;
+    pts.forEach((b, i) => {
+      boneSeg(g, a, b, r0 * (1 - i * 0.35), r0 * (1 - (i + 1) * 0.35), bone);
+      a = b;
+    });
+    g.add(mesh(new THREE.ConeGeometry(r0 * 0.3, 0.06, 6), tipMat, a.x, a.y + 0.02, a.z));
+  };
+  tine(beam[1], [v(0.27, 0.41, 0.1), v(0.31, 0.5, 0.19)], 0.03); // brow tine, forward
+  tine(beam[2], [v(0.54, 0.52, -0.04), v(0.64, 0.64, -0.02)], 0.028); // outward
+  tine(beam[3], [v(0.58, 0.74, -0.08), v(0.62, 0.88, -0.07)], 0.026); // up and out
+  tine(beam[4], [v(0.36, 0.95, -0.05), v(0.34, 1.05, -0.04)], 0.022); // inner fork
+  g.add(mesh(new THREE.ConeGeometry(0.018, 0.08, 6), tipMat, beam[5].x, beam[5].y + 0.04, beam[5].z));
+  return g;
+}
+
 export function buildMonster(id: string): MonsterRig {
   const def = MONSTERS[id];
   const root = new THREE.Group();
@@ -913,6 +948,8 @@ export function buildMonster(id: string): MonsterRig {
       const peak = mesh(new THREE.ConeGeometry(0.12, 0.3, 8), cloth, 0, 0.14, -0.2);
       peak.rotation.x = -1.1;
       head.add(peak);
+      // two big branching antlers bursting out of the hood
+      head.add(antler(1), antler(-1));
       const hole = mesh(S(0.2, 16, 12), new THREE.MeshBasicMaterial({ color: 0x050106 }), 0, -0.02, 0.12);
       hole.scale.set(1, 1, 0.7);
       hole.userData.noOutline = true;
@@ -999,7 +1036,7 @@ export function buildMonster(id: string): MonsterRig {
       aura.position.y = 0.12;
       aura.name = 'raura';
       body.add(aura);
-      height = 1.35;
+      height = 1.95;
       break;
     }
     default: {
