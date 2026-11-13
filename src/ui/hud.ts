@@ -12,9 +12,12 @@ import { potionPct, setAutoPotionPct, setAutoSpPotionPct, spPotionPct } from '..
 import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
+
+/** One row of อันดับผู้กล้า (server/src/MapRoom.ts onRanking). */
+interface RankRow { id: string; name: string; cls: string; level: number; job: number; guild: string; online: boolean }
 import { monsterPortrait } from '../three/portrait';
 
-type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'guide' | 'guild'
+type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'guide' | 'guild' | 'rank'
   | 'vend' | 'vshop';
 /** A player shop as the server sends it (shopMine / shopList). */
 type ShopView = { sid: string; open: boolean; name?: string; title?: string; text?: string; items?: { inv: string; item: string; qty: number; price: number; refine: number; cards: string[] }[] };
@@ -87,7 +90,7 @@ export const bonusText = (b: CardBonus) =>
   (Object.entries(b) as [keyof CardBonus, number][]).map(([k, v]) => `${BONUS_LABEL[k]} +${v}${PCT_BONUS.has(k) ? '%' : ''}`).join(' · ');
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
-  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40], guide: [-1, 30], guild: [8, 250],
+  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40], guide: [-1, 30], guild: [8, 250], rank: [-1, 40],
   vend: [-1, 60], vshop: [-1, 70],
 };
 
@@ -866,13 +869,87 @@ export class Hud implements WorldHooks {
       <div id="minimap" class="minimap">
         <div class="mini-head"><span id="mini-name"></span><span id="mini-pos"></span></div>
         <canvas id="mini-cv" width="140" height="140" title="คลิกเพื่อเปิดแผนที่ใหญ่"></canvas>
+        <button id="mini-online" class="mini-online" title="ผู้เล่นออนไลน์ทุกแผนที่ (แตะเพื่อดูอันดับผู้กล้า)"><i></i>ออนไลน์ <b>–</b> คน</button>
       </div>`);
+    this.root.querySelector('#mini-online')!.addEventListener('click', () => this.toggleRank());
     this.root.querySelector('#mini-cv')!.addEventListener('click', () => this.toggleWorldMap());
     this.root.insertAdjacentHTML('beforeend', `<button id="guide-btn" class="guide-btn" title="คู่มือ: มอนสเตอร์ อุปกรณ์ การ์ด (Alt+G)"><i>📖</i><span>คู่มือ</span></button>`);
     this.root.querySelector('#guide-btn')!.addEventListener('click', () => this.toggleGuide());
     // /auto sits under the guide button (moved out of Basic Info, 2026-11-13)
     this.root.insertAdjacentHTML('beforeend', `<button id="auto-btn" class="guide-btn auto-btn" title="/auto · ตีและใช้สกิลอัตโนมัติ"><i>⚔️</i><span>ออโต้</span></button>`);
     this.root.querySelector('#auto-btn')!.addEventListener('click', () => this.toggleAuto());
+    // อันดับผู้กล้า under the auto button (2026-11-13)
+    this.root.insertAdjacentHTML('beforeend', `<button id="rank-btn" class="guide-btn rank-btn" title="อันดับผู้กล้า: เลเวลสูงสุดไล่ลงมา (Alt+R)"><i>🏆</i><span>อันดับ</span></button>`);
+    this.root.querySelector('#rank-btn')!.addEventListener('click', () => this.toggleRank());
+  }
+
+  // ------------------------------------------------------------ online count + อันดับผู้กล้า
+
+  /** Everyone online across all maps (the server sends it on join and whenever it changes). */
+  online(n: number) {
+    const b = this.root.querySelector('#mini-online b');
+    if (b) b.textContent = String(n);
+  }
+
+  private rankRows: RankRow[] = [];
+  private rankMe = '';
+  private rankAsked = 0;
+
+  private toggleRank() {
+    if (this.isOpen('rank')) return this.closeWin('rank');
+    this.win('rank', '🏆 อันดับผู้กล้า', 'rank');
+    this.renderRank(true);
+    this.askRank();
+  }
+
+  private askRank() {
+    const at = Date.now();
+    this.rankAsked = at;
+    this.actions.send('ranking');
+    setTimeout(() => {
+      if (this.rankAsked === at && this.isOpen('rank') && !this.ac.signal.aborted) {
+        this.rankAsked = 0;
+        this.renderRank(false, 'เซิร์ฟเวอร์ไม่ตอบ (เซิร์ฟเวอร์อาจยังเป็นเวอร์ชันเก่า: ต้อง Deploy server ใหม่บน Render)');
+      }
+    }, 8000);
+  }
+
+  ranking(m: { rows?: RankRow[]; me?: string; online?: number; error?: string }) {
+    this.rankAsked = 0;
+    if (m.error) return this.renderRank(false, m.error);
+    this.rankRows = m.rows ?? [];
+    this.rankMe = m.me ?? '';
+    if (typeof m.online === 'number') this.online(m.online);
+    this.renderRank(false);
+  }
+
+  private renderRank(loading: boolean, error = '') {
+    const b = this.body('rank');
+    if (!b) return;
+    const medal = ['🥇', '🥈', '🥉'];
+    const rows = this.rankRows;
+    const mine = rows.findIndex((r) => r.id === this.rankMe);
+    const list = rows.length
+      ? rows.map((r, i) => `<tr class="${r.id === this.rankMe ? 'me' : ''}${i < 3 ? ` top top${i + 1}` : ''}">
+          <td class="rk-n">${medal[i] ?? i + 1}</td>
+          <td class="rk-name"><span class="rk-dot ${r.online ? 'on' : ''}" title="${r.online ? 'ออนไลน์อยู่' : 'ออฟไลน์'}"></span>${escapeHtml(r.name)}${r.guild ? ` <small>[${escapeHtml(r.guild)}]</small>` : ''}</td>
+          <td class="rk-cls">${escapeHtml(CLASSES[r.cls as keyof typeof CLASSES]?.name ?? r.cls)}</td>
+          <td class="rk-lv">${r.level}</td><td class="rk-job">${r.job}</td></tr>`).join('')
+      : '';
+    b.innerHTML = `<div class="rk-wrap">
+        <div class="rk-head">${mine >= 0 ? `อันดับของคุณ: <b>${mine + 1}</b>` : rows.length ? 'คุณยังไม่ติด 100 อันดับแรก' : ''}
+          <button class="rk-refresh" title="โหลดใหม่">⟳</button></div>
+        <div class="rk-scroll">${list
+          ? `<table class="rk-table"><thead><tr><th>#</th><th>ชื่อ</th><th>อาชีพ</th><th>Base</th><th>Job</th></tr></thead><tbody>${list}</tbody></table>`
+          : `<div class="rk-empty">${error ? `⚠ ${escapeHtml(error)}` : loading ? 'กำลังโหลดอันดับ…' : 'ยังไม่มีข้อมูล'}</div>`}</div>
+        ${error && list ? `<div class="rk-err">⚠ ${escapeHtml(error)}</div>` : ''}
+        <div class="rk-foot">เรียงตาม Base Lv → EXP → Job Lv · 100 อันดับแรก · <span class="rk-dot on"></span> ออนไลน์</div>
+      </div>`;
+    b.querySelector('.rk-refresh')!.addEventListener('click', () => {
+      this.renderRank(true);
+      this.askRank();
+    });
+    b.querySelector('tr.me')?.scrollIntoView({ block: 'nearest' });
   }
 
   private drawMiniBase() {
@@ -2709,6 +2786,7 @@ export class Hud implements WorldHooks {
       else if (e.altKey && k === 'z') this.toggle('party');
       else if (e.altKey && k === 'g') this.toggle('guild');
       else if (e.altKey && k === 'g') this.toggleGuide();
+      else if (e.altKey && k === 'r') this.toggleRank();
       else if (k === 'tab') this.root.querySelector('#minimap')!.classList.toggle('hidden');
       else if (k === 'insert') this.actions.scene()?.toggleSit();
       else if (k === 'escape') {

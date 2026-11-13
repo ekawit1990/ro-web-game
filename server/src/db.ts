@@ -35,7 +35,20 @@ export interface ServerDb {
   guildLeader(guildId: string, charId: string): Promise<void>;
   guildDelete(guildId: string): Promise<void>;
   castleSet(castle: string, guildId: string | null): Promise<void>;
+  /** อันดับผู้กล้า: the highest characters, Base Lv first, then EXP, then Job Lv. */
+  ranking(limit: number): Promise<RankRow[]>;
 }
+
+export interface RankRow {
+  id: string;
+  name: string;
+  cls: string;
+  level: number;
+  job_level: number;
+  exp: number;
+}
+
+const byRank = (a: RankRow, b: RankRow) => b.level - a.level || b.exp - a.exp || b.job_level - a.job_level || a.name.localeCompare(b.name);
 
 export interface GuildRow {
   id: string;
@@ -139,6 +152,10 @@ export class SupabaseDb implements ServerDb {
     );
   }
 
+  ranking(limit: number) {
+    return supabaseRanking(this.sb, limit);
+  }
+
   async guildsLoad() {
     const [g, m, c] = await Promise.all([
       this.sb.from('guilds').select('id, name, leader'),
@@ -188,6 +205,13 @@ export class SupabaseDb implements ServerDb {
  * keeps it in memory, and sends changes back so the browser can save them.
  * Never use this for a public server.
  */
+async function supabaseRanking(sb: SupabaseClient, limit: number): Promise<RankRow[]> {
+  const res = await sb.from('characters').select('id, name, cls, level, job_level, exp')
+    .order('level', { ascending: false }).order('exp', { ascending: false }).order('job_level', { ascending: false })
+    .limit(limit);
+  return (check(res) as RankRow[]).sort(byRank);
+}
+
 export class DevDb implements ServerDb {
   readonly name = 'dev (memory, trusts clients)';
   private store = new LocalStore(false);
@@ -235,6 +259,11 @@ export class DevDb implements ServerDb {
   private guilds = new Map<string, { id: string; name: string; leader: string | null; members: string[] }>();
   private castles = new Map<string, string | null>();
   private gseq = 0;
+
+  async ranking(limit: number) {
+    const all = (await this.store.listCharacters()) as RankRow[];
+    return all.map(({ id, name, cls, level, job_level, exp }) => ({ id, name, cls, level, job_level, exp })).sort(byRank).slice(0, limit);
+  }
 
   async guildsLoad() {
     const guilds: GuildRow[] = [];
