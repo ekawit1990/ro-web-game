@@ -15,7 +15,7 @@ export const enum G {
 
 export type Obj =
   /** `style: 'desert'` = flat-roofed adobe (roof picks flat / dome / roof terrace). */
-  | { kind: 'building'; x: number; y: number; w: number; h: number; wall: number; roof: number; floors: number; face?: number; style?: 'desert' }
+  | { kind: 'building'; x: number; y: number; w: number; h: number; wall: number; roof: number; floors: number; face?: number; style?: 'desert' | 'magic' }
   | { kind: 'stall'; x: number; y: number; color: number }
   | { kind: 'tree'; x: number; y: number; big?: boolean }
   | { kind: 'bench'; x: number; y: number }
@@ -45,13 +45,20 @@ export type Obj =
   | { kind: 'ruinwall'; x: number; y: number; w: number; h: number }
   | { kind: 'pillar'; x: number; y: number; broken: boolean }
   | { kind: 'ruintower'; x: number; y: number; s: number }
-  | { kind: 'cathedral'; x: number; y: number; w: number; h: number };
+  | { kind: 'cathedral'; x: number; y: number; w: number; h: number }
+  /** เมืองคีย์มนตรา (magic.ts): the octagonal city wall round (x, y) at radius r, a gate `gate` wide on each side; the piano spire. */
+  | { kind: 'octwall'; x: number; y: number; r: number; gate: number }
+  | { kind: 'spire'; x: number; y: number; r: number }
+  /** อเวจี: a jagged bone-and-obsidian spike; the reaper's blood circle with skulls round it. */
+  | { kind: 'spike'; x: number; y: number; s: number }
+  | { kind: 'bloodcircle'; x: number; y: number; r: number };
 
 export interface Npc {
   /** 'warper' = บูรพา: paid warps between towns and the account-wide storage. */
   /** 'refiner' = refining (+1…+10) and inserting monster cards. */
   /** 'reset' = status / skill reset for zeny; 'uncard' = takes monster cards back out of equipment for zeny. */
-  id: 'shop' | 'weapons' | 'healer' | 'guide' | 'jobs' | 'warper' | 'refiner' | 'reset' | 'uncard';
+  /** 'guild' = makes guilds; 'pvp' = takes you to the arena; 'gvg' = the guild war castle: who holds it, the war times, the way in. */
+  id: 'shop' | 'weapons' | 'healer' | 'guide' | 'jobs' | 'warper' | 'refiner' | 'reset' | 'uncard' | 'guild' | 'pvp' | 'gvg';
   name: string;
   x: number;
   y: number;
@@ -83,7 +90,7 @@ export interface GameMap {
 }
 
 export type Theme = 'town' | 'meadow' | 'forest' | 'marsh' | 'canyon' | 'snow' | 'volcano' | 'desert'
-  | 'beach' | 'cave' | 'deadwood' | 'ruins' | 'inferno';
+  | 'beach' | 'cave' | 'deadwood' | 'ruins' | 'inferno' | 'magic' | 'abyss';
 /** Maps where G.Water is lava. */
 export const isLava = (t: Theme) => t === 'volcano' || t === 'inferno';
 
@@ -101,6 +108,8 @@ export const THEMES: Record<Theme, { ground: string[]; sky: string; outside: str
   cave: { ground: ['#5e5a72', '#68627e', '#4a4658', '#77708e', '#857e9c', '#3fd0e0', '#3d3a4a'], sky: '#120f1c', outside: '#0c0a14' },
   deadwood: { ground: ['#6e6a58', '#78705a', '#5a5040', '#5a5650', '#6a645a', '#4a5a48', '#4e4a3e'], sky: '#5a5468', outside: '#24221e' },
   ruins: { ground: ['#5a6050', '#636a56', '#4a4438', '#6e6c66', '#7d7a72', '#3e4a58', '#5a6050'], sky: '#6e6a80', outside: '#2a2a2e' },
+  magic: { ground: ['#6a9a58', '#74a25e', '#a89880', '#a7a3ae', '#c9c3d2', '#4a7ad0', '#6a9a58'], sky: '#c9c0f0', outside: '#3a5634' },
+  abyss: { ground: ['#2a1a2e', '#321e36', '#1e1220', '#3a2638', '#4a2a3e', '#7a0a24', '#160c18'], sky: '#2a0a1e', outside: '#0a0408' },
   desert: { ground: ['#e3c58b', '#dbbb7c', '#cfae7a', '#c9ad84', '#e6d2a8', '#3aa6c4', '#e3c58b'], sky: '#ffe6b8', outside: '#d9b677' },
 };
 
@@ -462,6 +471,156 @@ function buildDesert(): GameMap {
   return m;
 }
 
+
+// ---------------------------------------------------------------- เมืองคีย์มนตรา (the keyboardists' town)
+
+/**
+ * เมืองคีย์มนตรา, the city of magic where keyboardists change job: an octagonal wall with a gate on each
+ * flat side, two ring roads and a plaza round the piano spire in the middle, radial avenues out to the gates
+ * and lilac stone houses with violet roofs in between. The south gate leads down to the marsh.
+ */
+export const MAGIC_SIZE = 96;
+
+function buildMagic(): GameMap {
+  const N = MAGIC_SIZE;
+  const C = N / 2;
+  const m = blank('magic', 'เมืองคีย์มนตรา', N, N, G.Grass, true, 'magic');
+  const rnd = mulberry32(131);
+  const put = (o: Obj, w = 1, h = 1) => {
+    m.objects.push(o);
+    block(m, Math.floor(o.x), Math.floor(o.y), w, h);
+  };
+  const WALL = 44, OUTER = [35, 38.5], INNER = [21, 24], PLAZA = 11;
+  const oct = (a: number, b: number) => Math.max(a, b, (a + b) / Math.SQRT2);
+  const zone: Z[][] = Array.from({ length: N }, () => Array(N).fill(Z.Block));
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const dx = x + 0.5 - C, dy = y + 0.5 - C, a = Math.abs(dx), b = Math.abs(dy), o = oct(a, b);
+      let z = Z.Block;
+      let g: G = rnd() < 0.3 ? G.Grass2 : G.Grass;
+      const gate = (a < 2.5 && b >= WALL - 1) || (b < 2.5 && a >= WALL - 1);
+      if (o >= WALL + 1.5) { z = gate ? Z.Street : Z.Wall; if (gate) g = G.Cobble; }
+      else if (o >= WALL - 1) { z = gate ? Z.Street : Z.Wall; if (gate) g = G.Cobble; }
+      else if (o < PLAZA) { z = Z.Street; g = G.Plaza; }
+      else if ((o >= OUTER[0] && o < OUTER[1]) || (o >= INNER[0] && o < INNER[1])) { z = Z.Street; g = G.Cobble; }
+      else if (o >= WALL - 4) { z = Z.Street; g = G.Dirt; } // the lane inside the wall
+      else if (a < 2.5 || b < 2.5) { z = Z.Street; g = G.Cobble; } // the four avenues
+      else if (Math.abs(a - b) < 1.6 && o > PLAZA && o < OUTER[0]) { z = Z.Street; g = G.Cobble; } // diagonal lanes
+      zone[y][x] = z;
+      m.ground[y][x] = g;
+      if (z === Z.Wall) m.blocked[y][x] = true;
+    }
+  }
+  m.objects.push({ kind: 'octwall', x: C, y: C, r: WALL, gate: 5 });
+  // the piano spire on the plaza, a ring of lamps and trees round it
+  put({ kind: 'spire', x: C - 4, y: C - 4, r: 4 }, 8, 8);
+  for (let i = 0; i < 8; i++) {
+    const t = (i / 8) * Math.PI * 2 + Math.PI / 8;
+    const x = Math.floor(C + Math.cos(t) * 7.6), y = Math.floor(C + Math.sin(t) * 7.6);
+    if (free(m, x, y)) put({ kind: i % 2 ? 'lamp' : 'tree', x, y, big: true } as Obj);
+  }
+  m.npcs = [
+    { id: 'jobs', name: 'อาจารย์ใหญ่หอคีย์มนตรา', x: C - 1, y: C + 6, look: { gender: 'f', hair: 4, hair_color: 6, face: 1, body: '#5e35b1' } },
+    { ...BURAPA, x: C + 3, y: C + 6 },
+    { id: 'healer', name: 'แม่มดเพลงใจดี', x: C - 6, y: C + 3, look: { gender: 'f', hair: 2, hair_color: 0, face: 0, body: '#f3e5f5' } },
+    { id: 'shop', name: 'ร้านของใช้ ยาวิเศษ', x: C + 7, y: C + 3, look: { gender: 'm', hair: 0, hair_color: 1, face: 1, body: '#7e57c2' } },
+    { id: 'refiner', name: 'ช่างจูนมนตรา', x: C + 7, y: C - 4, look: { gender: 'm', hair: 4, hair_color: 1, face: 2, body: '#4527a0' } },
+    { id: 'reset', name: 'นักพรตเริ่มใหม่ (รีเซ็ตค่า)', x: C - 7, y: C - 4, look: { gender: 'm', hair: 3, hair_color: 7, face: 3, body: '#311b92' } },
+    { id: 'uncard', name: 'ช่างถอดการ์ดมนตรา', x: C - 3, y: C - 8, look: { gender: 'f', hair: 1, hair_color: 0, face: 2, body: '#00897b' } },
+  ];
+  for (const n of m.npcs) block(m, n.x, n.y);
+
+  // houses along every street, fronts on it, like the desert town
+  const dist: number[][] = zone.map((row) => row.map((z) => (z === Z.Block ? Infinity : 0)));
+  const q: [number, number][] = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!dist[y][x]) q.push([x, y]);
+  for (let i = 0; i < q.length; i++) {
+    const [x, y] = q[i];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (dist[ny]?.[nx] === Infinity) {
+        dist[ny][nx] = dist[y][x] + 1;
+        q.push([nx, ny]);
+      }
+    }
+  }
+  const house = new Set<number>();
+  const fits = (x: number, y: number, w: number, h: number) => {
+    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (zone[j]?.[i] !== Z.Block || !free(m, i, j)) return false;
+    for (let j = y - 1; j <= y + h; j++) for (let i = x - 1; i <= x + w; i++) if (house.has(j * N + i)) return false;
+    return true;
+  };
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      if (dist[y][x] !== 1 || house.has(y * N + x) || rnd() < 0.15) continue;
+      const face = [[0, 1], [1, 0], [0, -1], [-1, 0]].findIndex(([dx, dy]) => zone[y + dy]?.[x + dx] === Z.Street);
+      if (face < 0) continue;
+      for (let k = 0; k < 3; k++) {
+        const len = 3 + Math.floor(rnd() * 3) - k;
+        const dep = 3 + Math.floor(rnd() * 2) - (k >> 1);
+        if (len < 2 || dep < 2) break;
+        const [bx, by, bw, bh] = face === 0 ? [x, y - dep + 1, len, dep] : face === 2 ? [x, y, len, dep] : face === 1 ? [x - dep + 1, y, dep, len] : [x, y, dep, len];
+        if (!fits(bx, by, bw, bh)) continue;
+        put({ kind: 'building', x: bx, y: by, w: bw, h: bh, wall: Math.floor(rnd() * 3), roof: Math.floor(rnd() * 3), floors: 1 + (rnd() < 0.45 ? 1 : 0), face, style: 'magic' }, bw, bh);
+        for (let j = by; j < by + bh; j++) for (let i = bx; i < bx + bw; i++) house.add(j * N + i);
+        break;
+      }
+    }
+  }
+  for (let y = 3; y < N - 3; y++) {
+    for (let x = 3; x < N - 3; x++) {
+      if (zone[y][x] !== Z.Block || !free(m, x - 1, y - 1, 3, 3)) continue;
+      const r = rnd();
+      if (dist[y][x] >= 2 && r < 0.14) put({ kind: 'tree', x, y, big: rnd() < 0.5 });
+      else if (dist[y][x] >= 2 && r < 0.16) put({ kind: 'crate', x, y });
+    }
+  }
+  // lamps along the ring roads
+  for (const rr of [OUTER[0] - 0.6, INNER[0] - 0.6]) {
+    for (let i = 0; i < 24; i++) {
+      const t = (i / 24) * Math.PI * 2 + 0.13;
+      const k = rr / Math.max(Math.abs(Math.cos(t)), Math.abs(Math.sin(t)), (Math.abs(Math.cos(t)) + Math.abs(Math.sin(t))) / Math.SQRT2);
+      const x = Math.floor(C + Math.cos(t) * k), y = Math.floor(C + Math.sin(t) * k);
+      if (free(m, x, y) && zone[y][x] === Z.Block) put({ kind: 'lamp', x, y });
+    }
+  }
+  m.portals = [{ x: C - 1, y: N - 3, to: 'marsh', ...(() => { const a = arrive('marsh', 'n'); return { toX: a.toX, toY: a.toY }; })(), label: 'บึงจังหวะ' }];
+  m.spawn = { x: C + 0.5, y: C + 9.5 };
+  return m;
+}
+
+// ---------------------------------------------------------------- อเวจี
+
+/**
+ * อเวจี, the abyss (Lv 95+): dark ground split by pools of blood, obsidian spikes and graves everywhere, and in
+ * the middle the reaper's blood circle ringed with skulls, where the MVP boss ยมทูตเคียวโลหิต waits.
+ */
+const buildAbyss = () => buildWild({
+  id: 'abyss', name: 'อเวจี', theme: 'abyss', seed: 666,
+  ground: [[G.Grass, 0.55], [G.Grass2, 0.3], [G.Cobble, 0.15]], trees: 0.008, rocks: 0.03,
+  pools: [[18, 18, 6, 4], [66, 18, 5, 5], [18, 66, 5, 5], [66, 66, 6, 4], [42, 20, 4, 3], [42, 66, 4, 3]],
+  rivers: [{ pts: [[4, 30], [20, 34], [28, 42]], width: 2.5 }, { pts: [[80, 54], [64, 50], [56, 42]], width: 2.5 }],
+  gates: [{ side: 'w', ...arrive('inferno', 'e'), label: 'ปล่องลาวานรกเมทัล' }],
+  extra: (m, rnd) => {
+    // the arena in the middle stays clear: dark paving and the blood circle
+    const C = WILD / 2;
+    for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
+      const d = Math.hypot(x + 0.5 - C, y + 0.5 - C);
+      if (d < 9) { m.ground[y][x] = d < 7 ? G.Plaza : G.Cobble; m.blocked[y][x] = false; }
+    }
+    m.objects.push({ kind: 'bloodcircle', x: C, y: C, r: 6.5 });
+    for (let i = 0; i < 10; i++) {
+      const t = (i / 10) * Math.PI * 2;
+      const x = Math.floor(C + Math.cos(t) * 10.5), y = Math.floor(C + Math.sin(t) * 10.5);
+      if (m.ground[y]?.[x] !== undefined && m.ground[y][x] !== G.Water && m.ground[y][x] !== G.Dirt) {
+        m.objects.push({ kind: 'spike', x, y, s: 1.6 + rnd() * 0.8 });
+        block(m, x, y);
+      }
+    }
+    scatter(m, rnd, 70, [3, 3, 81, 81], (x, y) => (rnd() < 0.55 ? { kind: 'spike', x, y, s: 0.7 + rnd() * 0.9 } : { kind: 'grave', x, y }));
+  },
+});
+
 // ---------------------------------------------------------------- field
 
 /** The first field: FIELD x FIELD, the town gate in the middle of the west side, the beach gate on the east. */
@@ -729,6 +888,7 @@ const buildMarsh = () => buildWild({
   gates: [
     { side: 'e', ...arrive('forest', 'w'), label: 'ป่าเพลงกระซิบ' },
     { side: 'w', ...arrive('cave', 'e'), label: 'ถ้ำคริสตัลก้องกังวาน (Lv 40+)' },
+    { side: 'n', to: 'magic', toX: MAGIC_SIZE / 2 - 0.5, toY: MAGIC_SIZE - 5.5, label: 'เมืองคีย์มนตรา' },
   ],
 });
 const buildCanyon = () => buildWild({
@@ -771,7 +931,10 @@ const buildInferno = () => buildWild({
     { pts: [[50, 18], [58, 28], [64, 40]], width: 3 },
     { pts: [[64, 46], [52, 56], [40, 62]], width: 2.5 },
   ],
-  gates: [{ side: 's', ...arrive('volcano', 'n'), label: 'ภูเขาไฟเมทัล' }],
+  gates: [
+    { side: 's', ...arrive('volcano', 'n'), label: 'ภูเขาไฟเมทัล' },
+    { side: 'e', ...arrive('abyss', 'w'), label: 'อเวจี (Lv 95+ · บอส MVP)' },
+  ],
   extra: (m) => addVolcano(m, 42, 4, 15),
 });
 const buildBeach = () => buildWild({
@@ -930,6 +1093,160 @@ function buildRuins(): GameMap {
   return m;
 }
 
+// ---------------------------------------------------------------- PVP arena and the guild war castle (2026-11-10)
+
+export const ARENA_SIZE = 48;
+export const CASTLE_SIZE = 64;
+
+/**
+ * ลานประลองจังหวะ: a walled sand arena. Stone walls and towers all round, the gate in the south wall back to
+ * town, rocks and broken columns to fight round, banners on the walls. No monsters: players fight each other.
+ */
+function buildArena(): GameMap {
+  const N = ARENA_SIZE;
+  const C = N / 2;
+  const m = blank('arena', 'ลานประลองจังหวะ', N, N, G.Grass, false, 'canyon');
+  const rnd = mulberry32(211);
+  const put = (o: Obj, w = 1, h = 1) => {
+    m.objects.push(o);
+    block(m, Math.floor(o.x), Math.floor(o.y), w, h);
+  };
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const r = Math.hypot(x + 0.5 - C, y + 0.5 - C);
+      m.ground[y][x] = r < 6 ? G.Plaza : r < 17 ? (rnd() < 0.25 ? G.Grass2 : G.Dirt) : rnd() < 0.5 ? G.Grass : G.Grass2;
+      if (Math.abs(x + 0.5 - C) < 2 && y > C) m.ground[y][x] = G.Cobble; // the way in from the gate
+    }
+  }
+  // walls (2 thick) with the gate in the middle of the south side, towers on the corners and by the gate
+  for (const [x, y, w, h] of [[0, 0, N, 2], [0, 2, 2, N - 2], [N - 2, 2, 2, N - 2], [2, N - 2, C - 4, 2], [C + 2, N - 2, C - 4, 2]]) put({ kind: 'wall', x, y, w, h }, w, h);
+  for (const [x, y] of [[0, 0], [N - 4, 0], [0, N - 4], [N - 4, N - 4]]) put({ kind: 'tower', x, y, s: 4 }, 4, 4);
+  for (const x of [C - 5, C + 2]) put({ kind: 'tower', x, y: N - 3, s: 3 }, 3, 3);
+  for (const [x, y] of [[C - 1, 2], [2, C - 1], [N - 3, C - 1], [10, 2], [N - 11, 2]]) put({ kind: 'banner', x, y, color: rnd() < 0.5 ? 0 : 1 });
+  // cover: a ring of columns round the centre, and rocks further out
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2 + 0.3;
+    const x = Math.floor(C + Math.cos(a) * 9), y = Math.floor(C + Math.sin(a) * 9);
+    if (free(m, x - 1, y - 1, 3, 3)) put({ kind: 'pillar', x, y, broken: k % 3 === 0 });
+  }
+  for (let i = 0, tries = 0; i < 14 && tries < 400; tries++) {
+    const x = 4 + Math.floor(rnd() * (N - 8)), y = 4 + Math.floor(rnd() * (N - 10));
+    const r = Math.hypot(x + 0.5 - C, y + 0.5 - C);
+    if (r < 12 || r > 19 || (Math.abs(x + 0.5 - C) < 3 && y > C) || !free(m, x - 1, y - 1, 3, 3)) continue;
+    put({ kind: 'rock', x, y });
+    i++;
+  }
+  m.portals = [{ x: C - 1, y: N - 2, to: 'town', toX: TC + 0.5, toY: TC + 7.5, label: 'กลับเมืองเมโลเดีย' }];
+  m.spawn = { x: C, y: N - 4.5 };
+  return m;
+}
+
+/** Where players get up again in the arena: round the edge, away from the gate. */
+export const ARENA_SPAWNS: [number, number][] = [[6.5, 6.5], [ARENA_SIZE - 6.5, 6.5], [6.5, ARENA_SIZE - 8.5], [ARENA_SIZE - 6.5, ARENA_SIZE - 8.5], [ARENA_SIZE / 2, 5.5], [5.5, ARENA_SIZE / 2], [ARENA_SIZE - 5.5, ARENA_SIZE / 2]];
+
+/**
+ * ปราสาทแห่งเสียง is laid out with the gate south and the throne court north, then turned upside down
+ * (flipY) so the court is in the south: the camera looks north, so the castle never stands between it and you.
+ */
+const COURT_Y = 8;
+/** The crystal sits in the middle of the throne court. */
+export const CASTLE_CRYSTAL = { x: CASTLE_SIZE / 2, y: CASTLE_SIZE - COURT_Y };
+/** The guild holding the castle gets up in the throne court; everyone else at the gate. */
+export const CASTLE_INNER = { x: CASTLE_SIZE / 2, y: CASTLE_SIZE - 12.5 };
+
+/** Mirrors a map north-south (tiles, objects, portals, spawn). */
+function flipY(m: GameMap) {
+  const H = m.h;
+  m.ground.reverse();
+  m.blocked.reverse();
+  for (const o of m.objects) {
+    const size = 'h' in o ? o.h : 's' in o ? o.s : 1;
+    o.y = H - o.y - size;
+  }
+  for (const n of m.npcs) n.y = H - 1 - n.y;
+  for (const pt of m.portals) pt.y = H - 1 - pt.y;
+  m.spawn = { x: m.spawn.x, y: H - m.spawn.y };
+}
+
+/**
+ * ปราสาทแห่งเสียง (the guild war castle): an outer wall with its gate in the south, a yard with hedges,
+ * banners and low walls to fight round, then the castle itself across the north. The only way into the throne
+ * court behind it is the passage under the castle's arch; the crystal stands in the middle of the court.
+ */
+function buildCastle(): GameMap {
+  const N = CASTLE_SIZE;
+  const C = N / 2;
+  const m = blank('gvg', 'ปราสาทแห่งเสียง', N, N, G.Grass, false, 'town');
+  const rnd = mulberry32(307);
+  const put = (o: Obj, w = 1, h = 1) => {
+    m.objects.push(o);
+    block(m, Math.floor(o.x), Math.floor(o.y), w, h);
+  };
+  const castle = { x: C - 14, y: 16, w: 28, h: 11, door: 6 };
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      let g: G = rnd() < 0.3 ? G.Grass2 : G.Grass;
+      if (y < castle.y && x > 2 && x < N - 3) g = Math.hypot(x + 0.5 - C, y + 0.5 - COURT_Y) < 5 ? G.Plaza : G.Cobble; // the throne court
+      else if (Math.abs(x + 0.5 - C) < 3 && y >= castle.y) g = G.Cobble; // the road from the gate
+      else if (y > 30 && y < 34 && x > 4 && x < N - 5) g = G.Cobble; // the cross road
+      m.ground[y][x] = g;
+    }
+  }
+  // outer walls, the gate south
+  for (const [x, y, w, h] of [[0, 0, N, 2], [0, 2, 2, N - 2], [N - 2, 2, 2, N - 2], [2, N - 2, C - 4, 2], [C + 2, N - 2, C - 4, 2]]) put({ kind: 'wall', x, y, w, h }, w, h);
+  for (const [x, y] of [[0, 0], [N - 4, 0], [0, N - 4], [N - 4, N - 4]]) put({ kind: 'tower', x, y, s: 4 }, 4, 4);
+  for (const x of [C - 5, C + 2]) put({ kind: 'tower', x, y: N - 3, s: 3 }, 3, 3);
+  // the castle across the north, walls from its ends to the outer wall: the arch is the only way into the court
+  m.objects.push({ kind: 'castle', ...castle });
+  block(m, castle.x, castle.y, castle.w / 2 - castle.door / 2, castle.h);
+  block(m, C + castle.door / 2, castle.y, castle.w / 2 - castle.door / 2, castle.h);
+  put({ kind: 'wall', x: 2, y: castle.y + 3, w: castle.x - 2, h: 2 }, castle.x - 2, 2);
+  put({ kind: 'wall', x: castle.x + castle.w, y: castle.y + 3, w: N - 2 - castle.x - castle.w, h: 2 }, N - 2 - castle.x - castle.w, 2);
+  for (const x of [castle.x - 3, castle.x + castle.w]) put({ kind: 'tower', x, y: castle.y + 2, s: 3 }, 3, 3);
+  // the throne court: banners and lamps round the crystal
+  for (const [x, y, c] of [[C - 8, 3, 0], [C + 7, 3, 1], [4, 8, 0], [N - 5, 8, 1]]) put({ kind: 'banner', x, y, color: c });
+  for (const [x, y] of [[C - 5, 5], [C + 4, 5], [C - 5, 11], [C + 4, 11]]) put({ kind: 'lamp', x, y });
+  block(m, C - 1, COURT_Y - 1, 2, 2); // the crystal's pedestal
+  // the yard: low walls and hedges to fight round, banners on the road
+  for (const [x, y, w, h] of [[C - 15, 38, 8, 2], [C + 7, 38, 8, 2], [C - 4, 45, 8, 2], [8, 48, 2, 7], [N - 10, 48, 2, 7]]) put({ kind: 'wall', x, y, w, h }, w, h);
+  for (const [x, y, w, h] of [[6, 34, 6, 1], [N - 12, 34, 6, 1], [C - 12, 52, 6, 1], [C + 6, 52, 6, 1]]) put({ kind: 'hedge', x, y, w, h }, w, h);
+  for (const [x, y, c] of [[C - 4, 29, 0], [C + 3, 29, 1], [C - 4, 56, 1], [C + 3, 56, 0]]) put({ kind: 'banner', x, y, color: c });
+  for (let i = 0, tries = 0; i < 26 && tries < 600; tries++) {
+    const x = 3 + Math.floor(rnd() * (N - 6)), y = castle.y + castle.h + 2 + Math.floor(rnd() * (N - castle.y - castle.h - 6));
+    if (m.ground[y][x] === G.Cobble || !free(m, x - 1, y - 1, 3, 3)) continue;
+    put({ kind: 'tree', x, y, big: rnd() < 0.4 });
+    i++;
+  }
+  m.portals = [{ x: C - 1, y: N - 2, to: 'town', toX: TC + 0.5, toY: TC + 7.5, label: 'กลับเมืองเมโลเดีย' }];
+  m.spawn = { x: C, y: N - 4.5 };
+  flipY(m);
+  return m;
+}
+
+/** Puts an NPC on the first free tile (with room to walk up to it) round (ax, ay). */
+function addNpcNear(m: GameMap, npc: Omit<Npc, 'x' | 'y'>, ax: number, ay: number) {
+  for (let r = 0; r < 14; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = ax + dx;
+        const y = ay + dy;
+        if (!free(m, x - 1, y - 1, 3, 3) || m.npcs.some((n) => Math.abs(n.x - x) < 3 && Math.abs(n.y - y) < 3)) continue;
+        m.npcs.push({ ...npc, x, y });
+        block(m, x, y);
+        return;
+      }
+    }
+  }
+}
+
+/** The guild registrar, the arena keeper and the castle herald, on the town plaza. */
+function addWarNpcs(m: GameMap) {
+  addNpcNear(m, { id: 'guild', name: 'นายทะเบียนกิลด์', look: { gender: 'm', hair: 3, hair_color: 1, face: 2, body: '#c62828' } }, TC - 11, TC + 2);
+  addNpcNear(m, { id: 'pvp', name: 'ผู้คุมลานประลอง', look: { gender: 'm', hair: 1, hair_color: 0, face: 3, body: '#37474f' } }, TC + 11, TC + 2);
+  addNpcNear(m, { id: 'gvg', name: 'ทหารประกาศสงครามกิลด์', look: { gender: 'f', hair: 2, hair_color: 3, face: 1, body: '#283593' } }, TC + 11, TC - 3);
+}
+
 /**
  * The job-change teacher stands a few steps from where new players appear in town, on the first free
  * tile with room to walk up to it (so it fits whatever the town layout is).
@@ -952,10 +1269,42 @@ function addJobNpc(m: GameMap) {
   }
 }
 
+/**
+ * บูรพา also waits beside every gate of every map (2026-11-08): warp to a town, open the storage, or save
+ * your respawn point there. Stands off to the side of the gate so the way through stays clear.
+ */
+function addGateBurapas(m: GameMap) {
+  for (const pt of m.portals) {
+    const cx = pt.x + 0.5, cy = pt.y + 0.5;
+    // which edge the gate is on: "along" runs beside the wall, "inward" into the map
+    const onSide = Math.min(cx, m.w - cx) < Math.min(cy, m.h - cy);
+    let best = null as { x: number; y: number; d: number } | null;
+    // close beside the gate if there's room, else a little further in (the town's north gate runs through the castle)
+    for (const reach of [10, 22]) {
+      for (let y = 1; y < m.h - 1; y++) {
+        for (let x = 1; x < m.w - 1; x++) {
+          const along = onSide ? Math.abs(y + 0.5 - cy) : Math.abs(x + 0.5 - cx);
+          const inward = onSide ? Math.abs(x + 0.5 - cx) : Math.abs(y + 0.5 - cy);
+          if (along < 3 || along > 9 || inward < 2 || inward > reach) continue;
+          if (!free(m, x - 1, y - 1, 3, 3) || m.npcs.some((n) => Math.abs(n.x - x) < 3 && Math.abs(n.y - y) < 3)) continue;
+          const d = along * 1.5 + inward;
+          if (!best || d < best.d) best = { x, y, d };
+        }
+      }
+      if (best) break;
+    }
+    if (!best) continue;
+    m.npcs.push({ ...BURAPA, x: best.x, y: best.y });
+    block(m, best.x, best.y);
+  }
+}
+
 const built = new Map<string, GameMap>();
 const BUILDERS: Record<string, () => GameMap> = {
   town: buildTown, field: buildField, forest: buildForest, marsh: buildMarsh, canyon: buildCanyon, snow: buildSnow, volcano: buildVolcano,
   desert: buildDesert, beach: buildBeach, cave: buildCave, deadwood: buildDeadwood, ruins: buildRuins, inferno: buildInferno,
+  magic: buildMagic, abyss: buildAbyss,
+  arena: buildArena, gvg: buildCastle,
 };
 export const MAP_IDS = Object.keys(BUILDERS);
 export const START_MAP = 'town';
@@ -967,6 +1316,7 @@ export const START_MAP = 'town';
 export const WARP_TOWNS: { map: string; cost: number }[] = [
   { map: 'town', cost: 300 },
   { map: 'desert', cost: 300 },
+  { map: 'magic', cost: 300 },
 ];
 
 /** A fresh copy each call for callers that mutate `blocked`; cached otherwise. */
@@ -974,7 +1324,11 @@ export function getMap(id: string): GameMap {
   if (!BUILDERS[id]) id = START_MAP;
   if (!built.has(id)) {
     const m = BUILDERS[id]();
-    if (id === START_MAP) addJobNpc(m);
+    if (id === START_MAP) {
+      addJobNpc(m);
+      addWarNpcs(m);
+    }
+    addGateBurapas(m);
     built.set(id, m);
   }
   return built.get(id)!;

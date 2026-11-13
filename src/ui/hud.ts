@@ -2,15 +2,22 @@ import {
   CLASSES, CLASS_KEYS, CardBonus, ELEMENTS, ELEMENT_KEYS, ENDOW_SEC, MONSTERS, elementLabel, elementMult, monsterElement, SPAWNS, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, REFINE, SERVICE_FEE, SHOP, SKILLS,
   START_CLASS, STAT_KEYS, STORAGE_SLOTS, StatKey, WEAPON_SHOP, canRefine, cardFits, expToNext, itemLabel, jobExpToNext, jobTown, outfitOf,
   refineBonus, refineChance, refineFee, refineMaterial, refineSafe, skillSp, skillsOf, statCost, statRefund,
+  VEND_MAX_PRICE, VEND_SKILL, npcBuyPrice, npcSellPrice, vendSlots,
 } from '../data';
 import { THEMES, WARP_TOWNS, getMap, type GameMap, type Npc } from '../game/maps';
+import { ARENA_MAP, CASTLE_MAP, GUILD_COST, GUILD_MAX, PVP_DAMAGE, WAR_PRIZE, durationText, warScheduleText, type GuildView, type PvpInfo, type PvpScore } from '../game/pvp';
 import type { Session } from '../game/session';
 import type { World3D, WorldHooks } from '../three/World3D';
+import { potionPct, setAutoPotionPct, setAutoSpPotionPct, spPotionPct } from '../game/autoPrefs';
 import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon } from './icons';
 import { escapeHtml } from './screens';
+import { monsterPortrait } from '../three/portrait';
 
-type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap';
+type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'guide' | 'guild'
+  | 'vend' | 'vshop';
+/** A player shop as the server sends it (shopMine / shopList). */
+type ShopView = { sid: string; open: boolean; name?: string; title?: string; text?: string; items?: { inv: string; item: string; qty: number; price: number; refine: number; cards: string[] }[] };
 /** A bag row, or what we know of someone else's (trade): the + level and cards travel with it. */
 type ItemRow = Pick<InvItem, 'refine' | 'cards'> & { qty?: number; equipped?: boolean };
 type Slot = { t: 's' | 'i'; id: string } | null;
@@ -52,18 +59,36 @@ const TYPE_LABEL: Record<string, string> = {
   ...SLOT_LABEL, consumable: 'ของใช้', loot: 'ของสะสม / วัตถุดิบ', card: 'การ์ดมอนสเตอร์',
 };
 const CARD_SLOT_LABEL: Record<string, string> = { weapon: 'อาวุธ', armor: 'ชุด', head: 'หมวก / หูฟัง', shoes: 'รองเท้า', accessory: 'เครื่องประดับ' };
+
+type GuideTab = 'mon' | 'equip' | 'card';
+const GUIDE_TABS: Record<GuideTab, string> = { mon: '👾 มอนสเตอร์', equip: '🛡️ อุปกรณ์', card: '🃏 การ์ด' };
+const GUIDE_FILTERS: Record<GuideTab, [string, string][]> = {
+  mon: [['', 'ทั้งหมด'], ['1-20', 'Lv 1-20'], ['21-40', '21-40'], ['41-60', '41-60'], ['61-80', '61-80'], ['81-99', '81-99'], ['boss', '★ บอส/MVP'], ['aggr', '⚔ ดุ']],
+  equip: [['', 'ทั้งหมด'], ['weapon', 'อาวุธ'], ['armor', 'ชุด'], ['head', 'หมวก'], ['shoes', 'รองเท้า'], ['accessory', 'เครื่องประดับ'], ['earring', 'ต่างหู']],
+  card: [['', 'ทั้งหมด'], ['weapon', 'อาวุธ'], ['armor', 'ชุด'], ['head', 'หมวก/หูฟัง'], ['shoes', 'รองเท้า'], ['accessory', 'เครื่องประดับ']],
+};
+/** The monster a card comes from (each monster has its own card). */
+const dropperOf = (cardId: string) => Object.values(MONSTERS).find((m) => m.drops.some(([d]) => d === cardId));
+const mapNames = new Map<string, string>();
+const mapName = (id: string) => {
+  if (!mapNames.has(id)) mapNames.set(id, getMap(id).name);
+  return mapNames.get(id)!;
+};
+/** 0.004 -> "0.4%", 0.25 -> "25%" */
+const pct = (r: number) => `${+(r * 100).toFixed(r < 0.01 ? 2 : r < 0.1 ? 1 : 0)}%`;
 const BONUS_LABEL: Record<keyof CardBonus, string> = {
   str: 'Str', agi: 'Agi', vit: 'Vit', int: 'Int', dex: 'Dex', luk: 'Luk', atk: 'Atk', matk: 'Matk', def: 'Def', mdef: 'Mdef',
   hit: 'Hit', flee: 'Flee', crit: 'Critical', aspd: 'Aspd', maxHp: 'MaxHP', maxSp: 'MaxSP', maxHpPct: 'MaxHP', maxSpPct: 'MaxSP',
-  atkPct: 'Atk', matkPct: 'Matk',
+  atkPct: 'Atk', matkPct: 'Matk', pvpAtkPct: 'ตีผู้เล่น', pvpDefPct: 'ลดดาเมจจากผู้เล่น',
 };
-const PCT_BONUS = new Set(['aspd', 'maxHpPct', 'maxSpPct', 'atkPct', 'matkPct']);
+const PCT_BONUS = new Set(['aspd', 'maxHpPct', 'maxSpPct', 'atkPct', 'matkPct', 'pvpAtkPct', 'pvpDefPct']);
 /** "Agi +1 · Aspd +3%" */
 export const bonusText = (b: CardBonus) =>
   (Object.entries(b) as [keyof CardBonus, number][]).map(([k, v]) => `${BONUS_LABEL[k]} +${v}${PCT_BONUS.has(k) ? '%' : ''}`).join(' · ');
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
-  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40],
+  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40], guide: [-1, 30], guild: [8, 250],
+  vend: [-1, 60], vshop: [-1, 70],
 };
 
 /** The RO-style windows over the game: Basic Info, Equipment+Status, Inventory, Skill Tree, hotkeys, minimap, chat. */
@@ -76,7 +101,15 @@ export class Hud implements WorldHooks {
   private hotkeys: Slot[];
   private trade: TradeView | null = null;
   private partyView: PartyView | null = null;
+  private guildView: GuildView | null = null;
+  private pvpInfo: PvpInfo = { on: false };
+  private pvpScores: PvpScore[] = [];
   private shopKind: 'shop' | 'weapons' = 'shop';
+  /** เปิดแผงขายของ: my open shop (null = none), the shop being set up, and the other player's shop I'm looking at */
+  private myShop: ShopView | null = null;
+  private vendTitle = '';
+  private vendDraft = new Map<string, { on: boolean; qty: number; price: number }>();
+  private vshop: ShopView | null = null;
   private shopTab: 'buy' | 'sell' = 'buy';
   private storageTab: 'put' | 'take' = 'put';
   /** The item window: which bag row (or shop/storage item) it shows, and whether it's picking equipment for a card. */
@@ -134,9 +167,15 @@ export class Hud implements WorldHooks {
     this.closeWin('refine');
     this.closeWin('uncard');
     this.closeWin('worldmap');
+    this.renderPvpBar();
     this.closeTrade();
+    // shops belong to a map: mine closed when I left, and the one I was looking at is out of reach
+    this.myShop = null;
+    this.vshop = null;
+    this.closeWin('vshop');
+    this.lastSig.vend = '';
     // a new map starts with /auto off
-    this.root.querySelector('#bi-auto')?.classList.remove('on');
+    this.root.querySelector('#auto-btn')?.classList.remove('on');
     this.root.querySelector('#auto-badge')?.remove();
     const name = this.root.querySelector('#mini-name');
     if (name) name.textContent = map.name;
@@ -201,6 +240,7 @@ export class Hud implements WorldHooks {
     if (id === 'skill') this.openSkills();
     if (id === 'option') this.openOption();
     if (id === 'party') this.openParty();
+    if (id === 'guild') this.openGuild();
   }
 
   private z = 20;
@@ -267,9 +307,9 @@ export class Hud implements WorldHooks {
         <button data-open="skill" title="Alt+S">สกิล<i id="bi-spts" class="dot hidden"></i></button>
         <button data-open="inv" title="Alt+E">ไอเท็ม</button>
         <button data-open="party" title="Alt+Z">ปาร์ตี้</button>
+        <button data-open="guild" title="Alt+G">กิลด์</button>
         <button data-open="map" title="Tab">แผนที่</button>
         <button data-open="sit" title="Insert">นั่ง</button>
-        <button data-open="auto" id="bi-auto" title="/auto · ตีและใช้สกิลอัตโนมัติ">ออโต้</button>
         <button data-open="option" title="Esc">ตั้งค่า</button>
       </div>
       </div>`;
@@ -360,8 +400,9 @@ export class Hud implements WorldHooks {
     const rows = STAT_KEYS.map((k) => {
       const cost = statCost(c[k]);
       const can = c.stat_points >= cost && c[k] < 99;
-      const plus = d.bonus?.[k] ? ` <em class="st-bonus">+${d.bonus[k]}</em>` : '';
-      return `<div class="st-row" title="${STAT_HELP[k]}"><label>${STAT_LABEL[k]}</label><b>${c[k]}${plus}</b>
+      // base value and the green equipment/card bonus in their own columns, so "+12" never wraps over the next row
+      const plus = d.bonus?.[k] ? `+${d.bonus[k]}` : '';
+      return `<div class="st-row" title="${STAT_HELP[k]}"><label>${STAT_LABEL[k]}</label><b>${c[k]}</b><em class="st-bonus">${plus}</em>
         <button class="up" data-stat="${k}" ${can ? '' : 'disabled'}>▲</button><small>${cost}</small></div>`;
     }).join('');
     const right: [string, string | number][] = [
@@ -487,7 +528,7 @@ export class Hud implements WorldHooks {
     if (it.card?.element) lines.push(`<div class="it-bonus">เสียบในชุด: ตัวเป็นธาตุ ${elementLabel(it.card.element)}</div>`);
     if (it.bonus) lines.push(`<div class="it-bonus">${bonusText(it.bonus)}</div>`);
     if (it.vrm) {
-      const from = Object.values(MONSTERS).filter((m) => m.drops.some(([d]) => d === id)).map((m) => `${m.name}${m.boss ? ' (บอส)' : ''}`);
+      const from = Object.values(MONSTERS).filter((m) => m.drops.some(([d]) => d === id)).map((m) => `${m.name}${m.mvp ? ' (MVP)' : m.boss ? ' (มินิบอส)' : ''}`);
       const what = it.type === 'armor' ? '👗 ใส่แล้วเปลี่ยนเสื้อผ้าทั้งชุด (หน้าและผมยังเป็นของเรา)' : '🎩 ใส่แล้วเห็นบนหัวตัวละคร';
       lines.push(`<div class="muted">${what} · ไม่มีขายในร้าน${from.length ? ` · ดร็อปจาก ${escapeHtml(from.join(', '))}` : ''}</div>`);
     }
@@ -502,6 +543,13 @@ export class Hud implements WorldHooks {
       lines.push(`<div class="it-sec">ช่องการ์ด ${cards.length} / ${it.slots}</div>${slots.join('')}`);
     }
     if (it.card) {
+      // card art: the monster that drops it, rendered from its own model (item window only)
+      const mon = full ? Object.keys(MONSTERS).find((k) => MONSTERS[k].drops.some(([d]) => d === id)) : undefined;
+      if (mon) {
+        const m = MONSTERS[mon];
+        lines.push(`<div class="card-art ${m.boss ? 'boss' : ''}"><div class="card-pic" data-portrait="${mon}"><span class="spin"></span></div>
+          <div class="card-name">${escapeHtml(m.name)}</div><div class="card-sub">Lv ${m.level}${m.mvp ? ' · MVP' : m.boss ? ' · มินิบอส' : ''}${m.element && m.element[0] !== 'neutral' ? ` · ${elementLabel(m.element[0])}` : ''}</div></div>`);
+      }
       lines.push(`<div class="it-sec">เสียบใน: ${CARD_SLOT_LABEL[it.card.slot]}</div><div class="it-bonus">${bonusText(it.card.bonus)}</div>`);
     }
     if (canRefine(it)) {
@@ -555,6 +603,7 @@ export class Hud implements WorldHooks {
     }
     b.innerHTML = `${this.itemTip(v.item, row ?? v.row, true)}${extra}
       <div class="npc-btns">${btns.join('')}<button class="close">ปิด</button></div>`;
+    hydratePortraits(b);
     b.querySelector('.close')!.addEventListener('click', () => this.closeWin('item'));
     b.querySelector('[data-act="use"]')?.addEventListener('click', () => row && this.s.use(row.id));
     b.querySelector('[data-act="equip"]')?.addEventListener('click', () => row && this.run(() => this.s.setEquipped(row.id, !row.equipped)));
@@ -588,11 +637,14 @@ export class Hud implements WorldHooks {
     this.renderSkills();
   }
 
+  /** The skill whose details are expanded in the Skill Tree (tap the name). */
+  private skOpen = '';
+
   private renderSkills() {
     const b = this.body('skill');
     if (!b || !this.isOpen('skill')) return;
     const c = this.s.char;
-    const sig = JSON.stringify([c.skills, c.skill_points, c.cls]);
+    const sig = JSON.stringify([c.skills, c.skill_points, c.cls, this.skOpen]);
     if (this.lastSig.skill === sig) return;
     this.lastSig.skill = sig;
     // the job change refunds Teen skills, so only your class's own skills are listed
@@ -602,13 +654,24 @@ export class Hud implements WorldHooks {
       const passive = sk.type === 'passive';
       return `<div class="sk-row ${lv ? '' : 'locked'}">
         <div class="sk-icon" data-skill="${id}" draggable="${!passive && lv > 0}" title="${passive ? 'สกิลติดตัว' : 'ลากไปช่องปุ่มลัด / ดับเบิลคลิกเพื่อใช้'}">${sk.icon}</div>
-        <div class="sk-info"><b>${escapeHtml(sk.name)}</b><small>${passive ? 'ติดตัว' : `Sp : ${skillSp(sk, Math.max(1, lv))}`}</small></div>
+        <div class="sk-info" data-skinfo="${id}"><b>${escapeHtml(sk.name)} <span class="sk-more">${this.skOpen === id ? '▴' : 'ⓘ'}</span></b><small>${passive ? 'ติดตัว' : sk.type === 'vend' ? 'ทุกอาชีพ' : `Sp : ${skillSp(sk, Math.max(1, lv))}`}</small></div>
         <div class="sk-lv">Lv : ${lv} / ${sk.maxLevel}</div>
-        <button class="up" data-learn="${id}" ${c.skill_points > 0 && lv < sk.maxLevel && sk.cls === c.cls ? '' : 'disabled'}>Lv Up</button>
-      </div>`;
+        <button class="up" data-learn="${id}" ${c.skill_points > 0 && lv < sk.maxLevel && (sk.cls === c.cls || sk.cls === 'all') ? '' : 'disabled'}>Lv Up</button>
+      </div>${this.skOpen === id ? `<div class="sk-detail">${this.skillTip(id)}</div>` : ''}`;
     });
+    const keep = b.querySelector('.sk-list')?.scrollTop ?? 0;
     b.innerHTML = `<div class="sk-list">${rows.join('')}</div>
-      <div class="sk-foot"><span>Skill Point : <b>${c.skill_points}</b></span><span class="hint">ได้ 1 แต้มทุก Job Lv</span></div>`;
+      <div class="sk-foot"><span>Skill Point : <b>${c.skill_points}</b></span><span class="hint">${lastTouch ? 'แตะชื่อสกิล = ดูรายละเอียด' : 'ได้ 1 แต้มทุก Job Lv'}</span></div>`;
+    b.querySelector('.sk-list')!.scrollTop = keep;
+    // tapping a skill's name opens its description under the row (phones have no hover tooltip)
+    b.querySelectorAll<HTMLElement>('[data-skinfo]').forEach((el) =>
+      el.addEventListener('click', () => {
+        const id = el.dataset.skinfo!;
+        this.skOpen = this.skOpen === id ? '' : id;
+        this.renderSkills();
+        b.querySelector('.sk-detail')?.scrollIntoView({ block: 'nearest' });
+      }),
+    );
     b.querySelectorAll<HTMLButtonElement>('[data-learn]').forEach((btn) =>
       btn.addEventListener('click', () => this.run(() => this.s.learn(btn.dataset.learn!))),
     );
@@ -630,7 +693,7 @@ export class Hud implements WorldHooks {
     const lv = this.s.char.skills?.[id] ?? 0;
     const el = sk.power ? `<div class="muted">ธาตุ: ${sk.element ? elementLabel(sk.element) : 'ตามอาวุธ'}</div>` : '';
     return `<b>${sk.icon} ${escapeHtml(sk.name)}</b> (Lv ${lv}/${sk.maxLevel})<div>${escapeHtml(sk.desc)}</div>${el}
-      ${sk.cooldown ? `<div class="muted">คูลดาวน์ ${(sk.cooldown / 1000).toFixed(1)} วิ</div>` : ''}`;
+      ${sk.cooldown ? `<div class="muted">คูลดาวน์ ${sk.cooldown >= 60000 ? `${+(sk.cooldown / 60000).toFixed(1)} นาที` : `${(sk.cooldown / 1000).toFixed(1)} วิ`}</div>` : ''}`;
   }
 
   // ------------------------------------------------------------ hotkeys
@@ -805,6 +868,11 @@ export class Hud implements WorldHooks {
         <canvas id="mini-cv" width="140" height="140" title="คลิกเพื่อเปิดแผนที่ใหญ่"></canvas>
       </div>`);
     this.root.querySelector('#mini-cv')!.addEventListener('click', () => this.toggleWorldMap());
+    this.root.insertAdjacentHTML('beforeend', `<button id="guide-btn" class="guide-btn" title="คู่มือ: มอนสเตอร์ อุปกรณ์ การ์ด (Alt+G)"><i>📖</i><span>คู่มือ</span></button>`);
+    this.root.querySelector('#guide-btn')!.addEventListener('click', () => this.toggleGuide());
+    // /auto sits under the guide button (moved out of Basic Info, 2026-11-13)
+    this.root.insertAdjacentHTML('beforeend', `<button id="auto-btn" class="guide-btn auto-btn" title="/auto · ตีและใช้สกิลอัตโนมัติ"><i>⚔️</i><span>ออโต้</span></button>`);
+    this.root.querySelector('#auto-btn')!.addEventListener('click', () => this.toggleAuto());
   }
 
   private drawMiniBase() {
@@ -828,7 +896,7 @@ export class Hud implements WorldHooks {
     }
     for (const o of m.objects) {
       if (o.kind === 'building' || o.kind === 'palace') {
-        c.fillStyle = o.kind === 'palace' ? '#3f7fb8' : o.style === 'desert' ? '#a8865a' : '#7b4a36';
+        c.fillStyle = o.kind === 'palace' ? '#3f7fb8' : o.style === 'desert' ? '#a8865a' : o.style === 'magic' ? '#6a4a9a' : '#7b4a36';
         c.fillRect(o.x * s, o.y * s, o.w * s, o.h * s);
       } else if (o.kind === 'tree') {
         c.fillStyle = '#2f5d2a';
@@ -877,6 +945,244 @@ export class Hud implements WorldHooks {
     return cv;
   }
 
+  // ------------------------------------------------------------ guide (encyclopedia)
+
+  /** The guide: every monster, piece of equipment and card in the game, browsable (button left of the minimap). */
+  private guide = { tab: 'mon' as GuideTab, q: '', filter: '', pick: { mon: '', equip: '', card: '' } as Record<GuideTab, string>, detail: false };
+
+  private guideResize = false;
+  private toggleGuide() {
+    if (!this.guideResize) {
+      this.guideResize = true;
+      window.addEventListener('resize', () => requestAnimationFrame(this.fitGuide), { signal: this.ac.signal });
+    }
+    if (this.isOpen('guide')) return this.closeWin('guide');
+    this.openGuide();
+  }
+
+  private openGuide(tab?: GuideTab, pick?: string) {
+    const g = this.guide;
+    if (tab && tab !== g.tab) {
+      g.tab = tab;
+      g.q = '';
+      g.filter = '';
+    }
+    if (pick) {
+      g.pick[g.tab] = pick;
+      g.detail = true;
+    }
+    this.win('guide', '📖 คู่มือ Music Land', 'guide');
+    this.renderGuide();
+    this.fitGuide();
+    requestAnimationFrame(this.fitGuide); // after win() places it
+  }
+
+  /** Big window: keep it whole on screen (phones, rotating, a smaller browser window). */
+  private fitGuide = () => {
+    const w = this.wins.get('guide');
+    if (!w || !this.isOpen('guide')) return;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const x = w.offsetLeft;
+    const y = w.offsetTop;
+    if (x + w.offsetWidth > vw - 4 || x < 0) w.style.left = `${Math.max(4, (vw - w.offsetWidth) / 2)}px`;
+    if (y + w.offsetHeight > vh - 4 || y < 0) w.style.top = `${Math.max(2, vh - w.offsetHeight - 4)}px`;
+  };
+
+  /** The window's frame: tabs, search and filters. The list and the details below re-render on their own. */
+  private renderGuide() {
+    const b = this.body('guide');
+    if (!b) return;
+    const g = this.guide;
+    const filters = GUIDE_FILTERS[g.tab];
+    b.innerHTML = `<div class="gd-wrap ${g.detail ? 'show-detail' : ''}">
+        <div class="gd-tabs">${(Object.keys(GUIDE_TABS) as GuideTab[]).map((t) =>
+          `<button data-gtab="${t}" class="${g.tab === t ? 'on' : ''}">${GUIDE_TABS[t]}</button>`).join('')}</div>
+        <div class="gd-main">
+          <div class="gd-side">
+            <input class="gd-q" type="search" placeholder="🔍 ค้นหาชื่อ…" value="${escapeHtml(g.q)}" enterkeyhint="search"/>
+            <div class="gd-filters">${filters.map(([k, label]) => `<button data-gf="${k}" class="${g.filter === k ? 'on' : ''}">${label}</button>`).join('')}</div>
+            <div class="gd-list"></div>
+          </div>
+          <div class="gd-detail"></div>
+        </div>
+      </div>`;
+    b.querySelectorAll<HTMLButtonElement>('[data-gtab]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        const t = btn.dataset.gtab as GuideTab;
+        if (t === g.tab) {
+          g.detail = false;
+        } else {
+          g.tab = t;
+          g.q = '';
+          g.filter = '';
+          g.detail = false;
+        }
+        this.renderGuide();
+      }));
+    b.querySelectorAll<HTMLButtonElement>('[data-gf]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        g.filter = btn.dataset.gf!;
+        b.querySelectorAll('[data-gf]').forEach((x) => x.classList.toggle('on', x === btn));
+        this.renderGuideList();
+      }));
+    const q = b.querySelector('.gd-q') as HTMLInputElement;
+    q.addEventListener('input', () => {
+      g.q = q.value;
+      this.renderGuideList();
+    });
+    this.renderGuideList();
+    this.renderGuideDetail();
+  }
+
+  /** What's in the current tab after the search and the filter, in a sensible order. */
+  private guideEntries(): string[] {
+    const g = this.guide;
+    const q = g.q.trim().toLowerCase();
+    const hit = (name: string) => !q || name.toLowerCase().includes(q);
+    if (g.tab === 'mon') {
+      return Object.keys(MONSTERS)
+        .filter((k) => hit(MONSTERS[k].name) && !MONSTERS[k].structure)
+        .filter((k) => {
+          const m = MONSTERS[k];
+          if (g.filter === 'boss') return !!m.boss;
+          if (g.filter === 'aggr') return m.aggressive;
+          if (g.filter) {
+            const [lo, hi] = g.filter.split('-').map(Number);
+            return m.level >= lo && m.level <= hi;
+          }
+          return true;
+        })
+        .sort((a, b) => MONSTERS[a].level - MONSTERS[b].level || MONSTERS[a].name.localeCompare(MONSTERS[b].name, 'th'));
+    }
+    if (g.tab === 'equip') {
+      const order = EQUIP_TYPES as string[];
+      return Object.keys(ITEMS)
+        .filter((k) => order.includes(ITEMS[k].type) && (!g.filter || ITEMS[k].type === g.filter) && hit(ITEMS[k].name))
+        .sort((a, b) => {
+          const x = ITEMS[a];
+          const y = ITEMS[b];
+          return order.indexOf(x.type) - order.indexOf(y.type) || (x.atk ?? x.def ?? 0) - (y.atk ?? y.def ?? 0) || x.price - y.price;
+        });
+    }
+    return Object.keys(ITEMS)
+      .filter((k) => ITEMS[k].card && (!g.filter || ITEMS[k].card!.slot === g.filter) && hit(ITEMS[k].name))
+      .sort((a, b) => (dropperOf(a)?.level ?? 0) - (dropperOf(b)?.level ?? 0));
+  }
+
+  private renderGuideList() {
+    const box = this.body('guide')?.querySelector('.gd-list') as HTMLElement | null;
+    if (!box) return;
+    const g = this.guide;
+    const ids = this.guideEntries();
+    const pick = g.pick[g.tab];
+    box.innerHTML = ids.map((id) => {
+      if (g.tab === 'mon') {
+        const m = MONSTERS[id];
+        const [el, lv] = monsterElement(m);
+        return `<div class="gd-row ${pick === id ? 'on' : ''}" data-gid="${id}"><i class="gd-dot" style="background:${m.color}"></i>
+          <span><b>${m.mvp ? '👑 ' : m.boss ? '★ ' : ''}${escapeHtml(m.name)}</b><small>Lv.${m.level} · <em class="el-tag" style="background:${ELEMENTS[el].color}">${elementLabel(el, lv)}</em>${m.aggressive ? ' · ⚔' : ''}</small></span></div>`;
+      }
+      const it = ITEMS[id];
+      const sub = it.card ? `${CARD_SLOT_LABEL[it.card.slot]} · ${bonusText(it.card.bonus)}` : `${TYPE_LABEL[it.type] ?? it.type}${it.atk ? ` · Atk ${it.atk}` : ''}${it.matk ? ` · Matk ${it.matk}` : ''}${it.def ? ` · Def ${it.def}` : ''}${it.slots ? ` · [${it.slots}]` : ''}`;
+      return `<div class="gd-row ${pick === id ? 'on' : ''}" data-gid="${id}"><img src="${itemIcon(id)}" alt=""/>
+        <span><b>${escapeHtml(it.name)}</b><small>${escapeHtml(sub)}</small></span></div>`;
+    }).join('') || '<p class="hint gd-empty">ไม่พบรายการที่ค้นหา</p>';
+    const count = this.body('guide')?.querySelector('.gd-q') as HTMLInputElement | null;
+    if (count) count.placeholder = `🔍 ค้นหาชื่อ… (${ids.length} รายการ)`;
+    box.querySelectorAll<HTMLElement>('[data-gid]').forEach((row) =>
+      row.addEventListener('click', () => {
+        g.pick[g.tab] = row.dataset.gid!;
+        g.detail = true;
+        box.querySelectorAll('.gd-row.on').forEach((x) => x.classList.remove('on'));
+        row.classList.add('on');
+        this.body('guide')?.querySelector('.gd-wrap')?.classList.add('show-detail');
+        this.renderGuideDetail();
+      }));
+  }
+
+  private renderGuideDetail() {
+    const box = this.body('guide')?.querySelector('.gd-detail') as HTMLElement | null;
+    if (!box) return;
+    const g = this.guide;
+    const id = g.pick[g.tab];
+    const back = '<button class="gd-back">‹ กลับไปรายการ</button>';
+    if (!id || (g.tab === 'mon' ? !MONSTERS[id] : !ITEMS[id])) {
+      box.innerHTML = `<p class="hint gd-empty">${g.tab === 'mon' ? 'เลือกมอนสเตอร์ทางซ้ายเพื่อดูค่าพลัง ที่อยู่ และของที่ดร็อป' : 'เลือกรายการทางซ้ายเพื่อดูรายละเอียด และมอนสเตอร์ที่ดร็อป'}</p>`;
+      return;
+    }
+    box.innerHTML = back + (g.tab === 'mon' ? this.guideMonster(id) : this.guideItem(id));
+    box.scrollTop = 0;
+    hydratePortraits(box);
+    box.querySelector('.gd-back')!.addEventListener('click', () => {
+      g.detail = false;
+      this.body('guide')?.querySelector('.gd-wrap')?.classList.remove('show-detail');
+    });
+    // jump between a monster and what it drops (and back)
+    box.querySelectorAll<HTMLElement>('[data-gmon]').forEach((el) => el.addEventListener('click', () => this.openGuide('mon', el.dataset.gmon)));
+    box.querySelectorAll<HTMLElement>('[data-gitem]').forEach((el) =>
+      el.addEventListener('click', () => {
+        const it = ITEMS[el.dataset.gitem!];
+        if (it?.card) this.openGuide('card', el.dataset.gitem);
+        else if (it && (EQUIP_TYPES as string[]).includes(it.type)) this.openGuide('equip', el.dataset.gitem);
+        else this.openItem(el.dataset.gitem!);
+      }));
+  }
+
+  private guideMonster(id: string) {
+    const m = MONSTERS[id];
+    const [el, elv] = monsterElement(m);
+    const myLv = this.s.char.level;
+    const diff = m.level - myLv;
+    const where = new Map<string, number>();
+    for (const s of SPAWNS) if (s.monster === id) where.set(s.map, (where.get(s.map) ?? 0) + s.count);
+    const maps = [...where].map(([map, n]) => `<div class="gd-where">📍 ${escapeHtml(mapName(map))} <small>· ${n} ตัว</small></div>`).join('');
+    const drops = m.drops.filter(([d]) => ITEMS[d]).map(([d, r]) => {
+      const it = ITEMS[d];
+      return `<div class="gd-drop ${it.card ? 'card' : ''}" data-gitem="${d}"><img src="${itemIcon(d)}" alt=""/><span>${escapeHtml(it.name)}<small>${TYPE_LABEL[it.type] ?? it.type}</small></span><b>${pct(r)}</b></div>`;
+    }).join('');
+    // what each element does against it
+    const weak = ELEMENT_KEYS.filter((a) => a !== 'neutral' || el !== 'neutral').map((a) => [a, elementMult(a, el, elv)] as const);
+    const good = weak.filter(([, x]) => x > 1).sort((a, b) => b[1] - a[1]).map(([a, x]) => `${elementLabel(a)} ${Math.round(x * 100)}%`);
+    const bad = weak.filter(([, x]) => x < 1).sort((a, b) => a[1] - b[1]).map(([a, x]) => `${elementLabel(a)} ${Math.round(x * 100)}%`);
+    return `<div class="gd-mon">
+      <div class="card-art ${m.boss ? 'boss' : ''}"><div class="card-pic" data-portrait="${id}"><span class="spin"></span></div>
+        <div class="card-name">${escapeHtml(m.name)}</div><div class="card-sub">Lv ${m.level}${m.mvp ? ' · MVP' : m.boss ? ' · มินิบอส' : ''}</div></div>
+      <div class="gd-info">
+        <div class="gd-title"><b>${m.mvp ? '👑 ' : m.boss ? '★ ' : ''}${escapeHtml(m.name)}</b>
+          ${diff >= 8 ? '<em class="wm-hard">อันตราย</em>' : diff <= -10 ? '<em class="wm-easy">ง่าย</em>' : ''}</div>
+        <div class="gd-stats">
+          <span>Lv <b>${m.level}</b></span><span>HP <b>${m.hp.toLocaleString()}</b></span>
+          <span>Atk <b>${m.atk}</b></span><span>Def <b>${m.def}</b></span>
+          <span>Base EXP <b>${m.exp.toLocaleString()}</b></span><span>Job EXP <b>${m.jobExp.toLocaleString()}</b></span>
+          <span>Zeny <b>${m.zeny[0]}–${m.zeny[1]}</b></span><span>ธาตุ <b><em class="el-tag" style="background:${ELEMENTS[el].color}">${elementLabel(el, elv)}</em></b></span>
+        </div>
+        <div class="muted">${m.aggressive ? '⚔ ดุ เข้ามาตีก่อน' : '😌 ไม่ตีก่อน'}${m.mvp ? ' · บอส MVP ใช้สกิลได้ คนตีแรงสุดได้ MVP' : m.boss ? ' · มินิบอส ดร็อปการ์ดง่ายกว่า' : ''}</div>
+        ${good.length ? `<div class="gd-el good">ตีแรงขึ้นด้วย: ${good.join(', ')}</div>` : ''}
+        ${bad.length ? `<div class="gd-el bad">ตีเบาลงด้วย: ${bad.join(', ')}</div>` : ''}
+      </div>
+      <div class="it-sec">พบได้ที่</div>${maps || '<div class="muted">ไม่เกิดในแผนที่ทั่วไป</div>'}
+      <div class="it-sec">ของที่ดร็อป <small class="muted">· แตะเพื่อดูรายละเอียด</small></div>
+      <div class="gd-drops">${drops || '<div class="muted">ไม่มี</div>'}</div>
+    </div>`;
+  }
+
+  private guideItem(id: string) {
+    const it = ITEMS[id];
+    const from = Object.entries(MONSTERS)
+      .flatMap(([k, m]) => m.drops.filter(([d]) => d === id).map(([, r]) => [k, r] as const))
+      .sort((a, b) => b[1] - a[1]);
+    const srcs = from.map(([k, r]) => {
+      const m = MONSTERS[k];
+      return `<div class="gd-drop" data-gmon="${k}"><i class="gd-dot" style="background:${m.color}"></i><span>${m.mvp ? '👑 ' : m.boss ? '★ ' : ''}${escapeHtml(m.name)}<small>Lv.${m.level}</small></span><b>${pct(r)}</b></div>`;
+    }).join('');
+    const shop = SHOP.includes(id) ? 'ร้านของใช้' : WEAPON_SHOP.includes(id) ? 'ร้านเครื่องดนตรี' : '';
+    return `${this.itemTip(id, undefined, true)}
+      <div class="it-sec">หาได้จาก</div>
+      ${shop ? `<div class="gd-where">🛒 มีขายที่${shop} ราคา ${it.price.toLocaleString()} z</div>` : ''}
+      <div class="gd-drops">${srcs || (shop ? '' : '<div class="muted">ยังไม่มีมอนสเตอร์ดร็อป</div>')}</div>`;
+  }
+
   // ------------------------------------------------------------ big map
 
   private bigBase?: HTMLCanvasElement;
@@ -917,7 +1223,7 @@ export class Hud implements WorldHooks {
       const [mel, mlv] = monsterElement(d);
       return `<div class="wm-row ${this.mapPick === e.id ? 'on' : ''}" data-mon="${e.id}">
         <i style="background:${d.color}"></i>
-        <span><b>${d.boss ? '★ ' : ''}${escapeHtml(d.name)}</b> <small>Lv.${d.level}</small>
+        <span><b>${d.mvp ? '👑 ' : d.boss ? '★ ' : ''}${escapeHtml(d.name)}</b> <small>Lv.${d.level}</small>
           <em class="el-tag" style="background:${ELEMENTS[mel].color}">${elementLabel(mel, mlv)}</em>${tag}${quest}
           <small class="wm-sub">${d.aggressive ? '⚔ ดุ (เข้ามาตีก่อน)' : 'ไม่ตีก่อน'} · HP ${d.hp.toLocaleString()} · EXP ${d.exp}/${d.jobExp} · ${e.count} ตัว</small></span></div>`;
     }).join('');
@@ -925,12 +1231,24 @@ export class Hud implements WorldHooks {
     b.innerHTML = `<div class="wm-wrap">
         <canvas id="wm-cv" width="320" height="320"></canvas>
         <div class="wm-side">
+          <div class="wm-tip">แตะ/คลิกบนแผนที่ เพื่อเดินไปจุดนั้น</div>
           <div class="wm-sec">${this.map.safe ? 'เมือง (ไม่มีมอนสเตอร์)' : `มอนสเตอร์ในแผนที่นี้ (${list.length} ชนิด) · แตะเพื่อดูจุดเกิด`}</div>
           <div class="wm-list">${rows || '<p class="hint">ปลอดภัย ไม่มีมอนสเตอร์</p>'}</div>
           ${portals ? `<div class="wm-sec">ทางออก</div>${portals}` : ''}
           <div class="wm-legend"><span><i class="me"></i>คุณ</span><span><i class="pl"></i>ผู้เล่นอื่น</span><span><i class="np"></i>NPC</span><span><i class="pt"></i>ทางออก</span></div>
         </div>
       </div>`;
+    const cv = b.querySelector<HTMLCanvasElement>('#wm-cv')!;
+    cv.addEventListener('click', (e) => {
+      const scene = this.actions.scene();
+      if (!scene) return;
+      const r = cv.getBoundingClientRect();
+      const per = Math.max(this.map.w, this.map.h);
+      const x = ((e.clientX - r.left) / r.width) * per;
+      const y = ((e.clientY - r.top) / r.height) * per;
+      if (x < 0 || y < 0 || x >= this.map.w || y >= this.map.h) return;
+      if (!scene.walkToMapSpot(x, y)) this.toast('ไปจุดนั้นไม่ได้', 'bad');
+    });
     b.querySelectorAll<HTMLElement>('[data-mon]').forEach((el) =>
       el.addEventListener('click', () => {
         this.mapPick = this.mapPick === el.dataset.mon ? '' : el.dataset.mon!;
@@ -987,6 +1305,33 @@ export class Hud implements WorldHooks {
     }
     c.fillStyle = '#ff7bd5';
     for (const o of dots.others) c.fillRect(o.x * s - 3, o.y * s - 3, 6, 6);
+    // where you're walking to (picked on this map, or anywhere): a dotted line and a red pin
+    const goal = scene.walkGoal();
+    if (goal) {
+      c.save();
+      c.strokeStyle = 'rgba(255,255,255,0.85)';
+      c.lineWidth = 2;
+      c.setLineDash([4, 4]);
+      c.beginPath();
+      c.moveTo(dots.me.x * s, dots.me.y * s);
+      c.lineTo(goal.x * s, goal.y * s);
+      c.stroke();
+      c.restore();
+      const gx = goal.x * s, gy = goal.y * s;
+      c.fillStyle = '#ff3b3b';
+      c.strokeStyle = '#000';
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.moveTo(gx, gy);
+      c.arc(gx, gy - 11, 6, Math.PI * 0.8, Math.PI * 2.2);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      c.fillStyle = '#fff';
+      c.beginPath();
+      c.arc(gx, gy - 11, 2.2, 0, Math.PI * 2);
+      c.fill();
+    }
     c.fillStyle = '#ffffff';
     c.strokeStyle = '#000';
     c.lineWidth = 1.5;
@@ -1118,6 +1463,10 @@ export class Hud implements WorldHooks {
     this.line('chat', `<b>${escapeHtml(name)}</b> : ${escapeHtml(text)}`);
   }
 
+  guildChat(name: string, text: string) {
+    this.line('chat', `<span class="gc">[กิลด์] <b>${escapeHtml(name)}</b> : ${escapeHtml(text)}</span>`);
+  }
+
   partyChat(name: string, text: string) {
     this.line('chat', `<span class="pt">[ปาร์ตี้] <b>${escapeHtml(name)}</b> : ${escapeHtml(text)}</span>`);
   }
@@ -1150,6 +1499,9 @@ export class Hud implements WorldHooks {
   // ------------------------------------------------------------ npc + shop
 
   talk(n: Npc) {
+    if (n.id === 'guild') return this.talkGuild(n);
+    if (n.id === 'pvp') return this.talkArena(n);
+    if (n.id === 'gvg') return this.talkCastle(n);
     if (n.id === 'jobs') return this.talkJobs(n);
     if (n.id === 'warper') return this.talkBurapa(n);
     if (n.id === 'refiner') return this.talkRefiner(n);
@@ -1158,19 +1510,24 @@ export class Hud implements WorldHooks {
     const text: Record<Npc['id'], string> = {
       shop: 'ยินดีต้อนรับจ้า~ มีน้ำดื่ม ยาฟื้นเสียง และเสื้อผ้าเท่ ๆ ให้เลือกเพียบ',
       weapons: 'เครื่องดนตรีดี ๆ ทั้งนั้น! เลือกให้เหมาะกับอาชีพของเจ้านะ',
-      healer: 'เหนื่อยไหมจ๊ะ? ให้ครูช่วยพักเสียงให้ไหม (ฟื้น HP/SP เต็ม และบัพทุกสกิลในเกมระดับสูงสุดให้ ฟรี)',
+      healer: 'เหนื่อยไหมจ๊ะ? ให้ครูช่วยพักเสียงให้ไหม (ฟื้น HP/SP เต็ม และบัพทุกสกิลในเกมระดับสูงสุดให้ นาน 5 นาที ฟรี)',
       jobs: '',
       warper: '',
       refiner: '',
       reset: '',
       uncard: '',
+      guild: '',
+      pvp: '',
+      gvg: '',
       guide: 'ยินดีต้อนรับสู่เมืองเมโลเดีย! เดินออกประตูทิศตะวันออกไปทุ่งเมโลดี้เพื่อล่ามอนสเตอร์\n'
         + '• คลิกพื้นเพื่อเดิน คลิกมอนสเตอร์เพื่อตี\n• Alt+Q สถานะ, Alt+E ไอเท็ม, Alt+S สกิล\n• F1-F9 หรือ 1-9 ใช้ปุ่มลัด\n'
         + '• คลิกผู้เล่นอื่นเพื่อแลกเปลี่ยนไอเท็มหรือเงิน\n'
         + '• ช่างจูน ตีบวก ใกล้ไกด์: ตีบวกอาวุธ/ชุดให้แรงขึ้น · การ์ดมอนสเตอร์เสียบในอุปกรณ์ที่มีช่อง [1] [2]\n'
         + '• ช่างถอดการ์ด ข้างช่างจูน: ถอดการ์ดออกจากอุปกรณ์คืนเข้ากระเป๋า · ครูเริ่มใหม่ ฝั่งขวา: รีเซ็ตสเตตัส/สกิล\n'
         + '• คลิกขวาที่ไอเท็ม (มือถือ: แตะ) เพื่อดูรายละเอียด\n'
-        + '• บูรพาข้างน้ำพุกลางเมือง: วาร์ปไปเมืองทะเลทรายตะโพน (เมืองมือกลอง) และฝากของในคลังกลางที่ทุกตัวละครใน ID ใช้ร่วมกัน',
+        + '• บูรพาข้างน้ำพุกลางเมืองและข้างทางออกทุกแผนที่: วาร์ปไปเมืองอื่น ฝากของในคลังกลางที่ทุกตัวละครใน ID ใช้ร่วมกัน และบันทึกจุดเกิด\n'
+        + '• เปิดแผนที่ใหญ่แล้วแตะ/คลิกบนแผนที่ ตัวละครจะเดินไปจุดนั้นเอง\n'
+        + '• นายทะเบียนกิลด์: สร้างกิลด์ · ผู้คุมลานประลอง: ไปตีกับผู้เล่น (PVP) · ทหารประกาศสงครามกิลด์: ไปปราสาทแห่งเสียง (กิลวอร์)',
     };
     const w = this.win('npc', escapeHtml(n.name), 'npc');
     const b = this.body('npc')!;
@@ -1215,10 +1572,14 @@ export class Hud implements WorldHooks {
     const zeny = this.s.char.zeny;
     const towns = WARP_TOWNS.filter((t) => t.map !== this.map.id);
     const warps = towns.map((t) => `<button class="ok" data-warp="${t.map}" ${zeny < t.cost ? 'disabled' : ''}>วาร์ปไป${escapeHtml(getMap(t.map).name)} (${t.cost.toLocaleString()} z)</button>`).join('');
-    b.innerHTML = `<div class="npc-text">ข้าคือบูรพา ผู้ดูแลการเดินทางและคลังกลางของทุกเมือง<br>
+    const c = this.s.char;
+    const saved = c.save_map ? `${escapeHtml(getMap(c.save_map).name)} (${Math.floor(c.save_x ?? 0)}, ${Math.floor(c.save_y ?? 0)})` : `${escapeHtml(getMap('town').name)} (ค่าเริ่มต้น)`;
+    b.innerHTML = `<div class="npc-text">ข้าคือบูรพา ผู้ดูแลการเดินทางและคลังกลาง อยู่กลางเมืองและข้างทางออกทุกแผนที่<br>
       • วาร์ปไปเมืองอื่นได้ทันที เสียค่าเดินทางเป็น Zeny (ตอนนี้มี ${zeny.toLocaleString()} z)<br>
-      • คลังกลาง: ฝากของไว้ ตัวละครทุกตัวใน ID เดียวกันเปิดใช้ร่วมกันได้จากบูรพาทุกเมือง</div>
-      <div class="npc-btns job-btns">${warps}<button class="ok" data-storage>เปิดคลังกลาง</button><button class="close">ปิด</button></div>`;
+      • คลังกลาง: ฝากของไว้ ตัวละครทุกตัวใน ID เดียวกันเปิดใช้ร่วมกันได้จากบูรพาทุกที่<br>
+      • บันทึกจุดเกิด: หมดสติแล้วกดฟื้น จะกลับมาเกิดตรงนี้ (ฟรี)<br>
+      <span class="muted">จุดเกิดตอนนี้: ${saved}</span></div>
+      <div class="npc-btns job-btns">${warps}<button class="ok" data-save>บันทึกจุดเกิดที่นี่</button><button class="ok" data-storage>เปิดคลังกลาง</button><button class="close">ปิด</button></div>`;
     b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
     b.querySelectorAll<HTMLButtonElement>('[data-warp]').forEach((btn) =>
       btn.addEventListener('click', () => {
@@ -1236,6 +1597,24 @@ export class Hud implements WorldHooks {
     b.querySelector('[data-storage]')!.addEventListener('click', () => {
       this.closeWin('npc');
       this.openStorage();
+    });
+    b.querySelector<HTMLButtonElement>('[data-save]')!.addEventListener('click', async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      const me = this.actions.scene()?.minimapDots().me;
+      if (!me) return;
+      btn.disabled = true;
+      try {
+        await this.s.setSavePoint(this.map.id, Math.round(me.x * 10) / 10, Math.round(me.y * 10) / 10);
+        sfx('item');
+        this.toast(`บันทึกจุดเกิดที่${this.map.name}แล้ว`, 'good');
+        this.line('sys', `บันทึกจุดเกิดแล้ว: ${escapeHtml(this.map.name)} (${Math.floor(me.x)}, ${Math.floor(me.y)}) หมดสติแล้วกดฟื้นจะกลับมาที่นี่`);
+        this.talkBurapa(n);
+      } catch (err) {
+        const m = (err as Error).message;
+        // the database from before save points has no set_save_point(): say what to do
+        this.toast(/set_save_point|function|schema cache/i.test(m) ? 'ฐานข้อมูลยังไม่มีระบบจุดเกิด (ต้องรัน add-save-point.sql ใน Supabase)' : m, 'bad');
+        btn.disabled = false;
+      }
     });
   }
 
@@ -1520,7 +1899,7 @@ export class Hud implements WorldHooks {
   private renderShop() {
     const b = this.body('shop');
     if (!b || !this.isOpen('shop')) return;
-    const sig = JSON.stringify([this.shopKind, this.shopTab, this.s.inv, this.s.char.zeny]);
+    const sig = JSON.stringify([this.shopKind, this.shopTab, this.s.inv, this.s.char.zeny, this.s.char.skills]);
     if (this.lastSig.shop === sig) return;
     this.lastSig.shop = sig;
     const list = this.shopKind === 'shop' ? SHOP : WEAPON_SHOP;
@@ -1528,14 +1907,17 @@ export class Hud implements WorldHooks {
       ? list.map((id) => {
         const it = ITEMS[id];
         const wrong = it.classes && !it.classes.includes(this.s.char.cls);
+        // ต่อราคาเก่ง: the old price struck through next to the new one
+        const price = npcBuyPrice(id, this.s.char.skills);
+        const shown = price < it.price ? `<s>${it.price.toLocaleString()}</s> ${price.toLocaleString()} z` : `${price.toLocaleString()} z`;
         return `<div class="shop-row ${wrong ? 'dim' : ''}" data-item="${id}"><img src="${itemIcon(id)}"/>
-          <span>${escapeHtml(it.name)}</span><b>${it.price.toLocaleString()} z</b>
-          <input type="number" min="1" max="99" value="1"/><button class="buy" ${this.s.char.zeny < it.price ? 'disabled' : ''}>ซื้อ</button></div>`;
+          <span>${escapeHtml(it.name)}</span><b>${shown}</b>
+          <input type="number" min="1" max="99" value="1"/><button class="buy" ${this.s.char.zeny < price ? 'disabled' : ''}>ซื้อ</button></div>`;
       })
       : this.s.inv.filter((r) => !r.equipped).map((r) => {
         const it = ITEMS[r.item_id];
         return `<div class="shop-row" data-sell="${r.id}" data-item="${r.item_id}"><img src="${itemIcon(r.item_id)}"/>
-          <span>${escapeHtml(itemLabel(r.item_id, r))} x${r.qty}</span><b>${Math.floor(it.price / 2).toLocaleString()} z</b>
+          <span>${escapeHtml(itemLabel(r.item_id, r))} x${r.qty}</span><b>${npcSellPrice(r.item_id, this.s.char.skills).toLocaleString()} z</b>
           <input type="number" min="1" max="${r.qty}" value="${r.qty}"/><button class="sell">ขาย</button></div>`;
       });
     b.innerHTML = `<div class="tabs"><button data-st="buy" class="${this.shopTab === 'buy' ? 'on' : ''}">ซื้อ</button>
@@ -1563,6 +1945,162 @@ export class Hud implements WorldHooks {
     });
   }
 
+  // ------------------------------------------------------------ player shops (เปิดแผงขายของ)
+
+  /** The shop skill: set up a shop, or look after the one that's open. */
+  openVend() {
+    const lv = this.s.char.skills?.[VEND_SKILL] ?? 0;
+    if (lv < 1) return this.toast('ต้องเรียนสกิลเปิดแผงขายของก่อน', 'bad');
+    this.win('vend', '🏪 เปิดแผงขายของ', 'vend');
+    this.lastSig.vend = '';
+    this.renderVend();
+  }
+
+  viewShop(sid: string) {
+    this.actions.send('shopView', { to: sid });
+  }
+
+  /** My own shop opened, changed or closed (from the server). */
+  shopMine(m: ShopView) {
+    const was = !!this.myShop;
+    this.myShop = m.open ? m : null;
+    if (m.text) this.system(`🏪 ${escapeHtml(m.text)}`);
+    if (m.open && !was) {
+      this.toast('เปิดร้านแล้ว! นั่งรอลูกค้าได้เลย', 'good');
+      this.vendDraft.clear();
+    }
+    this.lastSig.vend = '';
+    this.renderVend();
+  }
+
+  shopSold(m: { name: string; qty: number; zeny: number; buyer: string }) {
+    this.line('good', `🏪 ${escapeHtml(m.buyer)} ซื้อ ${escapeHtml(m.name)} x${m.qty} ได้เงิน ${m.zeny.toLocaleString()} z`);
+    this.toast(`ขาย ${m.name} x${m.qty} ได้ ${m.zeny.toLocaleString()} z`, 'good');
+    sfx('coin');
+  }
+
+  shopBought(m: { name: string; qty: number; zeny: number; seller: string }) {
+    this.line('good', `🛍️ ซื้อ ${escapeHtml(m.name)} x${m.qty} จากร้านของ ${escapeHtml(m.seller)} จ่าย ${m.zeny.toLocaleString()} z`);
+    sfx('coin');
+  }
+
+  /** Another player's shop: what's for sale (from the server). */
+  shopList(m: ShopView) {
+    if (!m.open || !m.items?.length) {
+      if (this.vshop?.sid === m.sid || !this.isOpen('vshop')) this.toast('ร้านนี้ปิดไปแล้ว', 'bad');
+      this.vshop = null;
+      return this.closeWin('vshop');
+    }
+    this.vshop = m;
+    this.win('vshop', `🏪 ${escapeHtml(m.title ?? '')}`, 'vend');
+    this.renderVShop();
+  }
+
+  private renderVShop() {
+    const b = this.body('vshop');
+    const v = this.vshop;
+    if (!b || !v?.items) return;
+    const rows = v.items.map((it) => `<div class="vend-row buy" data-inv="${it.inv}" data-item="${it.item}"><img src="${itemIcon(it.item)}"/>
+        <span>${escapeHtml(itemLabel(it.item, it))}${it.cards.length ? ` <small>[${it.cards.length} การ์ด]</small>` : ''}<small>เหลือ ${it.qty}</small></span>
+        <b>${it.price.toLocaleString()} z</b>
+        <input type="number" min="1" max="${it.qty}" value="1" ${it.qty < 2 ? 'disabled' : ''}/>
+        <button class="buy" ${this.s.char.zeny < it.price ? 'disabled' : ''}>ซื้อ</button></div>`);
+    b.innerHTML = `<div class="vend-head">ร้านของ <b>${escapeHtml(v.name ?? '')}</b></div>
+      <div class="shop-list">${rows.join('')}</div>
+      <div class="inv-foot"><span>Zeny ของคุณ : <b>${this.s.char.zeny.toLocaleString()}</b></span></div>`;
+    b.querySelectorAll<HTMLElement>('.vend-row').forEach((row) => {
+      const it = v.items!.find((x) => x.inv === row.dataset.inv)!;
+      const img = row.querySelector('img')!;
+      this.tooltip(img, () => this.itemTip(it.item, it));
+      img.addEventListener('click', () => lastTouch && this.openItem(it.item));
+      row.querySelector('.buy')!.addEventListener('click', () => {
+        const qty = Math.max(1, Math.min(it.qty, Math.floor(Number((row.querySelector('input') as HTMLInputElement).value) || 1)));
+        const total = it.price * qty;
+        if (total > this.s.char.zeny) return this.toast('เงินไม่พอ', 'bad');
+        if (!confirm(`ซื้อ ${itemLabel(it.item, it)} x${qty}\nรวม ${total.toLocaleString()} z ?`)) return;
+        this.actions.send('shopBuy', { to: v.sid, inv: it.inv, qty });
+      });
+    });
+  }
+
+  private renderVend() {
+    const b = this.body('vend');
+    if (!b || !this.isOpen('vend')) return;
+    const lv = this.s.char.skills?.[VEND_SKILL] ?? 0;
+    const max = vendSlots(lv);
+    const shop = this.myShop;
+    const sig = JSON.stringify([shop, this.s.inv, lv]);
+    if (this.lastSig.vend === sig) return;
+    this.lastSig.vend = sig;
+    if (shop?.items) {
+      // the shop is open: what's left, and a button to close it
+      const rows = shop.items.map((it) => `<div class="vend-row mine" data-item="${it.item}"><img src="${itemIcon(it.item)}"/>
+          <span>${escapeHtml(itemLabel(it.item, it))}</span><small>x${it.qty}</small><b>${it.price.toLocaleString()} z</b></div>`);
+      b.innerHTML = `<div class="vend-head">ร้าน <b>${escapeHtml(shop.title ?? '')}</b> กำลังเปิดอยู่</div>
+        <div class="shop-list">${rows.join('')}</div>
+        <p class="hint">ของที่ขายได้จะหายจากกระเป๋า เงินเข้าทันที · เดิน โจมตี ใช้สกิล หรือกดนั่งอีกครั้ง = ปิดร้าน</p>
+        <div class="npc-btns"><button id="vend-close" class="close">ปิดร้าน</button></div>`;
+      b.querySelectorAll<HTMLElement>('.vend-row img').forEach((img) => {
+        const it = shop.items!.find((x) => x.item === (img.parentElement as HTMLElement).dataset.item)!;
+        this.tooltip(img, () => this.itemTip(it.item, it));
+      });
+      b.querySelector('#vend-close')!.addEventListener('click', () => this.actions.send('shopClose'));
+      return;
+    }
+    // setting up: tick what to sell, how many, and the price of one
+    const bag = this.s.inv.filter((r) => !r.equipped);
+    for (const id of [...this.vendDraft.keys()]) if (!bag.some((r) => r.id === id)) this.vendDraft.delete(id);
+    const draft = (r: InvItem) => this.vendDraft.get(r.id) ?? { on: false, qty: r.qty, price: ITEMS[r.item_id]?.price ?? 1 };
+    const picked = () => [...this.vendDraft.values()].filter((d) => d.on).length;
+    const rows = bag.map((r) => {
+      const d = draft(r);
+      return `<div class="vend-row set ${d.on ? 'on' : ''}" data-inv="${r.id}" data-item="${r.item_id}">
+        <input type="checkbox" class="pick" ${d.on ? 'checked' : ''}/><img src="${itemIcon(r.item_id)}"/>
+        <span>${escapeHtml(itemLabel(r.item_id, r))}<small>มี ${r.qty}</small></span>
+        <input type="number" class="qty" min="1" max="${r.qty}" value="${Math.min(d.qty, r.qty)}" ${r.qty < 2 ? 'disabled' : ''} title="จำนวนที่ขาย"/>
+        <input type="number" class="price" min="1" max="${VEND_MAX_PRICE}" value="${d.price}" title="ราคาต่อชิ้น (z)"/></div>`;
+    });
+    b.innerHTML = `<label class="vend-title">ชื่อร้าน <input id="vend-name" maxlength="30" placeholder="ร้านของ ${escapeHtml(this.s.char.name)}" value="${escapeHtml(this.vendTitle)}"/></label>
+      <div class="vend-cols"><span></span><span>ไอเท็ม</span><span>จำนวน</span><span>ราคา/ชิ้น</span></div>
+      <div class="shop-list">${rows.join('') || '<p class="hint">ไม่มีของในกระเป๋าที่ขายได้ (ของที่ใส่อยู่ต้องถอดก่อน)</p>'}</div>
+      <div class="inv-foot"><span>เลือกแล้ว <b id="vend-count">${picked()}</b> / ${max} ชนิด (สกิล Lv ${lv})</span></div>
+      <p class="hint">เปิดได้เฉพาะในเมือง · ระหว่างเปิดร้านตัวละครจะนั่งอยู่กับที่</p>
+      <div class="npc-btns"><button id="vend-open" class="ok">เปิดร้าน</button><button id="vend-cancel" class="close">ยกเลิก</button></div>`;
+    b.querySelector<HTMLInputElement>('#vend-name')!.addEventListener('input', (e) => (this.vendTitle = (e.target as HTMLInputElement).value));
+    b.querySelectorAll<HTMLElement>('.vend-row').forEach((row) => {
+      const r = bag.find((x) => x.id === row.dataset.inv)!;
+      const save = () => {
+        const d = {
+          on: (row.querySelector('.pick') as HTMLInputElement).checked,
+          qty: Math.max(1, Math.min(r.qty, Math.floor(Number((row.querySelector('.qty') as HTMLInputElement).value) || 1))),
+          price: Math.max(1, Math.min(VEND_MAX_PRICE, Math.floor(Number((row.querySelector('.price') as HTMLInputElement).value) || 1))),
+        };
+        if (d.on && !this.vendDraft.get(r.id)?.on && picked() >= max) {
+          (row.querySelector('.pick') as HTMLInputElement).checked = false;
+          return this.toast(`สกิล Lv ${lv} วางของได้สูงสุด ${max} ชนิด`, 'bad');
+        }
+        this.vendDraft.set(r.id, d);
+        row.classList.toggle('on', d.on);
+        b.querySelector('#vend-count')!.textContent = String(picked());
+      };
+      row.querySelectorAll('input').forEach((i) => i.addEventListener('change', save));
+      // typing a price or amount ticks the row
+      row.querySelectorAll<HTMLInputElement>('.qty, .price').forEach((i) => i.addEventListener('input', () => {
+        const pick = row.querySelector('.pick') as HTMLInputElement;
+        if (!pick.checked && picked() < max) pick.checked = true;
+        save();
+      }));
+      const img = row.querySelector('img')!;
+      this.tooltip(img, () => this.itemTip(r.item_id, r));
+    });
+    b.querySelector('#vend-open')!.addEventListener('click', () => {
+      const items = [...this.vendDraft.entries()].filter(([, d]) => d.on).map(([inv, d]) => ({ inv, qty: d.qty, price: d.price }));
+      if (!items.length) return this.toast('ติ๊กเลือกของที่จะขายก่อน', 'bad');
+      this.actions.send('shopOpen', { title: this.vendTitle.trim(), items });
+    });
+    b.querySelector('#vend-cancel')!.addEventListener('click', () => this.closeWin('vend'));
+  }
+
   // ------------------------------------------------------------ trading
 
   playerMenu(sessionId: string, name: string, x: number, y: number) {
@@ -1573,9 +2111,15 @@ export class Hud implements WorldHooks {
     m.style.top = `${y}px`;
     const inParty = this.partyView?.members.some((x) => x.sid === sessionId);
     const canInvite = !inParty && (!this.partyView || this.partyView.leader === this.partyView.me);
+    const g = this.guildView;
+    const canGuild = !!g && g.leader === g.me && g.members.length < g.max && !g.members.some((x) => x.name === name);
     m.innerHTML = `<b>${escapeHtml(name)}</b><button data-a="trade">ขอแลกเปลี่ยน</button>`
-      + `${canInvite ? '<button data-a="party">ชวนเข้าปาร์ตี้</button>' : ''}<button data-a="close">ยกเลิก</button>`;
+      + `${canInvite ? '<button data-a="party">ชวนเข้าปาร์ตี้</button>' : ''}${canGuild ? '<button data-a="guild">ชวนเข้ากิลด์</button>' : ''}<button data-a="close">ยกเลิก</button>`;
     this.root.appendChild(m);
+    m.querySelector('[data-a=guild]')?.addEventListener('click', () => {
+      this.actions.send('guildInvite', { to: sessionId });
+      m.remove();
+    });
     m.querySelector('[data-a=party]')?.addEventListener('click', () => {
       this.actions.send('partyInvite', { to: sessionId });
       m.remove();
@@ -1790,6 +2334,227 @@ export class Hud implements WorldHooks {
     }));
   }
 
+  // ------------------------------------------------------------ guild, PVP and the guild war
+
+  /** The server sent our guild (null = not in one). */
+  guild(v: GuildView | null) {
+    const was = this.guildView;
+    this.guildView = v;
+    if (!v && was) this.lastSig.guild = '';
+    if (v && (!was || was.id !== v.id) && !this.isOpen('guild')) this.openGuild();
+    else this.renderGuild();
+  }
+
+  guildInvite(msg: { guild: string; from: string }) {
+    this.root.querySelector('.ginvite')?.remove();
+    const d = document.createElement('div');
+    d.className = 'rw pinvite ginvite';
+    d.innerHTML = `<div class="rw-title"><span>คำชวนเข้ากิลด์</span></div><div class="rw-body">
+      <p><b>${escapeHtml(msg.from)}</b> ชวนคุณเข้ากิลด์ <b>"${escapeHtml(msg.guild)}"</b></p>
+      <p class="hint">สมาชิกกิลด์เดียวกันตีกันไม่ได้ในลานประลองและสงครามกิลด์ · แชทกิลด์ พิมพ์ /g ข้อความ</p>
+      <div class="npc-btns"><button class="ok">เข้าร่วม</button><button class="close">ปฏิเสธ</button></div></div>`;
+    this.root.appendChild(d);
+    this.bringFront(d);
+    const answer = (accept: boolean) => {
+      this.actions.send('guildRespond', { accept });
+      d.remove();
+    };
+    d.querySelector('.ok')!.addEventListener('click', () => answer(true));
+    d.querySelector('.close')!.addEventListener('click', () => answer(false));
+    setTimeout(() => d.remove(), 30000);
+  }
+
+  private openGuild() {
+    this.win('guild', 'กิลด์', 'party');
+    this.lastSig.guild = '';
+    this.actions.send('guildGet');
+    this.renderGuild();
+  }
+
+  private renderGuild() {
+    const b = this.body('guild');
+    if (!b || !this.isOpen('guild')) return;
+    const v = this.guildView;
+    const sig = JSON.stringify(v);
+    if (this.lastSig.guild === sig) return;
+    this.lastSig.guild = sig;
+    const w = this.wins.get('guild')!;
+    w.querySelector('.rw-title span')!.textContent = v ? `กิลด์ : ${v.name} (${v.members.length}/${v.max})` : 'กิลด์';
+    const rule = '<p class="hint">แชทกิลด์: พิมพ์ <b>/g ข้อความ</b> · สมาชิกกิลด์เดียวกันตีกันไม่ได้ในลานประลองและสงครามกิลด์</p>';
+    if (!v) {
+      b.innerHTML = `<p>คุณยังไม่มีกิลด์ (สูงสุด ${GUILD_MAX} คน)</p>
+        <p class="hint">สร้างกิลด์ได้ที่ <b>นายทะเบียนกิลด์</b> กลางเมืองเมโลเดีย ค่าสร้าง ${GUILD_COST.toLocaleString()} z หรือรอหัวหน้ากิลด์อื่นชวน</p>${rule}`;
+      return;
+    }
+    const lead = v.leader === v.me;
+    const rows = v.members.map((m) => {
+      const where = !m.online ? '<em class="off">ออฟไลน์</em>' : escapeHtml(getMap(m.map)?.name ?? m.map);
+      const tools = lead && m.id !== v.me
+        ? `<button data-lead="${m.id}" title="มอบหัวหน้า">👑</button><button data-kick="${m.id}" title="เชิญออก">✕</button>` : '';
+      return `<div class="pt-row ${m.online ? '' : 'offline'} ${m.id === v.me ? 'me' : ''}">
+        <div class="pt-who"><b>${m.id === v.leader ? '👑 ' : ''}${escapeHtml(m.name)}</b>
+          <small>${escapeHtml(CLASSES[m.cls as ClassKey]?.name ?? m.cls)} · Lv ${m.level} · ${where}</small></div>
+        <div class="pt-tools">${tools}</div></div>`;
+    }).join('');
+    b.innerHTML = `${v.castle ? '<p class="gd-castle">🏰 กิลด์ของคุณครองปราสาทแห่งเสียง</p>' : ''}<div class="pt-list">${rows}</div>
+      ${lead && v.members.length < v.max ? '<div class="pt-form"><input id="gd-invite" maxlength="30" placeholder="ชื่อตัวละครที่จะชวน"/><button class="ok" id="gd-inv">ชวน</button></div>' : ''}
+      <div class="npc-btns"><button class="close" id="gd-leave">${v.members.length <= 1 ? 'ยุบกิลด์' : 'ออกจากกิลด์'}</button></div>${rule}`;
+    const inv = b.querySelector<HTMLInputElement>('#gd-invite');
+    const invite = () => {
+      if (!inv?.value.trim()) return;
+      this.actions.send('guildInvite', { name: inv.value.trim() });
+      inv.value = '';
+    };
+    b.querySelector('#gd-inv')?.addEventListener('click', invite);
+    inv?.addEventListener('keydown', (e) => e.key === 'Enter' && invite());
+    b.querySelector('#gd-leave')!.addEventListener('click', () => {
+      if (confirm(v.members.length <= 1 ? `ยุบกิลด์ "${v.name}"? (ค่าสร้างไม่ได้คืน)` : 'ออกจากกิลด์?')) this.actions.send('guildLeave');
+    });
+    b.querySelectorAll<HTMLButtonElement>('[data-kick]').forEach((el) => el.addEventListener('click', () => {
+      const name = v.members.find((m) => m.id === el.dataset.kick)?.name ?? '';
+      if (confirm(`เชิญ ${name} ออกจากกิลด์?`)) this.actions.send('guildKick', { id: el.dataset.kick });
+    }));
+    b.querySelectorAll<HTMLButtonElement>('[data-lead]').forEach((el) => el.addEventListener('click', () => {
+      const name = v.members.find((m) => m.id === el.dataset.lead)?.name ?? '';
+      if (confirm(`มอบหัวหน้ากิลด์ให้ ${name}?`)) this.actions.send('guildLeader', { id: el.dataset.lead });
+    }));
+  }
+
+  private talkGuild(n: Npc) {
+    this.win('npc', escapeHtml(n.name), 'npc');
+    const b = this.body('npc')!;
+    const g = this.guildView;
+    const zeny = this.s.char.zeny;
+    b.innerHTML = g
+      ? `<div class="npc-text">ท่านเป็นสมาชิกกิลด์ <b>"${escapeHtml(g.name)}"</b> อยู่แล้ว<br>เปิดหน้าต่างกิลด์ (ปุ่ม "กิลด์" หรือ Alt+G) เพื่อดูสมาชิก ชวนคน หรือออกจากกิลด์</div>
+        <div class="npc-btns"><button class="ok" data-open>เปิดหน้าต่างกิลด์</button><button class="close">ปิด</button></div>`
+      : `<div class="npc-text">ข้ารับจดทะเบียนกิลด์ ค่าธรรมเนียม <b>${GUILD_COST.toLocaleString()} z</b> (ตอนนี้มี ${zeny.toLocaleString()} z)<br>
+        • ผู้ก่อตั้งเป็นหัวหน้ากิลด์ ชวนสมาชิกได้สูงสุด ${GUILD_MAX} คน<br>
+        • สมาชิกกิลด์เดียวกันตีกันไม่ได้ และร่วมกันยึดปราสาทแห่งเสียงในสงครามกิลด์<br>
+        • ชื่อกิลด์ 2-16 ตัวอักษร ห้ามซ้ำกับกิลด์อื่น</div>
+        <div class="pt-form"><input id="gd-name" maxlength="16" placeholder="ชื่อกิลด์"/><button class="ok" id="gd-create" ${zeny < GUILD_COST ? 'disabled' : ''}>ก่อตั้งกิลด์</button></div>
+        <div class="npc-btns"><button class="close">ปิด</button></div>`;
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
+    b.querySelector('[data-open]')?.addEventListener('click', () => {
+      this.closeWin('npc');
+      this.openGuild();
+    });
+    b.querySelector('#gd-create')?.addEventListener('click', () => {
+      const name = (b.querySelector('#gd-name') as HTMLInputElement).value.trim();
+      if (!name) return this.toast('ตั้งชื่อกิลด์ก่อน', 'bad');
+      if (!confirm(`ก่อตั้งกิลด์ "${name}" ค่าธรรมเนียม ${GUILD_COST.toLocaleString()} z?`)) return;
+      this.actions.send('guildCreate', { name });
+      this.closeWin('npc');
+    });
+  }
+
+  private talkArena(n: Npc) {
+    this.win('npc', escapeHtml(n.name), 'npc');
+    const b = this.body('npc')!;
+    b.innerHTML = `<div class="npc-text">ลานประลองจังหวะ เปิดให้ประลองฝีมือกับผู้เล่นคนอื่นตลอดเวลา (PVP)<br>
+      • คลิก/แตะผู้เล่นที่ชื่อเป็นสีแดงเพื่อโจมตี ใช้สกิลโจมตีกับผู้เล่นได้<br>
+      • คนในปาร์ตี้หรือกิลด์เดียวกันตีกันไม่ได้<br>
+      • ดาเมจที่ตีผู้เล่นเหลือ ${Math.round(PVP_DAMAGE * 100)}% ของปกติ ปรับเพิ่ม/ลดได้ด้วยอุปกรณ์และการ์ดที่มีค่า "ตีผู้เล่น" / "ลดดาเมจจากผู้เล่น"<br>
+      • หมดสติในลานไม่เสีย EXP กดฟื้นแล้วลุกขึ้นในลานทันที · มีตารางคะแนนคนล้มคู่ต่อสู้มากที่สุด</div>
+      <div class="npc-btns"><button class="ok" data-go>เข้าลานประลอง (ฟรี)</button><button class="close">ปิด</button></div>`;
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
+    b.querySelector('[data-go]')!.addEventListener('click', () => {
+      this.closeWin('npc');
+      this.goWithNpc(ARENA_MAP);
+    });
+  }
+
+  /** The herald asks the server who holds the castle; this draws the answer. */
+  castleInfo(i: { owner: string; warEnds?: number; nextWar: number; schedule: string }) {
+    const b = this.body('npc');
+    const box = b?.querySelector('#gvg-info');
+    if (!box) return;
+    const now = Date.now();
+    box.innerHTML = `ปราสาทแห่งเสียงตอนนี้: <b>${i.owner ? `กิลด์ "${escapeHtml(i.owner)}"` : 'ยังไม่มีผู้ครอง'}</b><br>`
+      + (i.warEnds ? `<b class="war-on">⚔ สงครามกิลด์กำลังดำเนินอยู่!</b> เหลือเวลา ${durationText(i.warEnds - now)}` : `สงครามครั้งถัดไปเริ่มในอีก ${durationText(i.nextWar - now)}`);
+  }
+
+  private talkCastle(n: Npc) {
+    this.win('npc', escapeHtml(n.name), 'npc');
+    const b = this.body('npc')!;
+    b.innerHTML = `<div class="npc-text"><div id="gvg-info">กำลังถามข่าวจากปราสาท…</div><br>
+      สงครามกิลด์จัดที่ปราสาทแห่งเสียง ${escapeHtml(warScheduleText())} (เวลาไทย)<br>
+      • ระหว่างสงคราม ในปราสาทตีผู้เล่นต่างกิลด์ได้ · ต้องมีกิลด์ถึงจะตีคริสตัลแห่งเสียงในลานบัลลังก์ได้<br>
+      • กิลด์ที่ตีคริสตัลแตก (ทำดาเมจรวมมากที่สุด) ยึดปราสาท แล้วคริสตัลเกิดใหม่ให้กิลด์อื่นแย่งต่อ<br>
+      • จบสงคราม กิลด์ที่ครองปราสาท สมาชิกที่ออนไลน์ได้คนละ ${WAR_PRIZE.toLocaleString()} z<br>
+      • นอกเวลาสงครามเข้าไปเที่ยวชมได้ แต่ตีกันไม่ได้ · หมดสติในปราสาทไม่เสีย EXP</div>
+      <div class="npc-btns"><button class="ok" data-go>ไปปราสาทแห่งเสียง (ฟรี)</button><button class="close">ปิด</button></div>`;
+    this.actions.send('castleInfo');
+    b.querySelector('.close')!.addEventListener('click', () => this.closeWin('npc'));
+    b.querySelector('[data-go]')!.addEventListener('click', () => {
+      this.closeWin('npc');
+      this.goWithNpc(CASTLE_MAP);
+    });
+  }
+
+  private goWithNpc(to: string) {
+    this.actions.send('npcGo', { to });
+    const from = this.map;
+    const errs = this.errors;
+    setTimeout(() => {
+      if (this.map === from && this.errors === errs && !this.ac.signal.aborted) {
+        this.toast('เซิร์ฟเวอร์ไม่ตอบ (เซิร์ฟเวอร์อาจยังเป็นเวอร์ชันเก่า: อัปไฟล์ขึ้น GitLab แล้วกด Manual Deploy บน Render)', 'bad');
+      }
+    }, 8000);
+  }
+
+  /** A freshly built map: tell it about PVP (the server's message may have come before the world was ready). */
+  syncPvpWorld() {
+    this.actions.scene()?.setPvp(this.pvpInfo.on);
+    this.renderPvpBar();
+  }
+
+  /** The server says whether players can fight here (and, in the castle, the war state). */
+  pvp(info: PvpInfo) {
+    const was = this.pvpInfo.on;
+    this.pvpInfo = info;
+    this.actions.scene()?.setPvp(info.on);
+    // the castle's message carries the war clock (this can come before setMap() for the new map)
+    if (info.on && !was) this.toast(info.nextWar ? '⚔ สงครามกิลด์! ตีผู้เล่นต่างกิลด์ได้ (ชื่อสีแดง)' : '⚔ เขต PVP: ตีผู้เล่นคนอื่นได้ (ชื่อสีแดง)', 'bad');
+    this.renderPvpBar();
+  }
+
+  pvpScore(rows: PvpScore[]) {
+    this.pvpScores = rows;
+    this.renderPvpBar();
+  }
+
+  /** The bar at the top of the screen on the PVP maps: PVP on/off, the castle's holder and war clock, the arena scoreboard. */
+  private pvpTimer = 0;
+  private renderPvpBar() {
+    let bar = this.root.querySelector<HTMLElement>('#pvp-bar');
+    const show = this.map && (this.map.id === ARENA_MAP || this.map.id === CASTLE_MAP);
+    if (!show) {
+      bar?.remove();
+      clearInterval(this.pvpTimer);
+      this.pvpTimer = 0;
+      return;
+    }
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'pvp-bar';
+      bar.addEventListener('click', () => bar!.classList.toggle('open'));
+      this.root.appendChild(bar);
+    }
+    if (!this.pvpTimer) this.pvpTimer = window.setInterval(() => this.renderPvpBar(), 15000);
+    const i = this.pvpInfo;
+    const now = Date.now();
+    let head = i.on ? '<b class="war-on">⚔ PVP เปิด</b>' : '<b>🕊 ตีกันไม่ได้ตอนนี้</b>';
+    if (this.map.id === CASTLE_MAP) {
+      head += ` · 🏰 ${i.owner ? escapeHtml(i.owner) : 'ยังไม่มีผู้ครอง'}`;
+      head += i.warEnds ? ` · เหลือ ${durationText(i.warEnds - now)}` : i.nextWar ? ` · สงครามถัดไปอีก ${durationText(i.nextWar - now)}` : '';
+    }
+    const rows = this.map.id === ARENA_MAP && this.pvpScores.length
+      ? `<table>${this.pvpScores.map((r, n) => `<tr><td>${n + 1}</td><td>${escapeHtml(r.name)}${r.guild ? ` <small>[${escapeHtml(r.guild)}]</small>` : ''}</td><td>⚔${r.kills}</td><td>☠${r.deaths}</td></tr>`).join('')}</table>`
+      : this.map.id === ARENA_MAP ? '<small>ยังไม่มีใครล้มใคร</small>' : '';
+    bar.innerHTML = `<div>${head}</div>${rows ? `<div class="pvp-score">${rows}</div>` : ''}`;
+  }
+
   // ------------------------------------------------------------ misc windows
 
   private openOption() {
@@ -1830,11 +2595,35 @@ export class Hud implements WorldHooks {
 
   /** /auto on/off: light up the button and say so (clicking the ground or dying also turns it off). */
   autoChanged(on: boolean) {
-    this.root.querySelector('#bi-auto')?.classList.toggle('on', on);
+    this.root.querySelector('#auto-btn')?.classList.toggle('on', on);
     this.root.querySelector('#auto-badge')?.remove();
     if (on) {
-      this.root.insertAdjacentHTML('beforeend', '<div id="auto-badge" class="auto-badge">AUTO · ตีและใช้สกิลอัตโนมัติ</div>');
-      this.line('sys', 'เปิดออโต้: ตีมอนสเตอร์ใกล้ ๆ ใช้สกิลและยาเอง (พิมพ์ /auto อีกครั้ง หรือคลิกพื้นเพื่อหยุด)');
+      const pct = potionPct();
+      const spPct = spPotionPct();
+      const STEPS = [0, 10, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90];
+      const options = (cur: number) => (STEPS.includes(cur) ? '' : `<option value="${cur}" selected>ต่ำกว่า ${cur}%</option>`)
+        + STEPS.map((v) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${v ? `ต่ำกว่า ${v}%` : 'ไม่ใช้ยา'}</option>`).join('');
+      this.root.insertAdjacentHTML('beforeend', `<div id="auto-badge" class="auto-badge">
+        <span class="ab-t">AUTO · ตีและใช้สกิลอัตโนมัติ</span>
+        <label class="ab-pot" title="ดื่มยาฟื้น HP อัตโนมัติ (ซ้ำได้ทุก 1 วินาที)">ยา HP <select id="ab-pot">${options(pct)}</select></label>
+        <label class="ab-pot" title="ดื่มยาฟื้น SP อัตโนมัติ (ซ้ำได้ทุก 1 วินาที)">ยา SP <select id="ab-sp">${options(spPct)}</select></label>
+        <button id="ab-stop" title="หยุดออโต้">หยุด</button></div>`);
+      const sel = this.root.querySelector<HTMLSelectElement>('#ab-pot')!;
+      sel.addEventListener('change', () => {
+        setAutoPotionPct(Number(sel.value));
+        const v = Number(sel.value);
+        this.line('sys', v ? `ออโต้จะดื่มยา HP เมื่อ HP ต่ำกว่า ${v}% (ซ้ำได้ทุก 1 วินาที)` : 'ออโต้จะไม่ดื่มยา HP');
+      });
+      const spSel = this.root.querySelector<HTMLSelectElement>('#ab-sp')!;
+      spSel.addEventListener('change', () => {
+        setAutoSpPotionPct(Number(spSel.value));
+        const v = Number(spSel.value);
+        const has = this.s.inv.some((i) => ITEMS[i.item_id]?.type === 'consumable' && ITEMS[i.item_id].sp);
+        this.line('sys', v ? `ออโต้จะดื่มยา SP เมื่อ SP ต่ำกว่า ${v}% (ซ้ำได้ทุก 1 วินาที)${has ? '' : ' · ตอนนี้ในกระเป๋ายังไม่มียาฟื้น SP'}` : 'ออโต้จะไม่ดื่มยา SP');
+      });
+      this.root.querySelector('#ab-stop')!.addEventListener('click', () => this.actions.scene()?.setAuto(false));
+      const say = (v: number, what: string) => (v ? `ดื่มยา ${what} เมื่อ ${what} ต่ำกว่า ${v}%` : `ไม่ดื่มยา ${what}`);
+      this.line('sys', `เปิดออโต้: ตีมอนสเตอร์ใกล้ ๆ ใช้สกิลเอง ${say(pct, 'HP')} · ${say(spPct, 'SP')} (เปลี่ยนได้ที่แถบ AUTO ด้านบน) · พิมพ์ /auto อีกครั้ง หรือคลิกพื้นเพื่อหยุด`);
     } else this.line('sys', 'ปิดออโต้แล้ว');
   }
 
@@ -1844,7 +2633,7 @@ export class Hud implements WorldHooks {
     const d = document.createElement('div');
     d.className = 'rw death';
     d.innerHTML = `<div class="rw-title"><span>หมดสติ</span></div><div class="rw-body">
-      <p>คุณหมดสติแล้ว… เสีย Base EXP 5% และจะกลับไปฟื้นที่เมือง</p>
+      <p>คุณหมดสติแล้ว… เสีย Base EXP 5% และจะกลับไปฟื้นที่จุดเกิดที่บันทึกไว้กับบูรพา (ยังไม่บันทึก = กลางเมือง)</p>
       <div class="npc-btns"><button class="ok">กลับไปจุดเซฟ</button></div></div>`;
     this.root.appendChild(d);
     this.bringFront(d);
@@ -1918,6 +2707,8 @@ export class Hud implements WorldHooks {
       else if (e.altKey && k === 's') this.toggle('skill');
       else if (e.altKey && k === 'a') this.toggle('equip');
       else if (e.altKey && k === 'z') this.toggle('party');
+      else if (e.altKey && k === 'g') this.toggle('guild');
+      else if (e.altKey && k === 'g') this.toggleGuide();
       else if (k === 'tab') this.root.querySelector('#minimap')!.classList.toggle('hidden');
       else if (k === 'insert') this.actions.scene()?.toggleSit();
       else if (k === 'escape') {
@@ -1944,6 +2735,7 @@ export class Hud implements WorldHooks {
     this.renderInv();
     this.renderSkills();
     this.renderShop();
+    this.renderVend();
     this.renderStorage();
     this.renderItem();
     this.renderRefine();
@@ -1984,6 +2776,15 @@ export class Hud implements WorldHooks {
     }
     if (box.innerHTML !== html) box.innerHTML = html;
   }
+}
+
+/** Card art placeholders (data-portrait="<monster>") get the monster rendered from its model. */
+function hydratePortraits(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>('[data-portrait]').forEach((pic) => {
+    void monsterPortrait(pic.dataset.portrait!).then((url) => {
+      if (pic.isConnected) pic.innerHTML = url ? `<img src="${url}" alt=""/>` : '<span class="muted">?</span>';
+    });
+  });
 }
 
 // whether the last press was a finger (some phones also send dblclick after two taps: don't act twice)

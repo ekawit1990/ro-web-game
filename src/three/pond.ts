@@ -273,6 +273,8 @@ const PALETTE: Partial<Record<GameMap['theme'], { shallow: number; deep: number;
   cave: { shallow: 0x5ff0e8, deep: 0x1a3a8a, floor: 0x6a6a8a },
   deadwood: { shallow: 0x6a7a5a, deep: 0x2a2a3a, floor: 0x5a5444 },
   ruins: { shallow: 0x5a7a8a, deep: 0x1e2a3a, floor: 0x6a6658 },
+  magic: { shallow: 0x6ab0f0, deep: 0x2a3a9a, floor: 0xb8b0c8 },
+  abyss: { shallow: 0xa01030, deep: 0x3a0010, floor: 0x2a1020 },
 };
 
 function rand(seed: number) {
@@ -434,7 +436,7 @@ export function buildPonds(m: GameMap): THREE.Group | null {
     const cx = x + 0.5, cz = y + 0.5;
     const d = p.deep(cx, cz), f = p.f(cx, cz);
     const roll = r();
-    const cold = m.theme === 'snow' || m.theme === 'cave' || m.theme === 'deadwood' || m.theme === 'ruins'; // no lilies or reeds, just weeds and fish
+    const cold = m.theme === 'snow' || m.theme === 'cave' || m.theme === 'deadwood' || m.theme === 'ruins' || m.theme === 'abyss'; // no lilies or reeds, just weeds and fish
     // the desert moat and the sea are big: only a sprinkling of pond life, so it stays cheap to draw
     if ((m.theme === 'desert' || m.theme === 'beach') && roll > 0.06) {
       // skip

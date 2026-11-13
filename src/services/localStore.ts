@@ -2,7 +2,7 @@ import {
   Appearance, CLASSES, CLASS_KEYS, Character, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL,
   MONSTERS, REFINE, SHOP, SKILLS, START_CLASS, STORAGE_SLOTS, StatKey, StorageItem, WEAPON_SHOP, canRefine, cardFits, expToNext, wearBlock,
   jobExpToNext, questCounts, refineChance, refineFee, refineMaterial, statCost, statPointsAt,
-  SERVICE_FEE, STAT_KEYS, statRefund,
+  SERVICE_FEE, STAT_KEYS, statRefund, npcBuyPrice, npcSellPrice,
 } from '../data';
 import type { GameStore, KillResult, RefineResult, RewardShare, TradeOffer } from './store';
 
@@ -168,7 +168,7 @@ export class LocalStore implements GameStore {
   async learnSkill(charId: string, skill: string) {
     const c = this.char(charId);
     const s = SKILLS[skill];
-    if (!s || s.cls !== c.cls) throw new Error('อาชีพนี้เรียนสกิลนี้ไม่ได้');
+    if (!s || (s.cls !== c.cls && s.cls !== 'all')) throw new Error('อาชีพนี้เรียนสกิลนี้ไม่ได้');
     const cur = c.skills[skill] ?? 0;
     if (cur >= s.maxLevel) throw new Error('สกิลเต็มแล้ว');
     if (c.skill_points < 1) throw new Error('แต้มสกิลไม่พอ');
@@ -221,7 +221,7 @@ export class LocalStore implements GameStore {
     const item = ITEMS[itemId];
     const inShop = SHOP.includes(itemId) || WEAPON_SHOP.includes(itemId);
     if (!item || !inShop || qty < 1 || qty > 99) throw new Error('ซื้อไม่ได้');
-    const cost = item.price * qty;
+    const cost = npcBuyPrice(itemId, c.skills) * qty;
     if (c.zeny < cost) throw new Error('เงินไม่พอ');
     c.zeny -= cost;
     this.addItem(charId, itemId, qty);
@@ -236,7 +236,7 @@ export class LocalStore implements GameStore {
     if (!row || row.equipped || qty < 1 || qty > row.qty) throw new Error('ขายไม่ได้');
     row.qty -= qty;
     if (row.qty === 0) inv.splice(inv.indexOf(row), 1);
-    c.zeny += Math.floor(ITEMS[row.item_id].price / 2) * qty;
+    c.zeny += npcSellPrice(row.item_id, c.skills) * qty;
     this.persist();
     return this.getCharacter(charId);
   }
@@ -401,12 +401,20 @@ export class LocalStore implements GameStore {
     this.persist();
   }
 
+  /** set_save_point() in SQL (minus the current-map check: this copy's `map` isn't kept up to date while playing). */
+  async setSavePoint(charId: string, map: string, x: number, y: number) {
+    const c = this.char(charId);
+    Object.assign(c, { save_map: map, save_x: Math.min(Math.max(x, 0), 200), save_y: Math.min(Math.max(y, 0), 200) });
+    this.persist();
+    return this.getCharacter(charId);
+  }
+
   async onDeath(charId: string) {
     const c = this.char(charId);
     c.exp = Math.max(0, c.exp - Math.floor(expToNext(c.level) * 0.05));
-    c.map = TOWN_SPAWN.map;
-    c.pos_x = TOWN_SPAWN.x;
-    c.pos_y = TOWN_SPAWN.y;
+    c.map = c.save_map ?? TOWN_SPAWN.map;
+    c.pos_x = c.save_map ? c.save_x ?? TOWN_SPAWN.x : TOWN_SPAWN.x;
+    c.pos_y = c.save_map ? c.save_y ?? TOWN_SPAWN.y : TOWN_SPAWN.y;
     this.persist();
     return this.getCharacter(charId);
   }

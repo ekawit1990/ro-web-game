@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BASS_SHAPES, GUITAR_SHAPES, buildShaped } from './guitarShapes';
 
 /**
  * A detailed electric bass / guitar built from code, at real size in metres.
@@ -104,7 +105,9 @@ function rod(a: THREE.Vector3, b: THREE.Vector3, r: number, m: THREE.Material) {
   return o;
 }
 
-export function buildStringed(kind: 'bass' | 'guitar'): StringedProp {
+export function buildStringed(kind: 'bass' | 'guitar', shape?: string): StringedProp {
+  if (kind === 'guitar' && shape && GUITAR_SHAPES[shape]) return buildShaped(GUITAR_SHAPES[shape]);
+  if (kind === 'bass' && shape && BASS_SHAPES[shape]) return buildShaped(BASS_SHAPES[shape]);
   const sp = SPECS[kind];
   const k = sp.bodyScale;
   const g = new THREE.Group();

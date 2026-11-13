@@ -32,6 +32,8 @@ export const MOODS: Record<Theme, Mood> = {
   beach: { ...base, sun: 0xfff2d8, sunI: 2.8, elev: 44, sky: 0xbfe4ff, ground: 0xd8c08a, skyI: 1.25, exposure: 1.12, rim: [0.3, 0.32, 0.34] },
   cave: { ...base, sun: 0xc0ccff, sunI: 2.3, elev: 55, sky: 0xa898e8, ground: 0x3a7a8a, skyI: 1.7, exposure: 1.25, rim: [0.3, 0.45, 0.6] },
   deadwood: { ...base, sun: 0xe8dcf0, sunI: 2.4, elev: 30, sky: 0xb8a8c8, ground: 0x5a5444, skyI: 1.45, exposure: 1.18, rim: [0.36, 0.3, 0.42] },
+  magic: { ...base, sun: 0xfff0e0, sunI: 2.5, elev: 38, sky: 0xd0c4ff, ground: 0x6a6a8a, skyI: 1.3, exposure: 1.12, rim: [0.36, 0.3, 0.46] },
+  abyss: { ...base, sun: 0xd07aff, sunI: 2.2, elev: 32, sky: 0x8a4a8a, ground: 0x6a1030, skyI: 1.5, exposure: 1.22, rim: [0.55, 0.15, 0.4] },
   ruins: { ...base, sun: 0xffd2b0, sunI: 2.1, elev: 22, sky: 0xa8a8c8, ground: 0x5a5648, skyI: 1.2, exposure: 1.12, rim: [0.42, 0.34, 0.4] },
 };
 

@@ -5,6 +5,9 @@ import type { GameStore, RefineResult } from './store';
 export const CHAR_COLUMNS =
   'id,name,cls,level,exp,job_level,job_exp,zeny,stat_points,skill_points,skills,job_quest,str,agi,vit,int,dex,luk,gender,hair,hair_color,face,hp,sp,map,pos_x,pos_y';
 
+/** The save point (บูรพา) needs the newer setup.sql / add-save-point.sql; without it, load the rest. */
+const SAVE_COLUMNS = ',save_map,save_x,save_y';
+
 /** refine + cards need the newer setup.sql; until it is re-run, fall back to the old columns. */
 export const INV_COLUMNS = 'id,item_id,qty,equipped,refine,cards';
 const OLD_INV_COLUMNS = 'id,item_id,qty,equipped';
@@ -38,6 +41,8 @@ export class SupabaseStore implements GameStore {
   }
 
   async listCharacters() {
+    const res = await this.sb.from('characters').select(CHAR_COLUMNS + SAVE_COLUMNS).order('created_at');
+    if (!res.error) return res.data as unknown as Character[];
     return check(await this.sb.from('characters').select(CHAR_COLUMNS).order('created_at')) as unknown as Character[];
   }
 
@@ -56,6 +61,8 @@ export class SupabaseStore implements GameStore {
   }
 
   async getCharacter(id: string) {
+    const res = await this.sb.from('characters').select(CHAR_COLUMNS + SAVE_COLUMNS).eq('id', id).single();
+    if (!res.error) return res.data as unknown as Character;
     return check(await this.sb.from('characters').select(CHAR_COLUMNS).eq('id', id).single()) as unknown as Character;
   }
 
@@ -120,6 +127,10 @@ export class SupabaseStore implements GameStore {
 
   async storagePut(charId: string, invId: string, qty: number) {
     check(await this.sb.rpc('storage_put', { p_char: charId, p_inv: invId, p_qty: qty }));
+  }
+
+  async setSavePoint(charId: string, map: string, x: number, y: number) {
+    return clean(check(await this.sb.rpc('set_save_point', { p_char: charId, p_map: map, p_x: x, p_y: y })));
   }
 
   async storageTake(charId: string, rowId: string, qty: number) {

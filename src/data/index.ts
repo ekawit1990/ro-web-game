@@ -16,7 +16,7 @@ export const JOB_CHANGE = { level: 10, monsterLevel: 10, kills: 30 };
  * Which town's job-change NPC hands out each class 2 (map id). Drummers change in the desert town,
  * everyone else in Melodia. Must match change_job() in SQL.
  */
-export const JOB_TOWN: Partial<Record<ClassKey, string>> = { drummer: 'desert' };
+export const JOB_TOWN: Partial<Record<ClassKey, string>> = { drummer: 'desert', keyboardist: 'magic' };
 export const jobTown = (cls: ClassKey) => JOB_TOWN[cls] ?? 'town';
 
 /** บูรพา's account-wide storage: most rows (one per stack, one per piece of equipment). Must match storage_put() in SQL. */
@@ -133,6 +133,12 @@ export interface ItemDef {
   gender?: Gender;
   /** Stats the item itself gives while worn (outfits), added like a card's. */
   bonus?: CardBonus;
+  /** MVP guitars: the body shape the guitarist carries (see src/three/guitarShapes.ts). */
+  shape?: string;
+  /** Music hats (2026-11-10): the 3D hat built in src/three/hats.ts. */
+  hat?: { kind: string; c: string[]; v?: string };
+  /** Drops only from MVP bosses (shown in the item window). */
+  mvp?: boolean;
   /** Weapons: the element of your attacks. Armour: your defence element. */
   element?: Element;
   /** Element converters (consumables): put this element on your weapon for ENDOW_SEC seconds. */
@@ -143,7 +149,9 @@ export interface ItemDef {
 export type CardSlot = 'weapon' | 'armor' | 'head' | 'shoes' | 'accessory';
 /** What a card adds: flat stats and numbers, or percentages (…Pct, aspd). */
 export type CardBonus = Partial<Record<StatKey | 'atk' | 'matk' | 'def' | 'mdef' | 'hit' | 'flee' | 'crit' | 'aspd'
-  | 'maxHp' | 'maxSp' | 'maxHpPct' | 'maxSpPct' | 'atkPct' | 'matkPct', number>>;
+  | 'maxHp' | 'maxSp' | 'maxHpPct' | 'maxSpPct' | 'atkPct' | 'matkPct'
+  /** PVP (2026-11-10): % more damage to players / % less damage taken from players */
+  | 'pvpAtkPct' | 'pvpDefPct', number>>;
 
 export const cardFits = (card: ItemDef | undefined, equip: ItemDef | undefined) =>
   !!card?.card && !!equip && (card.card.slot === equip.type || (card.card.slot === 'head' && equip.type === 'earring'));
@@ -208,7 +216,13 @@ export interface MonsterDef {
   aggressive: boolean;
   color: string;
   size: number;
+  /** Mini boss (the old bosses) or, with `mvp`, the MVP boss: the killer who did the most damage gets the MVP banner. */
   boss?: boolean;
+  mvp?: boolean;
+  /** Skills the monster casts in a fight (MONSTER_SKILLS). */
+  skills?: string[];
+  /** Guild war crystal (คริสตัลแห่งเสียง): never moves or fights back, not in the guide, no rewards. */
+  structure?: boolean;
   /** Which body to draw (another monster's id); defaults to the monster's own id. */
   shape?: string;
   /** Rigged model in public/models/monsters/ that replaces the drawn body once loaded. */
@@ -230,9 +244,14 @@ export interface SpawnDef {
   respawnSec?: number;
 }
 
-/** heal_target and buff_target pick yourself or one other player; buff_party buffs you and your party on the map. */
-export type SkillType = 'single' | 'aoe' | 'aoe_self' | 'line' | 'heal' | 'heal_target' | 'buff' | 'buff_target' | 'buff_party' | 'passive';
-export const targetsPlayer = (s: SkillDef) => s.type === 'heal_target' || s.type === 'buff_target';
+/**
+ * heal_target and buff_target pick yourself or one other player; buff_party buffs you and your party on the map;
+ * revive picks a player who is down (ชุบชีวิต).
+ */
+export type SkillType = 'single' | 'aoe' | 'aoe_self' | 'line' | 'heal' | 'heal_target' | 'buff' | 'buff_target' | 'buff_party' | 'revive' | 'passive'
+  /** เปิดแผงขายของ: opens the player-shop window instead of going to the server as a skill */
+  | 'vend';
+export const targetsPlayer = (s: SkillDef) => s.type === 'heal_target' || s.type === 'buff_target' || s.type === 'revive';
 /** Skills aimed at a monster (a 'line' skill only uses it for the direction). */
 export const targetsMonster = (s: SkillDef) => s.type === 'single' || s.type === 'aoe' || s.type === 'line';
 
@@ -240,7 +259,8 @@ export const targetsMonster = (s: SkillDef) => s.type === 'single' || s.type ===
 export type ScaleStat = StatKey | 'hit';
 
 export interface SkillDef {
-  cls: ClassKey;
+  /** 'all' = every class can learn it, and it stays after the job change (เปิดแผงขายของ) */
+  cls: ClassKey | 'all';
   name: string;
   icon: string;
   desc: string;
@@ -270,6 +290,8 @@ export interface SkillDef {
   passive?: {
     maxHpPct?: number; maxSpPct?: number; atkPct?: number; matkPct?: number; hit?: number;
     stats?: Partial<Record<StatKey, number>>; flee?: number; def?: number; mdef?: number; regenPct?: number;
+    /** % cheaper at ป้ามะลิ's item shop (ต่อราคาเก่ง) / % more when selling to NPC shops (ปากหวานขายเก่ง) */
+    npcBuyPct?: number; npcSellPct?: number;
   };
   /** Damage also grows with these: x (1 + stat / 50) each (HIT: / 100). */
   stats?: ScaleStat[];
@@ -285,6 +307,13 @@ export interface SkillDef {
   shape?: 'x';
   /** Cast time: standing still this long before it goes off (moving cancels). */
   castMs?: number;
+  /** The cast gets shorter with DEX (castTime). */
+  castDex?: boolean;
+  /** 'aoe' over a square of side 2 x radius round the target (ตัวโน้ตทำลาย's 3x3 tiles) instead of a circle. */
+  square?: boolean;
+  /** Damage comes down in this many volleys, waveMs apart; every monster in the area at each volley is hit. */
+  waves?: number;
+  waveMs?: number;
   /** Palm muting: pulls monsters in the radius next to you and lowers their Def by defDownPct for debuffSec [Lv 1, per level] seconds. */
   pull?: boolean;
   defDownPct?: number;
@@ -303,6 +332,11 @@ export interface SkillDef {
 export const CLASSES = raw.classes as Record<ClassKey, ClassDef>;
 export const ITEMS = raw.items as Record<string, ItemDef>;
 export const MONSTERS = raw.monsters as unknown as Record<string, MonsterDef>;
+// the guild war crystal in ปราสาทแห่งเสียง (src/game/pvp.ts): placed by the server, not by SPAWNS
+MONSTERS.emperium = {
+  name: 'คริสตัลแห่งเสียง', level: 1, hp: 30000, atk: 0, def: 0, exp: 0, jobExp: 0, zeny: [0, 0], speed: 0, aggressive: false,
+  color: '#8fd8ff', glow: '#5ec8ff', size: 1.6, structure: true, drops: [],
+};
 export const SPAWNS = raw.spawns as SpawnDef[];
 export const SHOP = raw.shop as string[];
 export const WEAPON_SHOP = raw.weaponShop as string[];
@@ -322,18 +356,77 @@ export function wearBlock(it: ItemDef | undefined, c: { cls: ClassKey; gender: G
   return '';
 }
 
+/**
+ * Skills a monster casts in a fight (the MVP boss of อเวจี). The server telegraphs each one ('mcast': a circle
+ * on the ground for castMs), then hits every player still in it ('mskill'). 'self' = round the monster,
+ * 'ground' = round where the target stood, 'target' = the target alone (soul_chain drags them in).
+ * Damage = monster ATK x mult (magic ignores half the Def). belowHp: only once its HP is under that share.
+ */
+export interface MonsterSkill {
+  name: string;
+  area: 'self' | 'ground' | 'target';
+  radius: number;
+  range?: number;
+  castMs: number;
+  mult: number;
+  magic?: boolean;
+  pull?: boolean;
+  cooldown: number;
+  belowHp?: number;
+}
+export const MONSTER_SKILLS: Record<string, MonsterSkill> = {
+  scythe_sweep: { name: 'เคียวโลหิตกวาดวิญญาณ', area: 'self', radius: 3.2, castMs: 900, mult: 1.6, cooldown: 7000 },
+  soul_chain: { name: 'โซ่ตรวนวิญญาณ', area: 'target', radius: 0, range: 9, castMs: 700, mult: 1.2, pull: true, cooldown: 9000 },
+  hellfire: { name: 'เพลิงนรกม่วง', area: 'ground', radius: 2.4, range: 9, castMs: 1600, mult: 2.2, magic: true, cooldown: 8000 },
+  judgement: { name: 'คำพิพากษาแห่งอเวจี', area: 'self', radius: 5.5, castMs: 2600, mult: 3, magic: true, cooldown: 20000, belowHp: 0.5 },
+};
+
 /** หมุนตัวแทง counts at most this many monsters around you. */
 export const CROWD_MAX = 8;
 
-export const skillsOf = (cls: ClassKey) => Object.entries(SKILLS).filter(([, s]) => s.cls === cls);
-/** Only your own class's skills: the job change refunds Teen skills (see change_job in SQL). */
-export const canUseSkill = (s: SkillDef, cls: ClassKey) => s.cls === cls;
+/** Cast time in ms: castDex skills lose 1/150 of it per DEX (DEX 150 = instant) but never go under 0.5 s. */
+export function castTime(s: SkillDef, dex: number) {
+  if (!s.castMs) return 0;
+  if (!s.castDex) return s.castMs;
+  return Math.round(Math.max(500, s.castMs * Math.max(0, 1 - dex / 150)));
+}
+/** When the first volley of a 'waves' skill lands after it goes off (the notes falling out of the sky). */
+export const WAVE_FALL_MS = 300;
+
+export const skillsOf = (cls: ClassKey) => Object.entries(SKILLS).filter(([, s]) => s.cls === cls || s.cls === 'all');
+/** Only your own class's skills (and the ones every class has): the job change refunds Teen skills (see change_job in SQL). */
+export const canUseSkill = (s: SkillDef, cls: ClassKey) => s.cls === cls || s.cls === 'all';
+
+// ---------------------------------------------------------------- player shops and NPC prices
+/** The player-shop skill; a shop holds 2 + its level kinds of item. Prices are 1..VEND_MAX_PRICE zeny each. */
+export const VEND_SKILL = 'open_shop';
+export const vendSlots = (lv: number) => 2 + lv;
+export const VEND_MAX_PRICE = 99_999_999;
+/** A purchase from a player shop can't cost more than this in one go (zeny is a 32-bit number in the database). */
+export const VEND_MAX_TOTAL = 1_000_000_000;
+/** Total ‰ from passives with this field, at the character's levels (2.5 %/Lv -> 25 ‰/Lv; integer maths, same as SQL). */
+const passivePermille = (skills: Record<string, number> | undefined, key: 'npcBuyPct' | 'npcSellPct') => {
+  let p = 0;
+  for (const [id, lv] of Object.entries(skills ?? {})) p += Math.round((SKILLS[id]?.passive?.[key] ?? 0) * 10) * Math.max(0, lv);
+  return p;
+};
+/** What an NPC shop charges for one: ป้ามะลิ's list is cheaper with ต่อราคาเก่ง (buy_item in SQL does the same). */
+export const npcBuyPrice = (itemId: string, skills?: Record<string, number>) => {
+  const price = ITEMS[itemId]?.price ?? 0;
+  if (!SHOP.includes(itemId)) return price;
+  return Math.max(1, Math.floor((price * (1000 - Math.min(500, passivePermille(skills, 'npcBuyPct')))) / 1000));
+};
+/** What an NPC shop pays for one: half the price, more with ปากหวานขายเก่ง (sell_item in SQL does the same). */
+export const npcSellPrice = (itemId: string, skills?: Record<string, number>) =>
+  Math.floor((Math.floor((ITEMS[itemId]?.price ?? 0) / 2) * (1000 + passivePermille(skills, 'npcSellPct'))) / 1000);
 /** Skills that put a buff on someone (/auto keeps these up). */
 export const isBuffSkill = (s: SkillDef) => !!s.buff && (s.type === 'buff' || s.type === 'buff_target' || s.type === 'buff_party') && !s.buff.stealth;
 /**
  * The buffs ครูเพลงใจดี hands out at max level: every buff skill except hiding, taking a party's damage and
  * reflecting damage, which only make sense for the class that owns them.
  */
+/** ครูเพลงใจดี's buffs last this long (s), whatever the skill's own time (2026-11-08: 5 minutes). */
+export const HEALER_BUFF_SEC = 300;
 export const isHealerBuff = (s: SkillDef) => isBuffSkill(s) && !s.buff!.guardPct && !s.buff!.reflectPct;
 /** Every skill costs this share of its listed SP (halved 2026-11-05). */
 export const SP_COST_RATE = 0.5;
@@ -428,6 +521,10 @@ export interface Character extends Stats, Appearance {
   map: string;
   pos_x: number;
   pos_y: number;
+  /** Respawn point saved at บูรพา (missing/null = the town's default spot). */
+  save_map?: string | null;
+  save_x?: number | null;
+  save_y?: number | null;
 }
 
 export interface InvItem {
@@ -472,6 +569,9 @@ export interface Derived {
   /** Element of your attacks (weapon, or a converter on it) and your defence element (armour or a card in it). */
   atkElement?: Element;
   defElement?: Element;
+  /** PVP: % more damage to players, % less taken from players (equipment and cards). */
+  pvpAtk?: number;
+  pvpDef?: number;
 }
 
 /** Walking speed multiplier (10% slower since 2026-11-05). */
@@ -483,7 +583,7 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
   // cards in worn equipment
   const card: Required<CardBonus> = {
     str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0, atk: 0, matk: 0, def: 0, mdef: 0, hit: 0, flee: 0, crit: 0, aspd: 0,
-    maxHp: 0, maxSp: 0, maxHpPct: 0, maxSpPct: 0, atkPct: 0, matkPct: 0,
+    maxHp: 0, maxSp: 0, maxHpPct: 0, maxSpPct: 0, atkPct: 0, matkPct: 0, pvpAtkPct: 0, pvpDefPct: 0,
   };
   for (const row of worn) {
     for (const [k, v] of Object.entries(ITEMS[row.item_id].bonus ?? {}) as [keyof CardBonus, number][]) card[k] += v;
@@ -538,6 +638,8 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
     bonus,
     atkElement: buffs.endow ?? weaponElement(worn),
     defElement: armorElement(worn),
+    pvpAtk: card.pvpAtkPct,
+    pvpDef: Math.min(60, card.pvpDefPct),
   };
 }
 

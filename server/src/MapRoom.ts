@@ -2,13 +2,16 @@ import { Room, type Client } from 'colyseus';
 import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ENDOW_SEC, ITEMS, type Element, elementMult, monsterElement, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
-  STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
-  skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, targetsPlayer, totalStats, outfitOf,
+  STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, HEALER_BUFF_SEC, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
+  skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, castTime, WAVE_FALL_MS, targetsPlayer, totalStats, outfitOf, MONSTER_SKILLS,
+  VEND_SKILL, VEND_MAX_PRICE, VEND_MAX_TOTAL, vendSlots,
 } from '../../src/data/index.ts';
-import { GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
+import { ARENA_SPAWNS, CASTLE_CRYSTAL, CASTLE_INNER, GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
+import { ARENA_MAP, CASTLE_MAP, EMPERIUM, PVP_DAMAGE, pvpOn, warNow, type PvpInfo, type PvpScore } from '../../src/game/pvp.ts';
 import type { RewardShare, TradeOffer } from '../../src/services/store.ts';
 import type { JoinOptions, Loaded, ServerDb } from './db.ts';
 import { Parties, type Party } from './party.ts';
+import { Guilds } from './guild.ts';
 
 const TICK_MS = 50;
 const TILE_PX = 32; // moveSpeed is in pixels/second at this tile size
@@ -34,6 +37,8 @@ export const PlayerState = schema({
   dead: t.boolean(),
   sitting: t.boolean(),
   hidden: t.boolean(), // หนีไปกลับ PR: other players don't draw this one
+  guild: t.string(), // guild name ('' = none), shown under the player's name
+  shop: t.string(), // player shop title ('' = no shop open): the sign over their head
 }, 'PlayerState');
 export type PlayerState = SchemaType<typeof PlayerState>;
 
@@ -85,6 +90,27 @@ interface Seat {
   trade?: Trade;
   /** A skill being cast (เสียงสูง): goes off when the timer fires unless the player moves first. */
   cast?: { id: string; sp: number; timer: { clear(): void } };
+  /** PVP: when another player last hit them (no out-of-fight regen for a while), and who (for the kill). */
+  pvpHitAt?: number;
+  pvpHitBy?: string;
+  /** เปิดแผงขายของ: the stall they sit at, and a lock while one sale goes through the database */
+  shop?: Shop;
+  shopBusy?: boolean;
+}
+
+/** One kind of item in a player shop: `inv` is the seller's inventory row it comes out of. */
+interface ShopItem {
+  inv: string;
+  item: string;
+  qty: number;
+  price: number;
+  refine: number;
+  cards: string[];
+}
+
+interface Shop {
+  title: string;
+  items: ShopItem[];
 }
 
 interface Trade {
@@ -108,6 +134,10 @@ interface Brain {
   defDownUntil?: number;
   defDownPct?: number;
   pulledUntil?: number;
+  /** monster skills: when the next one may start, per-skill cooldowns, and the one being cast */
+  skillAt?: number;
+  skillCd?: Map<string, number>;
+  casting?: { id: string; x: number; y: number; target: string; until: number };
 }
 
 /** Where a character arrives after taking a portal (set by the room they left). */
@@ -123,6 +153,8 @@ interface Aim {
   y: number;
   monster?: string;
   ally?: string;
+  /** PVP: another player the skill is aimed at */
+  foe?: string;
 }
 
 /** The 'skill' message every browser gets to draw a skill. `at` = ms after the message that the hit lands (waves). */
@@ -139,6 +171,7 @@ interface SkillFx {
   dirY?: number;
   bonus?: boolean;
   pulled?: string[];
+  /** `p` with dmg > 0 = PVP damage on a player; dmg < 0 = a heal */
   hits: { m?: string; p?: string; dmg: number; at?: number }[];
 }
 
@@ -158,6 +191,11 @@ export class MapRoom extends Room<{ state: MapState }> {
   private seats = new Map<string, Seat>();
   private brains = new Map<string, Brain>();
   private now = 0;
+  /** Players can fight each other here right now (src/game/pvp.ts). */
+  private pvp = false;
+  /** ลานประลอง scoreboard, by character id. */
+  private scores = new Map<string, PvpScore>();
+  private scoresSent = '';
 
   onCreate(options: { map: string }) {
     this.map = getMap(options.map);
@@ -175,6 +213,19 @@ export class MapRoom extends Room<{ state: MapState }> {
         this.brains.set(id, { spawn: s, target: null, lastAttack: 0, wanderAt: 0, wanderTo: null, damage: new Map() });
       }
     }
+    if (this.map.id === CASTLE_MAP) {
+      // the guild war crystal
+      const def = MONSTERS[EMPERIUM];
+      const { x, y } = CASTLE_CRYSTAL;
+      const m = new MonsterState();
+      Object.assign(m, { key: EMPERIUM, x, y, hp: def.hp, maxHp: def.hp, dead: false });
+      this.state.monsters.set('emp', m);
+      this.brains.set('emp', {
+        spawn: { map: this.map.id, monster: EMPERIUM, count: 1, area: [x, y, x, y], respawnSec: 3 },
+        target: null, lastAttack: 0, wanderAt: Infinity, wanderTo: null, damage: new Map(),
+      });
+    }
+    this.pvp = pvpOn(this.map.id);
 
     this.onMessage('move', (c, msg: { x: number; y: number }) => this.onMove(c, msg));
     this.onMessage('attack', (c, msg: { id: string }) => this.onAttack(c, msg));
@@ -193,6 +244,14 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.onMessage('tradeLock', (c) => this.onTradeLock(c));
     this.onMessage('tradeConfirm', (c) => this.onTradeConfirm(c));
     this.onMessage('tradeCancel', (c) => this.cancelTrade(this.seats.get(c.sessionId)?.trade, 'ยกเลิกการแลกเปลี่ยน'));
+    // player shops (เปิดแผงขายของ): `to` is the seller's session id
+    this.onMessage('shopOpen', (c, msg: { title?: string; items?: { inv: string; qty: number; price: number }[] }) => this.onShopOpen(c, msg));
+    this.onMessage('shopClose', (c) => {
+      if (this.seats.get(c.sessionId)?.shop) this.closeShop(c.sessionId, 'ปิดร้านแล้ว');
+      else c.send('shopMine', { sid: c.sessionId, open: false }); // the browser thought one was open (after a reconnect)
+    });
+    this.onMessage('shopView', (c, msg: { to: string }) => this.onShopView(c, msg));
+    this.onMessage('shopBuy', (c, msg: { to: string; inv: string; qty: number }) => this.onShopBuy(c, msg));
     // parties (see party.ts): `to` is a session id in this room, `id` a character id
     this.onMessage('partyGet', (c) => this.party(c, (me) => Parties.refresh(me)));
     this.onMessage('partyCreate', (c, msg: { name?: string }) => this.party(c, (me) => Parties.create(me, msg?.name)));
@@ -205,14 +264,31 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.onMessage('partyLeave', (c) => this.party(c, (me) => Parties.leave(me)));
     this.onMessage('partyKick', (c, msg: { id: string }) => this.party(c, (me) => Parties.kick(me, msg?.id)));
     this.onMessage('partyLeader', (c, msg: { id: string }) => this.party(c, (me) => Parties.setLeader(me, msg?.id)));
+    // guilds (see guild.ts): same shape as the party messages
+    this.onMessage('guildGet', (c) => this.guild(c, (me) => Guilds.refresh(me)));
+    this.onMessage('guildCreate', (c, msg: { name?: string }) => this.guild(c, (me) => this.createGuild(c, me, msg?.name)));
+    this.onMessage('guildInvite', (c, msg: { to?: string; name?: string }) => this.guild(c, (me) => {
+      const charId = msg?.to ? this.seats.get(msg.to)?.char.id : undefined;
+      if (msg?.to && !charId) throw new Error('ผู้เล่นคนนี้ออกไปแล้ว');
+      Guilds.invite(me, { charId, name: msg?.name });
+    }));
+    this.onMessage('guildRespond', (c, msg: { accept: boolean }) => this.guild(c, (me) => Guilds.respond(me, !!msg?.accept)));
+    this.onMessage('guildLeave', (c) => this.guild(c, (me) => Guilds.leave(me)));
+    this.onMessage('guildKick', (c, msg: { id: string }) => this.guild(c, (me) => Guilds.kick(me, msg?.id)));
+    this.onMessage('guildLeader', (c, msg: { id: string }) => this.guild(c, (me) => Guilds.setLeader(me, msg?.id)));
+    // the arena keeper and the castle herald in town
+    this.onMessage('npcGo', (c, msg: { to: string }) => this.onNpcGo(c, msg));
+    this.onMessage('castleInfo', (c) => c.send('castleInfo', Guilds.castleInfo()));
 
     this.setSimulationInterval((dt) => this.tick(dt), TICK_MS);
     this.clock.setInterval(() => this.regen(), 2000);
     this.clock.setInterval(() => this.saveAll(), 30000);
+    if (this.map.id === CASTLE_MAP) this.clock.setInterval(() => this.warTick(), 1000);
   }
 
   async onAuth(_client: Client, options: JoinOptions) {
     if (!options?.charId) throw new Error('missing character');
+    await Guilds.ready(); // the name tags and who may fight whom need the guilds
     const t0 = Date.now();
     const loaded = await MapRoom.db.load(options);
     console.log(`join ${this.map.id}: loaded character in ${Date.now() - t0} ms`);
@@ -242,7 +318,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const p = new PlayerState();
     Object.assign(p, {
       name: c.name, cls: c.cls, level: c.level, gender: c.gender, hair: c.hair, hairColor: c.hair_color, face: c.face,
-      head: '', weapon: '', ear: '', body: '', hidden: false, x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
+      head: '', weapon: '', ear: '', body: '', hidden: false, guild: Guilds.nameOf(c.id), shop: '', x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
       hp: (carry.hp ?? c.hp) > 0 ? Math.min(carry.hp ?? c.hp, seat.derived.maxHp) : seat.derived.maxHp,
       sp: (carry.sp ?? c.sp) >= 0 ? Math.min(carry.sp ?? c.sp, seat.derived.maxSp) : seat.derived.maxSp,
       dead: false, sitting: false,
@@ -260,6 +336,19 @@ export class MapRoom extends Room<{ state: MapState }> {
       charId: c.id, sessionId: client.sessionId, roomId: this.roomId, map: this.map.id, client,
       info: () => ({ name: seat.char.name, cls: seat.char.cls, level: seat.char.level, hp: p.hp, maxHp: p.maxHp, sp: p.sp, maxSp: p.maxSp, dead: p.dead }),
     });
+    Guilds.online({
+      charId: c.id, userId: auth.userId, sessionId: client.sessionId, roomId: this.roomId, map: this.map.id, client,
+      info: () => ({ name: seat.char.name, cls: seat.char.cls, level: seat.char.level }),
+      setGuild: (name) => {
+        const me = this.state.players.get(client.sessionId);
+        if (me) me.guild = name;
+      },
+      resync: () => {
+        if (this.seats.get(client.sessionId) === seat) this.resync(seat).catch(() => {});
+      },
+    });
+    client.send('pvp', this.pvpInfo());
+    if (this.map.id === ARENA_MAP) client.send('pvpScore', this.topScores());
     this.broadcast('system', { text: `${c.name} เข้ามาใน${this.map.name}` }, { except: client });
   }
 
@@ -269,6 +358,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const p = this.state.players.get(client.sessionId);
     this.cancelTrade(seat?.trade, 'อีกฝ่ายออกจากแผนที่');
     if (seat) Parties.offline(seat.char.id, client.sessionId);
+    if (seat) Guilds.offline(seat.char.id, client.sessionId);
     this.seats.delete(client.sessionId);
     this.state.players.delete(client.sessionId);
     for (const b of this.brains.values()) {
@@ -297,9 +387,10 @@ export class MapRoom extends Room<{ state: MapState }> {
     }
     seat.lastMoveAt = this.now;
     if (seat.cast && dist(p.x, p.y, msg.x, msg.y) > 0.05) this.cancelCast(c.sessionId, seat, p);
+    if (seat.shop && dist(p.x, p.y, msg.x, msg.y) > 0.05) this.closeShop(c.sessionId, 'เดินออกจากร้าน ปิดร้านแล้ว');
     p.x = msg.x;
     p.y = msg.y;
-    p.sitting = false;
+    p.sitting = !!seat.shop; // a shopkeeper stays seated at the stall
   }
 
   /** Moving breaks a cast: the SP comes back and the skill can be used again straight away. */
@@ -315,6 +406,7 @@ export class MapRoom extends Room<{ state: MapState }> {
 
   private onSit(c: Client) {
     const p = this.state.players.get(c.sessionId);
+    if (this.seats.get(c.sessionId)?.shop) return this.closeShop(c.sessionId, 'ลุกขึ้นยืน ปิดร้านแล้ว');
     if (p && !p.dead) p.sitting = !p.sitting;
   }
 
@@ -327,9 +419,9 @@ export class MapRoom extends Room<{ state: MapState }> {
     if (seat) {
       for (const [id, skill] of Object.entries(SKILLS)) {
         if (!isHealerBuff(skill)) continue;
-        const b = this.buffFor(skill, skill.maxLevel);
+        const b = this.buffFor(skill, skill.maxLevel, HEALER_BUFF_SEC);
         seat.buffs.set(id, b);
-        c.send('buff', { skill: id, seconds: skill.buff!.durationSec, blocks: b.blocks || undefined, from: 'healer' });
+        c.send('buff', { skill: id, seconds: HEALER_BUFF_SEC, blocks: b.blocks || undefined, from: 'healer' });
       }
       this.applyDerived(seat, p);
     }
@@ -356,7 +448,9 @@ export class MapRoom extends Room<{ state: MapState }> {
   private async onNpcWarp(c: Client, msg: { to: string }) {
     const p = this.state.players.get(c.sessionId);
     const seat = this.seats.get(c.sessionId);
-    const npc = this.map.npcs.find((n) => n.id === 'warper');
+    // บูรพา stands in towns and beside every gate: the nearest one
+    const npc = p && this.map.npcs.filter((n) => n.id === 'warper')
+      .sort((a, b) => dist(p.x, p.y, a.x + 0.5, a.y + 0.5) - dist(p.x, p.y, b.x + 0.5, b.y + 0.5))[0];
     const dest = WARP_TOWNS.find((t) => t.map === msg?.to);
     if (!p || !seat || p.dead || seat.busy || !npc || !dest || dest.map === this.map.id) return;
     if (dist(p.x, p.y, npc.x + 0.5, npc.y + 0.5) > 3) return c.send('error', { text: 'เดินเข้าไปใกล้บูรพาก่อน' });
@@ -410,6 +504,14 @@ export class MapRoom extends Room<{ state: MapState }> {
     const p = this.state.players.get(c.sessionId);
     const seat = this.seats.get(c.sessionId);
     if (!p || !seat || !p.dead || seat.busy) return;
+    if (this.map.id === ARENA_MAP || this.map.id === CASTLE_MAP) {
+      // PVP maps: no EXP lost, get up again right here (the castle: its holders in the throne court, the rest at the gate)
+      const at = this.pvpSpawn(seat);
+      Object.assign(p, { dead: false, sitting: false, x: at.x, y: at.y, hp: p.maxHp, sp: Math.max(p.sp, Math.ceil(p.maxSp / 2)) });
+      seat.lastMoveAt = this.now;
+      c.send('correct', { x: p.x, y: p.y });
+      return;
+    }
     seat.busy = true;
     try {
       seat.char = await MapRoom.db.onDeath(seat.userId, seat.char.id);
@@ -442,6 +544,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       seat.inv = inv;
       this.applyDerived(seat, p);
       if (seat.trade) this.cancelTrade(seat.trade, 'กระเป๋าเปลี่ยน ยกเลิกการแลกเปลี่ยน');
+      this.fitShop(c.sessionId, seat);
     } catch (e) {
       c.send('error', { text: (e as Error).message });
     }
@@ -452,6 +555,12 @@ export class MapRoom extends Room<{ state: MapState }> {
     const text = cleanText(msg?.text, 120);
     if (!seat || !text || this.now - seat.lastChat < 700) return;
     seat.lastChat = this.now;
+    const guild = /^(?:\/g(?:\s+|$)|\$\s*)/i.exec(text);
+    if (guild) {
+      const said = text.slice(guild[0].length).trim();
+      if (said) this.guild(c, (me) => Guilds.chat(me, said));
+      return;
+    }
     const party = /^(?:\/p(?:\s+|$)|%\s*)/i.exec(text);
     if (party) {
       const said = text.slice(party[0].length).trim();
@@ -468,10 +577,13 @@ export class MapRoom extends Room<{ state: MapState }> {
     const seat = this.seats.get(c.sessionId);
     const m = this.state.monsters.get(msg?.id);
     const brain = this.brains.get(msg?.id);
+    if (seat?.shop) return c.send('error', { text: 'กำลังเปิดร้านอยู่ ปิดร้านก่อนจึงจะโจมตีได้' });
+    if (p && seat && !m && this.state.players.has(msg?.id)) return this.pvpAttack(c, seat, p, msg.id);
     if (!p || !seat || !m || !brain || p.dead || m.dead || seat.cast) return;
     if (this.now - seat.lastAttack < seat.derived.attackDelay * 0.9) return;
     const cls = CLASSES[seat.char.cls];
     const def = MONSTERS[m.key];
+    if (def.structure && !this.mayHit(c.sessionId, m)) return this.crystalRefusal(c, seat);
     if (dist(p.x, p.y, m.x, m.y) > cls.range + def.size * 0.3 + 0.8) return;
     seat.lastAttack = this.now;
     p.sitting = false;
@@ -504,18 +616,32 @@ export class MapRoom extends Room<{ state: MapState }> {
     const skill = SKILLS[msg?.id];
     if (!p || !seat || !skill || p.dead || seat.cast) return;
     const lv = seat.char.skills?.[msg.id] ?? 0;
-    if (!canUseSkill(skill, seat.char.cls) || lv < 1 || skill.type === 'passive') return;
+    if (!canUseSkill(skill, seat.char.cls) || lv < 1 || skill.type === 'passive' || skill.type === 'vend') return;
+    if (seat.shop) return c.send('error', { text: 'กำลังเปิดร้านอยู่ ปิดร้านก่อนจึงจะใช้สกิลได้' });
     if ((seat.cooldowns.get(msg.id) ?? 0) > this.now) return;
     const sp = skillSp(skill, lv);
     if (p.sp < sp) return c.send('error', { text: 'SP ไม่พอ' });
 
     // find and validate the target
     const aim: Aim = { x: p.x, y: p.y };
-    if (targetsMonster(skill)) {
+    if (targetsMonster(skill) && this.state.players.has(msg.target ?? '')) {
+      // PVP: an attack skill on another player
+      const f = this.state.players.get(msg.target!)!;
+      if (!this.hostile(c.sessionId, msg.target!)) return c.send('error', { text: this.pvp ? 'ตีคนในปาร์ตี้/กิลด์เดียวกันไม่ได้' : 'ที่นี่ตีผู้เล่นไม่ได้' });
+      if (dist(p.x, p.y, f.x, f.y) > (skill.range ?? 1) + 0.3 + 0.8) return;
+      Object.assign(aim, { foe: msg.target, x: f.x, y: f.y });
+    } else if (targetsMonster(skill)) {
       const m = this.state.monsters.get(msg.target ?? '');
       if (!m || m.dead) return;
+      if (MONSTERS[m.key].structure && !this.mayHit(c.sessionId, m)) return this.crystalRefusal(c, seat);
       if (dist(p.x, p.y, m.x, m.y) > (skill.range ?? 1) + MONSTERS[m.key].size * 0.3 + 0.8) return;
       Object.assign(aim, { monster: msg.target, x: m.x, y: m.y });
+    } else if (skill.type === 'revive') {
+      // ชุบชีวิต: only someone who is down
+      const a = this.state.players.get(msg.target ?? '');
+      if (!a || !a.dead) return c.send('error', { text: 'เลือกเพื่อนที่หมดสติ' });
+      if (dist(p.x, p.y, a.x, a.y) > (skill.range ?? 1) + 0.8) return;
+      Object.assign(aim, { ally: msg.target, x: a.x, y: a.y });
     } else if (targetsPlayer(skill)) {
       aim.ally = msg.target && this.state.players.has(msg.target) ? msg.target : c.sessionId;
       const a = this.state.players.get(aim.ally)!;
@@ -527,8 +653,9 @@ export class MapRoom extends Room<{ state: MapState }> {
     p.sp -= sp;
     p.sitting = false;
     seat.cooldowns.set(msg.id, this.now + (skill.cooldown ?? 1000));
-    if (skill.castMs) {
-      // เสียงสูง: stand still and sing for castMs, then it goes off towards where the target was
+    const castMs = castTime(skill, totalStats(seat.char, seat.derived).dex);
+    if (castMs > 0) {
+      // เสียงสูง / ตัวโน้ตทำลาย: stand still for the cast, then it goes off at where the target was
       const sid = c.sessionId;
       const timer = this.clock.setTimeout(() => {
         if (seat.cast?.timer !== timer) return;
@@ -537,9 +664,9 @@ export class MapRoom extends Room<{ state: MapState }> {
         if (!me || me.dead || this.seats.get(sid) !== seat) return;
         this.broadcast('castEnd', { by: sid, skill: msg.id, done: true });
         this.useSkill(c, seat, me, msg.id, skill, lv, aim);
-      }, skill.castMs);
+      }, castMs);
       seat.cast = { id: msg.id, sp, timer };
-      this.broadcast('cast', { by: sid, skill: msg.id, ms: skill.castMs, x: aim.x, y: aim.y });
+      this.broadcast('cast', { by: sid, skill: msg.id, ms: castMs, x: aim.x, y: aim.y });
       return;
     }
     this.useSkill(c, seat, p, msg.id, skill, lv, aim);
@@ -550,7 +677,9 @@ export class MapRoom extends Room<{ state: MapState }> {
     let monsterId = aim.monster;
     if (monsterId && this.state.monsters.get(monsterId)?.dead) monsterId = undefined;
     const ally = aim.ally;
-    const fx: SkillFx = { by: c.sessionId, skill: id, x: tx, y: ty, target: monsterId ?? ally, hits: [] };
+    let foeId = aim.foe;
+    if (foeId && !this.hostile(c.sessionId, foeId)) foeId = undefined;
+    const fx: SkillFx = { by: c.sessionId, skill: id, x: tx, y: ty, target: monsterId ?? foeId ?? ally, hits: [] };
     const base = skill.magic ? seat.derived.matk : seat.derived.atk;
     let power = (skillPower(skill, lv) / 100) * skillStatMult(skill, totalStats(seat.char, seat.derived), seat.derived.hit);
     // จังหวะส่ง from hiding, Slide with Vibrato on
@@ -560,11 +689,11 @@ export class MapRoom extends Room<{ state: MapState }> {
     }
     // attack skills give a hidden drummer away
     if (skill.power) this.unhide(c.sessionId, seat, p);
-    if (skill.scale === 'distance' && monsterId) {
-      // dash next to the monster; damage x tiles dashed
-      const m = this.state.monsters.get(monsterId)!;
+    if (skill.scale === 'distance' && (monsterId || foeId)) {
+      // dash next to the monster (or player); damage x tiles dashed
+      const m = monsterId ? this.state.monsters.get(monsterId)! : this.state.players.get(foeId!)!;
       const d = dist(p.x, p.y, m.x, m.y);
-      const stop = Math.min(d, 0.8 + MONSTERS[m.key].size * 0.3);
+      const stop = Math.min(d, 0.8 + (monsterId ? MONSTERS[(m as MonsterState).key].size * 0.3 : 0.3));
       const nx = m.x - ((m.x - p.x) / Math.max(d, 0.01)) * stop;
       const ny = m.y - ((m.y - p.y) / Math.max(d, 0.01)) * stop;
       power *= Math.max(1, Math.min(skill.range ?? 5, d));
@@ -581,6 +710,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       this.state.monsters.forEach((m) => {
         if (!m.dead && dist(tx, ty, m.x, m.y) <= (skill.radius ?? 1) + MONSTERS[m.key].size * 0.3) n++;
       });
+      for (const [sid, f] of this.foes(c.sessionId)) if (sid && dist(tx, ty, f.x, f.y) <= (skill.radius ?? 1) + 0.3) n++;
       power *= Math.max(1, Math.min(CROWD_MAX, n));
     }
     const element: Element = skill.element ?? seat.derived.atkElement ?? 'neutral';
@@ -590,7 +720,29 @@ export class MapRoom extends Room<{ state: MapState }> {
       if (mult === 0) return 0;
       return Math.max(1, Math.round((base * power * rand(0.95, 1.1) - (skill.magic ? def / 2 : def)) * mult));
     };
+    // PVP: the same blow on a player, against their Def and element, at PVP_DAMAGE
+    const rollPlayer = (sid: string) => {
+      const ts = this.seats.get(sid);
+      if (!ts) return 0;
+      const mult = elementMult(element, ts.derived.defElement ?? 'neutral', 1);
+      if (mult === 0) return 0;
+      const def = skill.magic ? ts.derived.mdef / 2 : ts.derived.def;
+      return Math.max(1, Math.round((base * power * rand(0.95, 1.1) - def) * mult * PVP_DAMAGE * this.pvpMult(seat, ts)));
+    };
+    const hitPlayer = (sid: string, dmg: number, at?: number) => {
+      fx.hits.push({ p: sid, dmg, ...(at !== undefined ? { at } : {}) });
+      const land = () => {
+        const ts = this.seats.get(sid);
+        const tp = this.state.players.get(sid);
+        if (!ts || !tp || tp.dead || !this.seats.has(c.sessionId) || !this.hostile(c.sessionId, sid)) return;
+        if (this.blocked(sid, ts)) return;
+        this.pvpHurt(c.sessionId, sid, ts, tp, dmg);
+      };
+      if (at) this.clock.setTimeout(land, at);
+      else land();
+    };
     const hitMonster = (mid: string, m: MonsterState) => {
+      if (!this.mayHit(c.sessionId, m)) return;
       const brain = this.brains.get(mid)!;
       for (let i = 0; i < (skill.hits ?? 1); i++) {
         const dmg = rollDamage(m, brain);
@@ -604,6 +756,8 @@ export class MapRoom extends Room<{ state: MapState }> {
 
     if (skill.type === 'single' && monsterId) {
       hitMonster(monsterId, this.state.monsters.get(monsterId)!);
+    } else if (skill.type === 'single' && foeId) {
+      for (let i = 0; i < (skill.hits ?? 1); i++) hitPlayer(foeId, rollPlayer(foeId));
     } else if (skill.type === 'line') {
       // a wave that travels from you towards the target: everything in its path gets hit when the wave gets there
       const len = Math.hypot(tx - p.x, ty - p.y) || 1;
@@ -613,8 +767,14 @@ export class MapRoom extends Room<{ state: MapState }> {
       const oy = p.y;
       const speed = skill.speed ?? 10;
       Object.assign(fx, { fromX: ox, fromY: oy, dirX: ux, dirY: uy });
+      for (const [sid, f] of this.foes(c.sessionId)) {
+        const along = (f.x - ox) * ux + (f.y - oy) * uy;
+        const side = Math.abs((f.x - ox) * uy - (f.y - oy) * ux);
+        if (along < -0.5 || along > (skill.length ?? 5) + 0.3 || side > (skill.width ?? 1) / 2 + 0.3) continue;
+        hitPlayer(sid, rollPlayer(sid), Math.round((Math.max(0, along) / speed) * 1000));
+      }
       this.state.monsters.forEach((m, mid) => {
-        if (m.dead) return;
+        if (m.dead || !this.mayHit(c.sessionId, m)) return;
         const r = MONSTERS[m.key].size * 0.3;
         const along = (m.x - ox) * ux + (m.y - oy) * uy;
         const side = Math.abs((m.x - ox) * uy - (m.y - oy) * ux);
@@ -627,11 +787,72 @@ export class MapRoom extends Room<{ state: MapState }> {
           if (!m.dead && this.seats.has(c.sessionId) && dmg > 0) this.damageMonster(mid, m, brain, c.sessionId, dmg);
         }, at);
       });
+    } else if (skill.waves) {
+      // ตัวโน้ตทำลาย: volleys of notes come down on the area; each hits whatever is standing in it right then
+      const r = skill.radius ?? 1;
+      const inArea = (m: MonsterState) => {
+        const reach = r + MONSTERS[m.key].size * 0.3;
+        return skill.square ? Math.abs(m.x - tx) <= reach && Math.abs(m.y - ty) <= reach : dist(tx, ty, m.x, m.y) <= reach;
+      };
+      const sid = c.sessionId;
+      const left = new Map<string, number>(); // HP left after the volleys so far: no numbers on a monster already down
+      const foes = [...this.foes(sid)];
+      const inAreaP = (f: { x: number; y: number }) => {
+        const reach = r + 0.3;
+        return skill.square ? Math.abs(f.x - tx) <= reach && Math.abs(f.y - ty) <= reach : dist(tx, ty, f.x, f.y) <= reach;
+      };
+      for (let w = 0; w < skill.waves; w++) {
+        const at = WAVE_FALL_MS + w * (skill.waveMs ?? 300);
+        for (const [fid, f] of foes) {
+          if (!inAreaP(f)) continue;
+          // a player who walks out of the area before the notes land is spared
+          const dmg = rollPlayer(fid);
+          fx.hits.push({ p: fid, dmg, at });
+          this.clock.setTimeout(() => {
+            const ts = this.seats.get(fid);
+            const tp = this.state.players.get(fid);
+            if (!ts || !tp || tp.dead || !this.seats.has(sid) || !inAreaP(tp) || !this.hostile(sid, fid) || this.blocked(fid, ts)) return;
+            this.pvpHurt(sid, fid, ts, tp, dmg);
+          }, at);
+        }
+        this.state.monsters.forEach((m, mid) => {
+          if (m.dead || !inArea(m) || (left.get(mid) ?? m.hp) <= 0 || !this.mayHit(sid, m)) return;
+          const brain = this.brains.get(mid)!;
+          // rolled now (the browser shows the numbers as the notes land); a monster that walked out is spared
+          const dmg = rollDamage(m, brain);
+          left.set(mid, (left.get(mid) ?? m.hp) - dmg);
+          fx.hits.push({ m: mid, dmg, at });
+          this.clock.setTimeout(() => {
+            if (m.dead || !this.seats.has(sid) || !inArea(m)) return;
+            if (dmg > 0) this.damageMonster(mid, m, brain, sid, dmg);
+            else this.engage(brain, sid);
+          }, at);
+        });
+      }
+    } else if (skill.type === 'revive') {
+      const a = this.state.players.get(ally ?? '');
+      if (a?.dead) {
+        a.dead = false;
+        a.sitting = false;
+        a.hp = Math.max(1, Math.round((a.maxHp * Math.min(100, skillHeal(skill, lv))) / 100));
+        fx.hits.push({ p: ally!, dmg: -a.hp });
+        this.broadcast('system', { text: `${seat.char.name} ชุบชีวิต ${this.seats.get(ally!)?.char.name ?? ''} สำเร็จ!` });
+      }
     } else if (skill.type === 'aoe' || skill.type === 'aoe_self') {
       const until = this.now + debuffSec(skill, lv) * 1000;
       const pulled: string[] = [];
+      if (skill.power) {
+        for (const [sid, f] of this.foes(c.sessionId)) {
+          if (dist(tx, ty, f.x, f.y) > (skill.radius ?? 1) + 0.3) continue;
+          for (let i = 0; i < (skill.hits ?? 1); i++) hitPlayer(sid, rollPlayer(sid));
+        }
+      }
       this.state.monsters.forEach((m, mid) => {
         if (m.dead || dist(tx, ty, m.x, m.y) > (skill.radius ?? 1) + MONSTERS[m.key].size * 0.3) return;
+        if (MONSTERS[m.key].structure) {
+          if (skill.power) hitMonster(mid, m);
+          return; // the crystal can't be pulled, provoked or weakened
+        }
         const brain = this.brains.get(mid)!;
         if (skill.provoke || skill.pull) brain.target = c.sessionId;
         if (skill.defDownPct) {
@@ -707,7 +928,7 @@ export class MapRoom extends Room<{ state: MapState }> {
 
   /** Pushes a monster `tiles` straight away from (fx, fy), stopping at walls. Bosses don't budge. */
   private knockBack(m: MonsterState, b: Brain, fx: number, fy: number, tiles: number) {
-    if (MONSTERS[m.key].boss) return;
+    if (MONSTERS[m.key].boss || MONSTERS[m.key].structure) return;
     const d = dist(fx, fy, m.x, m.y) || 1;
     const ux = (m.x - fx) / d;
     const uy = (m.y - fy) / d;
@@ -761,6 +982,214 @@ export class MapRoom extends Room<{ state: MapState }> {
     brain.damage.set(sid, (brain.damage.get(sid) ?? 0) + amount);
     this.engage(brain, sid);
     if (m.hp <= 0) this.killMonster(id, m, brain);
+  }
+
+  // ------------------------------------------------------------ PVP and the guild war
+
+  /** `a` may hurt `b`: a PVP map (the castle only during the war), both standing, not in one party or guild. */
+  private hostile(a: string, b: string) {
+    if (!this.pvp || a === b) return false;
+    const sa = this.seats.get(a);
+    const sb = this.seats.get(b);
+    const pa = this.state.players.get(a);
+    const pb = this.state.players.get(b);
+    if (!sa || !sb || !pa || !pb || pa.dead || pb.dead) return false;
+    const party = Parties.of(sa.char.id);
+    if (party && party === Parties.of(sb.char.id)) return false;
+    return !Guilds.allies(sa.char.id, sb.char.id);
+  }
+
+  /** Every player `sid` may hurt right now. */
+  private *foes(sid: string): Generator<[string, PlayerState]> {
+    if (!this.pvp) return;
+    for (const [id, p] of this.state.players) if (this.hostile(sid, id)) yield [id, p];
+  }
+
+  /** Monsters can always be hit; the crystal only during the war, by a guild that doesn't hold the castle. */
+  private mayHit(sid: string, m: MonsterState) {
+    if (!MONSTERS[m.key]?.structure) return true;
+    const seat = this.seats.get(sid);
+    const g = seat && Guilds.of(seat.char.id);
+    return this.map.id === CASTLE_MAP && !!warNow() && !!g && Guilds.castleOwner() !== g;
+  }
+
+  private crystalRefusal(c: Client, seat: Seat) {
+    const g = Guilds.of(seat.char.id);
+    const text = !warNow() ? 'ตีคริสตัลได้เฉพาะช่วงสงครามกิลด์' : !g ? 'ต้องอยู่ในกิลด์ถึงจะตีคริสตัลได้' : 'กิลด์ของคุณครองปราสาทอยู่ ต้องปกป้องคริสตัล';
+    c.send('error', { text });
+  }
+
+  /** The crystal broke: the guild that did the most damage to it takes the castle. */
+  private crystalBroken(m: MonsterState, b: Brain) {
+    const byGuild = new Map<string, number>();
+    for (const [sid, d] of b.damage) {
+      const seat = this.seats.get(sid);
+      const g = seat && Guilds.of(seat.char.id);
+      if (g && g !== Guilds.castleOwner()) byGuild.set(g.id, (byGuild.get(g.id) ?? 0) + d);
+    }
+    b.damage.clear();
+    b.target = null;
+    const winner = [...byGuild].sort((x, y) => y[1] - x[1])[0]?.[0];
+    if (winner) Guilds.capture(winner);
+    this.broadcast('fx', { kind: 'crystal', to: '' });
+    this.clock.setTimeout(() => {
+      Object.assign(m, { hp: m.maxHp, dead: false });
+      this.broadcast('pvp', this.pvpInfo());
+    }, (b.spawn.respawnSec ?? 3) * 1000);
+    this.broadcast('pvp', this.pvpInfo());
+  }
+
+  /** The castle: the war starting or ending turns PVP on or off (and a fresh crystal at the start). */
+  private warTick() {
+    const on = pvpOn(this.map.id);
+    if (on === this.pvp) return;
+    this.pvp = on;
+    const m = this.state.monsters.get('emp');
+    if (m && on) Object.assign(m, { hp: m.maxHp, dead: false });
+    this.brains.get('emp')?.damage.clear();
+    this.broadcast('pvp', this.pvpInfo());
+    this.broadcast('system', { text: on ? '⚔ สงครามกิลด์เริ่มแล้ว! ตีคริสตัลแห่งเสียงในลานบัลลังก์ให้แตกเพื่อยึดปราสาท' : '⚔ สงครามกิลด์จบแล้ว' });
+  }
+
+  private pvpInfo(): PvpInfo {
+    if (this.map.id !== CASTLE_MAP) return { on: this.pvp };
+    const i = Guilds.castleInfo();
+    return { on: this.pvp, owner: i.owner, warEnds: i.warEnds, nextWar: i.nextWar };
+  }
+
+  /** Where someone gets up (or arrives) on a PVP map. */
+  private pvpSpawn(seat: Seat) {
+    if (this.map.id === ARENA_MAP) {
+      const [x, y] = ARENA_SPAWNS[Math.floor(Math.random() * ARENA_SPAWNS.length)];
+      return { x, y };
+    }
+    const g = Guilds.of(seat.char.id);
+    return g && g === Guilds.castleOwner() ? { ...CASTLE_INNER } : { ...this.map.spawn };
+  }
+
+  /** PVP bonuses from equipment and cards: attacker's "ตีผู้เล่น +%" against the target's "ลดดาเมจจากผู้เล่น %". */
+  private pvpMult(from: Seat, to: Seat) {
+    return (1 + (from.derived.pvpAtk ?? 0) / 100) * (1 - (to.derived.pvpDef ?? 0) / 100);
+  }
+
+  /** A shield buff (ประสานเสียง) eats the hit: true if it did. */
+  private blocked(sid: string, seat: Seat) {
+    for (const [k, b] of seat.buffs) {
+      if (!b.blocks) continue;
+      b.blocks--;
+      if (b.blocks <= 0) {
+        seat.buffs.delete(k);
+        seat.client.send('buff', { skill: k, seconds: 0 });
+      } else seat.client.send('buff', { skill: k, seconds: (b.until - this.now) / 1000, blocks: b.blocks });
+      this.broadcast('phit', { to: sid, dmg: 0, block: true });
+      return true;
+    }
+    return false;
+  }
+
+  /** A normal attack on another player. */
+  private pvpAttack(c: Client, seat: Seat, p: PlayerState, to: string) {
+    const ts = this.seats.get(to);
+    const tp = this.state.players.get(to);
+    if (!ts || !tp || p.dead || tp.dead || seat.cast) return;
+    if (!this.hostile(c.sessionId, to)) return c.send('error', { text: this.pvp ? 'ตีคนในปาร์ตี้/กิลด์เดียวกันไม่ได้' : 'ที่นี่ตีผู้เล่นไม่ได้' });
+    if (this.now - seat.lastAttack < seat.derived.attackDelay * 0.9) return;
+    const cls = CLASSES[seat.char.cls];
+    if (dist(p.x, p.y, tp.x, tp.y) > cls.range + 0.3 + 0.8) return;
+    seat.lastAttack = this.now;
+    p.sitting = false;
+    this.unhide(c.sessionId, seat, p);
+    if (Math.random() > hitChance(seat.derived.hit, ts.derived.flee)) {
+      this.broadcast('phit', { by: c.sessionId, to, dmg: 0, crit: false });
+      return;
+    }
+    let dmg: number;
+    if (cls.attackType === 'magic' && p.sp >= MAGIC_SP_COST) {
+      p.sp -= MAGIC_SP_COST;
+      dmg = seat.derived.matk * rand(0.95, 1.15) - ts.derived.mdef / 2;
+    } else dmg = seat.derived.atk * rand(0.9, 1.1) - ts.derived.def;
+    const crit = Math.random() < seat.derived.crit / 100;
+    if (crit) dmg = dmg * 1.4 + ts.derived.def;
+    const mult = elementMult(seat.derived.atkElement ?? 'neutral', ts.derived.defElement ?? 'neutral', 1);
+    const amount = mult === 0 ? 0 : Math.max(1, Math.round(dmg * mult * PVP_DAMAGE * this.pvpMult(seat, ts)));
+    if (amount > 0 && this.blocked(to, ts)) {
+      this.broadcast('phit', { by: c.sessionId, to, dmg: 0, block: true, swing: true });
+      return;
+    }
+    this.broadcast('phit', { by: c.sessionId, to, dmg: amount, crit });
+    if (amount > 0) this.pvpHurt(c.sessionId, to, ts, tp, amount);
+  }
+
+  /** Damage from another player; a kill counts on the arena scoreboard. */
+  private pvpHurt(by: string, sid: string, seat: Seat, p: PlayerState, dmg: number) {
+    if (p.dead) return;
+    seat.pvpHitAt = this.now;
+    seat.pvpHitBy = by;
+    this.unhide(sid, seat, p);
+    this.hurt(sid, seat, p, dmg);
+    if (!p.dead) return;
+    const killer = this.seats.get(by);
+    this.broadcast('system', { text: `⚔ ${killer?.char.name ?? '?'} ล้ม ${seat.char.name}` });
+    if (this.map.id !== ARENA_MAP) return;
+    const score = (s: Seat) => {
+      const row = this.scores.get(s.char.id) ?? { name: s.char.name, guild: '', kills: 0, deaths: 0 };
+      row.name = s.char.name;
+      row.guild = Guilds.nameOf(s.char.id);
+      this.scores.set(s.char.id, row);
+      return row;
+    };
+    if (killer) score(killer).kills++;
+    score(seat).deaths++;
+    const top = this.topScores();
+    const json = JSON.stringify(top);
+    if (json !== this.scoresSent) {
+      this.scoresSent = json;
+      this.broadcast('pvpScore', top);
+    }
+  }
+
+  private topScores(): PvpScore[] {
+    return [...this.scores.values()].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths).slice(0, 10);
+  }
+
+  /** ผู้คุมลานประลอง / ทหารประกาศสงครามกิลด์: free trip to the arena or the castle. */
+  private onNpcGo(c: Client, msg: { to: string }) {
+    const p = this.state.players.get(c.sessionId);
+    const seat = this.seats.get(c.sessionId);
+    const dest = msg?.to === ARENA_MAP ? ARENA_MAP : msg?.to === CASTLE_MAP ? CASTLE_MAP : '';
+    if (!p || !seat || p.dead || !dest || dest === this.map.id) return;
+    const npcId = dest === ARENA_MAP ? 'pvp' : 'gvg';
+    const npc = this.map.npcs.find((n) => n.id === npcId && dist(p.x, p.y, n.x + 0.5, n.y + 0.5) < 3.5);
+    if (!npc) return c.send('error', { text: 'เดินเข้าไปใกล้ NPC ก่อน' });
+    this.cancelTrade(seat.trade, 'อีกฝ่ายออกจากแผนที่');
+    const to = getMap(dest);
+    const g = Guilds.of(seat.char.id);
+    const at = dest === CASTLE_MAP && g && g === Guilds.castleOwner() ? CASTLE_INNER : to.spawn;
+    arrivals.set(seat.char.id, { map: dest, x: at.x, y: at.y, at: Date.now(), hp: p.hp, sp: p.sp, endow: this.endowOf(seat) });
+    c.send('warp', { map: dest });
+    MapRoom.db
+      .saveState(seat.userId, seat.char.id, { hp: p.hp, sp: p.sp, map: dest, x: at.x, y: at.y })
+      .catch((e) => console.warn('npc go save failed', e.message));
+  }
+
+  /** Runs a guild action (some wait for the database); a refusal goes back as an error toast. */
+  private guild(c: Client, fn: (charId: string) => void | Promise<void>) {
+    const seat = this.seats.get(c.sessionId);
+    if (!seat) return;
+    const err = (e: unknown) => c.send('error', { text: (e as Error).message });
+    try {
+      const r = fn(seat.char.id);
+      if (r) r.catch(err);
+    } catch (e) {
+      err(e);
+    }
+  }
+
+  private async createGuild(c: Client, me: string, name: unknown) {
+    const p = this.state.players.get(c.sessionId);
+    const guildNpc = this.map.npcs.find((n) => n.id === 'guild');
+    if (!p || !guildNpc || dist(p.x, p.y, guildNpc.x + 0.5, guildNpc.y + 0.5) > 3.5) throw new Error('สร้างกิลด์ได้ที่นายทะเบียนกิลด์ในเมืองเมโลเดีย');
+    await Guilds.create(me, name);
   }
 
   // ------------------------------------------------------------ trading
@@ -843,6 +1272,120 @@ export class MapRoom extends Room<{ state: MapState }> {
     }
   }
 
+  // ------------------------------------------------------------ player shops (เปิดแผงขายของ)
+
+  private onShopOpen(c: Client, msg: { title?: string; items?: { inv: string; qty: number; price: number }[] }) {
+    const seat = this.seats.get(c.sessionId);
+    const p = this.state.players.get(c.sessionId);
+    if (!seat || !p || p.dead) return;
+    const fail = (text: string) => c.send('error', { text });
+    const lv = seat.char.skills?.[VEND_SKILL] ?? 0;
+    if (lv < 1) return fail('ต้องเรียนสกิลเปิดแผงขายของก่อน');
+    if (!this.map.safe || this.pvp) return fail('เปิดร้านได้เฉพาะในเมือง');
+    if (seat.trade) return fail('กำลังแลกเปลี่ยนอยู่');
+    if (seat.shop) return fail('เปิดร้านอยู่แล้ว');
+    if (seat.cast) return fail('กำลังร่ายสกิลอยู่');
+    for (const [sid, o] of this.state.players) {
+      if (sid !== c.sessionId && o.shop && dist(o.x, o.y, p.x, p.y) < 1.2) return fail('ใกล้ร้านอื่นเกินไป ขยับออกไปอีกนิด');
+    }
+    const list = Array.isArray(msg?.items) ? msg.items : [];
+    if (!list.length) return fail('ยังไม่ได้เลือกของที่จะขาย');
+    const max = vendSlots(lv);
+    if (list.length > max) return fail(`สกิล Lv ${lv} วางของได้สูงสุด ${max} ชนิด`);
+    const items: ShopItem[] = [];
+    for (const o of list) {
+      const row = seat.inv.find((r) => r.id === o?.inv);
+      const qty = Math.floor(Number(o?.qty));
+      const price = Math.floor(Number(o?.price));
+      if (!row || row.equipped || items.some((i) => i.inv === row.id) || !(qty >= 1 && qty <= row.qty)) return fail('ของในร้านไม่ถูกต้อง (ถอดของที่ใส่อยู่ก่อน)');
+      if (!(price >= 1 && price <= VEND_MAX_PRICE)) return fail(`ตั้งราคาได้ 1 - ${VEND_MAX_PRICE.toLocaleString()} z`);
+      items.push({ inv: row.id, item: row.item_id, qty, price, refine: row.refine ?? 0, cards: row.cards ?? [] });
+    }
+    const title = cleanText(msg?.title, 30) || `ร้านของ ${seat.char.name}`;
+    seat.shop = { title, items };
+    p.shop = title;
+    p.sitting = true;
+    c.send('shopMine', this.shopOf(c.sessionId, seat));
+  }
+
+  /** The shop as the browsers see it (null = closed). */
+  private shopOf(sid: string, seat: Seat) {
+    const shop = seat.shop;
+    if (!shop) return { sid, open: false };
+    return { sid, open: true, name: seat.char.name, title: shop.title, items: shop.items };
+  }
+
+  private closeShop(sid: string, text?: string) {
+    const seat = this.seats.get(sid);
+    if (!seat?.shop) return;
+    seat.shop = undefined;
+    const p = this.state.players.get(sid);
+    if (p) {
+      p.shop = '';
+      p.sitting = false;
+    }
+    seat.client.send('shopMine', { sid, open: false, text });
+  }
+
+  /** After the seller's bag changed: drop what they no longer have, sell no more than they hold. */
+  private fitShop(sid: string, seat: Seat) {
+    const shop = seat.shop;
+    if (!shop) return;
+    shop.items = shop.items.filter((it) => {
+      const row = seat.inv.find((r) => r.id === it.inv);
+      if (!row || row.equipped || row.item_id !== it.item) return false;
+      it.qty = Math.min(it.qty, row.qty);
+      return it.qty > 0;
+    });
+    if (!shop.items.length) this.closeShop(sid, 'ของในร้านหมดแล้ว ปิดร้านอัตโนมัติ');
+    else seat.client.send('shopMine', this.shopOf(sid, seat));
+  }
+
+  private onShopView(c: Client, msg: { to: string }) {
+    const seller = this.seats.get(msg?.to);
+    if (!seller?.shop) return c.send('shopList', { sid: msg?.to, open: false });
+    c.send('shopList', this.shopOf(msg.to, seller));
+  }
+
+  private async onShopBuy(c: Client, msg: { to: string; inv: string; qty: number }) {
+    const buyer = this.seats.get(c.sessionId);
+    const seller = this.seats.get(msg?.to);
+    const shop = seller?.shop;
+    const fail = (text: string) => {
+      c.send('error', { text });
+      if (seller) c.send('shopList', this.shopOf(msg.to, seller));
+    };
+    if (!buyer || !seller || !shop || msg.to === c.sessionId) return fail('ร้านนี้ปิดไปแล้ว');
+    const it = shop.items.find((i) => i.inv === msg?.inv);
+    const qty = Math.floor(Number(msg?.qty));
+    if (!it || !(qty >= 1 && qty <= it.qty)) return fail('ของหมดแล้ว หรือจำนวนไม่ถูกต้อง');
+    if (buyer.trade || seller.trade) return fail('กำลังแลกเปลี่ยนอยู่ ลองใหม่อีกครั้ง');
+    if (seller.shopBusy) return fail('ร้านกำลังขายให้คนอื่นอยู่ ลองใหม่อีกครั้ง');
+    const total = it.price * qty;
+    if (total > VEND_MAX_TOTAL) return fail(`ซื้อครั้งละไม่เกิน ${VEND_MAX_TOTAL.toLocaleString()} z`);
+    if (buyer.char.zeny < total) return fail('เงินไม่พอ');
+    seller.shopBusy = true;
+    try {
+      // the same atomic swap as a trade: the seller hands over the items, the buyer the zeny
+      await MapRoom.db.trade(
+        { userId: seller.userId, charId: seller.char.id, offer: { items: [{ inv: it.inv, qty }], zeny: 0 } },
+        { userId: buyer.userId, charId: buyer.char.id, offer: { items: [], zeny: total } },
+      );
+      it.qty -= qty;
+      const name = ITEMS[it.item]?.name ?? it.item;
+      seller.client.send('shopSold', { item: it.item, name, qty, zeny: total, buyer: buyer.char.name });
+      c.send('shopBought', { item: it.item, name, qty, zeny: total, seller: seller.char.name });
+      // equipment moves as a whole row, a stack shrinks: reload both bags (fitShop trims the shop)
+      await this.resync(buyer);
+      if (this.seats.get(msg.to) === seller) await this.resync(seller);
+      c.send('shopList', this.shopOf(msg.to, seller));
+    } catch (e) {
+      fail(`ซื้อไม่สำเร็จ: ${(e as Error).message}`);
+    } finally {
+      seller.shopBusy = false;
+    }
+  }
+
   private sendTrade(trade: Trade) {
     for (const [me, other] of [[trade.a, trade.b], [trade.b, trade.a]]) {
       const seat = this.seats.get(me);
@@ -896,6 +1439,7 @@ export class MapRoom extends Room<{ state: MapState }> {
   private updateMonster(id: string, m: MonsterState, b: Brain, dt: number) {
     if (m.dead) return;
     const def = MONSTERS[m.key];
+    if (def.structure) return; // the crystal just stands there
     const home = { x: (b.spawn.area[0] + b.spawn.area[2]) / 2, y: (b.spawn.area[1] + b.spawn.area[3]) / 2 };
 
     let target = b.target ? this.state.players.get(b.target) : undefined;
@@ -919,6 +1463,12 @@ export class MapRoom extends Room<{ state: MapState }> {
 
     let goal: { x: number; y: number } | null = null;
     let speed = def.speed / TILE_PX;
+    // a monster with skills stands still while it casts, and starts a new one every few seconds in a fight
+    if (b.casting) {
+      if (this.now >= b.casting.until) this.monsterSkillLands(id, m, b);
+      return;
+    }
+    if (target && def.skills?.length && this.now >= (b.skillAt ?? 0) && this.monsterSkillStart(id, m, b, def, target)) return;
     if (target) {
       const reach = 1.0 + def.size * 0.35;
       if (dist(m.x, m.y, target.x, target.y) > reach) goal = { x: target.x, y: target.y };
@@ -952,6 +1502,76 @@ export class MapRoom extends Room<{ state: MapState }> {
     } else if (this.monsterCanStand(nx, m.y)) m.x = nx;
     else if (this.monsterCanStand(m.x, ny)) m.y = ny;
     else b.wanderTo = null;
+  }
+
+  /** Picks a skill the monster can use on `target` now and telegraphs it; false if none fits. */
+  private monsterSkillStart(id: string, m: MonsterState, b: Brain, def: MonsterDef, target: PlayerState) {
+    const cd = (b.skillCd ??= new Map());
+    const d = dist(m.x, m.y, target.x, target.y);
+    const ok = (def.skills ?? []).filter((k) => {
+      const sk = MONSTER_SKILLS[k];
+      if (!sk || (cd.get(k) ?? 0) > this.now) return false;
+      if (sk.belowHp && m.hp > def.hp * sk.belowHp) return false;
+      if (sk.area === 'self') return d <= sk.radius;
+      return d <= (sk.range ?? 9);
+    });
+    if (!ok.length) return false;
+    // the big one first when it is ready, else any
+    const pick = ok.find((k) => MONSTER_SKILLS[k].belowHp) ?? ok[Math.floor(Math.random() * ok.length)];
+    const sk = MONSTER_SKILLS[pick];
+    cd.set(pick, this.now + sk.cooldown);
+    b.skillAt = this.now + sk.castMs + rand(2500, 4000);
+    const at = sk.area === 'self' ? { x: m.x, y: m.y } : { x: target.x, y: target.y };
+    b.casting = { id: pick, x: at.x, y: at.y, target: b.target!, until: this.now + sk.castMs };
+    this.broadcast('mcast', { m: id, skill: pick, x: at.x, y: at.y, ms: sk.castMs, to: b.target });
+    return true;
+  }
+
+  /** The telegraphed skill goes off: every player in the circle (or the chained target) takes the hit. */
+  private monsterSkillLands(id: string, m: MonsterState, b: Brain) {
+    const cast = b.casting!;
+    b.casting = undefined;
+    const def = MONSTERS[m.key];
+    const sk = MONSTER_SKILLS[cast.id];
+    if (!sk || m.dead) return;
+    const hits: { p: string; dmg: number }[] = [];
+    const victims: string[] = [];
+    if (sk.area === 'target') {
+      const p = this.state.players.get(cast.target);
+      if (p && !p.dead && dist(m.x, m.y, p.x, p.y) <= (sk.range ?? 9) + 1) victims.push(cast.target);
+    } else {
+      const cx = sk.area === 'self' ? m.x : cast.x;
+      const cy = sk.area === 'self' ? m.y : cast.y;
+      this.state.players.forEach((p, sid) => {
+        if (!p.dead && dist(cx, cy, p.x, p.y) <= sk.radius + 0.3) victims.push(sid);
+      });
+    }
+    let pulled: { p: string; x: number; y: number } | undefined;
+    for (const sid of victims) {
+      const seat = this.seats.get(sid);
+      const p = this.state.players.get(sid);
+      if (!seat || !p) continue;
+      const mult = elementMult(monsterElement(def)[0], seat.derived.defElement ?? 'neutral', 1);
+      const def2 = sk.magic ? seat.derived.def / 2 : seat.derived.def;
+      const dmg = mult === 0 ? 0 : Math.max(1, Math.round((def.atk * sk.mult * rand(0.9, 1.1) - def2) * mult));
+      hits.push({ p: sid, dmg });
+      if (sk.pull && !p.dead) {
+        // dragged in on the chain, right up to the reaper
+        const dd = dist(m.x, m.y, p.x, p.y) || 1;
+        const nx = m.x + ((p.x - m.x) / dd) * 1.2;
+        const ny = m.y + ((p.y - m.y) / dd) * 1.2;
+        if (walkable(this.map, nx, ny)) {
+          p.x = nx;
+          p.y = ny;
+          seat.lastMoveAt = this.now;
+          this.cancelCast(sid, seat, p);
+          seat.client.send('correct', { x: nx, y: ny });
+          pulled = { p: sid, x: nx, y: ny };
+        }
+      }
+      if (dmg > 0) this.hurt(sid, seat, p, dmg);
+    }
+    this.broadcast('mskill', { m: id, skill: cast.id, x: sk.area === 'self' ? m.x : cast.x, y: sk.area === 'self' ? m.y : cast.y, hits, pulled });
   }
 
   private monsterHit(id: string, m: MonsterState, sid: string, p: PlayerState) {
@@ -1023,6 +1643,7 @@ export class MapRoom extends Room<{ state: MapState }> {
   private killMonster(id: string, m: MonsterState, b: Brain) {
     m.dead = true;
     const def = MONSTERS[m.key];
+    if (def.structure) return this.crystalBroken(m, b);
     // Damage is added up per party (a solo player is their own group). Every group that did at least 10%
     // gets a full reward: a solo player keeps it, a party splits it evenly between its members on this map.
     const total = [...b.damage.values()].reduce((s, v) => s + v, 0) || 1;
@@ -1037,6 +1658,18 @@ export class MapRoom extends Room<{ state: MapState }> {
       g.dmg += d;
       groups.set(key, g);
     }
+    // the MVP boss: whoever did the most damage gets the MVP banner, for everyone on the map to see
+    if (def.mvp) {
+      let top = '';
+      let most = 0;
+      for (const [sid, d] of b.damage) if (d > most && this.state.players.has(sid)) { most = d; top = sid; }
+      const seat = top ? this.seats.get(top) : undefined;
+      if (seat) {
+        this.broadcast('mvp', { sid: top, name: seat.char.name, monster: m.key });
+        this.broadcast('system', { text: `👑 ${seat.char.name} ได้รับ MVP จากการปราบ ${def.name}!` });
+      }
+    }
+    b.casting = undefined;
     b.damage.clear();
     b.target = null;
     for (const g of groups.values()) {
@@ -1149,7 +1782,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       let regenPct = [...seat.buffs.values()].reduce((sum, b) => sum + (b.regenPct ?? 0), 0);
       for (const [id, lv] of Object.entries(seat.char.skills ?? {})) regenPct += (SKILLS[id]?.passive?.regenPct ?? 0) * lv;
       const hpTick = p.maxHp * 0.01 + seat.char.vit / 5;
-      const fighting = [...this.brains.values()].some((b) => b.target === sid);
+      const fighting = [...this.brains.values()].some((b) => b.target === sid) || (seat.pvpHitAt !== undefined && this.now - seat.pvpHitAt < 6000);
       if (fighting) {
         if (regenPct > 0) p.hp = Math.min(p.maxHp, p.hp + Math.ceil((hpTick * regenPct) / 100));
         return;
@@ -1163,10 +1796,10 @@ export class MapRoom extends Room<{ state: MapState }> {
   // ------------------------------------------------------------ helpers
 
   /** The buff a skill gives at `lv` (aspd/def for 'buff', stats/shield for the keyboardist's buffs). */
-  private buffFor(skill: SkillDef, lv: number): SeatBuff {
+  private buffFor(skill: SkillDef, lv: number, sec = skill.buff!.durationSec): SeatBuff {
     const blocks = buffBlocks(skill, lv);
     return {
-      until: this.now + skill.buff!.durationSec * 1000,
+      until: this.now + sec * 1000,
       ...(skill.buff!.aspdPct ? { aspdPct: skill.buff!.aspdPct * lv } : {}),
       ...(skill.buff!.def ? { def: skill.buff!.def * lv } : {}),
       ...(skill.buff!.hitPct ? { hitPct: skill.buff!.hitPct * lv } : {}),
@@ -1215,6 +1848,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const { char, inv } = await MapRoom.db.reload(seat.userId, seat.char.id);
     seat.char = char;
     seat.inv = inv;
+    this.fitShop(seat.client.sessionId, seat);
     const p = this.state.players.get(seat.client.sessionId);
     if (p) this.applyDerived(seat, p);
     seat.client.send('sync', { character: seat.char, inventory: seat.inv });

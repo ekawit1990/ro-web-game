@@ -1,6 +1,7 @@
+import { potionPct, spPotionPct, AUTO_POTION_EVERY } from '../game/autoPrefs';
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVEL, MONSTERS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf, vrmHatOf } from '../data';
+import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVEL, MONSTERS, MONSTER_SKILLS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf, vrmHatOf } from '../data';
 import { findPath, GameMap, Npc, THEMES, isLava, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
@@ -10,13 +11,18 @@ import { animateMaxAura, buildMaxAura } from './levelAura';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxPak, sfxSkill, sfxSlash, sfxWhirl } from '../audio/sound';
+import { blueCircle, chorusFx, controlFx, keyAura, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet, sfxMonster, sfxDiva, sfxMicBoom, sfxReaper, sfxMvp } from '../audio/sound';
+import { hellfire, judgement, scytheSweep, soulChain, telegraph } from './reaperfx';
+import { dynamicsHit, earTrainingBlast, highVoiceBeam, singerBuff, singerCharge, SG } from './singerfx';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
 import { upgradeVillage } from './village';
 import { glyphTexture, sparkTexture } from './toon';
 import { MOODS, sunDir, useRim } from './look';
 import { FxOptions, playFx, preloadFx } from './pixelfx';
+import { bassAura, bassBuffCast, rootNoteChop, straightBeatQuake } from './bassfx';
+import { bendingStorm, hammerOnBlast, palmMuting, slideDash, vibratoAura } from './guitarfx';
 import { doubleKickBlast, sendOffDash, snareGhost, snareHit, snareStorm, xSlashWave } from './xslash';
 
 /** Classes with their own attack moves in vrm.ts (the hit lands when the blow does). */
@@ -38,11 +44,17 @@ export interface WorldHooks {
   toast(text: string, kind?: 'good' | 'bad'): void;
   talk(npc: Npc): void;
   playerMenu(sessionId: string, name: string, x: number, y: number): void;
+  /** เปิดแผงขายของ: look into another player's shop / set up (or look after) my own */
+  viewShop(sessionId: string): void;
+  openVend(): void;
   death(dead: boolean): void;
   targeting(skillName: string | null): void;
   /** /auto switched on or off (by the player, a manual move, death). */
   autoChanged(on: boolean): void;
 }
+
+/** The class whose look a skill's effects use (a skill every class has counts as the Teen's). */
+const clsOf = (s: { cls: ClassKey | 'all' }): ClassKey => (s.cls === 'all' ? 'teen' : s.cls);
 
 /** Touch screens have no hover: show name + Lv of monsters this close (tiles) all the time. */
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -52,12 +64,16 @@ const DASH_MS = 160;
 
 /** /auto: how far (tiles) the character looks for the next monster, and when it drinks a potion / heals. */
 const AUTO_RANGE = 12;
-const AUTO_POTION_HP = 0.35;
+/** /auto drinks a potion when HP is under this % (the player picks it on the AUTO bar; 0 = never). */
 const AUTO_HEAL_HP = 0.6;
 
 interface RemotePlayer {
   name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number; head: string; weapon: string; ear: string; body?: string;
   x: number; y: number; hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean; sitting: boolean; hidden?: boolean;
+  /** guild name ('' = none) */
+  guild?: string;
+  /** player shop title ('' = none) */
+  shop?: string;
 }
 interface RemoteMonster { key: string; x: number; y: number; hp: number; maxHp: number; dead: boolean }
 interface RemoteState {
@@ -98,7 +114,7 @@ interface PlayerActor {
   /** หนีไปกลับ PR */
   hidden?: boolean;
   /** casting เสียงสูง: the bar over the head */
-  cast?: { start: number; ms: number; bar: THREE.Group };
+  cast?: { start: number; ms: number; bar: HTMLElement; fill: HTMLElement };
   dead: boolean;
   sitting: boolean;
   hp: number;
@@ -108,6 +124,12 @@ interface PlayerActor {
   bubble?: { el: HTMLElement; until: number };
   /** Base Lv 99: the golden aura at the feet. */
   maxAura?: THREE.Group;
+  /** the guild name shown under the name */
+  guild?: string;
+  guildEl?: HTMLElement;
+  /** เปิดแผงขายของ: the shop title, and its sign over the head */
+  shop?: string;
+  shopEl?: HTMLElement;
 }
 
 interface MonsterActor {
@@ -125,9 +147,26 @@ interface MonsterActor {
   label: Label;
   hit: THREE.Mesh;
   fade: number;
+  /** burst into pieces as it died: the body vanishes at once */
+  burst?: boolean;
+  /** knocked back by a hit (the singer's mic): unit direction, performance.now() of the hit, how far (tiles) */
+  knock?: { dx: number; dy: number; at: number; dist: number };
 }
 
-type Target = { kind: 'monster'; id: string } | { kind: 'npc'; npc: Npc };
+/** How long a knock-back flinch lasts (ms): a quick shove away, then it eases back to where it stands. */
+const KNOCK_MS = 320;
+const KNOCK_OUT_MS = 70;
+/** How far it flinches now (0..1 of the knock's distance). */
+function knockAmount(k: { at: number }, now: number) {
+  const age = now - k.at;
+  if (age < 0 || age >= KNOCK_MS) return 0;
+  if (age < KNOCK_OUT_MS) return Math.sin((age / KNOCK_OUT_MS) * Math.PI * 0.5);
+  const back = (age - KNOCK_OUT_MS) / (KNOCK_MS - KNOCK_OUT_MS);
+  return (1 - back) * (1 - back);
+}
+
+/** 'foe' = another player, in PVP. */
+type Target = { kind: 'monster'; id: string } | { kind: 'npc'; npc: Npc } | { kind: 'foe'; id: string };
 
 interface Float { el: HTMLElement; pos: THREE.Vector3; born: number; life: number; dx: number; rise: number }
 type Effect = (dt: number) => boolean; // false = finished
@@ -144,6 +183,8 @@ export class World3D {
   private map: GameMap;
   private hooks: WorldHooks;
   private partyIds = new Set<string>();
+  /** Players can fight each other on this map right now (the server's 'pvp' message). */
+  private pvp = false;
   private container: HTMLElement;
   private overlay: HTMLElement;
   private scene = new THREE.Scene();
@@ -170,12 +211,18 @@ export class World3D {
   private path: { x: number; y: number }[] = [];
   private target: Target | null = null;
   private pendingSkill: { id: string; target?: string } | null = null;
+  /**
+   * performance.now() until which we stand still after sending a skill with a cast bar: the server's 'cast'
+   * answer takes a moment, and a step taken meanwhile would cancel the cast (auto kept re-buffing because of it).
+   */
+  private castWait = 0;
   private targetingSkill: string | null = null;
   private lastAttack = 0;
   /** /auto: fight the nearest monsters with attacks and skills on its own. */
   private auto = false;
   private autoNext = 0;
   private autoPotionAt = 0;
+  private autoSpPotionAt = 0;
   /** skill id -> performance.now() when /auto may cast it again */
   private autoReady = new Map<string, number>();
   /** buff skill id -> performance.now() when it wears off */
@@ -245,6 +292,39 @@ export class World3D {
     this.raf = requestAnimationFrame(loop);
   }
 
+  /**
+   * The connection to the game server dropped and we joined the same map again (2026-11-09): carry on in
+   * this world with the new room instead of loading the whole map again. The server gave us a new session
+   * id and put us where it saved us.
+   */
+  /** Where our own character stands right now. */
+  myPos() {
+    return { x: this.me.x, y: this.me.y };
+  }
+
+  swapRoom(room: Room, x: number, y: number) {
+    const oldId = this.room.sessionId;
+    this.unsubs.forEach((u) => u());
+    this.unsubs = [];
+    this.room = room;
+    const me = this.me;
+    this.players.delete(oldId);
+    me.id = room.sessionId;
+    me.hit.userData.player = room.sessionId;
+    this.players.set(room.sessionId, me);
+    me.x = me.tx = this.sentX = x;
+    me.y = me.ty = this.sentY = y;
+    me.cast?.bar.remove();
+    me.cast = undefined;
+    this.path = [];
+    this.target = null;
+    this.pendingSkill = null;
+    this.castWait = 0;
+    this.warping = false;
+    this.lastAttack = 0;
+    this.listen();
+  }
+
   destroy() {
     cancelAnimationFrame(this.raf);
     this.ac.abort();
@@ -276,7 +356,7 @@ export class World3D {
   private buildScene() {
     this.scene.background = new THREE.Color(THEMES[this.map.theme].sky);
     // lava maps see further (the big volcano), the cave and the haunted maps less far
-    const [near, far] = isLava(this.map.theme) ? [60, 150] : this.map.theme === 'cave' ? [26, 72] : this.map.theme === 'deadwood' || this.map.theme === 'ruins' ? [30, 88] : [42, 105];
+    const [near, far] = isLava(this.map.theme) ? [60, 150] : this.map.theme === 'cave' ? [26, 72] : this.map.theme === 'deadwood' || this.map.theme === 'ruins' || this.map.theme === 'abyss' ? [30, 88] : [42, 105];
     this.scene.fog = new THREE.Fog(this.scene.background, near, far);
     const mood = MOODS[this.map.theme];
     renderer!.toneMapping = THREE.NeutralToneMapping;
@@ -414,15 +494,50 @@ export class World3D {
   }
 
   /** Party members on this map (session ids): their names are drawn in the party color. */
+  setPvp(on: boolean) {
+    this.pvp = on;
+    if (!on && this.target?.kind === 'foe') this.target = null;
+    for (const a of this.players.values()) a.label.el.classList.toggle('foe', on && this.hostile(a.id));
+  }
+
+  /** We may hit this player (same rules as the server: PVP on, not in our party or guild). */
+  hostile(id: string) {
+    if (!this.pvp || id === this.room.sessionId || this.partyIds.has(id)) return false;
+    const a = this.players.get(id);
+    if (!a || a.dead) return false;
+    const mine = this.me?.guild ?? '';
+    return !mine || a.guild !== mine;
+  }
+
   setParty(ids: Set<string>) {
     this.partyIds = ids;
     for (const [id, a] of this.players) a.label.el.classList.toggle('party', ids.has(id));
+  }
+
+  /** The shop sign over a player's head: a bag icon and the shop's name; click to look inside. */
+  private setShopSign(a: PlayerActor, title: string) {
+    a.shop = title;
+    a.shopEl?.remove();
+    a.shopEl = undefined;
+    if (!title) return;
+    const el = document.createElement('div');
+    el.className = `vsign${a === this.me ? ' mine' : ''}`;
+    el.innerHTML = `<i class="vbag"></i><span>${escapeHtml(title)}</span>`;
+    el.title = `ร้านของ ${a.name}`;
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (a === this.me) this.hooks.openVend();
+      else this.hooks.viewShop(a.id);
+    });
+    this.overlay.appendChild(el);
+    a.shopEl = el;
   }
 
   private destroyPlayer(a: PlayerActor) {
     this.scene.remove(a.rig.root);
     a.label.el.remove();
     a.bubble?.el.remove();
+    a.shopEl?.remove();
     this.hits = this.hits.filter((h) => h !== a.hit);
     this.players.delete(a.id);
   }
@@ -431,15 +546,17 @@ export class World3D {
     const def = MONSTERS[rm.key];
     const rig = buildMonster(rm.key);
     rig.root.position.set(rm.x, 0, rm.y);
+    rig.root.userData.monKey = rm.key;
     this.scene.add(rig.root);
     const hit = this.hitCylinder(Math.max(0.4, def.size * 0.45), rig.height + 0.2);
     hit.userData.monster = id;
     rig.root.add(hit);
     this.hits.push(hit);
     const [mel, melv] = monsterElement(def);
-    const label = this.makeLabel(`${def.boss ? '★ ' : ''}${escapeHtml(def.name)} <span class="lv">Lv.${def.level}</span> <span class="el" title="${ELEMENTS[mel].name} ${melv}">${ELEMENTS[mel].icon}${melv}</span>`, true);
+    const label = this.makeLabel(def.structure ? `💎 ${escapeHtml(def.name)}` : `${def.mvp ? '<span class="mvp-tag">MVP</span> ' : def.boss ? '<span class="mini-tag">มินิบอส</span> ' : ''}${escapeHtml(def.name)} <span class="lv">Lv.${def.level}</span> <span class="el" title="${ELEMENTS[mel].name} ${melv}">${ELEMENTS[mel].icon}${melv}</span>`, true);
     label.el.classList.add('mon');
     if (def.boss) label.el.classList.add('boss');
+    if (def.mvp) label.el.classList.add('mvp');
     const m: MonsterActor = {
       id, key: rm.key, rig, x: rm.x, y: rm.y, dead: rm.dead, hp: rm.hp, maxHp: rm.maxHp, phase: Math.random() * 6, moving: false, label, hit,
       fade: rm.dead ? 0 : 1,
@@ -574,8 +691,15 @@ export class World3D {
     const npc = hit ? this.npcHits.get(hit) : undefined;
     if (this.targetingSkill) {
       const type = SKILLS[this.targetingSkill].type;
+      if (type === 'revive') {
+        // ชุบชีวิต: only a player who is down
+        if (pid && this.players.get(pid)?.dead) return this.castAt(this.targetingSkill, pid);
+        this.hooks.toast('เลือกเพื่อนที่หมดสติ', 'bad');
+        return this.cancelTargeting();
+      }
       if (targetsPlayer(SKILLS[this.targetingSkill])) return this.castAt(this.targetingSkill, pid ?? this.room.sessionId);
       if (mid && !this.monsters.get(mid)?.dead) return this.castAt(this.targetingSkill, mid);
+      if (pid && this.hostile(pid)) return this.castAt(this.targetingSkill, pid);
       return this.cancelTargeting();
     }
     if (mid && !this.monsters.get(mid)?.dead) {
@@ -583,6 +707,12 @@ export class World3D {
       this.path = [];
       return;
     }
+    if (pid && this.hostile(pid)) {
+      this.target = { kind: 'foe', id: pid };
+      this.path = [];
+      return;
+    }
+    if (pid && this.players.get(pid)?.shop) return this.hooks.viewShop(pid);
     if (pid && pid !== this.room.sessionId) {
       const r = renderer!.domElement.getBoundingClientRect();
       return this.hooks.playerMenu(pid, this.players.get(pid)?.name ?? '', cx - r.left, cy - r.top - 20);
@@ -611,6 +741,50 @@ export class World3D {
     this.path = p;
     this.marker.position.set(x, 0.03, y);
     (this.marker.material as THREE.MeshBasicMaterial).opacity = 1;
+  }
+
+  /**
+   * Walk to a spot picked on the big map: anywhere on this map, however far. A blocked spot (a house,
+   * water, a tree) walks to the nearest open tile instead. Returns false when there's no way there.
+   */
+  walkToMapSpot(x: number, y: number) {
+    if (this.dead) return false;
+    let tx = Math.floor(x), ty = Math.floor(y);
+    if (!walkable(this.map, tx + 0.5, ty + 0.5)) {
+      let best: { x: number; y: number } | null = null;
+      let bestD = Infinity;
+      for (let dy = -6; dy <= 6; dy++) {
+        for (let dx = -6; dx <= 6; dx++) {
+          const d = Math.hypot(dx, dy);
+          if (d < bestD && walkable(this.map, tx + dx + 0.5, ty + dy + 0.5)) {
+            bestD = d;
+            best = { x: tx + dx, y: ty + dy };
+          }
+        }
+      }
+      if (!best) return false;
+      tx = best.x;
+      ty = best.y;
+      x = tx + 0.5;
+      y = ty + 0.5;
+    }
+    const p = findPath(this.map, Math.floor(this.me.x), Math.floor(this.me.y), tx, ty, this.map.w * this.map.h + 10);
+    if (!p) return false;
+    this.cancelTargeting();
+    this.target = null;
+    this.pendingSkill = null;
+    if (this.auto) this.setAuto(false); // walking somewhere yourself takes back control
+    if (p.length) p[p.length - 1] = { x, y };
+    this.path = p;
+    this.marker.position.set(x, 0.03, y);
+    (this.marker.material as THREE.MeshBasicMaterial).opacity = 1;
+    return true;
+  }
+
+  /** Where the character is walking to (the end of its path), for the big map. */
+  walkGoal() {
+    const last = this.path[this.path.length - 1];
+    return last ? { x: last.x, y: last.y } : null;
   }
 
   walkNear(x: number, y: number, range: number) {
@@ -644,18 +818,27 @@ export class World3D {
     const skill = SKILLS[id];
     const lv = this.session.char.skills?.[id] ?? 0;
     if (!skill || !lv || skill.type === 'passive' || this.dead) return;
+    if (skill.type === 'vend') return this.hooks.openVend();
     if (this.session.sp < skillSp(skill, lv)) return this.hooks.toast('SP ไม่พอ', 'bad');
     if (this.me.cast) return this.hooks.toast('กำลังร่ายสกิลอยู่', 'bad');
     if (targetsMonster(skill)) {
       const t = this.target?.kind === 'monster' ? this.monsters.get(this.target.id) : undefined;
       if (t && !t.dead) return this.castAt(id, t.id);
+      if (this.target?.kind === 'foe' && this.hostile(this.target.id)) return this.castAt(id, this.target.id);
       this.startTargeting(id);
     } else if (targetsPlayer(skill)) {
-      if (this.targetingSkill === id) return this.castAt(id, this.room.sessionId); // press twice = self
+      if (this.targetingSkill === id && skill.type !== 'revive') return this.castAt(id, this.room.sessionId); // press twice = self
       this.startTargeting(id);
-    } else {
-      this.room.send('skill', { id });
+    } else this.sendSelfSkill(id);
+  }
+
+  /** A skill on yourself / around you: stop walking first when it has a cast bar, so the cast isn't broken. */
+  private sendSelfSkill(id: string) {
+    if (SKILLS[id]?.castMs) {
+      this.path = [];
+      this.castWait = performance.now() + 1500;
     }
+    this.room.send('skill', { id });
   }
 
   private startTargeting(id: string) {
@@ -667,7 +850,7 @@ export class World3D {
   private castAt(id: string, target: string) {
     this.cancelTargeting();
     this.pendingSkill = { id, target };
-    if (!targetsPlayer(SKILLS[id])) this.target = { kind: 'monster', id: target };
+    if (!targetsPlayer(SKILLS[id])) this.target = this.monsters.has(target) ? { kind: 'monster', id: target } : { kind: 'foe', id: target };
   }
 
   cancelTargeting() {
@@ -706,16 +889,28 @@ export class World3D {
     const me = this.me;
     const d = s.derived;
 
-    if (s.hp < d.maxHp * AUTO_POTION_HP && t >= this.autoPotionAt) {
+    let drank = false;
+    if (potionPct() > 0 && s.hp < d.maxHp * (potionPct() / 100) && t >= this.autoPotionAt) {
       const pot = s.inv
         .filter((i) => ITEMS[i.item_id]?.type === 'consumable' && ITEMS[i.item_id].heal)
         .sort((a, b) => (ITEMS[b.item_id].heal ?? 0) - (ITEMS[a.item_id].heal ?? 0))[0];
       if (pot) {
         s.use(pot.id);
-        this.autoPotionAt = t + 1500;
+        drank = true;
+        this.autoPotionAt = t + AUTO_POTION_EVERY;
       }
     }
-    if (this.pendingSkill || this.targetingSkill || me.cast) return;
+    // SP potions on their own 1 s timer; not in the same step as an HP one (the server takes one item at a time)
+    if (!drank && spPotionPct() > 0 && s.sp < d.maxSp * (spPotionPct() / 100) && t >= this.autoSpPotionAt) {
+      const pot = s.inv
+        .filter((i) => ITEMS[i.item_id]?.type === 'consumable' && ITEMS[i.item_id].sp)
+        .sort((a, b) => (ITEMS[b.item_id].sp ?? 0) - (ITEMS[a.item_id].sp ?? 0))[0];
+      if (pot) {
+        s.use(pot.id);
+        this.autoSpPotionAt = t + AUTO_POTION_EVERY;
+      }
+    }
+    if (this.pendingSkill || this.targetingSkill || me.cast || this.castWait > t) return;
 
     let m = this.target?.kind === 'monster' ? this.monsters.get(this.target.id) : undefined;
     if (!m || m.dead) {
@@ -742,7 +937,7 @@ export class World3D {
     const cast = (id: string, target?: string) => {
       this.autoReady.set(id, t + Math.max(SKILLS[id].cooldown ?? 1000, 800));
       if (target) this.castAt(id, target);
-      else this.room.send('skill', { id });
+      else this.sendSelfSkill(id);
     };
     const mine = Object.keys(s.char.skills ?? {}).filter((id) => SKILLS[id] && ready(id));
     // heal yourself
@@ -750,10 +945,10 @@ export class World3D {
       const heal = mine.find((id) => SKILLS[id].type === 'heal' || SKILLS[id].type === 'heal_target');
       if (heal) return cast(heal, SKILLS[heal].type === 'heal_target' ? this.room.sessionId : undefined);
     }
-    // keep buffs up
-    const buff = mine.find((id) => isBuffSkill(SKILLS[id]) && (this.autoBuffs.get(id) ?? 0) < t + 1000);
+    // a buff once, then not again until it has run out (2026-11-13: it used to top up 1 s early)
+    const buff = mine.find((id) => isBuffSkill(SKILLS[id]) && (this.autoBuffs.get(id) ?? 0) <= t);
     if (buff) {
-      this.autoBuffs.set(buff, t + 3000); // until the server's 'buff' message says how long
+      this.autoBuffs.set(buff, t + 5000); // until the server's 'buff' message says how long
       return cast(buff, SKILLS[buff].type === 'buff_target' ? this.room.sessionId : undefined);
     }
     // the strongest ready attack skill
@@ -805,6 +1000,14 @@ export class World3D {
           this.floatText(p, String(msg.dmg), msg.crit ? 'crit' : a === this.me ? 'deal' : 'other');
           this.flash(m.rig.root);
           m.anim?.hit();
+          // the singer's mic shoves the monster back a little (just the look: the server keeps it where it is)
+          if (a?.cls === 'singer' && !m.dead) {
+            const dx = m.x - a.x;
+            const dy = m.y - a.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const dist = (MONSTERS[m.key]?.boss ? 0.12 : 0.3) * (msg.crit ? 1.5 : 1);
+            m.knock = { dx: dx / len, dy: dy / len, at: performance.now(), dist };
+          }
         }
       };
       if (a) {
@@ -815,6 +1018,33 @@ export class World3D {
         sfxAttack(a.cls, this.vol(a.x, a.y, a === this.me));
         this.attackFx(a, m, land);
       } else land();
+    });
+    on('phit', (msg: { by?: string; to: string; dmg: number; crit?: boolean; block?: boolean }) => {
+      // PVP: a player hit another player
+      const v = this.players.get(msg.to);
+      const a = msg.by ? this.players.get(msg.by) : undefined;
+      if (!v) return;
+      const land = () => {
+        const p = new THREE.Vector3(v.x, 1.8, v.y);
+        if (v === this.me) sfx(msg.dmg === 0 ? 'miss' : 'hurt');
+        else sfx(msg.dmg === 0 ? 'miss' : msg.crit ? 'crit' : 'hit', this.vol(v.x, v.y, a === this.me));
+        if (msg.block) this.floatText(p, 'Block', 'miss');
+        else if (msg.dmg === 0) this.floatText(p, 'Miss', 'miss');
+        else {
+          this.floatText(p, String(msg.dmg), v === this.me ? 'take' : msg.crit ? 'crit' : a === this.me ? 'deal' : 'other');
+          this.flash(v.rig.root, 0xff3333);
+        }
+      };
+      if (a) {
+        this.face(a, v.x, v.y);
+        a.attack = 1;
+        a.combat = COMBAT_TIME;
+        a.ready = READY_TIME;
+        sfxAttack(a.cls, this.vol(a.x, a.y, a === this.me));
+        this.attackFx(a, this.asTarget(v), land);
+      } else land();
+      // hit back: someone who attacks us becomes our target if we aren't doing anything
+      if (v === this.me && a && this.hostile(a.id) && !this.target && !this.path.length && msg.dmg > 0) this.target = { kind: 'foe', id: a.id };
     });
     on('mhit', (msg: { m: string; to: string; dmg: number; block?: boolean; guard?: string }) => {
       const v = this.players.get(msg.to);
@@ -845,8 +1075,13 @@ export class World3D {
       if (v === this.me && m && !m.dead && !this.target && !this.path.length) this.target = { kind: 'monster', id: m.id };
     });
     on('skill', (msg) => {
+      // every skill without a cast bar still gets its "วีด" as it goes off (cast skills whistle while casting)
+      const sk = SKILLS[msg.skill];
+      const caster = this.players.get(msg.by);
+      if (sk && !sk.castMs && caster) sfxWheet(this.vol(caster.x, caster.y, caster === this.me) * 0.8);
       this.skillFx(msg);
       if (msg.by === this.room.sessionId && SKILLS[msg.skill]) {
+        this.castWait = 0;
         this.autoReady.set(msg.skill, performance.now() + (SKILLS[msg.skill].cooldown ?? 1000));
       }
     });
@@ -867,12 +1102,28 @@ export class World3D {
       if (!a || !skill) return;
       this.face(a, msg.x, msg.y);
       this.castFx(a, skill, msg.ms);
-      if (a === this.me) this.path = [];
+      if (a === this.me) {
+        this.path = [];
+        this.castWait = 0;
+      }
+      if (skill.cls === 'singer') {
+        // the singer charges on a golden circle under a spotlight, notes rising round them
+        const start = a.cast?.start;
+        singerCharge(this.fxCtx(false, () => {}), () => new THREE.Vector3(a.x, 0, a.y), msg.ms, () => !!a.cast && a.cast.start === start && this.players.get(a.id) === a);
+      }
+      if (skill.waves) {
+        // ตัวโน้ตทำลาย: the 3x3 area lights up and charges while the keyboardist casts
+        const start = a.cast?.start;
+        const vol = this.vol(msg.x, msg.y, a === this.me);
+        sfxNoteCharge(vol, msg.ms);
+        blueCircle(this.fxCtx(false, () => {}), () => new THREE.Vector3(a.x, 0, a.y), 1.1, msg.ms / 1000, 0, 2.5);
+        noteRainCharge(this.fxCtx(false, () => {}), msg.x, msg.y, skill.radius ?? 1.5, msg.ms, () => !!a.cast && a.cast.start === start && this.players.get(a.id) === a);
+      }
     });
     on('castEnd', (msg: { by: string; done: boolean }) => {
       const a = this.players.get(msg.by);
       if (!a?.cast) return;
-      this.scene.remove(a.cast.bar);
+      a.cast.bar.remove();
       a.cast = undefined;
       a.performUntil = 0;
       if (!msg.done && a === this.me) this.hooks.toast('ขยับตัว ยกเลิกการร่ายสกิล', 'bad');
@@ -907,11 +1158,64 @@ export class World3D {
       this.path = [];
     });
     on('healed', () => {
-      this.hooks.toast('ครูเพลง: พักเสียงสักหน่อยนะ (ฟื้น HP/SP เต็ม + บัพทุกสกิลระดับสูงสุด)', 'good');
+      this.hooks.toast('ครูเพลง: พักเสียงสักหน่อยนะ (ฟื้น HP/SP เต็ม + บัพทุกสกิลระดับสูงสุด นาน 5 นาที)', 'good');
       this.sparkle(this.me, 0x9be0ff);
       this.levelFx(this.me, '', 0xffd36b);
       sfx('heal');
     });
+    on('mcast', (msg: { m: string; skill: string; x: number; y: number; ms: number; to?: string }) => {
+      // a boss charges a skill: it shouts the name and a red circle on the ground shows where it will land
+      const m = this.monsters.get(msg.m);
+      const sk = MONSTER_SKILLS[msg.skill];
+      if (!m || !sk) return;
+      const vol = this.vol(m.x, m.y, false);
+      sfxReaper('warn', vol);
+      this.floatText(this.top(m).add(new THREE.Vector3(0, 0.35, 0)), `${sk.name}!!`, 'shout', Math.max(1400, msg.ms + 400)).classList.add('boss-shout');
+      const alive = () => this.monsters.get(msg.m) === m && !m.dead;
+      const ctx = this.fxCtx(false, () => {});
+      if (sk.area === 'target') {
+        const v = msg.to ? this.players.get(msg.to) : undefined;
+        if (v) telegraph(ctx, () => new THREE.Vector3(v.x, 0, v.y), 0.9, msg.ms, () => alive() && this.players.get(v.id) === v);
+      } else if (sk.area === 'self') telegraph(ctx, () => new THREE.Vector3(m.x, 0, m.y), sk.radius, msg.ms, alive);
+      else telegraph(ctx, () => new THREE.Vector3(msg.x, 0, msg.y), sk.radius, msg.ms, alive);
+      if (m.anim) m.anim.attack();
+    });
+    on('mskill', (msg: { m: string; skill: string; x: number; y: number; hits: { p: string; dmg: number }[]; pulled?: { p: string } }) => {
+      const m = this.monsters.get(msg.m);
+      const sk = MONSTER_SKILLS[msg.skill];
+      if (!sk) return;
+      const meHit = msg.hits.some((h) => h.p === this.room.sessionId);
+      const vol = this.vol(msg.x, msg.y, meHit);
+      const kind = msg.skill === 'scythe_sweep' ? 'sweep' : msg.skill === 'soul_chain' ? 'chain' : msg.skill === 'hellfire' ? 'fire' : 'judge';
+      const ctx = this.fxCtx(meHit, () => sfxReaper(kind, vol));
+      if (m) {
+        if (m.anim) m.anim.attack();
+        else this.lunge(m.rig.root, 0, 0.01);
+      }
+      if (msg.skill === 'scythe_sweep') scytheSweep(ctx, msg.x, msg.y, sk.radius);
+      else if (msg.skill === 'hellfire') hellfire(ctx, msg.x, msg.y, sk.radius);
+      else if (msg.skill === 'judgement') judgement(ctx, msg.x, msg.y, sk.radius);
+      else if (msg.skill === 'soul_chain' && m) {
+        const v = this.players.get(msg.hits[0]?.p ?? msg.pulled?.p ?? '');
+        if (v) soulChain(ctx, () => new THREE.Vector3(m.x, 0, m.y), () => new THREE.Vector3(v.x, 0, v.y));
+      }
+      msg.hits.forEach((h, i) => {
+        const v = this.players.get(h.p);
+        if (!v) return;
+        setTimeout(() => {
+          if (this.players.get(h.p) !== v) return;
+          const p = new THREE.Vector3(v.x, 1.7, v.y);
+          if (h.dmg === 0) this.floatText(p, 'Miss', 'miss');
+          else {
+            this.floatText(p, String(h.dmg), 'take', 1300);
+            this.flash(v.rig.root, 0xff3333);
+            if (v === this.me) sfx('hurt');
+          }
+        }, msg.skill === 'soul_chain' ? 250 : 60 + i * 20);
+      });
+      if (msg.pulled?.p === this.room.sessionId) this.hooks.toast(`ถูก${sk.name}ลากเข้าไปหาบอส!`, 'bad');
+    });
+    on('mvp', (msg: { sid: string; name: string; monster: string }) => this.mvpFx(msg.sid, msg.name));
     on('chat', (msg: { id: string; text: string }) => this.bubble(msg.id, msg.text));
   }
 
@@ -982,13 +1286,19 @@ export class World3D {
       if (rm.dead && !m.dead) {
         m.dead = true;
         m.anim?.die();
-        sfx('mdie', Math.min(1, this.vol(m.x, m.y, false) * 2));
+        const def = MONSTERS[m.key];
+        if (def && !def.structure) {
+          sfxMonster(m.key, def.model ?? m.key, def.size, 'die', Math.min(1, this.vol(m.x, m.y, false) * 2.2), def.boss);
+          if (m.rig.root.visible) this.shatter(m);
+          m.burst = true;
+        } else sfx('mdie', Math.min(1, this.vol(m.x, m.y, false) * 2));
         if (this.target?.kind === 'monster' && this.target.id === id) this.target = null;
       } else if (!rm.dead && m.dead) {
         m.dead = false;
         m.x = rm.x;
         m.y = rm.y;
         m.fade = 0;
+        m.burst = false;
         m.rig.root.visible = true;
         m.anim?.revive();
       }
@@ -1001,9 +1311,11 @@ export class World3D {
       m.hp = rm.hp;
       m.maxHp = rm.maxHp;
       // a rigged monster plays its death clip before sinking away; a drawn one squashes flat
-      m.fade = Math.max(0, Math.min(1, m.fade + (m.dead ? -dt * (m.anim ? 0.7 : 2.5) : dt * 2.5)));
+      m.fade = Math.max(0, Math.min(1, m.fade + (m.dead ? -dt * (m.burst ? 9 : m.anim ? 0.7 : 2.5) : dt * 2.5)));
       m.rig.root.visible = m.fade > 0;
-      m.rig.root.position.set(m.x, 0, m.y);
+      const kb = m.knock && !m.dead ? knockAmount(m.knock, performance.now()) * m.knock.dist : 0;
+      if (m.knock && !kb && performance.now() - m.knock.at >= KNOCK_MS) m.knock = undefined;
+      m.rig.root.position.set(m.x + (m.knock?.dx ?? 0) * kb, 0, m.y + (m.knock?.dy ?? 0) * kb);
       if (m.anim) {
         m.rig.root.scale.setScalar(m.dead ? Math.min(1, m.fade * 2.5) : 0.2 + m.fade * 0.8);
         m.anim.update(dt, m.moving && !m.dead);
@@ -1024,6 +1336,20 @@ export class World3D {
         a = undefined;
       }
       if (!a) a = this.makePlayer(id, rp);
+      if ((rp.guild ?? '') !== (a.guild ?? '')) {
+        a.guild = rp.guild ?? '';
+        a.guildEl?.remove();
+        a.guildEl = undefined;
+        if (a.guild) {
+          a.guildEl = document.createElement('span');
+          a.guildEl.className = 'gd';
+          a.guildEl.textContent = `[${a.guild}]`;
+          a.label.el.appendChild(a.guildEl);
+        }
+        if (a === this.me) for (const o of this.players.values()) o.label.el.classList.toggle('foe', this.pvp && this.hostile(o.id));
+      }
+      a.label.el.classList.toggle('foe', this.pvp && this.hostile(id));
+      if ((rp.shop ?? '') !== (a.shop ?? '')) this.setShopSign(a, rp.shop ?? '');
       if (a === this.me && a.look !== lookKey(rp)) {
         // our own job change: swap the model in place (keeps the camera and our label)
         a.look = lookKey(rp);
@@ -1111,10 +1437,7 @@ export class World3D {
       animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0 || a.ready > 0, armed: a.armed, combo: a.combo, perform: a.perform, ready: a.ready > 0 });
       if (a.cast) {
         const k = Math.min(1, (performance.now() - a.cast.start) / a.cast.ms);
-        a.cast.bar.position.set(a.x, 2.35, a.y);
-        a.cast.bar.quaternion.copy(this.camera.quaternion);
-        a.cast.bar.children[1].scale.x = Math.max(0.001, k);
-        a.cast.bar.children[1].position.x = -0.5 + k / 2;
+        a.cast.fill.style.width = `${(k * 100).toFixed(1)}%`;
       }
       if (a.spin && a.spin > 0) {
         a.spin = Math.max(0, a.spin - dt);
@@ -1133,8 +1456,9 @@ export class World3D {
     const time = this.now;
     if (this.auto) this.autoStep();
 
-    if (me.cast) {
-      // singing เสียงสูง: stand still (walking away cancels it on the server)
+    if (me.cast || this.castWait > performance.now()) {
+      // casting (or waiting for the server to start the cast): stand still, walking away cancels it on the server
+      if (!me.cast) this.path = [];
     } else if (this.target?.kind === 'monster') {
       const m = this.monsters.get(this.target.id);
       if (!m || m.dead) {
@@ -1156,6 +1480,30 @@ export class World3D {
           } else if (time - this.lastAttack >= this.session.derived.attackDelay) {
             this.lastAttack = time;
             this.room.send('attack', { id: m.id });
+          }
+        }
+      }
+    } else if (this.target?.kind === 'foe') {
+      const f = this.players.get(this.target.id);
+      if (!f || !this.hostile(f.id)) {
+        this.target = null;
+        this.pendingSkill = null;
+      } else {
+        const skill = this.pendingSkill ? SKILLS[this.pendingSkill.id] : null;
+        const reach = (skill ? skill.range ?? 1 : CLASSES[this.session.char.cls].range) + 0.3 + 0.3;
+        const d = Math.hypot(f.x - me.x, f.y - me.y);
+        if (d > reach) {
+          if (!this.path.length || time % 400 < 20) this.walkNear(f.x, f.y, Math.max(1, reach - 0.4));
+        } else {
+          this.path = [];
+          this.face(me, f.x, f.y);
+          if (this.pendingSkill) {
+            this.room.send('skill', this.pendingSkill);
+            this.pendingSkill = null;
+            this.lastAttack = time;
+          } else if (time - this.lastAttack >= this.session.derived.attackDelay) {
+            this.lastAttack = time;
+            this.room.send('attack', { id: f.id });
           }
         }
       }
@@ -1238,6 +1586,7 @@ export class World3D {
     for (const s of this.staticLabels) this.place(s.el, s.pos);
     for (const a of this.players.values()) {
       this.place(a.label.el, new THREE.Vector3(a.x, 0, a.y));
+      if (a.shopEl) this.place(a.shopEl, new THREE.Vector3(a.x, a.sitting ? 1.75 : 2.2, a.y), !a.hidden);
       if (a.label.fill) a.label.fill.style.width = `${(a.hp / Math.max(1, a.maxHp)) * 100}%`;
       if (a.bubble) {
         if (this.now > a.bubble.until) {
@@ -1249,7 +1598,7 @@ export class World3D {
     for (const m of this.monsters.values()) {
       const def = MONSTERS[m.key];
       const targeted = this.target?.kind === 'monster' && this.target.id === m.id;
-      const named = !!def.boss || this.hoverMonster === m || targeted
+      const named = !!def.boss || !!def.structure || this.hoverMonster === m || targeted
         || (TOUCH && Math.hypot(m.x - this.me.x, m.y - this.me.y) < TOUCH_NAME_RANGE);
       const show = !m.dead && (named || m.hp < m.maxHp);
       this.place(m.label.el, new THREE.Vector3(m.x, 0, m.y), show);
@@ -1275,6 +1624,16 @@ export class World3D {
     return Math.max(0, 1 - Math.hypot(x - this.me.x, y - this.me.y) / 14) * 0.45;
   }
 
+  /** A player dressed up as a monster target, for the attack effects (follows them as they move). */
+  private asTarget(v: PlayerActor): MonsterActor {
+    return {
+      get x() { return v.x; },
+      get y() { return v.y; },
+      id: v.id, key: '', rig: { root: v.rig.root, body: v.rig.root, height: 1.7 } as MonsterRig,
+      dead: v.dead, hp: v.hp, maxHp: v.maxHp, phase: 0, moving: false, label: v.label, hit: v.hit, fade: 0,
+    } as unknown as MonsterActor;
+  }
+
   private top(m: MonsterActor) {
     return new THREE.Vector3(m.x, m.rig.height + 0.2, m.y);
   }
@@ -1282,10 +1641,19 @@ export class World3D {
   /** RO-style damage numbers and shouts, floating above a point in the world. */
   private floatText(pos: THREE.Vector3, text: string, kind: string, life = 900) {
     const el = document.createElement('div');
-    el.className = `wf ${kind}`;
-    el.textContent = text;
+    // numbers: chunky, wide-spaced digits with a thick outline that pop in big and white, settle into their
+    // colour and float straight up (stacking on multi-hits)
+    const num = /^[+]?\d+$/.test(text) && kind !== 'level' && kind !== 'shout';
+    el.className = `wf ${kind}${num ? ' num' : ''}`;
+    if (num) {
+      const inner = document.createElement('span');
+      inner.textContent = text;
+      el.appendChild(inner);
+    } else el.textContent = text;
     this.overlay.appendChild(el);
-    this.floats.push({ el, pos: pos.clone(), born: this.now, life, dx: kind === 'shout' || kind === 'level' ? 0 : (Math.random() - 0.5) * 0.8, rise: kind === 'level' ? 0.9 : 0.6 });
+    const dx = kind === 'shout' || kind === 'level' ? 0 : num ? (Math.random() - 0.5) * 0.15 : (Math.random() - 0.5) * 0.8;
+    this.floats.push({ el, pos: pos.clone(), born: this.now, life: num ? Math.max(life, 1100) : life, dx, rise: kind === 'level' ? 0.9 : num ? 0.85 : 0.6 });
+    return el;
   }
 
   bubble(id: string, text: string) {
@@ -1322,6 +1690,79 @@ export class World3D {
   /** Hit spark (materials are shared between actors, so no tinting). */
   private flash(o: THREE.Object3D, color = 0xffffff) {
     this.burst(new THREE.Vector3(o.position.x, 0.6, o.position.z), color, 6, 2);
+    // a monster that is hit cries out in its own voice (at most every 140 ms, so multi-hits don't pile up)
+    const key = o.userData.monKey as string | undefined;
+    if (key && MONSTERS[key] && performance.now() - ((o.userData.voiceAt as number) ?? 0) > 140) {
+      o.userData.voiceAt = performance.now();
+      const def = MONSTERS[key];
+      sfxMonster(key, def.model ?? key, def.size, 'hurt', this.vol(o.position.x, o.position.z, false) * 2.2, def.boss);
+    }
+  }
+
+  /** A monster dying bursts into pieces of its colours that fly out, tumble, bounce once and fade. */
+  private shatter(m: MonsterActor) {
+    const def = MONSTERS[m.key];
+    const h = m.rig.height;
+    const cx = m.x;
+    const cz = m.y;
+    const base = new THREE.Color(def.color ?? '#cccccc');
+    const cols = [base, base.clone().offsetHSL(0, 0, 0.18), base.clone().offsetHSL(0, 0, -0.2), new THREE.Color(def.glow ?? '#ffffff')];
+    const n = Math.round(14 + Math.min(16, def.size * 8) + (def.boss ? 14 : 0));
+    const geos = [new THREE.TetrahedronGeometry(1), new THREE.BoxGeometry(1, 1, 1), new THREE.OctahedronGeometry(1)];
+    const pieces: { mesh: THREE.Mesh; v: THREE.Vector3; spin: THREE.Vector3; bounced: boolean }[] = [];
+    for (let i = 0; i < n; i++) {
+      const mat = new THREE.MeshLambertMaterial({ color: cols[i % cols.length], transparent: true, emissive: cols[i % cols.length], emissiveIntensity: 0.25 });
+      const mesh = new THREE.Mesh(geos[i % geos.length], mat);
+      const sz = (0.09 + Math.random() * 0.13) * Math.max(0.7, Math.min(2.2, def.size));
+      mesh.scale.set(sz, sz * (0.6 + Math.random() * 0.8), sz);
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.random() * 0.3 * def.size;
+      mesh.position.set(cx + Math.cos(a) * r, h * (0.25 + Math.random() * 0.6), cz + Math.sin(a) * r);
+      const sp = 1.6 + Math.random() * 2.6;
+      pieces.push({ mesh, v: new THREE.Vector3(Math.cos(a) * sp, 2 + Math.random() * 3.2, Math.sin(a) * sp), spin: new THREE.Vector3(Math.random() * 14 - 7, Math.random() * 14 - 7, Math.random() * 14 - 7), bounced: false });
+      this.scene.add(mesh);
+    }
+    // a quick white-hot flash where it stood
+    const glow = this.sprite(sparkTexture(), Math.max(1.4, def.size * 1.8), cols[3].getHex(), true);
+    glow.position.set(cx, h * 0.5, cz);
+    let t = 0;
+    this.effects.push((dt) => {
+      t += dt;
+      glow.material.opacity = Math.max(0, 1 - t / 0.25);
+      glow.scale.setScalar(Math.max(1.4, def.size * 1.8) * (1 + t * 3));
+      for (const p of pieces) {
+        p.v.y -= 9.8 * dt;
+        p.mesh.position.addScaledVector(p.v, dt);
+        if (p.mesh.position.y < 0.04) {
+          p.mesh.position.y = 0.04;
+          if (!p.bounced) {
+            p.bounced = true;
+            p.v.y = Math.abs(p.v.y) * 0.35;
+            p.v.x *= 0.5;
+            p.v.z *= 0.5;
+            p.spin.multiplyScalar(0.4);
+          } else {
+            p.v.set(0, 0, 0);
+            p.spin.set(0, 0, 0);
+          }
+        }
+        p.mesh.rotation.x += p.spin.x * dt;
+        p.mesh.rotation.y += p.spin.y * dt;
+        p.mesh.rotation.z += p.spin.z * dt;
+        (p.mesh.material as THREE.MeshLambertMaterial).opacity = t < 0.9 ? 1 : Math.max(0, 1 - (t - 0.9) / 0.5);
+      }
+      if (t > 1.4) {
+        this.scene.remove(glow);
+        glow.material.dispose();
+        for (const p of pieces) {
+          this.scene.remove(p.mesh);
+          (p.mesh.material as THREE.Material).dispose();
+        }
+        geos.forEach((g) => g.dispose());
+        return false;
+      }
+      return true;
+    });
   }
 
   private sprite(tex: THREE.Texture, size: number, color = 0xffffff, additive = false) {
@@ -1363,7 +1804,7 @@ export class World3D {
       const uy = (m.y - a.y) / d;
       // pixel effects are drawn facing right: mirror them when the target is left of the player on screen
       const flip = new THREE.Vector3(m.x, 1, m.y).project(this.camera).x < new THREE.Vector3(a.x, 1, a.y).project(this.camera).x;
-      const r = Math.min(0.5, MONSTERS[m.key].size * 0.3);
+      const r = Math.min(0.5, (MONSTERS[m.key]?.size ?? 1) * 0.3);
       const hitAt = new THREE.Vector3(m.x - ux * r, m.rig.height * 0.45, m.y - uy * r);
       const armed = a.armed !== false;
       setTimeout(() => {
@@ -1450,14 +1891,18 @@ export class World3D {
       }
     }
     if (a && skill.scale === 'crowd') a.spin = 0.55;
-    if (JOB_FX.has(skill.cls)) {
+    if (skill.cls === 'keyboardist') {
+      this.keyboardFx(a, msg);
+      return;
+    }
+    if (JOB_FX.has(clsOf(skill))) {
       this.jobSkillFx(a, msg);
       return;
     }
-    const color = new THREE.Color(CLASSES[skill.cls].color).getHex();
+    const color = new THREE.Color(CLASSES[clsOf(skill)].color).getHex();
     const bladeSkill = skill.cls === 'teen' && (skill.type === 'single' || skill.type === 'aoe_self');
     if (a) {
-      if (!bladeSkill) sfxSkill(skill.cls, skill.type, this.vol(a.x, a.y, a === this.me));
+      if (!bladeSkill) sfxSkill(clsOf(skill), skill.type, this.vol(a.x, a.y, a === this.me));
       else this.bladeFx(a, msg, a === this.me);
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       this.face(a, msg.x, msg.y);
@@ -1493,7 +1938,7 @@ export class World3D {
       } else if (t && skill.type === 'heal_target') this.sparkle(t, 0x7dff9a);
       else if (t) this.levelFx(t, '', color);
     } else if (skill.type === 'single' && a) {
-      const glyph = ({ note: '♪', chord: '♫', wave: '〰', mic: '🎤' } as Record<string, string>)[CLASSES[skill.cls].projectile ?? ''] ?? '✦';
+      const glyph = ({ note: '♪', chord: '♫', wave: '〰', mic: '🎤' } as Record<string, string>)[CLASSES[clsOf(skill)].projectile ?? ''] ?? '✦';
       for (let i = 0; i < Math.min(3, skill.hits ?? 1); i++) {
         this.projectile(new THREE.Vector3(a.x, 1.0, a.y), new THREE.Vector3(msg.x, 0.6, msg.y), glyphTexture(glyph, '#ffffff'), 0.7, 200, undefined, i * 90);
       }
@@ -1509,15 +1954,23 @@ export class World3D {
           if (!m) return;
           this.floatText(this.top(m).add(new THREE.Vector3(0, i * 0.12, 0)), String(h.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
           this.flash(m.rig.root);
-        } else if (h.p) {
-          const p = this.players.get(h.p);
-          if (p) this.floatText(new THREE.Vector3(p.x, 1.8, p.y), `+${-h.dmg}`, 'heal');
-        }
+        } else if (h.p) this.playerNumber(h.p, h.dmg, msg.by, i);
       }, 240 + i * 110);
     });
   }
 
   // ------------------------------------------------------------ drummer / guitarist / bassist / singer
+
+  /** A skill's number on a player: a heal (dmg < 0) in green, PVP damage (dmg > 0) like a hit. */
+  private playerNumber(sid: string, dmg: number, by: string, i: number, color = 0xff3333) {
+    const p = this.players.get(sid);
+    if (!p) return;
+    const at = new THREE.Vector3(p.x, 1.8 + (i % 4) * 0.1, p.y);
+    if (dmg < 0) return this.floatText(at, `+${-dmg}`, 'heal');
+    this.floatText(at, String(dmg), p === this.me ? 'take' : by === this.room.sessionId ? 'skill' : 'other');
+    this.flash(p.rig.root, color);
+    if (p === this.me) sfx('hurt');
+  }
 
   /** Class effect colour (drummer purple, bassist green, guitarist red, singer yellow). */
   private fxColor(cls: ClassKey) {
@@ -1539,7 +1992,7 @@ export class World3D {
     const d = Math.hypot(m.x - a.x, m.y - a.y) || 1;
     const ux = (m.x - a.x) / d;
     const uy = (m.y - a.y) / d;
-    const r = Math.min(0.5, MONSTERS[m.key].size * 0.3);
+    const r = Math.min(0.5, (MONSTERS[m.key]?.size ?? 1) * 0.3);
     const hitAt = () => new THREE.Vector3(m.x - ux * r, m.rig.height * 0.5, m.y - uy * r);
     if (a.cls === 'singer') {
       // the mic leaves the hand at the release and flies in an arc
@@ -1578,12 +2031,12 @@ export class World3D {
   private jobSkillFx(a: PlayerActor | undefined, msg: { by: string; skill: string; x: number; y: number; target?: string; allies?: string[]; fromX?: number; fromY?: number; dirX?: number; dirY?: number; bonus?: boolean; pulled?: string[]; hits: { m?: string; p?: string; dmg: number; at?: number }[] }) {
     const skill = SKILLS[msg.skill];
     const id = msg.skill;
-    const c = this.fxColor(skill.cls);
+    const c = this.fxColor(clsOf(skill));
     const mine = !!a && a === this.me;
     const vol = a ? this.vol(a.x, a.y, mine) : 0;
     const isBuff = skill.type === 'buff' || skill.type === 'buff_party' || skill.type === 'buff_target';
     if (a) {
-      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll') sfxSkill(skill.cls, skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
+      if (skill.shape !== 'x' && id !== 'double_kick' && id !== 'send_off' && id !== 'snare_roll' && id !== 'hammer_on' && id !== 'vibrato' && id !== 'slide' && id !== 'bending' && id !== 'palm_muting' && skill.cls !== 'singer') sfxSkill(clsOf(skill), skill.type, vol); // these have their own "ฟาก!" / "ตูม!" / "ฟวิ้ง!" / "ฟริ้ง!"
       this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
       if (skill.type !== 'aoe_self' && !isBuff) this.face(a, msg.x, msg.y);
       a.combat = COMBAT_TIME;
@@ -1593,9 +2046,10 @@ export class World3D {
     }
     const monsterAt = (mid?: string) => {
       const m = mid ? this.monsters.get(mid) : undefined;
-      return m ? new THREE.Vector3(m.x, m.rig.height * 0.5, m.y) : new THREE.Vector3(msg.x, 0.7, msg.y);
+      const f = !m && mid ? this.players.get(mid) : undefined; // PVP: a player
+      return m ? new THREE.Vector3(m.x, m.rig.height * 0.5, m.y) : f ? new THREE.Vector3(f.x, 0.85, f.y) : new THREE.Vector3(msg.x, 0.7, msg.y);
     };
-    const target = () => monsterAt(msg.hits[0]?.m ?? msg.target);
+    const target = () => monsterAt(msg.hits[0]?.m ?? msg.hits.find((h) => h.dmg > 0)?.p ?? msg.target);
     // damage numbers: at the given time for waves, else one after another
     let numbersFrom = 240;
     let numberGap = 110;
@@ -1647,7 +2101,12 @@ export class World3D {
         },
         a.x, a.y, skill.radius ?? 5, sparkTexture(),
       );
-    } else if ((id === 'send_off' || id === 'slide') && a) {
+    } else if (id === 'slide' && a) {
+      // a red fire comet (like the drummer's จังหวะส่ง) and a red starburst where it lands (x2 with Vibrato = bigger)
+      const at = target();
+      slideDash(this.fxCtx(mine, (hit) => sfxSlide(vol, hit, !!msg.bonus)), msg.fromX ?? a.x, msg.fromY ?? a.y, at.x, at.z, DASH_MS, !!msg.bonus, sparkTexture());
+      if (msg.bonus) setTimeout(() => this.floatText(target().setY(at.y + 1.4), 'x2!!', 'shout', 900), DASH_MS);
+    } else if (id === 'send_off' && a) {
       // dash like a purple comet ("ฟวิ้ง!") and a starburst where it lands (x2 = bigger)
       const fx = msg.fromX ?? a.x;
       const fy = msg.fromY ?? a.y;
@@ -1682,84 +2141,84 @@ export class World3D {
         );
         if (mine) this.shake(0.2);
       } else {
-        this.wave(fx, fy, msg.dirX ?? 0, msg.dirY ?? 1, skill.length ?? 5, skill.speed ?? 5, skill.width ?? 1.5, c, false);
-        if (mine) this.shake(0.35);
+        if (skill.cls === 'singer') {
+          // เสียงสูง: a cannon of golden sound rings on a staff ribbon, sung as a big "อาาา!"
+          a.performUntil = performance.now() + 900;
+          highVoiceBeam(this.fxCtx(mine, (big) => (big ? sfxDiva(vol, true) : sfxMicBoom(vol, true))), fx, fy, msg.dirX ?? 0, msg.dirY ?? 1, skill.length ?? 5, skill.speed ?? 5, skill.width ?? 1.5);
+          if (mine) this.shake(0.35);
+        } else {
+          this.wave(fx, fy, msg.dirX ?? 0, msg.dirY ?? 1, skill.length ?? 5, skill.speed ?? 5, skill.width ?? 1.5, c, false);
+          if (mine) this.shake(0.35);
+        }
       }
     } else if (id === 'root_note' && a) {
-      // a straight-down chop: a tall green crescent, the ground cracks into a ring
-      setTimeout(() => {
-        const at = target();
-        sfxSlash(vol, true);
-        this.crescent(at, Math.PI / 2, 3.0, 0xffffff, 300);
-        this.crescent(at, Math.PI / 2, 2.5, c, 340, 50);
-        this.glow(at, c, 5, 260);
-        this.ring(at.x, at.z, 2.2, c);
-        this.burst(at, c, 30, 6);
-        this.pixelFx('stab_hit', { at: () => at, scale: 2.5 });
-        if (mine) this.shake(0.3);
-      }, 300);
+      // an emerald circle, a giant green chop out of the sky, jade spikes bursting out of the ground ("ดุ๊ม!")
+      numbersFrom = 340;
+      rootNoteChop(this.fxCtx(mine, (big) => sfxBassDrop(vol, big)), target, 300, sparkTexture());
     } else if (id === 'straight_beat' && a) {
-      // the bass line in three low pulses rolling out round the bassist
-      for (let i = 0; i < 3; i++) {
-        setTimeout(() => {
-          this.ring(a.x, a.y, (skill.radius ?? 5) * (0.55 + i * 0.22), i === 1 ? 0xffffff : c);
-          this.burst(new THREE.Vector3(a.x, 0.25, a.y), c, 16, 5);
-          if (mine) this.shake(0.15);
-        }, i * 180);
-      }
-      this.pillar(a.x, a.y, c, 1.0, 2.5);
-    } else if ((id === 'hammer_on' || id === 'ear_training') && a) {
-      const throwIt = id === 'ear_training';
-      const boom = () => {
-        const at = target();
-        sfxSlash(vol, true);
-        this.crescent(at, throwIt ? 0 : 1.2, 2.8, 0xffffff, 300);
-        this.crescent(at, throwIt ? Math.PI / 2 : 1.2, 2.3, c, 340, 50);
-        this.glow(at, c, 6, 300);
-        this.ring(at.x, at.z, 2.6, c);
-        setTimeout(() => this.ring(at.x, at.z, 3.4, 0xffffff), 110);
-        this.burst(at, c, 40, 8);
-        if (mine) this.shake(0.35);
-      };
-      if (throwIt) {
-        numbersFrom = 420;
-        a.attack = 1;
-        a.combo = 0;
-        setTimeout(() => this.micThrow(new THREE.Vector3(a.x, 1.45, a.y), target, 260, c, boom, 1.6), 280);
-      } else setTimeout(boom, 330);
+      // three sub-bass beats: a huge emerald circle, equalizer bars, rings of jade spikes rolling out
+      numbersFrom = 420;
+      straightBeatQuake(this.fxCtx(mine, (big) => sfxBassDrop(vol, big)), a.x, a.y, skill.radius ?? 5, sparkTexture());
+    } else if (id === 'hammer_on' && a) {
+      // the ground smash, in red: a crimson circle, a flaming crescent out of the sky, cracks, flames, rocks ("ตึ้ง!")
+      a.combo = 2;
+      const hitMs = attackHit(a.cls, 2) * attackTime(a.cls) * 1000;
+      numbersFrom = hitMs + 40;
+      const p0 = target();
+      let kx = p0.x - a.x;
+      let kz = p0.z - a.y;
+      const kl = Math.hypot(kx, kz) || 1;
+      kx /= kl;
+      kz /= kl;
+      hammerOnBlast(
+        {
+          scene: this.scene,
+          camera: this.camera,
+          add: (e) => this.effects.push(e),
+          sparks: (p, color, n, speed) => this.burst(p, color, n, speed),
+          sound: (big) => sfxHammer(vol, big),
+          shake: (amp) => mine && this.shake(amp),
+        },
+        target, kx, kz, hitMs, sparkTexture(),
+      );
+    } else if (id === 'ear_training' && a) {
+      // the big golden mic slams down: circle, spotlight, pillar of light, rolling sound rings, rays, a star storm
+      numbersFrom = 420;
+      a.attack = 1;
+      a.combo = 0;
+      const t0 = target();
+      const kl = Math.hypot(t0.x - a.x, t0.z - a.y) || 1;
+      const kx = (t0.x - a.x) / kl;
+      const kz = (t0.z - a.y) / kl;
+      setTimeout(() => this.micThrow(new THREE.Vector3(a.x, 1.45, a.y), target, 260, SG.gold, () => earTrainingBlast(this.fxCtx(mine, (big) => sfxMicBoom(vol, big)), target(), kx, kz), 1.8), 280);
     } else if (id === 'dynamics' && a) {
-      // two mics thrown in quick succession, each lands in a yellow star burst
+      // two golden mics in quick succession, each lands under a spotlight in stars and rings of sound
       numbersFrom = 420;
       numberGap = 230;
+      sfxDiva(vol * 0.6, false);
       for (let i = 0; i < 2; i++) {
         setTimeout(() => {
           a.attack = 1;
           a.combo = 0;
-          setTimeout(() => this.micThrow(new THREE.Vector3(a.x, 1.45, a.y), target, 230, c, () => {
-            const at = target();
-            this.glow(at, c, 4, 240);
-            this.ring(at.x, at.z, 1.6, c);
-            this.burst(at, 0xffffff, 18, 5);
-            this.pixelFx('stab_hit', { at: () => at, scale: 2 });
-          }, 1.2), 280);
+          setTimeout(() => this.micThrow(new THREE.Vector3(a.x, 1.45, a.y), target, 230, SG.gold, () => dynamicsHit(this.fxCtx(mine, (big) => sfxMicBoom(vol, big)), target(), i === 1), 1.4), 280);
         }, i * 230);
       }
     } else if (id === 'bending' && a) {
-      sfxWhirl(vol);
-      const r = skill.radius ?? 2;
-      for (let i = 0; i < 3; i++) this.whirlRing(a, 0.4 + i * 0.5, r * (0.9 + i * 0.25), i % 2 ? 0xffffff : c, i * 70);
-      this.ring(a.x, a.y, r + 0.5, c);
-      this.burst(new THREE.Vector3(a.x, 0.5, a.y), c, 40, 7);
-      if (mine) this.shake(0.25);
+      // a red fire storm whirling up round the guitarist
+      bendingStorm(this.fxCtx(mine, (big) => sfxBend(vol, big)), () => new THREE.Vector3(a.x, 0, a.y), skill.radius ?? 2, sparkTexture());
     } else if (id === 'palm_muting' && a) {
-      // a red wave goes out 12 tiles and drags everything back in
-      this.ring(a.x, a.y, skill.radius ?? 12, c);
-      this.implode(a.x, a.y, skill.radius ?? 12, c);
-      for (const mid of msg.pulled ?? []) {
+      // a red ring goes out 12 tiles, red lightning hooks every monster it catches and drags them in
+      numbersFrom = 200;
+      const targets = (msg.pulled ?? []).map((mid) => {
         const m = this.monsters.get(mid);
-        if (m) setTimeout(() => this.tether(a, m, c), 120);
-      }
-      this.pillar(a.x, a.y, c, 1.0, 3);
+        const last = m ? new THREE.Vector3(m.x, 0, m.y) : new THREE.Vector3(a.x, 0, a.y);
+        return () => {
+          const mm = this.monsters.get(mid);
+          if (mm) last.set(mm.x, 0, mm.y);
+          return last.clone();
+        };
+      });
+      palmMuting(this.fxCtx(mine, (big) => sfxPalmMute(vol, big)), () => new THREE.Vector3(a.x, 0, a.y), skill.radius ?? 12, targets, sparkTexture());
     } else if (isBuff) {
       for (const sid of msg.allies ?? [msg.by]) {
         const t = this.players.get(sid);
@@ -1770,6 +2229,7 @@ export class World3D {
     msg.hits.forEach((h, i) => {
       setTimeout(() => {
         const m = h.m ? this.monsters.get(h.m) : undefined;
+        if (!m && h.p) return this.playerNumber(h.p, h.dmg, msg.by, i, c);
         if (!m) return;
         this.floatText(this.top(m).add(new THREE.Vector3(0, (i % 4) * 0.1, 0)), String(h.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
         this.flash(m.rig.root, c);
@@ -1778,36 +2238,185 @@ export class World3D {
     });
   }
 
+  /** The keyboardist's skills in blue (keyfx.ts): falling notes, healing light, buffs, the shield and ชุบชีวิต. */
+  private keyboardFx(a: PlayerActor | undefined, msg: { by: string; skill: string; x: number; y: number; target?: string; allies?: string[]; hits: { m?: string; p?: string; dmg: number; at?: number }[] }) {
+    const id = msg.skill;
+    const skill = SKILLS[id];
+    const mine = a === this.me;
+    const vol = this.vol(msg.x, msg.y, mine);
+    if (a) {
+      this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
+      this.face(a, msg.x, msg.y);
+      a.attack = 1;
+      a.combat = COMBAT_TIME;
+      a.ready = READY_TIME;
+    }
+    const follow = (t: PlayerActor) => () => new THREE.Vector3(t.x, 0, t.y);
+    if (skill.waves) {
+      const waves = skill.waves;
+      noteRainStrike(this.fxCtx(mine, () => {}), msg.x, msg.y, skill.radius ?? 1.5, waves, skill.waveMs ?? 300, (i) => sfxNoteFall(vol, i === waves - 1));
+    } else if (skill.type === 'heal_target' || skill.type === 'revive') {
+      const t = this.players.get(msg.target ?? '') ?? a;
+      if (t) {
+        const big = skill.type === 'revive';
+        const ctx = this.fxCtx(mine, (b) => sfxKeySpell(big ? 'revive' : 'heal', vol, b));
+        if (big) reviveFx(ctx, follow(t));
+        else restoreFx(ctx, follow(t));
+      }
+    } else if (skill.type === 'buff_party') {
+      const kind = ({ tempo: 'tempo', control: 'control', solo_star: 'solo', shield: 'shield' } as const)[skill.fx as 'tempo'] ?? 'tempo';
+      const draw = { tempo: tempoFx, control: controlFx, solo: soloFx, shield: chorusFx }[kind];
+      let first = true;
+      for (const sid of msg.allies ?? [msg.by]) {
+        const t = this.players.get(sid);
+        if (!t) continue;
+        // one sound for the whole party
+        const play = first;
+        first = false;
+        draw(this.fxCtx(mine, (b) => play && sfxKeySpell(kind, vol, b)), follow(t));
+        this.keyboardAura(t, (skill.buff?.durationSec ?? 30) * 1000);
+      }
+    }
+    msg.hits.forEach((h, i) => {
+      setTimeout(() => {
+        if (h.m) {
+          const m = this.monsters.get(h.m);
+          if (!m) return;
+          this.floatText(this.top(m).add(new THREE.Vector3(0, (i % 4) * 0.1, 0)), String(h.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
+          this.flash(m.rig.root, 0x38d4ff);
+          m.anim?.hit();
+        } else if (h.p) this.playerNumber(h.p, h.dmg, msg.by, i, 0x38d4ff);
+      }, h.at !== undefined ? h.at + 40 : skill.type === 'revive' ? 700 : 300 + i * 110);
+    });
+  }
+
+  /** Player id -> their keyboardist-buff aura and when it ends (one aura per player, a new buff stretches it). */
+  private keyAuras = new Map<string, { until: number }>();
+
+  /** The blue aura round a player for as long as a keyboardist buff lasts on them. */
+  private keyboardAura(t: PlayerActor, ms: number) {
+    const until = performance.now() + ms;
+    const cur = this.keyAuras.get(t.id);
+    if (cur) {
+      cur.until = Math.max(cur.until, until);
+      return;
+    }
+    const me = { until };
+    this.keyAuras.set(t.id, me);
+    keyAura(this.fxCtx(false, () => {}), () => new THREE.Vector3(t.x, 0, t.y), () => {
+      const ok = this.keyAuras.get(t.id) === me && !t.dead && this.players.get(t.id) === t && performance.now() < me.until;
+      if (!ok && this.keyAuras.get(t.id) === me) this.keyAuras.delete(t.id);
+      return ok;
+    });
+  }
+
+  /** Player id -> when each of their bass buffs ends (one green aura per player, showing the buffs that are on). */
+  private bassAuras = new Map<string, { guard: number; reflect: number; regen: number }>();
+
+  /** The green aura round a bassist while any of their buffs lasts (bassfx.ts). */
+  private bassAura(t: PlayerActor, kind: 'guard' | 'reflect' | 'regen', ms: number) {
+    const until = performance.now() + ms;
+    const cur = this.bassAuras.get(t.id);
+    if (cur) {
+      cur[kind] = Math.max(cur[kind], until);
+      return;
+    }
+    const me = { guard: 0, reflect: 0, regen: 0 };
+    me[kind] = until;
+    this.bassAuras.set(t.id, me);
+    const end = () => Math.max(me.guard, me.reflect, me.regen);
+    bassAura(
+      this.fxCtx(false, () => {}),
+      () => new THREE.Vector3(t.x, 0, t.y),
+      () => {
+        const ok = this.bassAuras.get(t.id) === me && !t.dead && this.players.get(t.id) === t && performance.now() < end();
+        if (!ok && this.bassAuras.get(t.id) === me) this.bassAuras.delete(t.id);
+        return ok;
+      },
+      () => {
+        const n = performance.now();
+        return { guard: n < me.guard, reflect: n < me.reflect, regen: n < me.regen };
+      },
+      sparkTexture(),
+    );
+  }
+
+  /** The context the big skill effects in xslash.ts / guitarfx.ts draw with. */
+  private fxCtx(mine: boolean, sound: (big: boolean) => void) {
+    return {
+      scene: this.scene,
+      camera: this.camera,
+      add: (e: (dt: number) => boolean) => this.effects.push(e),
+      sparks: (p: THREE.Vector3, color: number, n: number, speed: number) => this.burst(p, color, n, speed),
+      sound,
+      shake: (amp: number) => mine && this.shake(amp),
+    };
+  }
+
   /** The look of each buff on the player who got it. */
   private buffFx(t: PlayerActor, id: string, c: number) {
+    if (id === 'vibrato') {
+      // a red aura with red notes circling the guitarist for the whole buff
+      const vol = this.vol(t.x, t.y, t === this.me);
+      vibratoAura(
+        {
+          scene: this.scene,
+          camera: this.camera,
+          add: (e) => this.effects.push(e),
+          sparks: (p, color, n, speed) => this.burst(p, color, n, speed),
+          sound: (big) => sfxVibrato(vol, big),
+          shake: () => {},
+        },
+        () => new THREE.Vector3(t.x, 0, t.y),
+        () => !t.dead && this.players.get(t.id) === t,
+        SKILLS.vibrato.buff?.durationSec ?? 30,
+        sparkTexture(),
+        (g) => glyphTexture(g, '#ff2a14', 'rgba(70,0,0,0.95)'),
+      );
+      return;
+    }
+    const bassKind = ({ kick_drum: 'guard', lift_beat: 'reflect', push_note: 'regen' } as const)[id as 'kick_drum'];
+    if (bassKind) {
+      // the bassist's buffs: a green cast burst, then the green aura for as long as the buff lasts
+      const vol = this.vol(t.x, t.y, t === this.me);
+      bassBuffCast(this.fxCtx(t === this.me, () => sfxBassBuff(vol)), () => new THREE.Vector3(t.x, 0, t.y), bassKind, sparkTexture());
+      this.bassAura(t, bassKind, (SKILLS[id]?.buff?.durationSec ?? 30) * 1000);
+      return;
+    }
+    if (id === 'warm_up' || id === 'enunciation') {
+      // the singer's buffs: a golden circle, a spotlight, a pillar of light and notes swirling up
+      const vol = this.vol(t.x, t.y, t === this.me);
+      singerBuff(this.fxCtx(t === this.me, () => sfxDiva(vol * 0.8, false)), () => new THREE.Vector3(t.x, 0, t.y), id === 'warm_up' ? SG.light : SG.pink);
+      return;
+    }
     this.pillar(t.x, t.y, c, 0.6, 3.2);
     this.ring(t.x, t.y, 1.8, c);
     this.notes(t, c);
-    if (id === 'kick_drum') this.dome(t, c, 0.9);
-    else if (id === 'lift_beat') this.dome(t, 0xffffff, 0.75);
-    else if (id === 'push_note') this.pixelFx('heal_ring', { at: () => new THREE.Vector3(t.x, 0.02, t.y) });
-    else if (id === 'vibrato') this.burst(new THREE.Vector3(t.x, 1, t.y), 0xffffff, 24, 5);
-    else this.sparkle(t, c);
+    this.sparkle(t, c);
   }
 
   /** The cast of เสียงสูง: a bar over the head, a pulsing circle under the feet, singing. */
-  private castFx(a: PlayerActor, skill: { cls: ClassKey; name: string }, ms: number) {
-    const c = this.fxColor(skill.cls);
-    if (a.cast) this.scene.remove(a.cast.bar);
-    const bar = new THREE.Group();
-    const back = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.1), new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.7, depthTest: false }));
-    const fill = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.08), new THREE.MeshBasicMaterial({ color: c, depthTest: false }));
-    back.renderOrder = fill.renderOrder = 10;
-    bar.add(back, fill);
-    this.scene.add(bar);
+  private castFx(a: PlayerActor, skill: { cls: ClassKey | 'all'; name: string }, ms: number) {
+    const c = this.fxColor(clsOf(skill));
+    if (a.cast) a.cast.bar.remove();
+    // the cast bar: a dark framed slot under the name that fills up green
+    const bar = document.createElement('div');
+    bar.className = 'wcast';
+    const fill = document.createElement('i');
+    bar.appendChild(fill);
+    a.label.el.appendChild(bar);
     const start = performance.now();
-    a.cast = { start, ms, bar };
+    const vol = () => this.vol(a.x, a.y, a === this.me);
+    sfxWheet(vol());
+    let lastWheet = 0;
+    a.cast = { start, ms, bar, fill };
     a.performUntil = start + ms;
     a.combat = COMBAT_TIME;
     a.ready = READY_TIME;
     this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}...`, 'shout', 1200);
     const circle = new THREE.Mesh(new THREE.RingGeometry(0.75, 1, 6, 1), new THREE.MeshBasicMaterial({ color: c, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: blendFor(c) }));
     circle.rotation.x = -Math.PI / 2;
+    circle.visible = skill.cls !== 'keyboardist'; // the keyboardist casts on its own blue circle (keyfx)
     this.scene.add(circle);
     let tt = 0;
     let lastNote = 0;
@@ -1820,6 +2429,11 @@ export class World3D {
       if (tt - lastNote > 0.35) {
         lastNote = tt;
         this.notes(a, c, 2);
+      }
+      // "วีด" keeps whistling softly while the spell charges
+      if (tt - lastWheet > 0.45 && a.cast?.start === start && performance.now() - start < ms - 300) {
+        lastWheet = tt;
+        sfxWheet(vol(), 0, true);
       }
       if (!a.cast || a.cast.start !== start) {
         this.scene.remove(circle);
@@ -2042,29 +2656,6 @@ export class World3D {
     }
   }
 
-  /** A see-through bubble round a player (Kick Drum, จังหวะยก). */
-  private dome(a: PlayerActor, color: number, opacity: number) {
-    const m = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 24, 14),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3 * opacity, wireframe: true, depthWrite: false, blending: blendFor(color) }),
-    );
-    this.scene.add(m);
-    let t = 0;
-    this.effects.push((dt) => {
-      t += dt / 1.2;
-      m.position.set(a.x, 0.9, a.y);
-      m.scale.setScalar(0.4 + Math.min(1, t * 3) * 0.9);
-      m.rotation.y += dt;
-      (m.material as THREE.MeshBasicMaterial).opacity = 0.35 * opacity * (1 - t);
-      if (t >= 1) {
-        this.scene.remove(m);
-        m.geometry.dispose();
-        (m.material as THREE.Material).dispose();
-      }
-      return t < 1;
-    });
-  }
-
   /** A puff of smoke: hiding, or showing up again. */
   private smoke(x: number, y: number, color: number) {
     this.glow(new THREE.Vector3(x, 1, y), color, 4, 350);
@@ -2162,10 +2753,11 @@ export class World3D {
     const skill = SKILLS[msg.skill];
     const vol = this.vol(a.x, a.y, mine);
     const steel = 0xdff4ff;
-    const accent = new THREE.Color(CLASSES[skill.cls].color).getHex();
+    const accent = new THREE.Color(CLASSES[clsOf(skill)].color).getHex();
     const hitAt = (id?: string) => {
       const m = id ? this.monsters.get(id) : undefined;
-      return m ? new THREE.Vector3(m.x, m.rig.height * 0.5, m.y) : new THREE.Vector3(msg.x, 0.7, msg.y);
+      const f = !m && id ? this.players.get(id) : undefined;
+      return m ? new THREE.Vector3(m.x, m.rig.height * 0.5, m.y) : f ? new THREE.Vector3(f.x, 0.85, f.y) : new THREE.Vector3(msg.x, 0.7, msg.y);
     };
     if (skill.scale === 'distance') {
       // พุ่งแทง: a wind streak along the dash, then an X of crescents and a shockwave where the blade lands
@@ -2361,6 +2953,31 @@ export class World3D {
     }
   }
 
+  /** The MVP banner: a pink-red starburst with a big "MVP" pops up over the player who did the most damage. */
+  private mvpFx(sid: string, name: string) {
+    const a = this.players.get(sid);
+    if (!a) return;
+    sfxMvp(this.vol(a.x, a.y, a === this.me) || 0.35);
+    const el = document.createElement('div');
+    el.className = 'mvpb';
+    el.innerHTML = `<div class="mvpb-in"><i class="b1"></i><i class="b2"></i><b>MVP</b><small>${escapeHtml(name)}</small></div>`;
+    this.overlay.appendChild(el);
+    this.levelFx(a, '', 0xff4fa0);
+    this.burst(new THREE.Vector3(a.x, 2.2, a.y), 0xffd23a, 30, 4);
+    const born = this.now;
+    const life = 5000;
+    this.effects.push(() => {
+      const live = this.players.get(sid) === a && this.now - born < life;
+      if (!live) {
+        el.remove();
+        return false;
+      }
+      this.place(el, new THREE.Vector3(a.x, 2.35, a.y));
+      if (this.now - born > life - 500) el.classList.add('out');
+      return true;
+    });
+  }
+
   private levelFx(a: PlayerActor, text: string, color: number) {
     const pillar = new THREE.Mesh(
       new THREE.CylinderGeometry(0.5, 0.5, 1, 24, 1, true),
@@ -2418,10 +3035,16 @@ function crescentGeometry(radius: number, width: number, angle: number) {
 }
 
 function lookKey(rp: RemotePlayer) {
-  return `${rp.cls}_${rp.gender}_${rp.hair}_${rp.hairColor}_${rp.face}_${outfitOf(rp.body)}_${vrmHatOf(rp.head)}`;
+  return `${rp.cls}_${rp.gender}_${rp.hair}_${rp.hairColor}_${rp.face}_${outfitOf(rp.body)}_${vrmHatOf(rp.head)}_${gearOf(rp)}`;
 }
 
 /** What a player looks like: their own appearance, or the model of the outfit they wear. */
 function lookOf(rp: RemotePlayer): Look {
-  return { cls: rp.cls as ClassKey, gender: rp.gender as 'm' | 'f', hair: rp.hair, hair_color: rp.hairColor, face: rp.face, outfit: outfitOf(rp.body) || undefined };
+  return { cls: rp.cls as ClassKey, gender: rp.gender as 'm' | 'f', hair: rp.hair, hair_color: rp.hairColor, face: rp.face, outfit: outfitOf(rp.body) || undefined, gear: gearOf(rp) || undefined };
+}
+
+/** The look of the MVP instrument a player carries ('' = the standard one), when it fits their class. */
+function gearOf(rp: RemotePlayer) {
+  const it = ITEMS[rp.weapon];
+  return it?.shape && it.classes?.includes(rp.cls as ClassKey) ? it.shape : '';
 }

@@ -1,7 +1,12 @@
 import { ITEMS } from '../data';
 import * as THREE from 'three';
 import { buildCharacter, setEar, type CharRig, type Look } from '../three/models';
+import { buildHat } from '../three/hats';
+import { outline } from '../three/toon';
 import { animateRig, buildVrmCharacter, releaseVrm } from '../three/vrm';
+import { BASS_SHAPES, GUITAR_SHAPES } from '../three/guitarShapes';
+import { STICK_STYLES } from '../three/sticks';
+import { KEYBOARD_STYLES } from '../three/keyboard';
 
 const cache = new Map<string, string>();
 
@@ -26,6 +31,13 @@ export function itemIcon(id: string): string {
   const hit = cache.get(id);
   if (hit) return hit;
   const item = ITEMS[id];
+  if (item?.hat) {
+    const url = hatIcon(id);
+    if (url) {
+      cache.set(id, url);
+      return url;
+    }
+  }
   const cv = document.createElement('canvas');
   cv.width = 32;
   cv.height = 32;
@@ -46,6 +58,47 @@ export function itemIcon(id: string): string {
     for (let y = 21; y <= 26; y += 2.5) c.fillRect(9, y, 14, 1);
     c.fillStyle = '#e0b21f';
     c.fillRect(21, 3, 4, 4);
+  } else if (item?.shape && (GUITAR_SHAPES[item.shape] || BASS_SHAPES[item.shape])) {
+    guitarIcon(c, item.shape, item.color);
+  } else if (item?.shape && STICK_STYLES[item.shape]) {
+    mvpGlow(c);
+    for (const [x, a] of [[12, -0.35], [20, 0.35]] as const) {
+      c.save();
+      c.translate(x, 17);
+      c.rotate(a);
+      c.fillStyle = STICK_STYLES[item.shape].color;
+      c.fillRect(-1.6, -9, 3.2, 22);
+      c.fillStyle = '#e3c18f';
+      c.beginPath();
+      c.moveTo(-1.6, -9);
+      c.lineTo(-0.7, -14);
+      c.lineTo(0.7, -14);
+      c.lineTo(1.6, -9);
+      c.fill();
+      c.beginPath();
+      c.arc(0, -14.5, 1.3, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
+    }
+  } else if (item?.shape && KEYBOARD_STYLES[item.shape]) {
+    mvpGlow(c);
+    const k = KEYBOARD_STYLES[item.shape];
+    c.fillStyle = '#' + k.body.toString(16).padStart(6, '0');
+    c.fillRect(2, 10, 28, 13);
+    c.strokeStyle = '#555';
+    c.lineWidth = 0.6;
+    c.strokeRect(2, 10, 28, 13);
+    c.fillStyle = '#fafafa';
+    c.fillRect(5, 15, 22, 7);
+    c.fillStyle = '#111';
+    for (let i = 0; i < 10; i++) if (i % 7 !== 2 && i % 7 !== 6) c.fillRect(6.6 + i * 2.2, 15, 1.2, 4);
+    c.strokeStyle = '#bbb';
+    for (let i = 0; i <= 10; i++) {
+      c.beginPath();
+      c.moveTo(5 + i * 2.2, 15);
+      c.lineTo(5 + i * 2.2, 22);
+      c.stroke();
+    }
   } else if (item?.type === 'consumable' && !EMOJI[id]) {
     // potion bottle in the item's colour
     c.fillStyle = '#d9d9d9';
@@ -87,7 +140,7 @@ export function itemIcon(id: string): string {
       c.stroke();
     }
     c.fillText(EMOJI[id] ?? (item?.vrm ? (item.type === 'head' ? (item.part?.includes('Glasses') ? '👓' : '🎩') : item.gender === 'f' ? '👗' : '🥼') : '❔'), 16, 18);
-    if (item && (id.includes('bass') || id === 'golden_mic' || id === 'steel_dagger' || id === 'electric_guitar' || id === 'steel_sticks' || id === 'synth' || (item.type === 'weapon' && item.element))) {
+    if (item && !item.shape && (id.includes('bass') || id === 'golden_mic' || id === 'steel_dagger' || id === 'electric_guitar' || id === 'steel_sticks' || id === 'synth' || (item.type === 'weapon' && item.element))) {
       // tint upgraded variants so they read differently
       c.globalCompositeOperation = 'source-atop';
       c.fillStyle = item.color + '66';
@@ -97,6 +150,54 @@ export function itemIcon(id: string): string {
   const url = cv.toDataURL();
   cache.set(id, url);
   return url;
+}
+
+let hatCam: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null = null;
+
+/** Music hats: the 3D hat itself, drawn once at 64x64 (shared little renderer) with an MVP glow for boss hats. */
+function hatIcon(id: string): string | null {
+  try {
+    if (!hatCam) {
+      const r = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+      r.setSize(64, 64, false);
+      r.outputColorSpace = THREE.SRGBColorSpace;
+      const scene = new THREE.Scene();
+      scene.add(new THREE.AmbientLight(0xffffff, 1.6));
+      const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+      sun.position.set(1, 2, 2);
+      scene.add(sun);
+      const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
+      hatCam = { r, scene, cam };
+    }
+    const { r, scene, cam } = hatCam;
+    const g = new THREE.Group();
+    if (!buildHat(g, ITEMS[id].hat)) return null;
+    outline(g, 0.012);
+    g.rotation.y = -0.5;
+    scene.add(g);
+    // frame the hat: fit its bounding sphere
+    const box = new THREE.Box3().setFromObject(g);
+    const sph = box.getBoundingSphere(new THREE.Sphere());
+    const dist = sph.radius / Math.sin((cam.fov * Math.PI) / 360) * 0.82;
+    cam.position.set(sph.center.x, sph.center.y + dist * 0.35, sph.center.z + dist * 0.94);
+    cam.lookAt(sph.center);
+    r.setClearColor(0x000000, 0);
+    r.render(scene, cam);
+    scene.remove(g);
+    g.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 64;
+    const c = cv.getContext('2d')!;
+    if (ITEMS[id].mvp) {
+      c.scale(2, 2);
+      mvpGlow(c);
+      c.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    c.drawImage(r.domElement, 0, 0, 64, 64);
+    return cv.toDataURL();
+  } catch {
+    return null;
+  }
 }
 
 let preview: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null = null;
@@ -142,4 +243,52 @@ function render(cv: HTMLCanvasElement, rig: CharRig, dir: 'f' | 'b' | number, ar
   c.clearRect(0, 0, cv.width, cv.height);
   c.drawImage(r.domElement, 0, 0, cv.width, cv.height);
   scene.remove(rig.root);
+}
+
+/** MVP guitars: the body outline of that guitar, neck up to the top-right, with a gold MVP glow. */
+function mvpGlow(c: CanvasRenderingContext2D) {
+  const glow = c.createRadialGradient(16, 16, 2, 16, 16, 16);
+  glow.addColorStop(0, 'rgba(255,215,80,0.55)');
+  glow.addColorStop(1, 'rgba(255,215,80,0)');
+  c.fillStyle = glow;
+  c.fillRect(0, 0, 32, 32);
+}
+
+function guitarIcon(c: CanvasRenderingContext2D, shape: string, color: string) {
+  const bass = !GUITAR_SHAPES[shape];
+  const sh = GUITAR_SHAPES[shape] ?? BASS_SHAPES[shape];
+  c.save();
+  mvpGlow(c);
+  // guitar frame -> icon: neck along +X, rotated so the headstock points to the top-right
+  c.translate(bass ? 12 : 13, bass ? 20 : 19);
+  c.rotate(-Math.PI / 4);
+  const k = bass ? 25 : 30;
+  const neck = bass ? 0.75 : 0.62;
+  c.fillStyle = '#8a5a2a';
+  c.fillRect(0, -1.3, neck * k, 2.6);
+  c.fillStyle = '#222';
+  c.fillRect(neck * k, -1.8, 0.1 * k, 3.6);
+  c.beginPath();
+  sh.outline.forEach(([x, y], i) => (i ? c.lineTo(x * k, -y * k) : c.moveTo(x * k, -y * k)));
+  c.closePath();
+  const fin = sh.finish;
+  c.fillStyle = fin.kind === 'solid' || fin.kind === 'metal' || fin.kind === 'wood' || fin.kind === 'flame' ? fin.color : fin.kind === 'burst' ? fin.stops[1] : fin.kind === 'zebra' ? fin.a : fin.color;
+  if (fin.kind === 'solid') c.fillStyle = color;
+  c.fill();
+  c.lineWidth = 1;
+  c.strokeStyle = fin.kind === 'band' ? '#f2f2f2' : '#1a1a1a';
+  c.stroke();
+  if (fin.kind === 'zebra') {
+    c.clip();
+    c.strokeStyle = fin.b;
+    c.lineWidth = 1.4;
+    for (let x = -16; x < 4; x += 3) {
+      c.beginPath();
+      c.moveTo(x, -8);
+      c.lineTo(x + 4, 0);
+      c.lineTo(x, 8);
+      c.stroke();
+    }
+  }
+  c.restore();
 }

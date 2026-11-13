@@ -61,7 +61,9 @@ export class Session {
 
   /** The game server sent the latest character (after a kill, potion, trade or death). */
   applySync(c: Character, inv: InvItem[]) {
-    this.char = { ...c };
+    // the server's copy may not carry the save point (it loads fewer columns): keep ours
+    const keep = 'save_map' in c ? {} : { save_map: this.char.save_map, save_x: this.char.save_x, save_y: this.char.save_y };
+    this.char = { ...c, ...keep };
     this.inv = inv;
     this.link?.devStore?.importCharacter(c, inv);
     this.emit();
@@ -125,6 +127,14 @@ export class Session {
     await this.store.storageTake(this.char.id, rowId, qty);
     this.storage = await this.store.loadStorage();
     await this.after(this.char, true);
+  }
+
+  /** บูรพา's save point: you come back here after dying. */
+  async setSavePoint(map: string, x: number, y: number) {
+    // the browser's copy of `map` is the room we're in, so tell the store that, not a stale saved one
+    const c = await this.store.setSavePoint(this.char.id, map, x, y);
+    this.char = { ...this.char, save_map: c.save_map, save_x: c.save_x, save_y: c.save_y };
+    this.emit();
   }
 
   async insertCard(cardInv: string, equipInv: string) {

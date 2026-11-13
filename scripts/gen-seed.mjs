@@ -10,8 +10,8 @@ const shop = [...data.shop, ...data.weaponShop];
 for (const [id, it] of Object.entries(data.items)) {
   const classes = it.classes ? `array[${it.classes.map(q).join(', ')}]` : 'null';
   lines.push(
-    `insert into public.item_defs (id, type, price, classes, in_shop, weight, slots, card_slot, gender) values (${q(id)}, ${q(it.type)}, ${it.price}, ${classes}, ${shop.includes(id)}, ${it.weight}, ${it.slots ?? 0}, ${it.card ? q(it.card.slot) : 'null'}, ${it.gender ? q(it.gender) : 'null'})` +
-      ` on conflict (id) do update set type = excluded.type, price = excluded.price, classes = excluded.classes, in_shop = excluded.in_shop, weight = excluded.weight, slots = excluded.slots, card_slot = excluded.card_slot, gender = excluded.gender;`,
+    `insert into public.item_defs (id, type, price, classes, in_shop, weight, slots, card_slot, gender, shop_kind) values (${q(id)}, ${q(it.type)}, ${it.price}, ${classes}, ${shop.includes(id)}, ${it.weight}, ${it.slots ?? 0}, ${it.card ? q(it.card.slot) : 'null'}, ${it.gender ? q(it.gender) : 'null'}, ${data.shop.includes(id) ? "'shop'" : data.weaponShop.includes(id) ? "'weapons'" : 'null'})` +
+      ` on conflict (id) do update set type = excluded.type, price = excluded.price, classes = excluded.classes, in_shop = excluded.in_shop, weight = excluded.weight, slots = excluded.slots, card_slot = excluded.card_slot, gender = excluded.gender, shop_kind = excluded.shop_kind;`,
   );
 }
 lines.push('');

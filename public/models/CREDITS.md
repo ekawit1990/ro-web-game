@@ -22,3 +22,12 @@ Built by `tools/make_uniform.py` from models listed above, with new shirt / blou
   body of VRoid Hub model 4360835510799003378 by the same author.
 
 Both licences allow modification and redistribution.
+
+## Class outfits (`class_<class>_<m|f>.vrm.gz`)
+
+Built by `tools/make_class_outfits.py`: the clothes recoloured to each class's colours (singer pink, guitarist red,
+drummer blue, bassist purple, keyboardist white and blue), from models listed above:
+- boys: VRoid Hub model 3425491812101364740 by siroihakumai;
+- girls: AvatarSample_B by pixiv VRoid Project.
+
+Both licences allow modification and redistribution.

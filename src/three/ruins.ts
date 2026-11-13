@@ -10,13 +10,13 @@ import { sparkTexture } from './toon';
  */
 
 type Rnd = () => number;
-const rngFor = (seed: number): Rnd => {
+export const rngFor = (seed: number): Rnd => {
   let s = (seed % 2147483647) || 1;
   return () => ((s = (s * 16807) % 2147483647) / 2147483647);
 };
 
 /** Collects coloured boxes and other shapes, then merges them. */
-class Pile {
+export class Pile {
   parts: THREE.BufferGeometry[] = [];
   private col = new THREE.Color();
 

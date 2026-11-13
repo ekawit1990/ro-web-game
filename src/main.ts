@@ -21,6 +21,8 @@ let world: World3D | undefined;
 const SERVER_URL = (import.meta.env.VITE_COLYSEUS_URL as string | undefined) || 'ws://localhost:2567';
 const store: GameStore = supabase ? new SupabaseStore(supabase) : new LocalStore();
 const devStore = store instanceof LocalStore ? store : undefined;
+/** Close codes of a connection that dropped (network, a stalled tab, the server timing us out), not a real leave. */
+const DROPPED = new Set([1001, 1005, 1006, 4001, 4003, 4010]);
 
 const LOADING_ART = ['band1', 'band2', 'band3'].map((n) => `${import.meta.env.BASE_URL ?? '/'}loading/${n}.webp`);
 let shown = 0; // percent on the bar
@@ -75,13 +77,13 @@ function within<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
   });
 }
 
-function myPlayer(room: Room): Promise<{ x: number; y: number }> {
+function myPlayer(room: Room, wait = 8000): Promise<{ x: number; y: number }> {
   return new Promise((resolve, reject) => {
     const started = Date.now();
     const check = () => {
       const p = (room.state as { players?: { get(id: string): { x: number; y: number } | undefined } })?.players?.get(room.sessionId);
       if (p) return resolve({ x: p.x, y: p.y });
-      if (Date.now() - started > 8000) return reject(new Error('เซิร์ฟเวอร์ไม่ตอบสนอง'));
+      if (Date.now() - started > wait) return reject(new Error('เซิร์ฟเวอร์ไม่ตอบสนอง'));
       setTimeout(check, 50);
     };
     check();
@@ -115,7 +117,16 @@ async function play(char: Character): Promise<void> {
       room?.leave();
       resolve();
     };
-    const hud = new Hud(session, { scene: () => world, send: (t, m) => room?.send(t, m), exit });
+    // A game server from before PVP/guilds (2026-11-10) drops any client that sends a message it doesn't know
+    // (Colyseus in production). Those messages only go out once the server has shown it knows them ('pvp' on join).
+    const sendOrWarn = (t: string, m?: unknown) => {
+      if (NEW_MESSAGES.has(t) && !pvpServer) {
+        hud.toast('เซิร์ฟเวอร์ยังเป็นเวอร์ชันเก่า ยังใช้กิลด์/PVP ไม่ได้ (อัปไฟล์ server ขึ้น GitLab แล้วกด Manual Deploy บน Render)', 'bad');
+        return;
+      }
+      room?.send(t, m);
+    };
+    const hud = new Hud(session, { scene: () => world, send: sendOrWarn, exit });
     show('hud');
 
     const enter = async (mapId: string) => {
@@ -148,6 +159,7 @@ async function play(char: Character): Promise<void> {
       resetAssets();
       world = new World3D(container, { session, room: r, map, hooks: hud, x: pos.x, y: pos.y });
       hud.syncPartyWorld();
+      hud.syncPvpWorld();
       r.send('partyGet'); // the party window (and whose names to color) for this map
       const assets = setInterval(() => progress(70 + 30 * assetShare()), 100);
       await assetsIdle(15000);
@@ -175,17 +187,81 @@ async function play(char: Character): Promise<void> {
       r.onMessage('tradeState', (m) => hud.tradeState(m));
       r.onMessage('tradeClosed', (m) => hud.tradeClosed(m.text));
       r.onMessage('tradeDone', (m) => hud.tradeDone(m.ok, m.text));
+      r.onMessage('shopMine', (m) => hud.shopMine(m));
+      r.onMessage('shopList', (m) => hud.shopList(m));
+      r.onMessage('shopSold', (m) => hud.shopSold(m));
+      r.onMessage('shopBought', (m) => hud.shopBought(m));
       r.onMessage('party', (m) => hud.party(m));
       r.onMessage('partyInvite', (m) => hud.partyInvite(m));
       r.onMessage('partyChat', (m) => hud.partyChat(m.name, m.text));
+      r.onMessage('guild', (m) => hud.guild(m));
+      r.onMessage('guildInvite', (m) => hud.guildInvite(m));
+      r.onMessage('guildChat', (m) => hud.guildChat(m.name, m.text));
+      r.onMessage('pvp', (m) => {
+        pvpServer = true;
+        hud.pvp(m);
+      });
+      r.onMessage('pvpScore', (m) => hud.pvpScore(m));
+      r.onMessage('castleInfo', (m) => hud.castleInfo(m));
       r.onMessage('warp', (m) => {
         if (room === r) enter(m.map).catch(fail);
       });
+      // The server can't take a dropped player back (no allowReconnection), so the SDK's own retry only
+      // ever fails. Turn it off and join the map again ourselves (2026-11-09: a long load or a phone app
+      // switch dropped the socket; the game looked alive but walking/attacking reached nobody).
+      r.reconnection.enabled = false;
       r.onLeave((code) => {
-        if (done || switching || room !== r) return;
+        if (done || room !== r) return;
+        if (DROPPED.has(code) && world) return void rejoin(r);
+        if (switching) return;
         if (code > 1001) alert('หลุดการเชื่อมต่อกับเซิร์ฟเวอร์เกม');
         exit();
       });
+    };
+
+    /** Join the map we were on again and carry on in the same world (see wire). */
+    let rejoining = false;
+    const rejoin = async (lost: Room) => {
+      if (rejoining) return;
+      rejoining = true;
+      const mapId = session.char.map;
+      const me = world?.myPos();
+      if (me) Object.assign(session.char, { pos_x: me.x, pos_y: me.y }); // offline testing: the dev server trusts this
+      hud.toast('การเชื่อมต่อหลุด กำลังเชื่อมต่อใหม่…', 'bad');
+      for (let attempt = 0; attempt < 8 && !done && room === lost; attempt++) {
+        try {
+          await new Promise((ok) => setTimeout(ok, attempt ? Math.min(8000, 1000 * 2 ** attempt) : 300));
+          const token = supabase ? (await supabase.auth.getSession()).data.session?.access_token : undefined;
+          const dev = devStore ? { char: session.char, inv: session.inv } : undefined;
+          const r = await within(client.joinOrCreate(mapId, { token, charId: session.char.id, dev }), 30000, 'rejoin');
+          const pos = await myPlayer(r, 20000).catch((e) => {
+            r.leave();
+            throw e;
+          });
+          if (done || room !== lost || !world || session.char.map !== mapId) {
+            r.leave();
+            break;
+          }
+          room = r;
+          session.link = { send: (t, m) => r.send(t, m), devStore };
+          wire(r);
+          world.swapRoom(r, pos.x, pos.y);
+          hud.syncPartyWorld();
+          hud.syncPvpWorld();
+          r.send('partyGet');
+              hud.toast('เชื่อมต่อเซิร์ฟเวอร์ใหม่แล้ว', 'good');
+          console.info(`rejoined ${mapId} after a dropped connection (attempt ${attempt + 1})`);
+          rejoining = false;
+          return;
+        } catch (e) {
+          console.warn('rejoin failed', (e as Error).message);
+        }
+      }
+      rejoining = false;
+      if (!done && room === lost) {
+        alert('หลุดการเชื่อมต่อกับเซิร์ฟเวอร์เกม');
+        exit();
+      }
     };
 
     const fail = (e: Error) => {
@@ -203,6 +279,11 @@ async function play(char: Character): Promise<void> {
     enter(getMap(fresh.map).id).catch(fail);
   });
 }
+
+/** Messages only a game server with PVP and guilds understands (see sendOrWarn in play()). */
+const NEW_MESSAGES = new Set(['guildGet', 'guildCreate', 'guildInvite', 'guildRespond', 'guildLeave', 'guildKick', 'guildLeader', 'npcGo', 'castleInfo']);
+/** This game server sent 'pvp' at least once, so it knows NEW_MESSAGES. */
+let pvpServer = false;
 
 async function main() {
   unlockAudio();

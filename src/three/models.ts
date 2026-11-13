@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { Appearance, ClassKey, HAIR_COLORS, MONSTERS } from '../data';
-import { canvasTexture, mesh, outline, shade, shadows, toon } from './toon';
+import { Appearance, ClassKey, HAIR_COLORS, ITEMS, MONSTERS } from '../data';
+import { canvasTexture, mesh, outline, shade, shadows, sparkTexture, toon } from './toon';
+import { buildHat } from './hats';
 
 /**
  * Chibi anime characters and monsters built from primitives (no third-party models).
@@ -12,6 +13,8 @@ export interface Look extends Appearance {
   body?: string; // NPC outfit colour
   /** Worn outfit: a VRoid model file that replaces the character's own model (see ItemDef.vrm). */
   outfit?: string;
+  /** The look of the equipped MVP instrument (ItemDef.shape: guitar/bass body, stick colour, keyboard style), '' = the standard one. */
+  gear?: string;
 }
 
 export interface CharRig {
@@ -376,7 +379,7 @@ export function setHat(rig: CharRig, item: string) {
     brim.scale.set(1.2, 1, 0.8);
     g.add(brim);
     g.add(mesh(new THREE.OctahedronGeometry(0.06), toon('#ffd600'), 0, 0.3, 0.27));
-  } else return;
+  } else if (!buildHat(g, ITEMS[item]?.hat)) return;
   outline(g, 0.012);
   shadows(g);
   rig.hatSlot.add(g);
@@ -697,6 +700,41 @@ function eyes(g: THREE.Object3D, y: number, z: number, spread: number, r: number
   }
 }
 
+/** A tapered bone segment from a to b (radius r1 at a, r2 at b) with a ball on the joint at a. */
+function boneSeg(g: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3, r1: number, r2: number, mat: THREE.Material) {
+  const d = b.clone().sub(a);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r2, r1, d.length(), 7), mat);
+  m.position.copy(a).addScaledVector(d, 0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+  g.add(m);
+  g.add(mesh(S(r1, 8, 6), mat, a.x, a.y, a.z));
+}
+
+/** A big deer-style antler for the abyss reaper: a main beam sweeping up and out with tines, red tips. side = 1 right, -1 left. */
+function antler(side: number) {
+  const g = new THREE.Group();
+  const bone = toon('#e6d8bf');
+  const tipMat = toon('#9a1030');
+  const v = (x: number, y: number, z: number) => new THREE.Vector3(x * side, y, z);
+  const beam = [v(0.13, 0.17, -0.03), v(0.25, 0.3, -0.06), v(0.38, 0.44, -0.07), v(0.46, 0.62, -0.04), v(0.46, 0.8, 0.02), v(0.4, 0.94, 0.07)];
+  const r = (i: number) => 0.06 * (1 - (i / beam.length) * 0.6);
+  for (let i = 0; i < beam.length - 1; i++) boneSeg(g, beam[i], beam[i + 1], r(i), r(i + 1), bone);
+  const tine = (from: THREE.Vector3, pts: THREE.Vector3[], r0: number) => {
+    let a = from;
+    pts.forEach((b, i) => {
+      boneSeg(g, a, b, r0 * (1 - i * 0.35), r0 * (1 - (i + 1) * 0.35), bone);
+      a = b;
+    });
+    g.add(mesh(new THREE.ConeGeometry(r0 * 0.3, 0.06, 6), tipMat, a.x, a.y + 0.02, a.z));
+  };
+  tine(beam[1], [v(0.27, 0.41, 0.1), v(0.31, 0.5, 0.19)], 0.03); // brow tine, forward
+  tine(beam[2], [v(0.54, 0.52, -0.04), v(0.64, 0.64, -0.02)], 0.028); // outward
+  tine(beam[3], [v(0.58, 0.74, -0.08), v(0.62, 0.88, -0.07)], 0.026); // up and out
+  tine(beam[4], [v(0.36, 0.95, -0.05), v(0.34, 1.05, -0.04)], 0.022); // inner fork
+  g.add(mesh(new THREE.ConeGeometry(0.018, 0.08, 6), tipMat, beam[5].x, beam[5].y + 0.04, beam[5].z));
+  return g;
+}
+
 export function buildMonster(id: string): MonsterRig {
   const def = MONSTERS[id];
   const root = new THREE.Group();
@@ -708,6 +746,29 @@ export function buildMonster(id: string): MonsterRig {
   let height = sz * 1.1;
 
   switch (def.shape ?? id) {
+    case 'emperium': {
+      // คริสตัลแห่งเสียง: a tall glowing crystal floating over a stone pedestal, ringed by small shards
+      const ped = mesh(CYL(0.42, 0.5, 0.22, 8), toon('#8a8f9c'), 0, 0.11, 0);
+      body.add(ped);
+      body.add(mesh(CYL(0.34, 0.42, 0.1, 8), toon('#c9ccd6'), 0, 0.27, 0));
+      const gem = new THREE.Group();
+      gem.name = 'gem';
+      const glass = new THREE.MeshToonMaterial({ color: '#8fd8ff', emissive: '#2a8fd0', emissiveIntensity: 0.9, transparent: true, opacity: 0.9 });
+      const top = mesh(new THREE.ConeGeometry(0.26, 0.62, 6), glass, 0, 0.31, 0);
+      const bot = mesh(new THREE.ConeGeometry(0.26, 0.36, 6), glass, 0, -0.18, 0);
+      bot.rotation.x = Math.PI;
+      gem.add(top, bot);
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2;
+        const shard = mesh(new THREE.OctahedronGeometry(0.07), glass, Math.cos(a) * 0.42, 0.05, Math.sin(a) * 0.42);
+        shard.name = 'shard';
+        gem.add(shard);
+      }
+      gem.position.y = 0.9;
+      body.add(gem);
+      height = 1.7;
+      break;
+    }
     case 'drop': {
       const b = mesh(S(0.36, 20, 16), toon(col, { transparent: true, opacity: 0.92 }), 0, 0.33, 0);
       b.scale.set(1, 0.9, 1);
@@ -845,6 +906,139 @@ export function buildMonster(id: string): MonsterRig {
       height = 1.1;
       break;
     }
+    case 'abyss_reaper': {
+      // ยมทูตเคียวโลหิต: a small hooded reaper floating over purple flames, a pale skull face with red eyes,
+      // a ragged blood-red cloak bound with chains, and a giant scythe with a blood-red blade and a skull on the head
+      const reaper = new THREE.Group();
+      reaper.name = 'reaper';
+      body.add(reaper);
+      const cloth = toon('#2a0a16');
+      const red = toon('#8a0f26');
+      const bone = toon('#efe6d6');
+      const iron = toon('#5a5a6a');
+      const glowRed = new THREE.MeshBasicMaterial({ color: 0xff2040 });
+      // the cloak: a cone with a ragged hem
+      const cloak = mesh(new THREE.ConeGeometry(0.4, 0.8, 12, 1, true), cloth, 0, 0.5, 0);
+      cloak.material = toon('#2a0a16');
+      (cloak.material as THREE.MeshToonMaterial).side = THREE.DoubleSide;
+      reaper.add(cloak);
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        const tag = mesh(new THREE.ConeGeometry(0.07, 0.2 + (i % 3) * 0.06, 4), i % 2 ? cloth : red, Math.sin(a) * 0.37, 0.06 - (i % 3) * 0.03, Math.cos(a) * 0.37);
+        tag.rotation.x = Math.PI;
+        tag.name = 'hem';
+        reaper.add(tag);
+      }
+      // a red sash and a chain round the waist
+      const sash = mesh(new THREE.TorusGeometry(0.22, 0.04, 6, 20), red, 0, 0.66, 0);
+      sash.rotation.x = Math.PI / 2;
+      reaper.add(sash);
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        const link = mesh(new THREE.TorusGeometry(0.035, 0.012, 4, 8), iron, Math.sin(a) * 0.27, 0.56 - Math.sin(a * 2) * 0.03, Math.cos(a) * 0.27);
+        link.rotation.set(Math.PI / 2, a, i % 2 ? Math.PI / 2 : 0);
+        reaper.add(link);
+      }
+      // the hood (a little peak at the back) round a skull face
+      const head = new THREE.Group();
+      head.name = 'rhead';
+      head.position.y = 0.98;
+      reaper.add(head);
+      head.add(mesh(S(0.27, 20, 14), cloth));
+      const peak = mesh(new THREE.ConeGeometry(0.12, 0.3, 8), cloth, 0, 0.14, -0.2);
+      peak.rotation.x = -1.1;
+      head.add(peak);
+      // two big branching antlers bursting out of the hood
+      head.add(antler(1), antler(-1));
+      const hole = mesh(S(0.2, 16, 12), new THREE.MeshBasicMaterial({ color: 0x050106 }), 0, -0.02, 0.12);
+      hole.scale.set(1, 1, 0.7);
+      hole.userData.noOutline = true;
+      head.add(hole);
+      const skull = mesh(S(0.15, 16, 12), bone, 0, -0.02, 0.17);
+      skull.scale.set(1, 1.05, 0.75);
+      head.add(skull);
+      const jaw = mesh(new THREE.BoxGeometry(0.14, 0.05, 0.08), bone, 0, -0.13, 0.2);
+      head.add(jaw);
+      for (let i = -2; i <= 2; i++) {
+        const tooth = mesh(new THREE.BoxGeometry(0.012, 0.03, 0.01), new THREE.MeshBasicMaterial({ color: 0x1a0a0e }), i * 0.026, -0.12, 0.245);
+        tooth.userData.noOutline = true;
+        head.add(tooth);
+      }
+      for (const sx of [-1, 1]) {
+        const socket = mesh(S(0.045, 10, 8), new THREE.MeshBasicMaterial({ color: 0x120206 }), sx * 0.06, 0.0, 0.27);
+        socket.scale.set(1, 1.15, 0.5);
+        socket.userData.noOutline = true;
+        head.add(socket);
+        const eye = mesh(S(0.025, 8, 6), glowRed, sx * 0.06, 0.0, 0.29);
+        eye.userData.noOutline = true;
+        eye.name = 'reye';
+        head.add(eye);
+        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTexture(), color: 0xff2040, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+        glow.scale.setScalar(0.16);
+        glow.position.set(sx * 0.06, 0, 0.31);
+        glow.name = 'reye';
+        head.add(glow);
+      }
+      // sleeves and bony hands
+      for (const sx of [-1, 1]) {
+        const arm = mesh(CAP(0.07, 0.24), cloth, sx * 0.3, 0.72, 0.08);
+        arm.rotation.z = sx * 0.9;
+        arm.rotation.x = -0.5;
+        reaper.add(arm);
+        reaper.add(mesh(S(0.05, 10, 8), bone, sx * 0.42, 0.62, 0.18));
+      }
+      // the scythe, held in the right hand
+      const scythe = new THREE.Group();
+      scythe.name = 'scythe';
+      scythe.position.set(-0.42, 0.62, 0.18);
+      scythe.rotation.z = 0.18;
+      reaper.add(scythe);
+      scythe.add(mesh(CYL(0.025, 0.03, 1.6, 8), toon('#3a1610'), 0, 0.25, 0));
+      for (const y of [-0.3, 0.2, 0.7]) scythe.add(mesh(CYL(0.034, 0.034, 0.05, 8), iron, 0, y, 0));
+      const bladeMat = new THREE.MeshToonMaterial({ color: '#c0122e', emissive: '#5a0012', emissiveIntensity: 0.8 });
+      // an arc from the top of the shaft sweeping out and down to the tip
+      const blade = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.07, 4, 24, Math.PI * 0.8), bladeMat);
+      blade.scale.set(1, 1, 0.35);
+      blade.position.set(-0.45, 0.75, 0);
+      blade.rotation.z = 0.58;
+      scythe.add(blade);
+      const edge = new THREE.Mesh(new THREE.TorusGeometry(0.43, 0.014, 3, 24, Math.PI * 0.78), new THREE.MeshBasicMaterial({ color: 0xff6a7a }));
+      edge.position.set(-0.45, 0.75, 0);
+      edge.rotation.z = 0.62;
+      edge.userData.noOutline = true;
+      scythe.add(edge);
+      const sk = mesh(S(0.09, 12, 10), bone, 0, 1.08, 0.02);
+      scythe.add(sk);
+      for (const sx of [-1, 1]) {
+        const e = mesh(S(0.022, 6, 5), glowRed, sx * 0.035, 1.09, 0.1);
+        e.userData.noOutline = true;
+        scythe.add(e);
+      }
+      // a chain hanging from the scythe head
+      for (let i = 0; i < 6; i++) {
+        const link = mesh(new THREE.TorusGeometry(0.03, 0.01, 4, 8), iron, 0.05 + i * 0.01, 0.98 - i * 0.06, 0.05);
+        link.rotation.y = i % 2 ? Math.PI / 2 : 0;
+        link.name = 'rchain';
+        scythe.add(link);
+      }
+      // purple flames licking up round the hem
+      const flameMat = new THREE.MeshBasicMaterial({ color: 0xa040ff, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending });
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * Math.PI * 2;
+        const f = mesh(new THREE.ConeGeometry(0.09, 0.4, 6), flameMat, Math.sin(a) * 0.34, 0.12, Math.cos(a) * 0.34);
+        f.userData.noOutline = true;
+        f.userData.a = a;
+        f.name = 'rflame';
+        body.add(f);
+      }
+      const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTexture(), color: 0x8a20ff, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
+      aura.scale.set(1.5, 0.7, 1);
+      aura.position.y = 0.12;
+      aura.name = 'raura';
+      body.add(aura);
+      height = 1.95;
+      break;
+    }
     default: {
       // jelly and the boss
       const b = mesh(S(0.4, 24, 16), toon(col, { transparent: true, opacity: 0.93 }), 0, 0.3, 0);
@@ -858,7 +1052,7 @@ export function buildMonster(id: string): MonsterRig {
       height = 0.7;
     }
   }
-  if (def.boss) {
+  if (def.boss && !def.mvp) {
     const crown = new THREE.Group();
     crown.name = 'crown';
     crown.add(mesh(CYL(0.2, 0.2, 0.1, 16), toon('#ffd700')));
@@ -891,6 +1085,31 @@ export function animateMonster(rig: MonsterRig, id: string, t: number, phase: nu
     b.position.y = 0;
     const squash = Math.sin(t * 2.6 + phase) * 0.04;
     b.scale.set(k * (1 + squash), k * (1 - squash), k * (1 + squash));
+  }
+  const gem = b.getObjectByName('gem');
+  if (gem) {
+    b.position.y = 0;
+    b.scale.setScalar(k);
+    gem.rotation.y = t * 0.8;
+    gem.position.y = 0.9 + Math.sin(t * 1.6) * 0.06;
+  }
+  const reaper = b.getObjectByName('reaper');
+  if (reaper) {
+    // floats instead of hopping; the cloak hem sways, the flames flicker, the scythe rocks
+    b.position.y = 0;
+    b.scale.setScalar(k);
+    reaper.position.y = 0.12 + Math.sin(t * 1.8 + phase) * 0.05;
+    reaper.rotation.z = Math.sin(t * 1.1 + phase) * 0.04;
+    for (const c of reaper.children) if (c.name === 'hem') c.rotation.z = Math.sin(t * 4 + c.position.x * 9) * 0.25;
+    const sc = reaper.getObjectByName('scythe');
+    if (sc) sc.rotation.z = 0.18 + Math.sin(t * 1.3 + phase) * (moving ? 0.2 : 0.06);
+    for (const c of b.children) {
+      if (c.name === 'rflame') {
+        const f = 0.7 + Math.abs(Math.sin(t * 7 + c.userData.a * 3)) * 0.6;
+        c.scale.set(1, f, 1);
+        c.position.y = 0.08 + f * 0.12;
+      } else if (c.name === 'raura') (c as THREE.Sprite).material.opacity = 0.45 + Math.sin(t * 5) * 0.12;
+    }
   }
   const p = b.getObjectByName('pendulum');
   if (p) p.rotation.z = Math.sin(t * 4 + phase) * 0.6;
