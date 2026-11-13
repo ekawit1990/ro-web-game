@@ -12,8 +12,10 @@ import { Hud } from './ui/hud';
 import { $, characterScreen, httpBase, loginScreen, show } from './ui/screens';
 import { playMusic, sfx, unlockAudio } from './audio/sound';
 import { assetShare, assetsIdle, reset as resetAssets } from './ui/loadProgress';
+import { initInstall } from './ui/install';
 
 const container = document.getElementById('game')!;
+initInstall();
 let world: World3D | undefined;
 (window as unknown as { __world: () => World3D | undefined }).__world = () => world; // handy for debugging in the console
 
