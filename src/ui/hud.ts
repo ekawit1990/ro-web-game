@@ -175,7 +175,7 @@ export class Hud implements WorldHooks {
     this.closeWin('vshop');
     this.lastSig.vend = '';
     // a new map starts with /auto off
-    this.root.querySelector('#bi-auto')?.classList.remove('on');
+    this.root.querySelector('#auto-btn')?.classList.remove('on');
     this.root.querySelector('#auto-badge')?.remove();
     const name = this.root.querySelector('#mini-name');
     if (name) name.textContent = map.name;
@@ -310,7 +310,6 @@ export class Hud implements WorldHooks {
         <button data-open="guild" title="Alt+G">กิลด์</button>
         <button data-open="map" title="Tab">แผนที่</button>
         <button data-open="sit" title="Insert">นั่ง</button>
-        <button data-open="auto" id="bi-auto" title="/auto · ตีและใช้สกิลอัตโนมัติ">ออโต้</button>
         <button data-open="option" title="Esc">ตั้งค่า</button>
       </div>
       </div>`;
@@ -871,6 +870,9 @@ export class Hud implements WorldHooks {
     this.root.querySelector('#mini-cv')!.addEventListener('click', () => this.toggleWorldMap());
     this.root.insertAdjacentHTML('beforeend', `<button id="guide-btn" class="guide-btn" title="คู่มือ: มอนสเตอร์ อุปกรณ์ การ์ด (Alt+G)"><i>📖</i><span>คู่มือ</span></button>`);
     this.root.querySelector('#guide-btn')!.addEventListener('click', () => this.toggleGuide());
+    // /auto sits under the guide button (moved out of Basic Info, 2026-11-13)
+    this.root.insertAdjacentHTML('beforeend', `<button id="auto-btn" class="guide-btn auto-btn" title="/auto · ตีและใช้สกิลอัตโนมัติ"><i>⚔️</i><span>ออโต้</span></button>`);
+    this.root.querySelector('#auto-btn')!.addEventListener('click', () => this.toggleAuto());
   }
 
   private drawMiniBase() {
@@ -2593,7 +2595,7 @@ export class Hud implements WorldHooks {
 
   /** /auto on/off: light up the button and say so (clicking the ground or dying also turns it off). */
   autoChanged(on: boolean) {
-    this.root.querySelector('#bi-auto')?.classList.toggle('on', on);
+    this.root.querySelector('#auto-btn')?.classList.toggle('on', on);
     this.root.querySelector('#auto-badge')?.remove();
     if (on) {
       const pct = potionPct();

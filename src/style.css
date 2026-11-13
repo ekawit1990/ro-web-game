@@ -579,6 +579,11 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .guide-btn:active { transform: translateY(1px); }
 @media (pointer: coarse), (max-height: 520px) { .guide-btn { right: 124px; width: 46px; height: 46px; font-size: 11px; } .guide-btn i { font-size: 18px; } }
 @media (max-width: 640px) { .guide-btn { right: 120px; } }
+.auto-btn { top: 68px; }
+.auto-btn.on { background: linear-gradient(#5fd37a, #1f8a3a); color: #fff; border-color: #17672b; animation: autoBtnGlow 1.6s ease-in-out infinite; }
+.auto-btn.on:hover { background: linear-gradient(#74de8c, #23963f); }
+@keyframes autoBtnGlow { 0%, 100% { box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4), 0 0 0 0 rgba(95, 211, 122, 0.7); } 50% { box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4), 0 0 0 5px rgba(95, 211, 122, 0); } }
+@media (pointer: coarse), (max-height: 520px) { .auto-btn { top: 60px; } }
 
 .rw.guide { width: min(700px, calc(100vw - 12px)); }
 .rw.guide .rw-body { padding: 5px 6px 6px; }

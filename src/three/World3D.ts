@@ -149,6 +149,20 @@ interface MonsterActor {
   fade: number;
   /** burst into pieces as it died: the body vanishes at once */
   burst?: boolean;
+  /** knocked back by a hit (the singer's mic): unit direction, performance.now() of the hit, how far (tiles) */
+  knock?: { dx: number; dy: number; at: number; dist: number };
+}
+
+/** How long a knock-back flinch lasts (ms): a quick shove away, then it eases back to where it stands. */
+const KNOCK_MS = 320;
+const KNOCK_OUT_MS = 70;
+/** How far it flinches now (0..1 of the knock's distance). */
+function knockAmount(k: { at: number }, now: number) {
+  const age = now - k.at;
+  if (age < 0 || age >= KNOCK_MS) return 0;
+  if (age < KNOCK_OUT_MS) return Math.sin((age / KNOCK_OUT_MS) * Math.PI * 0.5);
+  const back = (age - KNOCK_OUT_MS) / (KNOCK_MS - KNOCK_OUT_MS);
+  return (1 - back) * (1 - back);
 }
 
 /** 'foe' = another player, in PVP. */
@@ -197,6 +211,11 @@ export class World3D {
   private path: { x: number; y: number }[] = [];
   private target: Target | null = null;
   private pendingSkill: { id: string; target?: string } | null = null;
+  /**
+   * performance.now() until which we stand still after sending a skill with a cast bar: the server's 'cast'
+   * answer takes a moment, and a step taken meanwhile would cancel the cast (auto kept re-buffing because of it).
+   */
+  private castWait = 0;
   private targetingSkill: string | null = null;
   private lastAttack = 0;
   /** /auto: fight the nearest monsters with attacks and skills on its own. */
@@ -300,6 +319,7 @@ export class World3D {
     this.path = [];
     this.target = null;
     this.pendingSkill = null;
+    this.castWait = 0;
     this.warping = false;
     this.lastAttack = 0;
     this.listen();
@@ -809,9 +829,16 @@ export class World3D {
     } else if (targetsPlayer(skill)) {
       if (this.targetingSkill === id && skill.type !== 'revive') return this.castAt(id, this.room.sessionId); // press twice = self
       this.startTargeting(id);
-    } else {
-      this.room.send('skill', { id });
+    } else this.sendSelfSkill(id);
+  }
+
+  /** A skill on yourself / around you: stop walking first when it has a cast bar, so the cast isn't broken. */
+  private sendSelfSkill(id: string) {
+    if (SKILLS[id]?.castMs) {
+      this.path = [];
+      this.castWait = performance.now() + 1500;
     }
+    this.room.send('skill', { id });
   }
 
   private startTargeting(id: string) {
@@ -883,7 +910,7 @@ export class World3D {
         this.autoSpPotionAt = t + AUTO_POTION_EVERY;
       }
     }
-    if (this.pendingSkill || this.targetingSkill || me.cast) return;
+    if (this.pendingSkill || this.targetingSkill || me.cast || this.castWait > t) return;
 
     let m = this.target?.kind === 'monster' ? this.monsters.get(this.target.id) : undefined;
     if (!m || m.dead) {
@@ -910,7 +937,7 @@ export class World3D {
     const cast = (id: string, target?: string) => {
       this.autoReady.set(id, t + Math.max(SKILLS[id].cooldown ?? 1000, 800));
       if (target) this.castAt(id, target);
-      else this.room.send('skill', { id });
+      else this.sendSelfSkill(id);
     };
     const mine = Object.keys(s.char.skills ?? {}).filter((id) => SKILLS[id] && ready(id));
     // heal yourself
@@ -918,10 +945,10 @@ export class World3D {
       const heal = mine.find((id) => SKILLS[id].type === 'heal' || SKILLS[id].type === 'heal_target');
       if (heal) return cast(heal, SKILLS[heal].type === 'heal_target' ? this.room.sessionId : undefined);
     }
-    // keep buffs up
-    const buff = mine.find((id) => isBuffSkill(SKILLS[id]) && (this.autoBuffs.get(id) ?? 0) < t + 1000);
+    // a buff once, then not again until it has run out (2026-11-13: it used to top up 1 s early)
+    const buff = mine.find((id) => isBuffSkill(SKILLS[id]) && (this.autoBuffs.get(id) ?? 0) <= t);
     if (buff) {
-      this.autoBuffs.set(buff, t + 3000); // until the server's 'buff' message says how long
+      this.autoBuffs.set(buff, t + 5000); // until the server's 'buff' message says how long
       return cast(buff, SKILLS[buff].type === 'buff_target' ? this.room.sessionId : undefined);
     }
     // the strongest ready attack skill
@@ -973,6 +1000,14 @@ export class World3D {
           this.floatText(p, String(msg.dmg), msg.crit ? 'crit' : a === this.me ? 'deal' : 'other');
           this.flash(m.rig.root);
           m.anim?.hit();
+          // the singer's mic shoves the monster back a little (just the look: the server keeps it where it is)
+          if (a?.cls === 'singer' && !m.dead) {
+            const dx = m.x - a.x;
+            const dy = m.y - a.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const dist = (MONSTERS[m.key]?.boss ? 0.12 : 0.3) * (msg.crit ? 1.5 : 1);
+            m.knock = { dx: dx / len, dy: dy / len, at: performance.now(), dist };
+          }
         }
       };
       if (a) {
@@ -1046,6 +1081,7 @@ export class World3D {
       if (sk && !sk.castMs && caster) sfxWheet(this.vol(caster.x, caster.y, caster === this.me) * 0.8);
       this.skillFx(msg);
       if (msg.by === this.room.sessionId && SKILLS[msg.skill]) {
+        this.castWait = 0;
         this.autoReady.set(msg.skill, performance.now() + (SKILLS[msg.skill].cooldown ?? 1000));
       }
     });
@@ -1066,7 +1102,10 @@ export class World3D {
       if (!a || !skill) return;
       this.face(a, msg.x, msg.y);
       this.castFx(a, skill, msg.ms);
-      if (a === this.me) this.path = [];
+      if (a === this.me) {
+        this.path = [];
+        this.castWait = 0;
+      }
       if (skill.cls === 'singer') {
         // the singer charges on a golden circle under a spotlight, notes rising round them
         const start = a.cast?.start;
@@ -1274,7 +1313,9 @@ export class World3D {
       // a rigged monster plays its death clip before sinking away; a drawn one squashes flat
       m.fade = Math.max(0, Math.min(1, m.fade + (m.dead ? -dt * (m.burst ? 9 : m.anim ? 0.7 : 2.5) : dt * 2.5)));
       m.rig.root.visible = m.fade > 0;
-      m.rig.root.position.set(m.x, 0, m.y);
+      const kb = m.knock && !m.dead ? knockAmount(m.knock, performance.now()) * m.knock.dist : 0;
+      if (m.knock && !kb && performance.now() - m.knock.at >= KNOCK_MS) m.knock = undefined;
+      m.rig.root.position.set(m.x + (m.knock?.dx ?? 0) * kb, 0, m.y + (m.knock?.dy ?? 0) * kb);
       if (m.anim) {
         m.rig.root.scale.setScalar(m.dead ? Math.min(1, m.fade * 2.5) : 0.2 + m.fade * 0.8);
         m.anim.update(dt, m.moving && !m.dead);
@@ -1415,8 +1456,9 @@ export class World3D {
     const time = this.now;
     if (this.auto) this.autoStep();
 
-    if (me.cast) {
-      // singing เสียงสูง: stand still (walking away cancels it on the server)
+    if (me.cast || this.castWait > performance.now()) {
+      // casting (or waiting for the server to start the cast): stand still, walking away cancels it on the server
+      if (!me.cast) this.path = [];
     } else if (this.target?.kind === 'monster') {
       const m = this.monsters.get(this.target.id);
       if (!m || m.dead) {
