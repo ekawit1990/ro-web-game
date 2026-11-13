@@ -12,6 +12,7 @@ import type { RewardShare, TradeOffer } from '../../src/services/store.ts';
 import type { JoinOptions, Loaded, RankRow, ServerDb } from './db.ts';
 import { Parties, type Party } from './party.ts';
 import { Guilds } from './guild.ts';
+import { BOT_COUNT, RoomBots, isBot, type BotHost, type BotPlayer } from './bots.ts';
 
 const TICK_MS = 50;
 const TILE_PX = 32; // moveSpeed is in pixels/second at this tile size
@@ -143,6 +144,9 @@ interface Brain {
 }
 
 /** Where a character arrives after taking a portal (set by the room they left). */
+/** Everyone online across all maps: the real players plus every bot (the user wants the bots counted). */
+const onlineCount = () => Parties.onlineCount() + BOT_COUNT;
+
 /** อันดับผู้กล้า: top 100 from the database, shared by every room and re-read at most once a minute. */
 const RANK_LIMIT = 100;
 let rankCache: { at: number; rows: RankRow[]; loading?: Promise<RankRow[]> } = { at: -Infinity, rows: [] };
@@ -213,6 +217,8 @@ export class MapRoom extends Room<{ state: MapState }> {
   private scores = new Map<string, PvpScore>();
   private scoresSent = '';
   private onlineSent = -1;
+  /** bot players on this map (bots.ts): hunters on the fields, shops in town */
+  private bots?: RoomBots;
 
   onCreate(options: { map: string }) {
     this.map = getMap(options.map);
@@ -243,6 +249,22 @@ export class MapRoom extends Room<{ state: MapState }> {
       });
     }
     this.pvp = pvpOn(this.map.id);
+    if (!this.pvp) {
+      this.bots = new RoomBots({
+        map: this.map,
+        players: this.state.players as unknown as BotHost['players'],
+        monsters: this.state.monsters,
+        brains: this.brains,
+        newPlayer: () => new PlayerState() as unknown as BotPlayer,
+        isPlayer: (sid) => this.seats.has(sid),
+        broadcast: (type, msg) => this.broadcast(type, msg),
+        damageMonster: (id, amount, by) => {
+          const m = this.state.monsters.get(id);
+          const b = this.brains.get(id);
+          if (m && b) this.damageMonster(id, m, b, by, amount);
+        },
+      });
+    }
 
     this.onMessage('move', (c, msg: { x: number; y: number }) => this.onMove(c, msg));
     this.onMessage('attack', (c, msg: { id: string }) => this.onAttack(c, msg));
@@ -273,6 +295,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.onMessage('partyGet', (c) => this.party(c, (me) => Parties.refresh(me)));
     this.onMessage('partyCreate', (c, msg: { name?: string }) => this.party(c, (me) => Parties.create(me, msg?.name)));
     this.onMessage('partyInvite', (c, msg: { to?: string; name?: string }) => this.party(c, (me) => {
+      if (isBot(msg?.to)) throw new Error(`${this.bots?.name(msg.to!) || 'ผู้เล่นคนนี้'} ยังไม่สะดวกเข้าปาร์ตี้ตอนนี้`);
       const charId = msg?.to ? this.seats.get(msg.to)?.char.id : undefined;
       if (msg?.to && !charId) throw new Error('ผู้เล่นคนนี้ออกไปแล้ว');
       Parties.invite(me, { charId, name: msg?.name });
@@ -285,6 +308,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.onMessage('guildGet', (c) => this.guild(c, (me) => Guilds.refresh(me)));
     this.onMessage('guildCreate', (c, msg: { name?: string }) => this.guild(c, (me) => this.createGuild(c, me, msg?.name)));
     this.onMessage('guildInvite', (c, msg: { to?: string; name?: string }) => this.guild(c, (me) => {
+      if (isBot(msg?.to)) throw new Error(`${this.bots?.name(msg.to!) || 'ผู้เล่นคนนี้'} มีกิลด์ในใจอยู่แล้ว`);
       const charId = msg?.to ? this.seats.get(msg.to)?.char.id : undefined;
       if (msg?.to && !charId) throw new Error('ผู้เล่นคนนี้ออกไปแล้ว');
       Guilds.invite(me, { charId, name: msg?.name });
@@ -367,7 +391,7 @@ export class MapRoom extends Room<{ state: MapState }> {
         if (this.seats.get(client.sessionId) === seat) this.resync(seat).catch(() => {});
       },
     });
-    client.send('online', { n: Parties.onlineCount() });
+    client.send('online', { n: onlineCount() });
     client.send('pvp', this.pvpInfo());
     if (this.map.id === ARENA_MAP) client.send('pvpScore', this.topScores());
     this.broadcast('system', { text: `${c.name} เข้ามาใน${this.map.name}` }, { except: client });
@@ -392,7 +416,7 @@ export class MapRoom extends Room<{ state: MapState }> {
 
   /** Everyone online across all maps; only sent when the number changed. */
   private sendOnline() {
-    const n = Parties.onlineCount();
+    const n = onlineCount();
     if (n === this.onlineSent) return;
     this.onlineSent = n;
     this.broadcast('online', { n });
@@ -412,7 +436,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       }
       rows.sort((a, b) => b.level - a.level || b.exp - a.exp || b.job_level - a.job_level || a.name.localeCompare(b.name));
       c.send('ranking', {
-        online: Parties.onlineCount(),
+        online: onlineCount(),
         me: seat.char.id,
         rows: rows.map((r) => ({
           id: r.id, name: r.name, cls: r.cls, level: r.level, job: r.job_level,
@@ -1035,6 +1059,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     if (m.dead) return;
     m.hp = Math.max(0, m.hp - amount);
     brain.damage.set(sid, (brain.damage.get(sid) ?? 0) + amount);
+    if (isBot(brain.target) && this.seats.has(sid)) brain.target = sid; // a real player takes it over from a bot
     this.engage(brain, sid);
     if (m.hp <= 0) this.killMonster(id, m, brain);
   }
@@ -1250,6 +1275,7 @@ export class MapRoom extends Room<{ state: MapState }> {
   // ------------------------------------------------------------ trading
 
   private onTradeRequest(c: Client, msg: { to: string }) {
+    if (isBot(msg?.to)) return c.send('error', { text: `${this.bots?.name(msg.to!) || 'ผู้เล่นคนนี้'} กำลังยุ่งอยู่ ไม่รับแลกเปลี่ยนตอนนี้` });
     const me = this.seats.get(c.sessionId);
     const other = this.seats.get(msg?.to);
     const pa = this.state.players.get(c.sessionId);
@@ -1397,12 +1423,14 @@ export class MapRoom extends Room<{ state: MapState }> {
   }
 
   private onShopView(c: Client, msg: { to: string }) {
+    if (isBot(msg?.to)) return c.send('shopList', this.bots?.shopOf(msg.to) ?? { sid: msg.to, open: false });
     const seller = this.seats.get(msg?.to);
     if (!seller?.shop) return c.send('shopList', { sid: msg?.to, open: false });
     c.send('shopList', this.shopOf(msg.to, seller));
   }
 
   private async onShopBuy(c: Client, msg: { to: string; inv: string; qty: number }) {
+    if (isBot(msg?.to)) return this.onBotShopBuy(c, msg);
     const buyer = this.seats.get(c.sessionId);
     const seller = this.seats.get(msg?.to);
     const shop = seller?.shop;
@@ -1438,6 +1466,36 @@ export class MapRoom extends Room<{ state: MapState }> {
       fail(`ซื้อไม่สำเร็จ: ${(e as Error).message}`);
     } finally {
       seller.shopBusy = false;
+    }
+  }
+
+  /** Buying from a bot's shop: ป้ามะลิ's price minus 10%, paid to nobody (the database just takes the zeny). */
+  private async onBotShopBuy(c: Client, msg: { to: string; inv: string; qty: number }) {
+    const buyer = this.seats.get(c.sessionId);
+    const bots = this.bots;
+    const fail = (text: string) => {
+      c.send('error', { text });
+      if (bots) c.send('shopList', bots.shopOf(msg.to));
+    };
+    const qty = Math.floor(Number(msg?.qty));
+    const it = bots?.shopItem(msg.to, msg?.inv, qty);
+    if (!buyer || !bots || !it) return fail('ของหมดแล้ว หรือจำนวนไม่ถูกต้อง');
+    if (buyer.busy) return fail('กำลังทำรายการอื่นอยู่ ลองใหม่อีกครั้ง');
+    const total = it.price * qty;
+    if (buyer.char.zeny < total) return fail('เงินไม่พอ');
+    buyer.busy = true;
+    try {
+      buyer.char = await MapRoom.db.botShopBuy(buyer.userId, buyer.char.id, it.item, qty);
+      bots.sold(msg.to, it.inv, qty);
+      const name = ITEMS[it.item]?.name ?? it.item;
+      c.send('shopBought', { item: it.item, name, qty, zeny: total, seller: bots.name(msg.to) });
+      await this.resync(buyer);
+      c.send('shopList', bots.shopOf(msg.to));
+    } catch (e) {
+      const m = (e as Error).message;
+      fail(/bot_shop_buy/.test(m) ? 'ร้านนี้ยังเปิดไม่ได้ (ต้องรัน add-bot-shops.sql ใน Supabase ก่อน)' : `ซื้อไม่สำเร็จ: ${m}`);
+    } finally {
+      buyer.busy = false;
     }
   }
 
@@ -1478,6 +1536,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.now += dtMs;
     const dt = Math.min(dtMs, 100) / 1000;
     this.state.monsters.forEach((m, id) => this.updateMonster(id, m, this.brains.get(id)!, dt));
+    this.bots?.tick(dtMs);
     for (const [sid, seat] of this.seats) {
       let changed = false;
       for (const [k, b] of seat.buffs) {
@@ -1631,7 +1690,10 @@ export class MapRoom extends Room<{ state: MapState }> {
 
   private monsterHit(id: string, m: MonsterState, sid: string, p: PlayerState) {
     const seat = this.seats.get(sid);
-    if (!seat) return;
+    if (!seat) {
+      if (isBot(sid)) this.bots?.hurt(sid, id);
+      return;
+    }
     const def = MONSTERS[m.key];
     if (Math.random() > hitChance(monsterHit(def), seat.derived.flee)) {
       this.broadcast('mhit', { m: id, to: sid, dmg: 0 });
@@ -1701,7 +1763,8 @@ export class MapRoom extends Room<{ state: MapState }> {
     if (def.structure) return this.crystalBroken(m, b);
     // Damage is added up per party (a solo player is their own group). Every group that did at least 10%
     // gets a full reward: a solo player keeps it, a party splits it evenly between its members on this map.
-    const total = [...b.damage.values()].reduce((s, v) => s + v, 0) || 1;
+    // bots' damage doesn't count: a player who joined in on a bot's monster still gets the reward
+    const total = [...b.damage].reduce((s, [sid, v]) => s + (this.seats.has(sid) ? v : 0), 0) || 1;
     const groups = new Map<string, { party?: Party; sids: string[]; dmg: number }>();
     for (const [sid, d] of b.damage) {
       const seat = this.seats.get(sid);

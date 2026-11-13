@@ -25,6 +25,8 @@ export interface ServerDb {
   /** Takes `cost` zeny and moves the character to `s` in one go (บูรพา's warp). Throws if they can't pay. */
   payWarp(userId: string, charId: string, cost: number, s: SavedState): Promise<Character>;
   trade(a: TradeSide, b: TradeSide): Promise<void>;
+  /** Buys from a bot shop (ป้ามะลิ's list at 90%): takes the zeny and adds the items in one go. */
+  botShopBuy(userId: string, charId: string, item: string, qty: number): Promise<Character>;
 
   // guilds (supabase/add-guild-war.sql)
   guildsLoad(): Promise<{ guilds: GuildRow[]; castles: { castle: string; guild: string | null }[] }>;
@@ -143,6 +145,12 @@ export class SupabaseDb implements ServerDb {
     return rest as unknown as Character;
   }
 
+  async botShopBuy(userId: string, charId: string, item: string, qty: number) {
+    const c = check(await this.sb.rpc('bot_shop_buy', { p_user: userId, p_char: charId, p_item: item, p_qty: qty })) as Record<string, unknown>;
+    const { user_id, last_kill_at, created_at, ...rest } = c;
+    return rest as unknown as Character;
+  }
+
   async trade(a: TradeSide, b: TradeSide) {
     check(
       await this.sb.rpc('trade_execute', {
@@ -253,6 +261,10 @@ export class DevDb implements ServerDb {
 
   trade(a: TradeSide, b: TradeSide) {
     return this.store.trade(a.charId, a.offer, b.charId, b.offer);
+  }
+
+  botShopBuy(_userId: string, charId: string, item: string, qty: number) {
+    return this.store.botShopBuy(charId, item, qty);
   }
 
   // guilds: memory only (gone when the dev server stops)
