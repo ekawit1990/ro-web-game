@@ -205,6 +205,8 @@ async function play(char: Character): Promise<void> {
       });
       r.onMessage('pvpScore', (m) => hud.pvpScore(m));
       r.onMessage('castleInfo', (m) => hud.castleInfo(m));
+      r.onMessage('online', (m) => hud.online(m.n));
+      r.onMessage('ranking', (m) => hud.ranking(m));
       r.onMessage('warp', (m) => {
         if (room === r) enter(m.map).catch(fail);
       });

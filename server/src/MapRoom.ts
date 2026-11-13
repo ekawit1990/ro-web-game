@@ -9,7 +9,7 @@ import {
 import { ARENA_SPAWNS, CASTLE_CRYSTAL, CASTLE_INNER, GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
 import { ARENA_MAP, CASTLE_MAP, EMPERIUM, PVP_DAMAGE, pvpOn, warNow, type PvpInfo, type PvpScore } from '../../src/game/pvp.ts';
 import type { RewardShare, TradeOffer } from '../../src/services/store.ts';
-import type { JoinOptions, Loaded, ServerDb } from './db.ts';
+import type { JoinOptions, Loaded, RankRow, ServerDb } from './db.ts';
 import { Parties, type Party } from './party.ts';
 import { Guilds } from './guild.ts';
 
@@ -75,6 +75,8 @@ type SeatBuff = {
 const ENDOW_KEY = (itemId: string) => `item:${itemId}`;
 
 interface Seat {
+  /** last อันดับผู้กล้า request (room clock ms) */
+  rankAt?: number;
   client: Client;
   userId: string;
   char: Character;
@@ -141,6 +143,20 @@ interface Brain {
 }
 
 /** Where a character arrives after taking a portal (set by the room they left). */
+/** อันดับผู้กล้า: top 100 from the database, shared by every room and re-read at most once a minute. */
+const RANK_LIMIT = 100;
+let rankCache: { at: number; rows: RankRow[]; loading?: Promise<RankRow[]> } = { at: -Infinity, rows: [] };
+async function rankingTop(): Promise<RankRow[]> {
+  if (Date.now() - rankCache.at > 60000) {
+    rankCache.loading ??= MapRoom.db.ranking(RANK_LIMIT).then((rows) => {
+      rankCache = { at: Date.now(), rows };
+      return rows;
+    }).finally(() => { rankCache.loading = undefined; });
+    await rankCache.loading;
+  }
+  return rankCache.rows.map((r) => ({ ...r }));
+}
+
 const arrivals = new Map<string, {
   map: string; x: number; y: number; at: number; hp?: number; sp?: number;
   /** an element converter still on the weapon: which item, and when it wears off (Date.now() ms) */
@@ -196,6 +212,7 @@ export class MapRoom extends Room<{ state: MapState }> {
   /** ลานประลอง scoreboard, by character id. */
   private scores = new Map<string, PvpScore>();
   private scoresSent = '';
+  private onlineSent = -1;
 
   onCreate(options: { map: string }) {
     this.map = getMap(options.map);
@@ -279,10 +296,13 @@ export class MapRoom extends Room<{ state: MapState }> {
     // the arena keeper and the castle herald in town
     this.onMessage('npcGo', (c, msg: { to: string }) => this.onNpcGo(c, msg));
     this.onMessage('castleInfo', (c) => c.send('castleInfo', Guilds.castleInfo()));
+    // the minimap's player count and the อันดับผู้กล้า window
+    this.onMessage('ranking', (c) => this.onRanking(c));
 
     this.setSimulationInterval((dt) => this.tick(dt), TICK_MS);
     this.clock.setInterval(() => this.regen(), 2000);
     this.clock.setInterval(() => this.saveAll(), 30000);
+    this.clock.setInterval(() => this.sendOnline(), 5000);
     if (this.map.id === CASTLE_MAP) this.clock.setInterval(() => this.warTick(), 1000);
   }
 
@@ -347,6 +367,7 @@ export class MapRoom extends Room<{ state: MapState }> {
         if (this.seats.get(client.sessionId) === seat) this.resync(seat).catch(() => {});
       },
     });
+    client.send('online', { n: Parties.onlineCount() });
     client.send('pvp', this.pvpInfo());
     if (this.map.id === ARENA_MAP) client.send('pvpScore', this.topScores());
     this.broadcast('system', { text: `${c.name} เข้ามาใน${this.map.name}` }, { except: client });
@@ -367,6 +388,40 @@ export class MapRoom extends Room<{ state: MapState }> {
     }
     // a portal already saved the new map; don't overwrite it
     if (seat && p && !arrivals.has(seat.char.id)) await this.save(seat, p).catch((e) => console.warn('save failed', e.message));
+  }
+
+  /** Everyone online across all maps; only sent when the number changed. */
+  private sendOnline() {
+    const n = Parties.onlineCount();
+    if (n === this.onlineSent) return;
+    this.onlineSent = n;
+    this.broadcast('online', { n });
+  }
+
+  private async onRanking(c: Client) {
+    const seat = this.seats.get(c.sessionId);
+    if (!seat) return;
+    if (this.now - (seat.rankAt ?? -Infinity) < 3000) return; // spam guard
+    seat.rankAt = this.now;
+    try {
+      const rows = await rankingTop();
+      // what the database has can be a few seconds behind the people playing right now
+      for (const s of this.seats.values()) {
+        const r = rows.find((x) => x.id === s.char.id);
+        if (r) Object.assign(r, { level: s.char.level, job_level: s.char.job_level, exp: s.char.exp });
+      }
+      rows.sort((a, b) => b.level - a.level || b.exp - a.exp || b.job_level - a.job_level || a.name.localeCompare(b.name));
+      c.send('ranking', {
+        online: Parties.onlineCount(),
+        me: seat.char.id,
+        rows: rows.map((r) => ({
+          id: r.id, name: r.name, cls: r.cls, level: r.level, job: r.job_level,
+          guild: Guilds.nameOf(r.id), online: Parties.isOnline(r.id),
+        })),
+      });
+    } catch (e) {
+      c.send('ranking', { error: (e as Error).message || 'โหลดอันดับไม่สำเร็จ' });
+    }
   }
 
   async onDispose() {

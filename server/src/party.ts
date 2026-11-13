@@ -147,6 +147,15 @@ export const Parties = {
     return partyOf.get(charId);
   },
 
+  /** How many characters are in a map room right now, across every map (the minimap's "ออนไลน์"). */
+  onlineCount(): number {
+    return online.size;
+  },
+
+  isOnline(charId: string): boolean {
+    return online.has(charId);
+  },
+
   /** A character entered a map room. */
   online(p: Presence) {
     online.set(p.charId, p);
