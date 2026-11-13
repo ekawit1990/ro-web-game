@@ -272,7 +272,7 @@ end $$;
 
 create or replace function public.change_job(p_char uuid, p_cls text) returns public.characters
 language plpgsql security definer set search_path = public as $$
-declare c public.characters; d public.class_defs;
+declare c public.characters; d public.class_defs; v_town text;
 begin
   c := public._own_char(p_char);
   if c.cls <> 'teen' then raise exception 'เปลี่ยนอาชีพไปแล้ว'; end if;
@@ -280,8 +280,10 @@ begin
   if c.level < 10 or c.job_quest < 30 then raise exception 'ยังทำเควสไม่สำเร็จ'; end if;
   -- each class is handed out in its own town (JOB_TOWN in src/data/index.ts): drummers in the desert,
   -- keyboardists in the city of magic, everyone else in the first town
-  if c.map <> case p_cls when 'drummer' then 'desert' when 'keyboardist' then 'magic' else 'town' end then
-    raise exception 'ต้องเปลี่ยนอาชีพนี้ที่%', case p_cls when 'drummer' then 'เมืองทะเลทรายตะโพน' when 'keyboardist' then 'เมืองคีย์มนตรา' else 'เมืองเมโลเดีย' end;
+  -- (the town goes into a variable first: inside IF ... THEN, plpgsql would stop at the CASE's own THEN)
+  v_town := case p_cls when 'drummer' then 'desert' when 'keyboardist' then 'magic' else 'town' end;
+  if c.map <> v_town then
+    raise exception 'ต้องเปลี่ยนอาชีพนี้ที่%', case v_town when 'desert' then 'เมืองทะเลทรายตะโพน' when 'magic' then 'เมืองคีย์มนตรา' else 'เมืองเมโลเดีย' end;
   end if;
   select * into d from public.class_defs where id = p_cls;
   update public.inventory inv set equipped = false
