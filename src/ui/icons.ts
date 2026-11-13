@@ -7,6 +7,7 @@ import { animateRig, buildVrmCharacter, releaseVrm } from '../three/vrm';
 import { BASS_SHAPES, GUITAR_SHAPES } from '../three/guitarShapes';
 import { STICK_STYLES } from '../three/sticks';
 import { KEYBOARD_STYLES } from '../three/keyboard';
+import { MIC_STYLES } from '../three/mics';
 
 const cache = new Map<string, string>();
 
@@ -60,6 +61,8 @@ export function itemIcon(id: string): string {
     c.fillRect(21, 3, 4, 4);
   } else if (item?.shape && (GUITAR_SHAPES[item.shape] || BASS_SHAPES[item.shape])) {
     guitarIcon(c, item.shape, item.color);
+  } else if (item?.shape && MIC_STYLES[item.shape]) {
+    micIcon(c, item.shape);
   } else if (item?.shape && STICK_STYLES[item.shape]) {
     mvpGlow(c);
     for (const [x, a] of [[12, -0.35], [20, 0.35]] as const) {
@@ -252,6 +255,101 @@ function mvpGlow(c: CanvasRenderingContext2D) {
   glow.addColorStop(1, 'rgba(255,215,80,0)');
   c.fillStyle = glow;
   c.fillRect(0, 0, 32, 32);
+}
+
+/** An MVP mic, tilted: tapered handle, band, and its grille (ball, barrel, red cage or the chrome vintage capsule). */
+function micIcon(c: CanvasRenderingContext2D, shape: string) {
+  const s = MIC_STYLES[shape];
+  mvpGlow(c);
+  c.save();
+  c.translate(17, 18);
+  c.rotate(0.62);
+  if (s.head === 'vintage') {
+    const chromeGrad = c.createLinearGradient(-8, 0, 8, 0);
+    for (const [k, col] of [[0, '#7b8188'], [0.3, '#ffffff'], [0.55, '#9aa0a7'], [0.8, '#f0f3f6'], [1, '#6d737a']] as const) chromeGrad.addColorStop(k, col);
+    c.fillStyle = chromeGrad;
+    c.fillRect(-2.5, 2, 5, 11); // stem
+    c.fillRect(-8, -1, 16, 2); // yoke bar
+    c.fillRect(-8.5, -9, 1.6, 9);
+    c.fillRect(6.9, -9, 1.6, 9);
+    c.beginPath();
+    c.roundRect(-6.2, -15, 12.4, 15, 6);
+    c.fill();
+    c.fillStyle = 'rgba(15,17,20,0.85)';
+    for (let y = -13; y < -1; y += 2.2) c.fillRect(-5.4, y, 10.8, 1);
+    c.fillStyle = '#e9edf1';
+    c.fillRect(-0.6, -15, 1.2, 15);
+    c.fillStyle = '#202226';
+    c.fillRect(-1.5, 5, 3, 5);
+    c.restore();
+    return;
+  }
+  const r = s.head === 'ball' ? 6.2 : 4.6;
+  // handle: wide under the head, narrow at the end
+  const hTop = s.head === 'ball' ? -3 : -2;
+  c.fillStyle = s.body;
+  c.beginPath();
+  c.moveTo(-3.6, hTop);
+  c.lineTo(3.6, hTop);
+  c.lineTo(2.2, 14);
+  c.lineTo(-2.2, 14);
+  c.closePath();
+  c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.28)';
+  c.fillRect(-2.2, hTop + 1, 1.1, 13);
+  c.fillStyle = '#0d0d0f';
+  c.fillRect(-2.2, 13, 4.4, 1.6);
+  if (s.band) {
+    c.fillStyle = s.band;
+    c.fillRect(-4, hTop - 1.6, 8, 1.8);
+  }
+  const headBottom = hTop - (s.band ? 1.6 : 0);
+  if (s.head === 'ball') {
+    c.fillStyle = s.grille;
+    c.beginPath();
+    c.arc(0, headBottom - r + 0.8, r, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = 'rgba(0,0,0,0.35)';
+    for (let x = -5; x <= 5; x += 1.6) for (let y = -11; y <= -2; y += 1.6) if (Math.hypot(x, y - (headBottom - r + 0.8)) < r - 0.6) c.fillRect(x, y, 0.8, 0.8);
+    c.strokeStyle = '#7d838a';
+    c.lineWidth = 0.7;
+    c.beginPath();
+    c.moveTo(-r, headBottom - r + 1.6);
+    c.lineTo(r, headBottom - r + 1.6);
+    c.stroke();
+  } else {
+    const h = s.head === 'flat' ? (s.pattern === 'slots' ? 11 : 7) : 9;
+    c.fillStyle = s.pattern === 'cage' ? s.inner! : s.grille;
+    c.beginPath();
+    c.roundRect(-r, headBottom - h, r * 2, h, s.head === 'dome' ? [r, r, 1, 1] : 1);
+    c.fill();
+    if (s.pattern === 'slots') {
+      c.fillStyle = '#8a9198';
+      for (let x = -3.4; x < 3.5; x += 2.3) {
+        c.fillRect(x, headBottom - h + 1, 1, 4);
+        c.fillRect(x, headBottom - h + 6, 1, 4);
+      }
+    } else if (s.pattern === 'cage') {
+      c.strokeStyle = s.grille;
+      c.lineWidth = 0.8;
+      for (let x = -r + 1.5; x < r; x += 2.2) {
+        c.beginPath();
+        c.moveTo(x, headBottom);
+        c.lineTo(x, headBottom - h + 1.5);
+        c.stroke();
+      }
+      for (let y = headBottom - 1; y > headBottom - h; y -= 2.6) {
+        c.beginPath();
+        c.moveTo(-r, y);
+        c.lineTo(r, y);
+        c.stroke();
+      }
+    } else {
+      c.fillStyle = 'rgba(255,255,255,0.18)';
+      for (let y = headBottom - h + 1; y < headBottom; y += 1.6) c.fillRect(-r + 0.6, y, r * 2 - 1.2, 0.5);
+    }
+  }
+  c.restore();
 }
 
 function guitarIcon(c: CanvasRenderingContext2D, shape: string, color: string) {

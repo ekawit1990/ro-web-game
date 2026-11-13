@@ -5756,6 +5756,146 @@
    },
    "mvp": true,
    "desc": "เขาโค้งสีดำของยมทูต คาดด้วยแถบไฟม่วง หมวกที่หายากที่สุดในโลก (ดรอปจากบอส MVP ยมทูตเคียวโลหิต Lv 100 แห่งอเวจี, ไม่มีขายในร้าน)"
+  },
+  "mic_inst": {
+   "name": "ไมค์จ่อกลอง \"สแนร์ช็อต\"",
+   "type": "weapon",
+   "atk": 44,
+   "price": 4000,
+   "classes": [
+    "singer"
+   ],
+   "color": "#26262b",
+   "weight": 30,
+   "slots": 1,
+   "shape": "mic_inst",
+   "mvp": true,
+   "bonus": {
+    "dex": 2,
+    "hit": 5
+   },
+   "desc": "ไมค์ทรงกระบอกตรงสีดำ ตะแกรงเจาะร่องสองแถว ใช้จ่อกลองหรือแอมป์ ขว้างแล้วเสียงคมกระแทก (ดรอปจากมินิบอส ราชาเห็ดเสียงเพี้ยน, มินิบอส ราชาเห็ดป่าโบราณ)"
+  },
+  "mic_stick": {
+   "name": "ไมค์สตูดิโอ \"ก้านเหล็ก\"",
+   "type": "weapon",
+   "atk": 50,
+   "price": 4000,
+   "classes": [
+    "singer"
+   ],
+   "color": "#4b5057",
+   "weight": 30,
+   "slots": 1,
+   "shape": "mic_stick",
+   "mvp": true,
+   "bonus": {
+    "dex": 3,
+    "aspd": 2
+   },
+   "desc": "ไมค์ก้านเรียวสีเทาเข้ม หัวตะแกรงดำทรงกระบอก ทนทานใช้ได้ทุกเวที โจมตีเป็นธาตุน้ำ (ดรอปจากมินิบอส ราชาฉลามบึงทุ้ม, มินิบอส ราชันย์หมึกยักษ์ซาวด์เวฟ)",
+   "element": "water"
+  },
+  "mic_red": {
+   "name": "ไมค์ตะแกรงแดง \"หัวใจร็อก\"",
+   "type": "weapon",
+   "atk": 58,
+   "price": 4000,
+   "classes": [
+    "singer"
+   ],
+   "color": "#c4141f",
+   "weight": 30,
+   "slots": 1,
+   "shape": "mic_red",
+   "mvp": true,
+   "bonus": {
+    "str": 2,
+    "dex": 3,
+    "crit": 3
+   },
+   "desc": "ไมค์ตัวดำ ตะแกรงเงินโปร่งเห็นตาข่ายสีแดงด้านใน ร้องทีไรไฟลุก โจมตีเป็นธาตุไฟ (ดรอปจากมินิบอส มังกรร็อกแอนด์โรล)",
+   "element": "fire"
+  },
+  "mic_taper": {
+   "name": "ไมค์ทรงเรียว \"หมอกเงิน\"",
+   "type": "weapon",
+   "atk": 64,
+   "price": 4000,
+   "classes": [
+    "singer"
+   ],
+   "color": "#757b82",
+   "weight": 30,
+   "slots": 1,
+   "shape": "mic_taper",
+   "mvp": true,
+   "bonus": {
+    "dex": 3,
+    "maxSpPct": 5
+   },
+   "desc": "ไมค์ร้องทรงเรียวสีเทาเงิน หัวตาข่ายดำ เสียงใสเย็นเหมือนหมอกหน้าหนาว โจมตีเป็นธาตุน้ำ (ดรอปจากมินิบอส ราชินีหิมะโซปราโน)",
+   "element": "water"
+  },
+  "mic_silverband": {
+   "name": "ไมค์คาดเงิน \"ราตรีเงิน\"",
+   "type": "weapon",
+   "atk": 72,
+   "price": 4000,
+   "classes": [
+    "singer"
+   ],
+   "color": "#3c4047",
+   "weight": 30,
+   "slots": 1,
+   "shape": "mic_silverband",
+   "mvp": true,
+   "bonus": {
+    "dex": 4,
+    "crit": 4
+   },
+   "desc": "ไมค์ตัวเทาดำ หัวตาข่ายดำ คาดวงแหวนสีเงินใต้หัว เสียงหนักแน่นแบบเมทัล โจมตีเป็นธาตุมืด (ดรอปจากมินิบอส จอมมารหน้ากากเมทัล)",
+   "element": "shadow"
+  },
+  "mic_ball": {
+   "name": "ไมค์หัวบอล \"ตำนานเวที\"",
+   "type": "weapon",
+   "atk": 84,
+   "price": 4000,
+   "classes": [
+    "singer"
+   ],
+   "color": "#c8ccd1",
+   "weight": 30,
+   "slots": 1,
+   "shape": "mic_ball",
+   "mvp": true,
+   "bonus": {
+    "dex": 4,
+    "atkPct": 5
+   },
+   "desc": "ไมค์ร้องหัวบอลตะแกรงเงินในตำนาน อยู่คู่ทุกเวทีมาหลายสิบปี โจมตีเป็นธาตุดิน (ดรอปจากมินิบอส ราชาคริสตัลเสียงก้อง, มินิบอส ราชินีบันชีเสียงกรีดร้อง)",
+   "element": "earth"
+  },
+  "mic_vintage": {
+   "name": "ไมค์วินเทจโครเมียม \"ราชาร็อกแอนด์โรล\"",
+   "type": "weapon",
+   "atk": 104,
+   "price": 4000,
+   "classes": [
+    "singer"
+   ],
+   "color": "#d4d9de",
+   "weight": 30,
+   "slots": 1,
+   "shape": "mic_vintage",
+   "mvp": true,
+   "bonus": {
+    "dex": 5,
+    "atkPct": 8
+   },
+   "desc": "ไมค์โครเมียมยุคเก่า หัวทรงรีเซาะร่องบนขาตั้งรูปตัว U ของรางวัลสูงสุดของนักร้อง โจมตีเป็นธาตุศักดิ์สิทธิ์ (ดรอปจากมินิบอส ราชาไร้บัลลังก์แห่งโอเปร่า, มินิบอส จักรพรรดิภูเขาไฟเมทัล, บอส MVP ยมทูตเคียวโลหิต)",
+   "element": "holy"
   }
  },
  "shop": [
@@ -6459,6 +6599,10 @@
     [
      "hat_jelly_crown",
      0.05
+    ],
+    [
+     "mic_inst",
+     0.08
     ]
    ],
    "boss": true,
@@ -6680,6 +6824,10 @@
     [
      "hat_ancient_laurel",
      0.05
+    ],
+    [
+     "mic_inst",
+     0.08
     ]
    ],
    "model": "Big_MushroomKing",
@@ -6900,6 +7048,10 @@
     [
      "hat_marsh_tiara",
      0.05
+    ],
+    [
+     "mic_stick",
+     0.08
     ]
    ],
    "model": "Big_Fish",
@@ -7177,6 +7329,10 @@
     [
      "hat_dragon_horns",
      0.05
+    ],
+    [
+     "mic_red",
+     0.08
     ]
    ],
    "model": "Flying_Dragon_Evolved",
@@ -7458,6 +7614,10 @@
     [
      "hat_snow_crown",
      0.05
+    ],
+    [
+     "mic_taper",
+     0.08
     ]
    ],
    "model": "Flying_Goleling_Evolved",
@@ -7739,6 +7899,10 @@
     [
      "hat_metal_helm",
      0.05
+    ],
+    [
+     "mic_silverband",
+     0.08
     ]
    ],
    "model": "Flying_Tribal",
@@ -9418,6 +9582,10 @@
     [
      "hat_kraken_tricorn",
      0.05
+    ],
+    [
+     "mic_stick",
+     0.08
     ]
    ],
    "glow": "#5a3cff",
@@ -9808,6 +9976,10 @@
     [
      "hat_crystal_crown",
      0.05
+    ],
+    [
+     "mic_ball",
+     0.08
     ]
    ],
    "glow": "#7fd8ff",
@@ -10180,6 +10352,10 @@
     [
      "hat_banshee_halo",
      0.05
+    ],
+    [
+     "mic_ball",
+     0.08
     ]
    ],
    "glow": "#c8b0ff",
@@ -10592,6 +10768,10 @@
     [
      "hat_phantom_top",
      0.05
+    ],
+    [
+     "mic_vintage",
+     0.08
     ]
    ],
    "glow": "#c060ff",
@@ -11003,6 +11183,10 @@
     [
      "hat_inferno_chada",
      0.05
+    ],
+    [
+     "mic_vintage",
+     0.08
     ]
    ],
    "glow": "#ff6a00",
@@ -11173,6 +11357,10 @@
     ],
     [
      "crystal_earring",
+     0.1
+    ],
+    [
+     "mic_vintage",
      0.1
     ]
    ]

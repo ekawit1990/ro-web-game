@@ -24,6 +24,7 @@ import { FxOptions, playFx, preloadFx } from './pixelfx';
 import { bassAura, bassBuffCast, rootNoteChop, straightBeatQuake } from './bassfx';
 import { bendingStorm, hammerOnBlast, palmMuting, slideDash, vibratoAura } from './guitarfx';
 import { doubleKickBlast, sendOffDash, snareGhost, snareHit, snareStorm, xSlashWave } from './xslash';
+import { MIC_STYLES, buildMic } from './mics';
 
 /** Classes with their own attack moves in vrm.ts (the hit lands when the blow does). */
 const MOVE_CLASSES = new Set<ClassKey>(['drummer', 'guitarist', 'bassist', 'singer']);
@@ -2004,7 +2005,7 @@ export class World3D {
           land();
           this.pixelFx('stab_hit', { at: hitAt });
           this.burst(hitAt(), color, 8, 3);
-        });
+        }, 1, this.micOf(a));
       }, attackHit('singer', move) * attackTime('singer') * 1000);
       return;
     }
@@ -2445,14 +2446,29 @@ export class World3D {
     });
   }
 
+  /** The MVP mic a singer has equipped ('' = the plain one). */
+  private micOf(a: PlayerActor) {
+    const rp = (this.room.state as RemoteState | undefined)?.players?.get(a.id);
+    const shape = rp ? ITEMS[rp.weapon]?.shape : undefined;
+    return shape && MIC_STYLES[shape] ? shape : '';
+  }
+
   /** A spinning microphone flying in an arc to wherever `to()` is when it arrives, with a coloured trail. */
-  private micThrow(from: THREE.Vector3, to: () => THREE.Vector3, ms: number, color: number, done: () => void, size = 1) {
+  private micThrow(from: THREE.Vector3, to: () => THREE.Vector3, ms: number, color: number, done: () => void, size = 1, style = '') {
     const mic = new THREE.Group();
-    mic.add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.028, 0.24, 8), new THREE.MeshBasicMaterial({ color: 0x222222 })));
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), new THREE.MeshBasicMaterial({ color: 0xd8dde3 }));
-    head.position.y = 0.15;
-    mic.add(head);
-    mic.scale.setScalar(size * 1.3);
+    if (style) {
+      // the singer's own MVP mic flies (2026-11-13)
+      const own = buildMic(style);
+      own.position.y = -0.06;
+      mic.add(own);
+      mic.scale.setScalar(size * 1.5);
+    } else {
+      mic.add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.028, 0.24, 8), new THREE.MeshBasicMaterial({ color: 0x222222 })));
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), new THREE.MeshBasicMaterial({ color: 0xd8dde3 }));
+      head.position.y = 0.15;
+      mic.add(head);
+      mic.scale.setScalar(size * 1.3);
+    }
     const glow = this.sprite(sparkTexture(), 0.6 * size, color, true);
     this.scene.add(mic);
     const end = to().clone();
