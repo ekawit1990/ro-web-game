@@ -7,6 +7,7 @@ import { animateCharacter, buildDagger, setHat, type CharRig, type Look } from '
 import { buildStringed } from './bass';
 import { buildKeyboard } from './keyboard';
 import { STICK_STYLES, buildStick } from './sticks';
+import { MIC_STYLES, buildMic } from './mics';
 import { mesh, toon } from './toon';
 import { PHONE } from './device';
 import { track } from '../ui/loadProgress';
@@ -601,8 +602,16 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean, shape
     const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.15, 0, Math.PI - 0.25));
     return { pieces: [piece(chest, prop, { pos: V(0.15, -0.36, 0.03), quat })], heldOnly: [], backOnly: [] };
   } else if (cls === 'singer' && handR) {
-    prop.add(mesh(new THREE.CylinderGeometry(0.025, 0.02, 0.2, 10), toon('#222222'), 0, 0.06, 0));
-    prop.add(mesh(new THREE.SphereGeometry(0.05, 12, 10), toon('#b0b6bd'), 0, 0.18, 0));
+    if (shape && MIC_STYLES[shape]) {
+      // an MVP mic (2026-11-13), a little bigger than life so its grille reads in game
+      const mic = buildMic(shape);
+      mic.scale.setScalar(1.25);
+      prop.add(mic);
+    }
+    else {
+      prop.add(mesh(new THREE.CylinderGeometry(0.025, 0.02, 0.2, 10), toon('#222222'), 0, 0.06, 0));
+      prop.add(mesh(new THREE.SphereGeometry(0.05, 12, 10), toon('#b0b6bd'), 0, 0.18, 0));
+    }
     prop.position.set(-0.08 * s, 0, 0.03 * s);
     handR.add(prop);
     // tucked behind the right shoulder, head up like a sword hilt
