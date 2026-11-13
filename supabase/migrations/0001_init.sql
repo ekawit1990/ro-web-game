@@ -622,6 +622,19 @@ begin
   return c;
 end $$;
 
+-- the bot shops in town (game server only): ป้ามะลิ's list at 90% (botShopPrice in server/src/bots.ts)
+create or replace function public.bot_shop_buy(p_user uuid, p_char uuid, p_item text, p_qty int) returns public.characters
+language plpgsql security definer set search_path = public as $$
+declare c public.characters; v_price int;
+begin
+  c := public._own_char(p_char, p_user);
+  select greatest(1, (i.price * 9) / 10) into v_price from public.item_defs i where i.id = p_item and i.shop_kind = 'shop';
+  if v_price is null or p_qty < 1 or p_qty > 999 then raise exception 'ซื้อไม่ได้'; end if;
+  if c.zeny < v_price * p_qty then raise exception 'เงินไม่พอ'; end if;
+  update public.characters set zeny = zeny - v_price * p_qty where id = p_char returning * into c;
+  perform public._add_item(p_char, p_item, p_qty);
+  return c;
+end $$;
 -- บูรพา's warp (game server only): pay the fare and move in one step.
 create or replace function public.pay_warp(
   p_user uuid, p_char uuid, p_cost int, p_hp int, p_sp int, p_map text, p_x real, p_y real
@@ -721,6 +734,7 @@ revoke execute on function public.save_state(uuid, uuid, int, int, text, real, r
 revoke execute on function public.on_death(uuid, uuid) from public, anon, authenticated;
 revoke execute on function public.trade_execute(uuid, uuid, jsonb, int, uuid, uuid, jsonb, int) from public, anon, authenticated;
 revoke execute on function public.pay_warp(uuid, uuid, int, int, int, text, real, real) from public, anon, authenticated;
+revoke execute on function public.bot_shop_buy(uuid, uuid, text, int) from public, anon, authenticated;
 grant execute on function public.report_kill(uuid, uuid, text) to service_role;
 grant execute on function public.grant_reward(uuid, uuid, int, int, int, text[], boolean) to service_role;
 grant execute on function public.use_item(uuid, uuid, uuid) to service_role;
@@ -728,6 +742,7 @@ grant execute on function public.save_state(uuid, uuid, int, int, text, real, re
 grant execute on function public.on_death(uuid, uuid) to service_role;
 grant execute on function public.trade_execute(uuid, uuid, jsonb, int, uuid, uuid, jsonb, int) to service_role;
 grant execute on function public.pay_warp(uuid, uuid, int, int, int, text, real, real) to service_role;
+grant execute on function public.bot_shop_buy(uuid, uuid, text, int) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- Accounts: players sign in with a username + password.

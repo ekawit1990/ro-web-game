@@ -416,6 +416,8 @@ export const npcBuyPrice = (itemId: string, skills?: Record<string, number>) => 
   if (!SHOP.includes(itemId)) return price;
   return Math.max(1, Math.floor((price * (1000 - Math.min(500, passivePermille(skills, 'npcBuyPct')))) / 1000));
 };
+/** The bot shops in town sell ป้ามะลิ's list 10% cheaper (bot_shop_buy in SQL does the same). */
+export const botShopPrice = (itemId: string) => Math.max(1, Math.floor(((ITEMS[itemId]?.price ?? 0) * 9) / 10));
 /** What an NPC shop pays for one: half the price, more with ปากหวานขายเก่ง (sell_item in SQL does the same). */
 export const npcSellPrice = (itemId: string, skills?: Record<string, number>) =>
   Math.floor((Math.floor((ITEMS[itemId]?.price ?? 0) / 2) * (1000 + passivePermille(skills, 'npcSellPct'))) / 1000);

@@ -2,7 +2,7 @@ import {
   Appearance, CLASSES, CLASS_KEYS, Character, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL,
   MONSTERS, REFINE, SHOP, SKILLS, START_CLASS, STORAGE_SLOTS, StatKey, StorageItem, WEAPON_SHOP, canRefine, cardFits, expToNext, wearBlock,
   jobExpToNext, questCounts, refineChance, refineFee, refineMaterial, statCost, statPointsAt,
-  SERVICE_FEE, STAT_KEYS, statRefund, npcBuyPrice, npcSellPrice,
+  SERVICE_FEE, STAT_KEYS, statRefund, npcBuyPrice, npcSellPrice, botShopPrice,
 } from '../data';
 import type { GameStore, KillResult, RefineResult, RewardShare, TradeOffer } from './store';
 
@@ -222,6 +222,18 @@ export class LocalStore implements GameStore {
     const inShop = SHOP.includes(itemId) || WEAPON_SHOP.includes(itemId);
     if (!item || !inShop || qty < 1 || qty > 99) throw new Error('ซื้อไม่ได้');
     const cost = npcBuyPrice(itemId, c.skills) * qty;
+    if (c.zeny < cost) throw new Error('เงินไม่พอ');
+    c.zeny -= cost;
+    this.addItem(charId, itemId, qty);
+    this.persist();
+    return this.getCharacter(charId);
+  }
+
+  /** A bot shop in town (server/src/bots.ts): ป้ามะลิ's list at 90%. */
+  async botShopBuy(charId: string, itemId: string, qty: number) {
+    const c = this.char(charId);
+    if (!SHOP.includes(itemId) || qty < 1 || qty > 999) throw new Error('ซื้อไม่ได้');
+    const cost = botShopPrice(itemId) * qty;
     if (c.zeny < cost) throw new Error('เงินไม่พอ');
     c.zeny -= cost;
     this.addItem(charId, itemId, qty);
