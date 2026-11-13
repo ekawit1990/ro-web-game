@@ -2,7 +2,7 @@ import {
   CLASSES, CLASS_KEYS, CardBonus, ELEMENTS, ELEMENT_KEYS, ENDOW_SEC, MONSTERS, elementLabel, elementMult, monsterElement, SPAWNS, ClassKey, EQUIP_TYPES, ITEMS, InvItem, JOB_CHANGE, MAX_JOB_LEVEL, MAX_LEVEL, REFINE, SERVICE_FEE, SHOP, SKILLS,
   START_CLASS, STAT_KEYS, STORAGE_SLOTS, StatKey, WEAPON_SHOP, canRefine, cardFits, expToNext, itemLabel, jobExpToNext, jobTown, outfitOf,
   refineBonus, refineChance, refineFee, refineMaterial, refineSafe, skillSp, skillsOf, statCost, statRefund,
-  VEND_MAX_PRICE, VEND_SKILL, npcBuyPrice, npcSellPrice, vendSlots,
+  VEND_MAX_PRICE, VEND_SKILL, npcBuyPrice, npcSellPrice, vendSlots, castTime, totalStats,
 } from '../data';
 import { THEMES, WARP_TOWNS, getMap, type GameMap, type Npc } from '../game/maps';
 import { ARENA_MAP, CASTLE_MAP, GUILD_COST, GUILD_MAX, PVP_DAMAGE, WAR_PRIZE, durationText, warScheduleText, type GuildView, type PvpInfo, type PvpScore } from '../game/pvp';
@@ -695,7 +695,11 @@ export class Hud implements WorldHooks {
     const sk = SKILLS[id];
     const lv = this.s.char.skills?.[id] ?? 0;
     const el = sk.power ? `<div class="muted">ธาตุ: ${sk.element ? elementLabel(sk.element) : 'ตามอาวุธ'}</div>` : '';
-    return `<b>${sk.icon} ${escapeHtml(sk.name)}</b> (Lv ${lv}/${sk.maxLevel})<div>${escapeHtml(sk.desc)}</div>${el}
+    const dex = totalStats(this.s.char, this.s.derived).dex;
+    const cast = sk.castMs
+      ? `<div class="muted">เวลาร่าย ${(castTime(sk, dex) / 1000).toFixed(1)} วิ (ปกติ ${(sk.castMs / 1000).toFixed(1)} วิ, DEX ${dex} ลดไป ${Math.round((1 - castTime(sk, dex) / sk.castMs) * 100)}%)</div>`
+      : '';
+    return `<b>${sk.icon} ${escapeHtml(sk.name)}</b> (Lv ${lv}/${sk.maxLevel})<div>${escapeHtml(sk.desc)}</div>${el}${cast}
       ${sk.cooldown ? `<div class="muted">คูลดาวน์ ${sk.cooldown >= 60000 ? `${+(sk.cooldown / 60000).toFixed(1)} นาที` : `${(sk.cooldown / 1000).toFixed(1)} วิ`}</div>` : ''}`;
   }
 
