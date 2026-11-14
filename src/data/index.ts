@@ -470,11 +470,11 @@ export function totalStats(c: Stats, d: Derived): Stats {
 }
 
 /**
- * How much harder the last levels are (EXP needed x this): Lv 89 +100%, 90 +200%, 91-95 +500%, 96-97 +1000%,
+ * How much harder the high levels are (EXP needed x this): Lv 60-89 +100%, 90 +200%, 91-95 +500%, 96-97 +1000%,
  * 98-99 +2000%. Must match exp_hard() in SQL.
  */
 export function expHard(level: number): number {
-  return level >= 98 ? 21 : level >= 96 ? 11 : level >= 91 ? 6 : level === 90 ? 3 : level === 89 ? 2 : 1;
+  return level >= 98 ? 21 : level >= 96 ? 11 : level >= 91 ? 6 : level === 90 ? 3 : level >= 60 ? 2 : 1;
 }
 
 /** EXP needed to go from `level` to `level + 1`. Must match exp_to_next() in SQL. */
