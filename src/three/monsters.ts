@@ -10,12 +10,14 @@ import { track } from '../ui/loadProgress';
  * Rigged, animated monsters by Quaternius (Ultimate Monsters, CC0), packed as gzipped GLB in
  * public/models/monsters/. Each one replaces the code-drawn body of its monster once loaded,
  * so the hit cylinder, label and server data stay the same. The models face +Z.
- * A model without animation clips (a sculpt from an AI generator, like the abyss reaper) is moved by PropAnim.
+ * A model without animation clips (a sculpt from an AI generator) is moved by PropAnim. The abyss reaper is such a
+ * sculpt (made with Meshy AI) given a skeleton and clips by tools/rig_reaper.mjs, so it plays like the others.
+ * A model whose glTF scene has extras { selfLit } shows its painted texture partly self-lit (see load()).
  */
 
 const BASE = `${import.meta.env.BASE_URL ?? '/'}models/monsters/`;
 const loader = new GLTFLoader();
-const cache = new Map<string, Promise<{ scene: THREE.Object3D; clips: THREE.AnimationClip[] } | null>>();
+const cache = new Map<string, Promise<{ scene: THREE.Object3D; clips: THREE.AnimationClip[]; selfLit: number } | null>>();
 
 async function gunzip(buf: ArrayBuffer) {
   const b = new Uint8Array(buf);
@@ -30,25 +32,25 @@ function load(model: string) {
         const res = await fetch(`${BASE}${model}.glb.gz`);
         if (!res.ok) return null;
         const gltf = await loader.parseAsync(await gunzip(await res.arrayBuffer()), BASE);
-        const sculpt = !gltf.animations.length;
+        // a sculpt's painted texture is its whole look: light it a little from within, so a tinted map light (the
+        // purple abyss) doesn't drown its colours. Set by the model (scene extras), else on for models without clips.
+        const selfLit = Number(gltf.scene.userData.selfLit ?? (gltf.animations.length ? 0 : 0.5)) || 0;
         gltf.scene.traverse((o) => {
           const m = o as THREE.Mesh;
           if (!m.isMesh) return;
           const src = m.material as THREE.MeshStandardMaterial;
           // the world is cel-shaded: keep the atlas colours, toon bands
           const mat = toon(0xffffff, { map: src.map ?? undefined });
-          if (sculpt && src.map) {
-            // a sculpt's painted texture is its whole look: light it a little from within, so a tinted map
-            // light (the purple abyss) doesn't drown its colours
-            mat.color.setScalar(0.7);
-            mat.emissive.setScalar(0.5);
+          if (selfLit && src.map) {
+            mat.color.setScalar(1 - selfLit * 0.6);
+            mat.emissive.setScalar(selfLit);
             mat.emissiveMap = src.map;
           }
           m.material = mat;
           m.castShadow = true;
           m.frustumCulled = false; // skinned bounds don't follow the animation
         });
-        return { scene: gltf.scene, clips: gltf.animations };
+        return { scene: gltf.scene, clips: gltf.animations, selfLit };
       } catch (e) {
         console.warn('monster model failed', model, e);
         return null;
@@ -244,8 +246,8 @@ export async function upgradeMonster(rig: MonsterRig, key: string, alive: () => 
   const src = await load(def.model);
   if (!src || !alive()) return null;
   const obj = clone(src.scene);
-  // a sculpt keeps its own painted colours (its glow only colours its death burst)
-  if (def.tint || (def.glow && src.clips.length)) recolour(obj, key, def.tint, def.glow);
+  // a self-lit sculpt keeps its own painted colours (its glow only colours its death burst)
+  if (def.tint || (def.glow && !src.selfLit)) recolour(obj, key, def.tint, def.glow);
   const box = new THREE.Box3().setFromObject(obj);
   const size = box.getSize(new THREE.Vector3());
   const flying = def.model.startsWith('Flying_');
