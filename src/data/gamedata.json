@@ -11363,7 +11363,9 @@
      "mic_vintage",
      0.1
     ]
-   ]
+   ],
+   "model": "Crimson_Reaper",
+   "modelScale": 1.8
   }
  },
  "spawns": [

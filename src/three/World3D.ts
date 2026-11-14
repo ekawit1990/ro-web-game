@@ -5,7 +5,7 @@ import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVE
 import { findPath, GameMap, Npc, THEMES, isLava, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
-import { MonsterAnim, preloadMonsters, upgradeMonster } from './monsters';
+import { type MonsterAnimator, preloadMonsters, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setHat } from './models';
 import { animateMaxAura, buildMaxAura } from './levelAura';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
@@ -144,7 +144,7 @@ interface MonsterActor {
   maxHp: number;
   phase: number;
   moving: boolean;
-  anim?: MonsterAnim;
+  anim?: MonsterAnimator;
   label: Label;
   hit: THREE.Mesh;
   fade: number;

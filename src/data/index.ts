@@ -227,6 +227,8 @@ export interface MonsterDef {
   shape?: string;
   /** Rigged model in public/models/monsters/ that replaces the drawn body once loaded. */
   model?: string;
+  /** The model's height as a multiple of `size` (default 1, Big_ models 1.25). */
+  modelScale?: number;
   /** Recolours the model (a model shared by several monsters): its shading in this colour. */
   tint?: string;
   /** Glows in this colour (lava, crystals, ghosts). */
