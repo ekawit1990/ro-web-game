@@ -217,7 +217,7 @@ export class MapRoom extends Room<{ state: MapState }> {
   private scores = new Map<string, PvpScore>();
   private scoresSent = '';
   private onlineSent = -1;
-  /** bot players on this map (bots.ts): hunters on the fields, shops in town */
+  /** bot players on this map (bots.ts): shops in town (the field hunters are off, see FIELD_HUNTERS) */
   private bots?: RoomBots;
 
   onCreate(options: { map: string }) {

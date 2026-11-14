@@ -119,7 +119,11 @@ function buildRoster(): BotDef[] {
   return bots;
 }
 
-export const BOTS: BotDef[] = buildRoster();
+/** Hunters on the field maps. Off since 2026-11-14 (the user wanted only the shop bots in town);
+ * set to true to bring them back. The roster is still built in full so the shop bots keep their
+ * names, looks and stock. */
+const FIELD_HUNTERS = false;
+export const BOTS: BotDef[] = buildRoster().filter((b) => FIELD_HUNTERS || b.shop);
 /** Every bot counts as online, on whichever map it lives. */
 export const BOT_COUNT = BOTS.length;
 
