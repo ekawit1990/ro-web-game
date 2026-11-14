@@ -146,8 +146,14 @@ drop function if exists public._own_char(uuid);
 
 -- ---------------------------------------------------------------- formulas (match src/data/index.ts)
 
+-- the last levels are harder: Lv 60-89 +100%, 90 +200%, 91-95 +500%, 96-97 +1000%, 98-99 +2000%
+create or replace function public.exp_hard(lvl int) returns int
+language sql immutable as $$
+  select case when lvl >= 98 then 21 when lvl >= 96 then 11 when lvl >= 91 then 6 when lvl = 90 then 3 when lvl >= 60 then 2 else 1 end
+$$;
+
 create or replace function public.exp_to_next(lvl int) returns int
-language sql immutable as $$ select floor(15 * power(lvl::float8, 1.9))::int + 10 $$;
+language sql immutable as $$ select (floor(15 * power(lvl::float8, 1.9))::int + 10) * public.exp_hard(lvl) $$;
 
 create or replace function public.job_exp_to_next(lvl int) returns int
 language sql immutable as $$ select floor(12 * power(lvl::float8, 1.8))::int + 8 $$;
