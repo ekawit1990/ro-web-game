@@ -9,5 +9,5 @@ Converted from glTF to gzipped GLB, keeping only the idle, walk, attack, hit and
 licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Credit: Meshy AI.
 Changes for the game: 2.71 million triangles simplified to about 30,000 (meshoptimizer), the colour texture
 downscaled from 2048 to 1024 px, the normal and metal/roughness maps dropped (the game uses toon shading),
-positions quantized (KHR_mesh_quantization) and the file gzipped. It has no skeleton: the game sways and tilts
-it in code (PropAnim in src/three/monsters.ts).
+a skeleton of 7 bones with skin weights and five clips (idle, walk, scythe attack, hit, death) added by
+`tools/rig_reaper.mjs`, positions quantized (KHR_mesh_quantization) and the file gzipped.
