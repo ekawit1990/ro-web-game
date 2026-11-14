@@ -455,7 +455,7 @@ type Voice = 'squish' | 'wail' | 'growl' | 'chirp' | 'buzz' | 'ribbit' | 'bark' 
 function voiceOf(model: string): Voice {
   const m = model.toLowerCase();
   if (/skull/.test(m)) return 'rattle';
-  if (/ghost/.test(m)) return 'wail';
+  if (/ghost|reaper/.test(m)) return 'wail';
   if (/armabee|hywirl/.test(m)) return 'buzz';
   if (/pigeon|birb|chicken/.test(m)) return 'chirp';
   if (/frog/.test(m)) return 'ribbit';
