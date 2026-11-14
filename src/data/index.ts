@@ -590,12 +590,13 @@ export const ASPD_MAX = 200;
 export const ASPD_STAT_MAX = 190;
 /**
  * ASPD: AGI first (0.9 a point), DEX a little (0.15 a point), from 135; the stats alone reach at most 190
- * (AGI 61 or so). Then + % from equipment, cards, buffs and the class bonus, on top of that number, up to 200
- * (the user's rule, 2026-11-13). Example: AGI 40, DEX 20 = 174; with +10% = 191.
+ * (AGI 61 or so). Then the % from equipment, cards, buffs and the class bonus closes that much of the gap
+ * left to 200, like RO's ASPD % (the user's choice, 2026-11-14): it cuts the attack delay by that %, the
+ * same balance as before. Example: AGI 40, DEX 20 = 174; +10% = 174 + 26 x 10% = 176.6; +100% = 200.
  */
 export function aspdOf(agi: number, dex: number, pct: number) {
   const base = Math.min(ASPD_STAT_MAX, 135 + agi * 0.9 + dex * 0.15);
-  return Math.max(100, Math.min(ASPD_MAX, base * (1 + pct / 100)));
+  return Math.max(100, Math.min(ASPD_MAX, base + ((ASPD_MAX - base) * Math.min(100, Math.max(0, pct))) / 100));
 }
 /**
  * Time between normal attacks (ms). Up to ASPD 190 it is the same as before: 20 ms per point below 200
