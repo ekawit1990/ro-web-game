@@ -599,13 +599,13 @@ export const ASPD_MAX = 200;
 /** What AGI (and a little DEX) alone can give: the rest up to 200 comes from the % bonuses. */
 export const ASPD_STAT_MAX = 190;
 /**
- * ASPD: AGI first (0.9 a point), DEX a little (0.15 a point), from 135; the stats alone reach at most 190
- * (AGI 61 or so). Then the % from equipment, cards, buffs and the class bonus closes that much of the gap
+ * ASPD: from AGI only, 135 + AGI x 0.2 (the user's choice, 2026-11-14; DEX no longer counts); the stats alone
+ * reach 190 only at AGI 275, so AGI 99 = 154.8. Then the % from equipment, cards, buffs and the class bonus closes that much of the gap
  * left to 200, like RO's ASPD % (the user's choice, 2026-11-14): it cuts the attack delay by that %, the
- * same balance as before. Example: AGI 40, DEX 20 = 174; +10% = 174 + 26 x 10% = 176.6; +100% = 200.
+ * same balance as before. Example: AGI 99 = 154.8; +10% = 154.8 + 45.2 x 10% = 159.3; +100% = 200.
  */
-export function aspdOf(agi: number, dex: number, pct: number) {
-  const base = Math.min(ASPD_STAT_MAX, 135 + agi * 0.9 + dex * 0.15);
+export function aspdOf(agi: number, pct: number) {
+  const base = Math.min(ASPD_STAT_MAX, 135 + agi * 0.2);
   return Math.max(100, Math.min(ASPD_MAX, base + ((ASPD_MAX - base) * Math.min(100, Math.max(0, pct))) / 100));
 }
 /**
@@ -659,7 +659,7 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
   const atk = sum('atk') + card.atk + mainStat * 2 + Math.floor(c.level / 2) + Math.floor(c.luk / 3);
   const matk = sum('matk') + card.matk + c.int * 3 + Math.floor(c.level / 2);
   const aspdPct = sum('aspd') + card.aspd + (buffs.aspdPct ?? 0) + (cls.aspdPct ?? 0);
-  const aspd = aspdOf(c.agi, c.dex, aspdPct);
+  const aspd = aspdOf(c.agi, aspdPct);
   const attackDelay = aspdDelay(aspd);
   return {
     maxHp: Math.floor(((40 + c.vit * 8 + c.level * 12) * cls.hpMod + card.maxHp) * (1 + (p.maxHpPct + card.maxHpPct) / 100)),
