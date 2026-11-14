@@ -599,13 +599,13 @@ export const ASPD_MAX = 200;
 /** What AGI (and a little DEX) alone can give: the rest up to 200 comes from the % bonuses. */
 export const ASPD_STAT_MAX = 190;
 /**
- * ASPD: from AGI only, 135 + AGI x 0.2 (the user's choice, 2026-11-14; DEX no longer counts); the stats alone
- * reach 190 only at AGI 275, so AGI 99 = 154.8. Then the % from equipment, cards, buffs and the class bonus closes that much of the gap
+ * ASPD: from AGI only, 135 + AGI x 0.4 (the user's choice, 2026-11-14; DEX no longer counts); the stats alone
+ * reach 190 only at AGI 137.5, so AGI 99 = 174.6. Then the % from equipment, cards, buffs and the class bonus closes that much of the gap
  * left to 200, like RO's ASPD % (the user's choice, 2026-11-14): it cuts the attack delay by that %, the
- * same balance as before. Example: AGI 99 = 154.8; +10% = 154.8 + 45.2 x 10% = 159.3; +100% = 200.
+ * same balance as before. Example: AGI 99 = 174.6; +10% = 174.6 + 25.4 x 10% = 177.1; +100% = 200.
  */
 export function aspdOf(agi: number, pct: number) {
-  const base = Math.min(ASPD_STAT_MAX, 135 + agi * 0.2);
+  const base = Math.min(ASPD_STAT_MAX, 135 + agi * 0.4);
   return Math.max(100, Math.min(ASPD_MAX, base + ((ASPD_MAX - base) * Math.min(100, Math.max(0, pct))) / 100));
 }
 /**
