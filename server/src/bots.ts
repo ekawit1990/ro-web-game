@@ -64,7 +64,7 @@ const HUNT: [map: string, count: number, lvMin: number, lvMax: number][] = [
   ['beach', 3, 35, 44], ['cave', 3, 45, 57], ['deadwood', 3, 56, 68], ['ruins', 2, 70, 82], ['inferno', 2, 85, 97], ['abyss', 2, 92, 99],
 ];
 export const SHOP_MAP = 'town';
-const JOBS: ClassKey[] = ['singer', 'guitarist', 'drummer', 'bassist', 'keyboardist'];
+const JOBS: ClassKey[] = ['singer', 'guitarist', 'drummer', 'bassist', 'keyboardist', 'dj'];
 
 function buildRoster(): BotDef[] {
   const r = rng(20261113);

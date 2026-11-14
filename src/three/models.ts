@@ -330,10 +330,24 @@ function instrument(rig: CharRig, cls: ClassKey) {
       prop(rig, stick);
       sling(rig, stick, [0, 1.0, -0.21], [-0.15, 0, side * 0.5]);
     }
-  } else if (cls === 'keyboardist') {
+  } else if (cls === 'keyboardist' || cls === 'dj') {
     const k = new THREE.Group();
-    k.add(mesh(new THREE.BoxGeometry(0.62, 0.05, 0.16), toon('#263238')));
-    const keys = canvasTexture(128, 32, (c) => {
+    k.add(mesh(new THREE.BoxGeometry(0.62, 0.05, 0.16), toon(cls === 'dj' ? '#1c1d22' : '#263238')));
+    const keys = cls === 'dj' ? canvasTexture(128, 32, (c) => {
+      // two jog wheels and a mixer
+      c.fillStyle = '#15171d';
+      c.fillRect(0, 0, 128, 32);
+      c.fillStyle = '#9aa0ab';
+      for (const x of [28, 100]) {
+        c.beginPath();
+        c.arc(x, 16, 13, 0, Math.PI * 2);
+        c.fill();
+      }
+      c.fillStyle = '#0b0d14';
+      c.fillRect(52, 4, 24, 24);
+      c.fillStyle = '#4fc3ff';
+      c.fillRect(55, 8, 18, 6);
+    }) : canvasTexture(128, 32, (c) => {
       c.fillStyle = '#fafafa';
       c.fillRect(0, 0, 128, 32);
       c.fillStyle = '#222';

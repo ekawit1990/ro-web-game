@@ -260,6 +260,11 @@ const INSTRUMENTS: Record<ClassKey, Inst> = {
     tone(midi(n), at, dur, { type: 'triangle', gain: 0.22 * v, release: dur / 2, wet: 0.3, dest });
     tone(midi(n + 12), at, dur * 0.6, { type: 'sine', gain: 0.08 * v, release: dur / 4, dest });
   },
+  // EDM pluck: two detuned saws through a closing filter, a sub under it
+  dj: (n, at, dur, v, dest) => {
+    for (const det of [-0.08, 0.08]) tone(midi(n) * (1 + det / 12), at, dur, { type: 'sawtooth', gain: 0.12 * v, filter: 5200, filterTo: 700, q: 3, release: dur / 3, wet: 0.3, dest });
+    tone(midi(n - 24), at, dur * 0.7, { type: 'sine', gain: 0.22 * v, release: dur / 3, dest });
+  },
 };
 
 // ------------------------------------------------------------ sound effects
@@ -984,4 +989,67 @@ export function sfxMvp(vol = 1) {
   tone(midi(48), t + 0.46, 1.0, { type: 'triangle', gain: 0.12 * vol, release: 0.4 });
   noise(t + 0.46, 1.2, { gain: 0.22 * vol, type: 'highpass', freq: 6000, release: 0.6, wet: 0.5 });
   noise(t + 0.46, 0.08, { gain: 0.4 * vol, type: 'lowpass', freq: 400, release: 0.04 });
+}
+
+// ------------------------------------------------------------ DJ (violet set)
+
+/** The DJ winding up a spell: a filtered riser with a record scratch at the start. */
+export function sfxDjCharge(vol: number, ms: number) {
+  if (!ready() || vol <= 0) return;
+  const t = now();
+  const sec = Math.max(0.3, ms / 1000);
+  noise(t, 0.12, { gain: 0.3 * vol, type: 'bandpass', freq: 900, freqTo: 2600, q: 3, release: 0.04 });
+  noise(t + 0.13, 0.1, { gain: 0.25 * vol, type: 'bandpass', freq: 2400, freqTo: 800, q: 3, release: 0.04 });
+  noise(t + 0.2, sec, { gain: 0.12 * vol, type: 'bandpass', freq: 300, freqTo: 6000, q: 1.2, release: sec / 3, wet: 0.3 });
+  tone(55, t + 0.2, sec, { type: 'sawtooth', to: 220, gain: 0.07 * vol, filter: 300, filterTo: 2400, release: sec / 3 });
+}
+
+/** One DJ spell landing: kind picks the sound (each volley of an area spell calls it; `big` = the last one). */
+export function sfxDjSpell(kind: 'lightning' | 'meteor' | 'spikes' | 'blizzard' | 'firewall' | 'firebolt' | 'booth', vol = 1, big = false, at = 0) {
+  if (!ready() || vol <= 0) return;
+  const t = now() + at;
+  const k = big ? 1.25 : 1;
+  switch (kind) {
+    case 'lightning':
+      // "เปรี้ยง!": a white crack, a buzzing arc and thunder under it
+      noise(t, 0.04, { gain: 0.6 * vol * k, type: 'highpass', freq: 4000, release: 0.015 });
+      tone(90, t, 0.25, { type: 'sawtooth', to: 60, gain: 0.12 * vol, filter: 1800, q: 6, release: 0.08 });
+      noise(t + 0.02, 0.6, { gain: 0.3 * vol * k, type: 'lowpass', freq: 500, freqTo: 120, release: 0.25, wet: 0.4 });
+      break;
+    case 'meteor':
+      // a falling whistle, then a deep boom
+      tone(1400, t, 0.25, { type: 'sine', to: 300, gain: 0.06 * vol, release: 0.08 });
+      noise(t, 0.25, { gain: 0.15 * vol, type: 'bandpass', freq: 3000, freqTo: 600, q: 1.5 });
+      tone(120, t + 0.25, 0.45, { type: 'sine', to: 35, gain: 0.6 * vol * k, release: 0.18 });
+      noise(t + 0.25, 0.5, { gain: 0.35 * vol * k, type: 'lowpass', freq: 900, freqTo: 200, release: 0.2, wet: 0.35 });
+      break;
+    case 'spikes':
+      // rock cracking up out of the ground
+      noise(t, 0.08, { gain: 0.45 * vol * k, type: 'bandpass', freq: 700, q: 1.5, release: 0.03 });
+      noise(t + 0.03, 0.2, { gain: 0.3 * vol, type: 'lowpass', freq: 600, release: 0.08 });
+      tone(160, t, 0.18, { type: 'square', to: 70, gain: 0.12 * vol, filter: 600, release: 0.06 });
+      break;
+    case 'blizzard':
+      // icy wind and glassy chimes
+      noise(t, 0.5, { gain: 0.18 * vol * k, type: 'bandpass', freq: 2500, freqTo: 5000, q: 2, release: 0.2, wet: 0.5 });
+      for (let i = 0; i < 3; i++) tone(midi(96 + PENTA[(i * 2) % 5]), t + i * 0.06, 0.3, { type: 'sine', gain: 0.05 * vol, release: 0.15, wet: 0.6 });
+      break;
+    case 'firewall':
+      // a roaring whoosh of flame
+      noise(t, 0.6, { gain: 0.35 * vol, type: 'lowpass', freq: 400, freqTo: 1600, q: 0.8, release: 0.25, wet: 0.3 });
+      noise(t, 0.3, { gain: 0.15 * vol, type: 'highpass', freq: 3000, release: 0.1 });
+      tone(70, t, 0.4, { type: 'sine', to: 45, gain: 0.35 * vol, release: 0.15 });
+      break;
+    case 'firebolt':
+      noise(t, 0.12, { gain: 0.3 * vol, type: 'bandpass', freq: 4000, freqTo: 900, q: 1.2, release: 0.05 });
+      tone(240, t + 0.1, 0.18, { type: 'sine', to: 60, gain: 0.35 * vol * k, release: 0.07 });
+      noise(t + 0.1, 0.2, { gain: 0.2 * vol * k, type: 'lowpass', freq: 1200, release: 0.08 });
+      break;
+    case 'booth':
+      // a bass drop under a short scratch
+      noise(t, 0.1, { gain: 0.3 * vol, type: 'bandpass', freq: 1200, freqTo: 3000, q: 3, release: 0.04 });
+      tone(110, t + 0.08, 0.6, { type: 'sine', to: 40, gain: 0.5 * vol, release: 0.2 });
+      for (let i = 0; i < 4; i++) tone(midi(72 + PENTA[i]), t + 0.15 + i * 0.05, 0.25, { type: 'sawtooth', gain: 0.04 * vol, filter: 2500, wet: 0.5 });
+      break;
+  }
 }

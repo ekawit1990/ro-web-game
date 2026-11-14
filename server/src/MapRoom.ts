@@ -3,7 +3,7 @@ import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ENDOW_SEC, ITEMS, type Element, elementMult, monsterElement, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
   STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, HEALER_BUFF_SEC, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
-  skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, castTime, WAVE_FALL_MS, targetsPlayer, totalStats, outfitOf, MONSTER_SKILLS,
+  skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, castTime, WAVE_FALL_MS, skillWaves, MONSTER_DAMAGE, targetsPlayer, totalStats, outfitOf, MONSTER_SKILLS,
   VEND_SKILL, VEND_MAX_PRICE, VEND_MAX_TOTAL, vendSlots,
 } from '../../src/data/index.ts';
 import { ARENA_SPAWNS, CASTLE_CRYSTAL, CASTLE_INNER, GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
@@ -68,6 +68,8 @@ type SeatBuff = {
   reflectPct?: number;
   regenPct?: number;
   guardPct?: number;
+  /** % faster SP regen (ทำนองผ่อนคลาย) */
+  spRegenPct?: number;
   /** หนีไปกลับ PR */
   stealth?: boolean;
 } & Buffs;
@@ -141,6 +143,34 @@ interface Brain {
   skillAt?: number;
   skillCd?: Map<string, number>;
   casting?: { id: string; x: number; y: number; target: string; until: number };
+  /** the DJ's 3 ช่า / โจ๊ะๆ (stun) and เบาๆสบายๆ (freeze): no moving, attacking or casting until then */
+  stunUntil?: number;
+}
+
+/** รถแห่: a line of fire `len` tiles long through (x, y) along (px, py); monsters walking into it burn and are thrown back. */
+interface FireWall {
+  id: number;
+  by: string;
+  x: number;
+  y: number;
+  /** along the wall (unit) */
+  px: number;
+  py: number;
+  len: number;
+  until: number;
+  roll: (m: MonsterState, b: Brain) => number;
+  /** monster id -> when it was last burnt by this wall */
+  hitAt: Map<string, number>;
+}
+
+/** บูทดีเจ: a circle on the ground; whoever stands in it is safe from melee physical hits until the blocks run out. */
+interface Ward {
+  id: number;
+  x: number;
+  y: number;
+  r: number;
+  blocks: number;
+  until: number;
 }
 
 /** Where a character arrives after taking a portal (set by the room they left). */
@@ -191,6 +221,10 @@ interface SkillFx {
   dirY?: number;
   bonus?: boolean;
   pulled?: string[];
+  /** volleys of a 'waves' skill (the DJ's spells: one per level) */
+  waves?: number;
+  /** รถแห่ / บูทดีเจ: what was put on the ground (id, along-wall direction, how long, how many blocks) */
+  ground?: { id: number; px?: number; py?: number; len?: number; r?: number; ms: number; blocks?: number };
   /** `p` with dmg > 0 = PVP damage on a player; dmg < 0 = a heal */
   hits: { m?: string; p?: string; dmg: number; at?: number }[];
 }
@@ -219,6 +253,9 @@ export class MapRoom extends Room<{ state: MapState }> {
   private onlineSent = -1;
   /** bot players on this map (bots.ts): shops in town (the field hunters are off, see FIELD_HUNTERS) */
   private bots?: RoomBots;
+  private walls: FireWall[] = [];
+  private wards: Ward[] = [];
+  private groundId = 0;
 
   onCreate(options: { map: string }) {
     this.map = getMap(options.map);
@@ -833,7 +870,29 @@ export class MapRoom extends Room<{ state: MapState }> {
       if (skill.knockback && !m.dead) this.knockBack(m, brain, p.x, p.y, skill.knockback);
     };
 
-    if (skill.type === 'single' && monsterId) {
+    if (skill.bolts && (monsterId || foeId)) {
+      // เปิดเพลงให้สาว: one bolt of fire per skill level comes down on the target, waveMs apart
+      const sid = c.sessionId;
+      const n = Math.max(1, lv);
+      const m = monsterId ? this.state.monsters.get(monsterId)! : undefined;
+      const brain = monsterId ? this.brains.get(monsterId)! : undefined;
+      let left = m?.hp ?? 0;
+      for (let i = 0; i < n; i++) {
+        const at = WAVE_FALL_MS + i * (skill.waveMs ?? 200);
+        if (m && brain && monsterId) {
+          if (left <= 0 || !this.mayHit(sid, m)) break;
+          const dmg = rollDamage(m, brain);
+          left -= dmg;
+          fx.hits.push({ m: monsterId, dmg, at });
+          this.clock.setTimeout(() => {
+            if (m.dead || !this.seats.has(sid)) return;
+            if (dmg > 0) this.damageMonster(monsterId!, m, brain, sid, dmg);
+            else this.engage(brain, sid);
+          }, at);
+        } else if (foeId) hitPlayer(foeId, rollPlayer(foeId), at);
+      }
+      fx.waves = n;
+    } else if (skill.type === 'single' && monsterId) {
       hitMonster(monsterId, this.state.monsters.get(monsterId)!);
     } else if (skill.type === 'single' && foeId) {
       for (let i = 0; i < (skill.hits ?? 1); i++) hitPlayer(foeId, rollPlayer(foeId));
@@ -866,8 +925,12 @@ export class MapRoom extends Room<{ state: MapState }> {
           if (!m.dead && this.seats.has(c.sessionId) && dmg > 0) this.damageMonster(mid, m, brain, c.sessionId, dmg);
         }, at);
       });
-    } else if (skill.waves) {
+    } else if (skill.waves || skill.wavesPerLv) {
       // ตัวโน้ตทำลาย: volleys of notes come down on the area; each hits whatever is standing in it right then
+      // (the DJ's area spells: one volley per skill level, and some may stun or freeze what they hit)
+      const waves = skillWaves(skill, lv);
+      fx.waves = waves;
+      const tried = new Set<string>(); // a monster rolls for the stun / freeze once per cast
       const r = skill.radius ?? 1;
       const inArea = (m: MonsterState) => {
         const reach = r + MONSTERS[m.key].size * 0.3;
@@ -880,7 +943,7 @@ export class MapRoom extends Room<{ state: MapState }> {
         const reach = r + 0.3;
         return skill.square ? Math.abs(f.x - tx) <= reach && Math.abs(f.y - ty) <= reach : dist(tx, ty, f.x, f.y) <= reach;
       };
-      for (let w = 0; w < skill.waves; w++) {
+      for (let w = 0; w < waves; w++) {
         const at = WAVE_FALL_MS + w * (skill.waveMs ?? 300);
         for (const [fid, f] of foes) {
           if (!inAreaP(f)) continue;
@@ -901,13 +964,35 @@ export class MapRoom extends Room<{ state: MapState }> {
           const dmg = rollDamage(m, brain);
           left.set(mid, (left.get(mid) ?? m.hp) - dmg);
           fx.hits.push({ m: mid, dmg, at });
+          const status = skill.status && !tried.has(mid) && !MONSTERS[m.key].boss && !MONSTERS[m.key].structure
+            ? (tried.add(mid), Math.random() * 100 < skill.status.chance) : false;
           this.clock.setTimeout(() => {
             if (m.dead || !this.seats.has(sid) || !inArea(m)) return;
             if (dmg > 0) this.damageMonster(mid, m, brain, sid, dmg);
             else this.engage(brain, sid);
+            if (status && !m.dead) this.stun(mid, brain, skill.status!.kind, skill.status!.sec);
           }, at);
         });
       }
+    } else if (skill.type === 'wall' && skill.wall) {
+      // รถแห่: a wall of fire across the line from you to the target, centred on the target
+      const len = Math.hypot(tx - p.x, ty - p.y) || 1;
+      const ux = (tx - p.x) / len;
+      const uy = (ty - p.y) / len;
+      const id = ++this.groundId;
+      const ms = skill.wall.secPerLv * Math.max(1, lv) * 1000;
+      this.walls.push({
+        id, by: c.sessionId, x: tx, y: ty, px: -uy, py: ux, len: skill.wall.length, until: this.now + ms,
+        roll: rollDamage, hitAt: new Map(),
+      });
+      fx.ground = { id, px: -uy, py: ux, len: skill.wall.length, ms };
+    } else if (skill.type === 'ward' && skill.ward) {
+      // บูทดีเจ: the circle goes down where the friend (or you) stands
+      const id = ++this.groundId;
+      const ms = skill.ward.secPerLv * Math.max(1, lv) * 1000;
+      const blocks = skill.ward.blocksPerLv * Math.max(1, lv);
+      this.wards.push({ id, x: tx, y: ty, r: skill.ward.radius, blocks, until: this.now + ms });
+      fx.ground = { id, r: skill.ward.radius, ms, blocks };
     } else if (skill.type === 'revive') {
       const a = this.state.players.get(ally ?? '');
       if (a?.dead) {
@@ -1006,6 +1091,54 @@ export class MapRoom extends Room<{ state: MapState }> {
   }
 
   /** Pushes a monster `tiles` straight away from (fx, fy), stopping at walls. Bosses don't budge. */
+  /** Stuns (or freezes) a monster for `sec`: it stands still and doesn't attack; every browser draws it. */
+  private stun(id: string, b: Brain, kind: 'stun' | 'freeze', sec: number) {
+    b.stunUntil = Math.max(b.stunUntil ?? 0, this.now + sec * 1000);
+    this.broadcast('mstatus', { m: id, kind, ms: sec * 1000 });
+  }
+
+  /** รถแห่: every monster standing in a wall of fire burns and is thrown back 1 tile (at most every 0.4 s per wall). */
+  private burnWalls() {
+    this.walls = this.walls.filter((w) => w.until > this.now);
+    for (const w of this.walls) {
+      // across the wall = the direction the caster threw it
+      const ux = w.py;
+      const uy = -w.px;
+      this.state.monsters.forEach((m, mid) => {
+        if (m.dead || !this.mayHit(w.by, m)) return;
+        const r = MONSTERS[m.key].size * 0.3;
+        const along = (m.x - w.x) * w.px + (m.y - w.y) * w.py;
+        const across = (m.x - w.x) * ux + (m.y - w.y) * uy;
+        if (Math.abs(along) > w.len / 2 + r || Math.abs(across) > 0.5 + r) return;
+        if ((w.hitAt.get(mid) ?? -Infinity) + 400 > this.now) return;
+        w.hitAt.set(mid, this.now);
+        const brain = this.brains.get(mid)!;
+        const dmg = this.seats.has(w.by) ? w.roll(m, brain) : 0;
+        this.broadcast('burn', { by: w.by, m: mid, dmg, wall: w.id });
+        if (dmg > 0) this.damageMonster(mid, m, brain, w.by, dmg);
+        // thrown back the way it came (away from the wall's line), unless it is a boss or the crystal
+        if (!m.dead && !MONSTERS[m.key].boss && !MONSTERS[m.key].structure) {
+          const side = across >= 0 ? 1 : -1;
+          this.knockBack(m, brain, m.x - ux * side, m.y - uy * side, 1);
+        }
+      });
+    }
+  }
+
+  /** บูทดีเจ: the circle a player at (x, y) is standing in that still has blocks left, if any. */
+  private wardAt(x: number, y: number) {
+    return this.wards.find((w) => w.blocks > 0 && w.until > this.now && dist(w.x, w.y, x, y) <= w.r + 0.15);
+  }
+
+  /** A melee physical hit on a player stopped by a บูทดีเจ circle (true = blocked). */
+  private wardBlocks(sid: string, p: PlayerState) {
+    const w = this.wardAt(p.x, p.y);
+    if (!w) return false;
+    w.blocks--;
+    this.broadcast('ward', { id: w.id, to: sid, blocks: w.blocks });
+    return true;
+  }
+
   private knockBack(m: MonsterState, b: Brain, fx: number, fy: number, tiles: number) {
     if (MONSTERS[m.key].boss || MONSTERS[m.key].structure) return;
     const d = dist(fx, fy, m.x, m.y) || 1;
@@ -1192,6 +1325,10 @@ export class MapRoom extends Room<{ state: MapState }> {
     if (crit) dmg = dmg * 1.4 + ts.derived.def;
     const mult = elementMult(seat.derived.atkElement ?? 'neutral', ts.derived.defElement ?? 'neutral', 1);
     const amount = mult === 0 ? 0 : Math.max(1, Math.round(dmg * mult * PVP_DAMAGE * this.pvpMult(seat, ts)));
+    if (amount > 0 && cls.attackType === 'melee' && this.wardBlocks(to, tp)) {
+      this.broadcast('phit', { by: c.sessionId, to, dmg: 0, block: true, swing: true });
+      return;
+    }
     if (amount > 0 && this.blocked(to, ts)) {
       this.broadcast('phit', { by: c.sessionId, to, dmg: 0, block: true, swing: true });
       return;
@@ -1536,6 +1673,8 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.now += dtMs;
     const dt = Math.min(dtMs, 100) / 1000;
     this.state.monsters.forEach((m, id) => this.updateMonster(id, m, this.brains.get(id)!, dt));
+    if (this.walls.length) this.burnWalls();
+    if (this.wards.length) this.wards = this.wards.filter((w) => w.until > this.now && w.blocks > 0);
     this.bots?.tick(dtMs);
     for (const [sid, seat] of this.seats) {
       let changed = false;
@@ -1554,6 +1693,11 @@ export class MapRoom extends Room<{ state: MapState }> {
     if (m.dead) return;
     const def = MONSTERS[m.key];
     if (def.structure) return; // the crystal just stands there
+    if (b.stunUntil) {
+      // stunned / frozen (the DJ's spells): stands still, doesn't hit back
+      if (this.now < b.stunUntil) return;
+      b.stunUntil = undefined;
+    }
     const home = { x: (b.spawn.area[0] + b.spawn.area[2]) / 2, y: (b.spawn.area[1] + b.spawn.area[3]) / 2 };
 
     let target = b.target ? this.state.players.get(b.target) : undefined;
@@ -1667,7 +1811,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       if (!seat || !p) continue;
       const mult = elementMult(monsterElement(def)[0], seat.derived.defElement ?? 'neutral', 1);
       const def2 = sk.magic ? seat.derived.def / 2 : seat.derived.def;
-      const dmg = mult === 0 ? 0 : Math.max(1, Math.round((def.atk * sk.mult * rand(0.9, 1.1) - def2) * mult));
+      const dmg = mult === 0 ? 0 : Math.max(1, Math.round((def.atk * sk.mult * rand(0.9, 1.1) - def2) * mult * MONSTER_DAMAGE));
       hits.push({ p: sid, dmg });
       if (sk.pull && !p.dead) {
         // dragged in on the chain, right up to the reaper
@@ -1699,6 +1843,11 @@ export class MapRoom extends Room<{ state: MapState }> {
       this.broadcast('mhit', { m: id, to: sid, dmg: 0 });
       return;
     }
+    // บูทดีเจ: standing in the DJ's circle, a monster's (melee) hit does nothing
+    if (this.wardBlocks(sid, p)) {
+      this.broadcast('mhit', { m: id, to: sid, dmg: 0, block: true });
+      return;
+    }
     // a shield buff (ประสานเสียง) eats the hit
     for (const [k, b] of seat.buffs) {
       if (!b.blocks) continue;
@@ -1715,7 +1864,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       this.broadcast('mhit', { m: id, to: sid, dmg: 0 });
       return;
     }
-    let dmg = Math.max(1, Math.round((def.atk * rand(0.85, 1.15) - seat.derived.def) * mult));
+    let dmg = Math.max(1, Math.round((def.atk * rand(0.85, 1.15) - seat.derived.def) * mult * MONSTER_DAMAGE));
     // Kick Drum: a bassist in the party (on this map) takes part of the hit
     const party = Parties.of(seat.char.id);
     if (party) {
@@ -1899,15 +2048,20 @@ export class MapRoom extends Room<{ state: MapState }> {
       // ลูกส่ง (buff) and Arpeggio (passive) make HP come back faster, and keep it coming back in a fight
       let regenPct = [...seat.buffs.values()].reduce((sum, b) => sum + (b.regenPct ?? 0), 0);
       for (const [id, lv] of Object.entries(seat.char.skills ?? {})) regenPct += (SKILLS[id]?.passive?.regenPct ?? 0) * lv;
+      // เพลงรัก (passive) and ทำนองผ่อนคลาย (buff): SP comes back faster, and its extra part keeps coming in a fight
+      let spRegenPct = [...seat.buffs.values()].reduce((sum, b) => sum + (b.spRegenPct ?? 0), 0);
+      for (const [id, lv] of Object.entries(seat.char.skills ?? {})) spRegenPct += (SKILLS[id]?.passive?.spRegenPct ?? 0) * lv;
       const hpTick = p.maxHp * 0.01 + seat.char.vit / 5;
+      const spTick = 1 + seat.char.int / 6;
       const fighting = [...this.brains.values()].some((b) => b.target === sid) || (seat.pvpHitAt !== undefined && this.now - seat.pvpHitAt < 6000);
       if (fighting) {
         if (regenPct > 0) p.hp = Math.min(p.maxHp, p.hp + Math.ceil((hpTick * regenPct) / 100));
+        if (spRegenPct > 0) p.sp = Math.min(p.maxSp, p.sp + Math.ceil((spTick * spRegenPct) / 100));
         return;
       }
       const boost = (this.map.safe ? 3 : 1) * (p.sitting ? 2 : 1);
       p.hp = Math.min(p.maxHp, p.hp + Math.ceil(hpTick * boost * (1 + regenPct / 100)));
-      p.sp = Math.min(p.maxSp, p.sp + Math.ceil((1 + seat.char.int / 6) * boost));
+      p.sp = Math.min(p.maxSp, p.sp + Math.ceil(spTick * boost * (1 + spRegenPct / 100)));
     });
   }
 
@@ -1924,6 +2078,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       ...(skill.buff!.fleePct ? { fleePct: skill.buff!.fleePct * lv } : {}),
       ...(skill.buff!.reflectPct ? { reflectPct: skill.buff!.reflectPct * lv } : {}),
       ...(skill.buff!.regenPct ? { regenPct: skill.buff!.regenPct * lv } : {}),
+      ...(skill.buff!.spRegenPct ? { spRegenPct: skill.buff!.spRegenPct * lv } : {}),
       ...(skill.buff!.guardPct ? { guardPct: skill.buff!.guardPct * lv } : {}),
       ...(skill.buff!.stealth ? { stealth: true } : {}),
       ...(skill.buff!.stats ? { stats: buffStats(skill, lv) } : {}),

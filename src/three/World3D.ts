@@ -1,7 +1,7 @@
 import { potionPct, spPotionPct, AUTO_POTION_EVERY } from '../game/autoPrefs';
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVEL, MONSTERS, MONSTER_SKILLS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf, vrmHatOf } from '../data';
+import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVEL, MONSTERS, MONSTER_SKILLS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf, vrmHatOf, WAVE_FALL_MS } from '../data';
 import { findPath, GameMap, Npc, THEMES, isLava, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
@@ -11,8 +11,9 @@ import { animateMaxAura, buildMaxAura } from './levelAura';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
+import { djAreaCharge, djAreaStrike, djBooth, djCircle, djFireBolts, djFireWall, DJ_FX, iceBlock, stunStars } from './djfx';
 import { blueCircle, chorusFx, controlFx, keyAura, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet, sfxMonster, sfxDiva, sfxMicBoom, sfxReaper, sfxMvp } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet, sfxMonster, sfxDiva, sfxMicBoom, sfxReaper, sfxMvp, sfxDjCharge, sfxDjSpell } from '../audio/sound';
 import { hellfire, judgement, scytheSweep, soulChain, telegraph } from './reaperfx';
 import { dynamicsHit, earTrainingBlast, highVoiceBeam, singerBuff, singerCharge, SG } from './singerfx';
 import { buildGround, buildPortal, buildProps } from './props';
@@ -152,6 +153,8 @@ interface MonsterActor {
   burst?: boolean;
   /** knocked back by a hit (the singer's mic): unit direction, performance.now() of the hit, how far (tiles) */
   knock?: { dx: number; dy: number; at: number; dist: number };
+  /** stunned / frozen by a DJ spell until then (performance.now()): it stops moving its body */
+  stunUntil?: number;
 }
 
 /** How long a knock-back flinch lasts (ms): a quick shove away, then it eases back to where it stands. */
@@ -1112,6 +1115,14 @@ export class World3D {
         const start = a.cast?.start;
         singerCharge(this.fxCtx(false, () => {}), () => new THREE.Vector3(a.x, 0, a.y), msg.ms, () => !!a.cast && a.cast.start === start && this.players.get(a.id) === a);
       }
+      if (skill.cls === 'dj') {
+        // the DJ spins up a record circle; area spells light up the 3x3 area they will hit
+        const start = a.cast?.start;
+        const alive = () => !!a.cast && a.cast.start === start && this.players.get(a.id) === a;
+        sfxDjCharge(this.vol(msg.x, msg.y, a === this.me), msg.ms);
+        djCircle(this.fxCtx(false, () => {}), () => new THREE.Vector3(a.x, 0, a.y), 1.1, msg.ms, alive);
+        if (skill.wavesPerLv && skill.fx) djAreaCharge(this.fxCtx(false, () => {}), skill.fx, msg.x, msg.y, skill.radius ?? 1.5, msg.ms, alive);
+      }
       if (skill.waves) {
         // ตัวโน้ตทำลาย: the 3x3 area lights up and charges while the keyboardist casts
         const start = a.cast?.start;
@@ -1180,6 +1191,35 @@ export class World3D {
       } else if (sk.area === 'self') telegraph(ctx, () => new THREE.Vector3(m.x, 0, m.y), sk.radius, msg.ms, alive);
       else telegraph(ctx, () => new THREE.Vector3(msg.x, 0, msg.y), sk.radius, msg.ms, alive);
       if (m.anim) m.anim.attack();
+    });
+    on('mstatus', (msg: { m: string; kind: 'stun' | 'freeze'; ms: number }) => {
+      // the DJ's spells: a stunned monster sees stars, a frozen one sits in a block of ice
+      const m = this.monsters.get(msg.m);
+      if (!m) return;
+      const alive = () => this.monsters.get(msg.m) === m && !m.dead;
+      if (msg.kind === 'freeze') iceBlock(this.fxCtx(false, () => {}), () => (alive() ? new THREE.Vector3(m.x, 0, m.y) : null), Math.max(1, m.rig.height + 0.3), msg.ms);
+      else stunStars(this.fxCtx(false, () => {}), () => (alive() ? this.top(m) : null), msg.ms);
+      m.stunUntil = performance.now() + msg.ms;
+    });
+    on('burn', (msg: { by: string; m: string; dmg: number; wall: number }) => {
+      // รถแห่: a monster walked into the wall of fire
+      const m = this.monsters.get(msg.m);
+      if (!m) return;
+      this.burst(new THREE.Vector3(m.x, 0.6, m.y), 0xff7a2a, 10, 3);
+      if (msg.dmg > 0) {
+        this.floatText(this.top(m), String(msg.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
+        this.flash(m.rig.root, 0xff5a1f);
+        m.anim?.hit();
+      }
+    });
+    on('ward', (msg: { id: number; to: string; blocks: number }) => {
+      // บูทดีเจ stopped a hit: the circle flashes; it goes out when the blocks run out
+      const w = this.djGround.get(msg.id);
+      w?.pulse?.();
+      if (msg.blocks <= 0) {
+        w?.end();
+        this.djGround.delete(msg.id);
+      }
     });
     on('mskill', (msg: { m: string; skill: string; x: number; y: number; hits: { p: string; dmg: number }[]; pulled?: { p: string } }) => {
       const m = this.monsters.get(msg.m);
@@ -1317,9 +1357,13 @@ export class World3D {
       const kb = m.knock && !m.dead ? knockAmount(m.knock, performance.now()) * m.knock.dist : 0;
       if (m.knock && !kb && performance.now() - m.knock.at >= KNOCK_MS) m.knock = undefined;
       m.rig.root.position.set(m.x + (m.knock?.dx ?? 0) * kb, 0, m.y + (m.knock?.dy ?? 0) * kb);
+      // stunned / frozen (the DJ's spells): the body holds still
+      const held = !m.dead && (m.stunUntil ?? 0) > performance.now();
       if (m.anim) {
         m.rig.root.scale.setScalar(m.dead ? Math.min(1, m.fade * 2.5) : 0.2 + m.fade * 0.8);
-        m.anim.update(dt, m.moving && !m.dead);
+        if (!held) m.anim.update(dt, m.moving && !m.dead);
+      } else if (held) {
+        m.rig.root.scale.set(1, 0.2 + m.fade * 0.8, 1);
       } else {
         m.rig.root.scale.set(1, 0.2 + m.fade * 0.8, 1);
         animateMonster(m.rig, m.key, t, m.phase, m.moving);
@@ -1896,6 +1940,10 @@ export class World3D {
       this.keyboardFx(a, msg);
       return;
     }
+    if (skill.cls === 'dj') {
+      this.djFx(a, msg);
+      return;
+    }
     if (JOB_FX.has(clsOf(skill))) {
       this.jobSkillFx(a, msg);
       return;
@@ -2265,7 +2313,7 @@ export class World3D {
         else restoreFx(ctx, follow(t));
       }
     } else if (skill.type === 'buff_party') {
-      const kind = ({ tempo: 'tempo', control: 'control', solo_star: 'solo', shield: 'shield' } as const)[skill.fx as 'tempo'] ?? 'tempo';
+      const kind = ({ tempo: 'tempo', control: 'control', solo_star: 'solo', shield: 'shield', calm: 'control' } as const)[skill.fx as 'tempo'] ?? 'tempo';
       const draw = { tempo: tempoFx, control: controlFx, solo: soloFx, shield: chorusFx }[kind];
       let first = true;
       for (const sid of msg.allies ?? [msg.by]) {
@@ -2288,6 +2336,57 @@ export class World3D {
           m.anim?.hit();
         } else if (h.p) this.playerNumber(h.p, h.dmg, msg.by, i, 0x38d4ff);
       }, h.at !== undefined ? h.at + 40 : skill.type === 'revive' ? 700 : 300 + i * 110);
+    });
+  }
+
+  /** รถแห่ walls and บูทดีเจ circles on the ground, by id: put out early / flash when a block is used. */
+  private djGround = new Map<number, { end: () => void; pulse?: () => void }>();
+
+  /** The DJ's spells (djfx.ts): lightning, meteors, spikes, blizzard, fire bolts, the wall of fire and the booth. */
+  private djFx(a: PlayerActor | undefined, msg: { by: string; skill: string; x: number; y: number; target?: string; waves?: number; ground?: { id: number; px?: number; py?: number; len?: number; r?: number; ms: number; blocks?: number }; hits: { m?: string; p?: string; dmg: number; at?: number }[] }) {
+    const skill = SKILLS[msg.skill];
+    const mine = a === this.me;
+    const vol = this.vol(msg.x, msg.y, mine);
+    if (a) {
+      this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}!!`, 'shout', 1100);
+      this.face(a, msg.x, msg.y);
+      a.attack = 1;
+      a.combat = COMBAT_TIME;
+      a.ready = READY_TIME;
+    }
+    const ctx = this.fxCtx(mine, () => {});
+    const gap = skill.waveMs ?? 300;
+    const kind = ({ dj_lightning: 'lightning', dj_meteor: 'meteor', dj_spikes: 'spikes', dj_blizzard: 'blizzard' } as const)[skill.fx as 'dj_meteor'] ?? 'lightning';
+    const g = msg.ground;
+    if (skill.wavesPerLv) {
+      djAreaStrike(ctx, skill.fx ?? 'dj_lightning', msg.x, msg.y, skill.radius ?? 1.5, msg.waves ?? 1, WAVE_FALL_MS, gap, (_i, last) => sfxDjSpell(kind, vol, last));
+    } else if (skill.bolts) {
+      const m = this.monsters.get(msg.target ?? '');
+      const p = this.players.get(msg.target ?? '');
+      const at = () => (m ? new THREE.Vector3(m.x, 0, m.y) : p ? new THREE.Vector3(p.x, 0, p.y) : new THREE.Vector3(msg.x, 0, msg.y));
+      djFireBolts(ctx, at, msg.waves ?? 1, WAVE_FALL_MS, gap, (_i, last) => sfxDjSpell('firebolt', vol, last));
+    } else if (skill.type === 'wall' && g) {
+      sfxDjSpell('firewall', vol, true);
+      const end = djFireWall(ctx, msg.x, msg.y, g.px ?? 1, g.py ?? 0, g.len ?? 5, g.ms);
+      this.djGround.set(g.id, { end });
+      setTimeout(() => this.djGround.delete(g.id), g.ms + 1000);
+    } else if (skill.type === 'ward' && g) {
+      sfxDjSpell('booth', vol, true);
+      const booth = djBooth(ctx, msg.x, msg.y, g.r ?? 0.75, g.ms);
+      this.djGround.set(g.id, booth);
+      setTimeout(() => this.djGround.delete(g.id), g.ms + 1000);
+    }
+    const col = DJ_FX[skill.fx ?? '']?.color ?? 0x8f7dff;
+    msg.hits.forEach((h, i) => {
+      setTimeout(() => {
+        if (h.m) {
+          const m = this.monsters.get(h.m);
+          if (!m) return;
+          this.floatText(this.top(m).add(new THREE.Vector3(0, (i % 4) * 0.1, 0)), String(h.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
+          this.flash(m.rig.root, col);
+          m.anim?.hit();
+        } else if (h.p) this.playerNumber(h.p, h.dmg, msg.by, i, col);
+      }, h.at !== undefined ? h.at + 40 : 300 + i * 110);
     });
   }
 
@@ -2417,7 +2516,7 @@ export class World3D {
     this.floatText(new THREE.Vector3(a.x, 2.2, a.y), `${skill.name}...`, 'shout', 1200);
     const circle = new THREE.Mesh(new THREE.RingGeometry(0.75, 1, 6, 1), new THREE.MeshBasicMaterial({ color: c, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: blendFor(c) }));
     circle.rotation.x = -Math.PI / 2;
-    circle.visible = skill.cls !== 'keyboardist'; // the keyboardist casts on its own blue circle (keyfx)
+    circle.visible = skill.cls !== 'keyboardist' && skill.cls !== 'dj'; // these two cast on their own circles (keyfx, djfx)
     this.scene.add(circle);
     let tt = 0;
     let lastNote = 0;

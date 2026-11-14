@@ -6,6 +6,7 @@ import { HAIR_COLORS, ITEMS, type ClassKey } from '../data';
 import { animateCharacter, buildDagger, setHat, type CharRig, type Look } from './models';
 import { buildStringed } from './bass';
 import { buildKeyboard } from './keyboard';
+import { buildDjDeck } from './djdeck';
 import { STICK_STYLES, buildStick } from './sticks';
 import { MIC_STYLES, buildMic } from './mics';
 import { mesh, toon } from './toon';
@@ -357,7 +358,7 @@ function skinOf(scene: THREE.Object3D): THREE.Color | null {
 /** The school uniform every Teen wears (white shirt and navy tie / sailor blouse and skirt): tools/make_uniform.py. */
 const UNIFORM = { m: 'uniform_m.vrm.gz', f: 'uniform_f.vrm.gz' };
 /** After the job change: each class's streetwear outfit in its own colours (tools/make_class_outfits.py). */
-const CLASS_OUTFIT = new Set(['singer', 'guitarist', 'drummer', 'bassist', 'keyboardist']);
+const CLASS_OUTFIT = new Set(['singer', 'guitarist', 'drummer', 'bassist', 'keyboardist', 'dj']);
 const classOutfit = (cls: string, gender: 'm' | 'f') => (CLASS_OUTFIT.has(cls) ? `class_${cls}_${gender}.vrm.gz` : UNIFORM[gender]);
 
 /**
@@ -506,7 +507,7 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
 
 /** Wrist targets the arms reach for every frame (two-bone IK), plus where the elbows should point. */
 interface ArmTargets {
-  play: 'strings' | 'keys';
+  play: 'strings' | 'keys' | 'decks';
   left: THREE.Object3D;
   right: THREE.Object3D;
   restL: THREE.Vector3;
@@ -667,9 +668,10 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean, shape
       ik: { play: 'strings', left: inst.grip, right: inst.pluck, restL: inst.grip.position.clone(), restR: inst.pluck.position.clone(), poleL, poleR },
       pieces: [p], heldOnly: [strap], backOnly: [backStrap],
     };
-  } else if (cls === 'keyboardist') {
-    // held flat in front of the waist, hands resting on the keys
-    const kb = buildKeyboard(shape);
+  } else if (cls === 'keyboardist' || cls === 'dj') {
+    // held flat in front of the waist, hands resting on the keys (the DJ: on the two jog wheels)
+    const dj = cls === 'dj';
+    const kb = dj ? buildDjDeck(shape) : buildKeyboard(shape);
     kb.group.scale.setScalar(fit);
     kb.group.position.set(0, -0.36 * fit, 0.3 * fit);
     kb.group.rotation.x = 0.12;
@@ -689,7 +691,7 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean, shape
     poleR.position.set(-0.5, -0.25, -0.35).multiplyScalar(fit);
     chest.add(poleL, poleR);
     return {
-      ik: { play: 'keys', left: kb.left, right: kb.right, restL: kb.left.position.clone(), restR: kb.right.position.clone(), poleL, poleR },
+      ik: { play: dj ? 'decks' : 'keys', left: kb.left, right: kb.right, restL: kb.left.position.clone(), restR: kb.right.position.clone(), poleL, poleR },
       pieces: [p], heldOnly: [], backOnly: [backStrap],
     };
   }
@@ -894,6 +896,7 @@ const POSES: Record<string, { rU: [number, number]; rL: number; lU: [number, num
   guitarist: { rU: [-0.3, 1.1], rL: 1.3, lU: [-0.7, -0.9], lL: -1.7, locked: true },
   bassist: { rU: [-0.3, 1.1], rL: 1.3, lU: [-0.7, -0.9], lL: -1.7, locked: true },
   keyboardist: { rU: [-0.5, 1.15], rL: 1.4, lU: [-0.5, -1.15], lL: -1.4, locked: true },
+  dj: { rU: [-0.5, 1.15], rL: 1.4, lU: [-0.5, -1.15], lL: -1.4, locked: true },
   drummer: { rU: [-0.2, 1.2], rL: 0.9, lU: [-0.2, -1.2], lL: -0.9, locked: false },
 };
 
@@ -1395,6 +1398,15 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
       ik.right.position.y += -0.05 * a + (s.moving ? 0 : Math.sin(t * (perform > 0 ? 22 : 9)) * (perform > 0 ? 0.04 * perform : 0.006));
       ik.left.position.x += perform > 0 ? Math.sin(t * 1.7) * 0.05 * perform : 0;
       ik.right.position.z += 0.02 * a;
+    } else if (ik.play === 'decks') {
+      // the DJ: a hand scratching a jog wheel back and forth, the other riding the faders; harder while performing
+      const sp = s.moving ? 0 : 1;
+      const scratch = Math.sin(t * (perform > 0 ? 16 : 5)) * (perform > 0 ? 0.035 : 0.012) * sp;
+      ik.right.position.z += scratch;
+      ik.right.position.x += Math.cos(t * (perform > 0 ? 16 : 5)) * 0.01 * sp;
+      ik.left.position.x += (Math.sin(t * 0.9) * 0.04 - 0.04) * sp;
+      ik.left.position.y -= a * 0.015;
+      ik.right.position.y -= a * 0.015;
     } else {
       // little key presses, hands drifting along the keyboard; an attack is a two-hand chord
       const press = (ph: number) => (s.moving ? 0 : Math.max(0, Math.sin(t * 7 + ph)) * 0.012);
@@ -1403,7 +1415,7 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
       ik.left.position.y -= press(0) + a * 0.012;
       ik.right.position.y -= press(2.2) + a * 0.012;
     }
-    const keys = ik.play === 'keys';
+    const keys = ik.play === 'keys' || ik.play === 'decks';
     const before = ARM_BONES.map((n) => b(n)?.quaternion.clone());
     // forearm roll that turns the palms onto the neck / strings, or face-down onto the keys
     const [twL, twR] = keys ? [-1.5, 1.5] : [-1.5, -1.5];
