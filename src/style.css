@@ -760,3 +760,29 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .rk-empty { padding: 20px; text-align: center; color: #6b778c; }
 .rk-err { color: #b03a2e; font-size: 11px; }
 .rk-foot { color: #7a869c; font-size: 10.5px; }
+
+/* ---------- คู่มืออาชีพ (class guide, 2026-11-14): button left of the guide button ---------- */
+.class-btn { right: 220px; }
+@media (pointer: coarse), (max-height: 520px) { .class-btn { right: 176px; } }
+/* narrow phones: Basic Info sits there, so it goes under the ranking button instead */
+@media (max-width: 640px) { .class-btn { right: 120px; top: 188px; } }
+@media (max-width: 640px) and ((pointer: coarse) or (max-height: 520px)) { .class-btn { top: 164px; } }
+.rw.classes { width: min(560px, calc(100vw - 12px)); }
+.rw.classes .rw-body { padding: 5px 6px 6px; }
+.cg-tabs { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 6px; }
+.cg-tabs button { flex: 1 1 80px; padding: 5px 4px; font-size: 13px; font-weight: 600; border-bottom: 3px solid var(--cc); }
+.cg-tabs button.on { background: linear-gradient(#fff9e6, #f2d58a); color: #1d2533; }
+.cg-body { max-height: min(460px, calc(100dvh - 150px)); overflow-y: auto; padding-right: 2px; }
+.cg-head { display: flex; align-items: baseline; gap: 8px; padding: 4px 8px; border-left: 5px solid var(--cc); font-size: 18px; }
+.cg-head small { font-size: 12px; opacity: 0.75; }
+.cg-desc { font-size: 13px; line-height: 1.45; margin: 4px 0; }
+.cg-info { display: grid; gap: 3px; font-size: 13px; margin: 6px 0; }
+.cg-info > div { display: grid; grid-template-columns: 112px 1fr; gap: 6px; }
+.cg-info i { font-style: normal; opacity: 0.7; }
+.cg-stats { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.cg-sub { font-weight: 700; margin: 8px 0 4px; padding-top: 6px; border-top: 1px solid #ffffff22; }
+.cg-skill { display: grid; grid-template-columns: 34px 1fr; gap: 8px; padding: 6px 4px; border-bottom: 1px solid #ffffff14; }
+.cg-ic { font-size: 24px; text-align: center; line-height: 34px; }
+.cg-tags { display: flex; flex-wrap: wrap; gap: 3px; margin: 2px 0; }
+.cg-tags span { font-size: 11px; padding: 0 5px; border-radius: 4px; background: #ffffff1c; }
+@media (max-width: 600px) { .cg-info > div { grid-template-columns: 90px 1fr; } }

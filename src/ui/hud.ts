@@ -17,7 +17,7 @@ import { escapeHtml } from './screens';
 interface RankRow { id: string; name: string; cls: string; level: number; job: number; guild: string; online: boolean }
 import { monsterPortrait } from '../three/portrait';
 
-type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'guide' | 'guild' | 'rank'
+type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'guide' | 'guild' | 'rank' | 'classes'
   | 'vend' | 'vshop';
 /** A player shop as the server sends it (shopMine / shopList). */
 type ShopView = { sid: string; open: boolean; name?: string; title?: string; text?: string; items?: { inv: string; item: string; qty: number; price: number; refine: number; cards: string[] }[] };
@@ -90,7 +90,7 @@ export const bonusText = (b: CardBonus) =>
   (Object.entries(b) as [keyof CardBonus, number][]).map(([k, v]) => `${BONUS_LABEL[k]} +${v}${PCT_BONUS.has(k) ? '%' : ''}`).join(' · ');
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
-  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40], guide: [-1, 30], guild: [8, 250], rank: [-1, 40],
+  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40], guide: [-1, 30], guild: [8, 250], rank: [-1, 40], classes: [-1, 30],
   vend: [-1, 60], vshop: [-1, 70],
 };
 
@@ -885,6 +885,9 @@ export class Hud implements WorldHooks {
     // อันดับผู้กล้า under the auto button (2026-11-13)
     this.root.insertAdjacentHTML('beforeend', `<button id="rank-btn" class="guide-btn rank-btn" title="อันดับผู้กล้า: เลเวลสูงสุดไล่ลงมา (Alt+R)"><i>🏆</i><span>อันดับ</span></button>`);
     this.root.querySelector('#rank-btn')!.addEventListener('click', () => this.toggleRank());
+    // คู่มืออาชีพ: left of the guide button (2026-11-14)
+    this.root.insertAdjacentHTML('beforeend', `<button id="class-btn" class="guide-btn class-btn" title="คู่มืออาชีพ: รายละเอียดอาชีพและสกิล"><i>🎼</i><span>อาชีพ</span></button>`);
+    this.root.querySelector('#class-btn')!.addEventListener('click', () => this.toggleClasses());
   }
 
   // ------------------------------------------------------------ online count + อันดับผู้กล้า
@@ -893,6 +896,92 @@ export class Hud implements WorldHooks {
   online(n: number) {
     const b = this.root.querySelector('#mini-online b');
     if (b) b.textContent = String(n);
+  }
+
+  // ------------------------------------------------------------ class guide (คู่มืออาชีพ)
+
+  /** The class picked in the class guide (starts on your own class). */
+  private classTab: ClassKey | '' = '';
+
+  private toggleClasses() {
+    if (this.isOpen('classes')) return this.closeWin('classes');
+    if (!this.classTab) this.classTab = this.s.char.cls;
+    const w = this.win('classes', '🎼 คู่มืออาชีพ', 'classes');
+    if (!w.dataset.wired) {
+      w.dataset.wired = '1';
+      w.addEventListener('click', (e) => {
+        const t = (e.target as HTMLElement).closest('[data-cg]') as HTMLElement | null;
+        if (!t) return;
+        this.classTab = t.dataset.cg as ClassKey;
+        this.renderClasses();
+      });
+    }
+    this.renderClasses();
+    this.fitClasses();
+    requestAnimationFrame(this.fitClasses);
+  }
+
+  /** Keep the window whole on screen (phones). */
+  private fitClasses = () => {
+    const w = this.wins.get('classes');
+    if (!w || !this.isOpen('classes')) return;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    if (w.offsetLeft + w.offsetWidth > vw - 4 || w.offsetLeft < 0) w.style.left = `${Math.max(4, (vw - w.offsetWidth) / 2)}px`;
+    if (w.offsetTop + w.offsetHeight > vh - 4 || w.offsetTop < 0) w.style.top = `${Math.max(2, vh - w.offsetHeight - 4)}px`;
+  };
+
+  private renderClasses() {
+    const b = this.body('classes');
+    if (!b || !this.isOpen('classes')) return;
+    const key = (this.classTab || this.s.char.cls) as ClassKey;
+    const c = CLASSES[key];
+    const mine = this.s.char.cls;
+    const tabs = [START_CLASS, ...CLASS_KEYS.filter((k) => k !== START_CLASS)].map((k) => `<button data-cg="${k}" class="${k === key ? 'on' : ''}" style="--cc:${CLASSES[k].fxColor ?? CLASSES[k].color}">${escapeHtml(CLASSES[k].name)}${k === mine ? ' ★' : ''}</button>`).join('');
+    const atk = c.attackType === 'melee' ? 'ประชิด' : c.attackType === 'ranged' ? 'ระยะไกล' : 'เวทมนตร์';
+    const range = Math.max(1, Math.round(c.range));
+    const stats = STAT_KEYS.map((k) => `<span>${k.toUpperCase()} ${c.baseStats[k]}</span>`).join('');
+    const how = key === START_CLASS
+      ? `อาชีพเริ่มต้นของทุกคน ถึง Base Lv ${JOB_CHANGE.level} แล้วไปหาครูแนะแนวอาชีพ กำจัดมอนสเตอร์ Lv ${JOB_CHANGE.monsterLevel} ขึ้นไป ${JOB_CHANGE.kills} ตัว ก็เปลี่ยนเป็นอาชีพดนตรีได้ (สกิลวัยรุ่นจะหายไปตอนเปลี่ยนอาชีพ ยกเว้นสกิลทุกอาชีพ)`
+      : `เปลี่ยนจากวัยรุ่นได้ที่${getMap(jobTown(key)).name} (ครูแนะแนวอาชีพ) เมื่อ Base Lv ${JOB_CHANGE.level} และกำจัดมอนสเตอร์ Lv ${JOB_CHANGE.monsterLevel}+ ครบ ${JOB_CHANGE.kills} ตัว`;
+    const typeName: Record<string, string> = {
+      single: 'โจมตีเป้าเดียว', aoe: 'โจมตีเป็นวง', aoe_self: 'โจมตีรอบตัว', line: 'โจมตีเป็นแนว', heal: 'ฟื้นฟูตัวเอง',
+      heal_target: 'ฮีลเพื่อน', buff: 'บัพตัวเอง', buff_target: 'บัพเพื่อน', buff_party: 'บัพปาร์ตี้', revive: 'ชุบชีวิต', passive: 'ติดตัว', vend: 'เปิดร้าน',
+    };
+    const time = (ms: number) => (ms >= 60000 ? `${+(ms / 60000).toFixed(1)} นาที` : `${+(ms / 1000).toFixed(1)} วิ`);
+    const skills = skillsOf(key).map(([, sk]) => {
+      const tags = [
+        typeName[sk.type] ?? sk.type,
+        `Lv สูงสุด ${sk.maxLevel}`,
+        sk.sp ? `SP ${skillSp(sk, 1)}${sk.maxLevel > 1 ? `–${skillSp(sk, sk.maxLevel)}` : ''}` : '',
+        sk.range ? `ระยะ ${sk.range} ช่อง` : '',
+        sk.radius ? `รัศมี ${sk.radius} ช่อง` : '',
+        sk.castMs ? `ร่าย ${time(sk.castMs)}` : '',
+        sk.cooldown ? `คูลดาวน์ ${time(sk.cooldown)}` : '',
+        sk.power ? `ธาตุ ${sk.element ? elementLabel(sk.element) : 'ตามอาวุธ'}` : '',
+        sk.cls === 'all' ? 'ทุกอาชีพ' : '',
+      ].filter(Boolean).map((t) => `<span>${escapeHtml(t)}</span>`).join('');
+      return `<div class="cg-skill"><div class="cg-ic">${sk.icon}</div><div><b>${escapeHtml(sk.name)}</b><div class="cg-tags">${tags}</div><div class="cg-desc">${escapeHtml(sk.desc)}</div></div></div>`;
+    }).join('');
+    const extra = [
+      `HP ${c.hpMod >= 1 ? 'สูง' : 'ต่ำ'} (x${c.hpMod})`,
+      `SP ${c.spMod >= 1 ? 'สูง' : 'ต่ำ'} (x${c.spMod})`,
+      c.aspdPct ? `ASPD +${c.aspdPct}%` : '',
+    ].filter(Boolean).join(' · ');
+    b.innerHTML = `<div class="cg-tabs">${tabs}</div>
+      <div class="cg-body">
+        <div class="cg-head" style="--cc:${c.fxColor ?? c.color}"><b>${escapeHtml(c.name)}</b>${key === mine ? '<small>อาชีพของคุณ</small>' : ''}</div>
+        <div class="cg-desc">${escapeHtml(c.desc)}</div>
+        <div class="cg-info">
+          <div><i>อาวุธเริ่มต้น</i>${escapeHtml(ITEMS[c.startWeapon]?.name ?? '-')}</div>
+          <div><i>การโจมตี</i>${atk} ${range} ช่อง</div>
+          <div><i>พลังชีวิต/มานา</i>${extra}</div>
+          <div><i>สเตตัสเริ่มต้น</i><span class="cg-stats">${stats}</span></div>
+          <div><i>เปลี่ยนอาชีพ</i>${how}</div>
+        </div>
+        <div class="cg-sub">สกิล (${skillsOf(key).length})</div>
+        ${skills}
+      </div>`;
   }
 
   private rankRows: RankRow[] = [];
