@@ -2,9 +2,9 @@
 The guitarist's starter guitar, modelled in Blender: rounded body edges, a sunburst painted with
 vertex colours (no texture), a neck with a round back, covered pickups, tuners, frets and strings.
 
-    python tools/blender/build_guitar.py [--preview PNG] [--blend FILE] [--out PATH]
+    python tools/blender/build_guitar.py [--kind guitar|bass] [--preview PNG] [--blend FILE] [--out PATH]
 
-Same frame and measurements as buildStringed('guitar') in src/three/bass.ts, so the hands, the
+Same frame and measurements as buildStringed(kind) in src/three/bass.ts, so the hands, the
 strap and the sword-swing grip keep working: metres, origin where the neck meets the body, neck
 along +X, +Y the upper side when played, +Z out of the face. The script builds in that frame
 (Blender X, Y, Z = game x, y, z) and turns the model at the end so the glTF comes out right.
@@ -22,11 +22,15 @@ from mathutils.geometry import delaunay_2d_cdt  # noqa: E402
 
 reset()
 
-K = 0.86            # body scale of the guitar (the bass is 1)
+KIND = flag('--kind') or 'guitar'
+BASS = KIND == 'bass'
+K = 1.0 if BASS else 0.86   # body scale
 T = 0.042 * K       # body thickness
 FACE = T + 0.006    # top of the body
 NUT = 0.47
-SCALE = 0.648
+SCALE = 0.864 if BASS else 0.648
+STRINGS = 4 if BASS else 6
+FRETS = 20 if BASS else 22
 R90 = math.radians(90)
 
 
@@ -34,9 +38,9 @@ def fret_x(n):
     return NUT - SCALE * (1 - 2 ** (-n / 12))
 
 
-BOARD_END = fret_x(22.5)
+BOARD_END = fret_x(FRETS + 0.5)
 HEEL = BOARD_END - 0.06
-W_NUT, W_HEEL = 0.043, 0.056
+W_NUT, W_HEEL = (0.042, 0.062) if BASS else (0.043, 0.056)
 BOARD_TOP = FACE + 0.023
 
 
@@ -166,7 +170,8 @@ def lerp3(a, b, t):
 
 
 # ---------------------------------------------------------------- materials
-BURST = [lin('#f7b541'), lin('#e2661f'), lin('#8a2a0c'), lin('#3a1206')]  # centre -> edge
+BURST = ([lin('#6a5cf0'), lin('#4433c4'), lin('#291c86'), lin('#120a3c')] if BASS  # deep violet, lighter in the middle
+         else [lin('#f7b541'), lin('#e2661f'), lin('#8a2a0c'), lin('#3a1206')])  # sunburst, centre -> edge
 
 
 def burst(d):
@@ -241,10 +246,10 @@ bm.faces.new(quad[0])
 bm.faces.new(quad[1])
 parts.append(new_object('board', bm, ROSE, smooth=False))
 
-for n in range(1, 23):
+for n in range(1, FRETS + 1):
     x = fret_x(n)
     parts.append(box(f'fret{n}', (0.0018, width_at(x) * 0.97, 0.002), (x, 0, BOARD_TOP + 0.0008), CHROME))
-for n in (3, 5, 7, 9, 12, 15, 17, 19, 21):
+for n in ((3, 5, 7, 9, 12, 15, 17, 19) if BASS else (3, 5, 7, 9, 12, 15, 17, 19, 21)):
     x = (fret_x(n) + fret_x(n - 1)) / 2
     for y in ((-0.012, 0.012) if n == 12 else (0,)):
         parts.append(cyl(f'dot{n}', 0.0035, 0.001, (x, y, BOARD_TOP + 0.0002), PEARL, verts=8, smooth=False))
@@ -255,30 +260,38 @@ HEAD = [(NUT - 0.002, -0.021), (NUT - 0.002, 0.021), (NUT + 0.04, 0.03), (NUT + 
         (NUT + 0.212, 0.042), (NUT + 0.205, 0.004), (NUT + 0.13, -0.014), (NUT + 0.05, -0.026)]
 parts.append(rounded_slab('head', spline(HEAD, 1, per=4), FACE, FACE + 0.018, MAPLE, r_top=0.003, r_bot=0.003, steps=2))
 HEAD_TOP = FACE + 0.018
-tuner_x = []
-for i in range(6):
-    x = NUT + 0.045 + i * 0.026
-    y = 0.022 + i * 0.005
+tuner_x, tuner_y = [], []
+for i in range(STRINGS):
+    x = NUT + 0.045 + i * (0.042 if BASS else 0.026)
+    y = 0.026 + i * 0.006 if BASS else 0.022 + i * 0.005
     tuner_x.append(x)
+    tuner_y.append(y)
     parts.append(cyl(f'post{i}', 0.0042, 0.02, (x, y, HEAD_TOP + 0.008), CHROME, verts=8))
     parts.append(cyl(f'washer{i}', 0.008, 0.004, (x, y, HEAD_TOP + 0.001), CHROME, verts=10))
     parts.append(cyl(f'shaft{i}', 0.0028, 0.035, (x, y + 0.0175, FACE + 0.006), CHROME, rot=(R90, 0, 0), verts=6))
     parts.append(sphere(f'key{i}', 0.011, (x, y + 0.042, FACE + 0.006), CHROME, scale=(1, 0.55, 0.36), segs=8, rings=4))
 
 # ---------------------------------------------------------------- pickups: cream ring, black cover, pole pieces
-for j, px in enumerate((-0.17 * K, -0.27 * K)):
+for j, px in enumerate(() if BASS else (-0.17 * K, -0.27 * K)):
     parts.append(box(f'pu_ring{j}', (0.05, 0.086, 0.006), (px, 0, FACE + 0.002), CREAM, bevel=0.002))
     parts.append(box(f'pu{j}', (0.038, 0.07, 0.014), (px, 0, FACE + 0.006), BLACK, bevel=0.003))
     for i in range(6):
         parts.append(cyl(f'pole{j}_{i}', 0.0026, 0.002, (px + 0.009, -0.026 + i * 0.0104, FACE + 0.0135), CHROME, verts=6, smooth=False))
 
+if BASS:  # split P pickup by the neck, J pickup by the bridge, black covers with pole pieces
+    for j, (px, py, w, h) in enumerate(((-0.2, 0.024, 0.022, 0.044), (-0.212, -0.024, 0.022, 0.044), (-0.31, 0, 0.02, 0.09))):
+        parts.append(box(f'pu{j}', (w, h, 0.016), (px, py, FACE + 0.006), BLACK, bevel=0.004))
+        for i in range(2 if h < 0.05 else 4):
+            yy = py + (-h / 4 + i * h / 2 if h < 0.05 else -0.03 + i * 0.02)
+            parts.append(cyl(f'pole{j}_{i}', 0.003, 0.002, (px, yy, FACE + 0.0145), CHROME, verts=6, smooth=False))
+
 # ---------------------------------------------------------------- bridge, controls, strap buttons
 BX = NUT - SCALE
 parts.append(box('bridge', (0.06, 0.082, 0.004), (BX - 0.022, 0, FACE + 0.002), CHROME))
-SPREAD_NUT, SPREAD_BRIDGE = 0.018, 0.026
-for i in range(6):
-    y = -SPREAD_BRIDGE + 2 * SPREAD_BRIDGE * i / 5
-    parts.append(box(f'saddle{i}', (0.016, 0.0085, 0.01), (BX - 0.004, y, FACE + 0.008), CHROME))
+SPREAD_NUT, SPREAD_BRIDGE = (0.0145, 0.028) if BASS else (0.018, 0.026)
+for i in range(STRINGS):
+    y = -SPREAD_BRIDGE + 2 * SPREAD_BRIDGE * i / (STRINGS - 1)
+    parts.append(box(f'saddle{i}', (0.016, 0.0085, 0.01), (BX - 0.004, y, FACE + 0.008), CHROME) if not BASS else box(f'saddle{i}', (0.016, 0.012, 0.01), (BX - 0.004, y, FACE + 0.008), CHROME))
 parts.append(box('plate', (0.11, 0.032, 0.003), (-0.27 * K, -0.105 * K, FACE + 0.001), CHROME))
 for kx in (-0.24, -0.29):
     parts.append(cyl('knob', 0.011, 0.014, (kx * K, -0.105 * K, FACE + 0.009), BLACK, verts=14, bevel=0.003))
@@ -297,29 +310,30 @@ def rod(name, a, b, r, material):
     return o
 
 
-for i in range(6):
-    f = i / 5
+for i in range(STRINGS):
+    f = i / (STRINGS - 1)
     a = (NUT, -SPREAD_NUT + 2 * SPREAD_NUT * f, BOARD_TOP + 0.004)
     b = (BX - 0.004, -SPREAD_BRIDGE + 2 * SPREAD_BRIDGE * f, FACE + 0.0135)
-    h = (tuner_x[5 - i], 0.022 + (5 - i) * 0.005, HEAD_TOP + 0.012)
-    r = 0.0005 + 0.0005 * f
+    t = STRINGS - 1 - i
+    h = (tuner_x[t], tuner_y[t], HEAD_TOP + 0.012)
+    r = 0.0008 + 0.0007 * f if BASS else 0.0005 + 0.0005 * f
     parts.append(rod(f'string{i}', a, b, r, CHROME))
     parts.append(rod(f'string_head{i}', a, h, r, CHROME))
 
 # ---------------------------------------------------------------- finish
 bpy.context.view_layer.update()
-rest = join(parts, 'guitar_parts')
+rest = join(parts, f'{KIND}_parts')
 for ob in (body, rest):
     bpy.ops.object.select_all(action='DESELECT')
     ob.select_set(True)
     bpy.context.view_layer.objects.active = ob
     ob.rotation_euler = (R90, 0, 0)  # game (x, y, z) -> Blender (x, -z, y); glTF's Y-up export turns it back
     bpy.ops.object.transform_apply(rotation=True)
-body.name = 'guitar_body'
+body.name = f'{KIND}_body'
 print(f'[ml] body {tri_count([body])} + parts {tri_count([rest])} triangles')
 
 if (blend := flag('--blend')):
     bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(blend))
 if (png := flag('--preview')):
     render_preview(os.path.abspath(png), angle_deg=20, elev_deg=10)
-export_glb(out_arg('public/models/weapons/guitar.glb'), budget=6000, vertex_colors=True)
+export_glb(out_arg(f'public/models/weapons/{KIND}.glb'), budget=6000, vertex_colors=True)

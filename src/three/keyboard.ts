@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { useBlenderModel } from './blenderProps';
 
 /**
  * A portable 49-key keyboard built from code, at real size in metres (no brand logos).
@@ -91,6 +92,7 @@ export function buildKeyboard(styleId?: string): KeyboardProp {
   // speaker grilles at both ends
   for (const sx of st?.slim ? [] : [-1, 1]) {
     const s = box(0.085, 0.004, D - 0.05, grille(st?.grille, st?.dots), sx * (W / 2 - 0.05), H + 0.001, -0.015);
+    s.userData.keep = true; // canvas-textured: stays on the Blender model too
     g.add(s);
   }
 
@@ -114,7 +116,9 @@ export function buildKeyboard(styleId?: string): KeyboardProp {
   const lcd = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.045), screen());
   lcd.rotation.x = -Math.PI / 2;
   lcd.position.set(0, top + 0.0025, pz);
-  g.add(lcd, box(0.112, 0.003, 0.056, std(0x2a2c31), 0, top + 0.0005, pz));
+  const bezel = box(0.112, 0.003, 0.056, std(0x2a2c31), 0, top + 0.0005, pz);
+  lcd.userData.keep = bezel.userData.keep = true;
+  g.add(lcd, bezel);
   const knob = std(0x2b2d33, 0.35, 0.2);
   for (let i = 0; i < 4; i++) {
     for (const sx of [-1, 1]) {
@@ -128,7 +132,9 @@ export function buildKeyboard(styleId?: string): KeyboardProp {
     for (const sx of [-1, 1]) {
       const on = (i + (sx > 0 ? 1 : 0)) % 3 === 0;
       const m = on ? mat(`led${i}`, () => new THREE.MeshBasicMaterial({ color: lit[i % lit.length] })) : std(0x3a3d44, 0.4);
-      g.add(box(0.012, 0.004, 0.008, m, sx * (0.08 + i * 0.018), top + 0.002, pz - 0.014));
+      const led = box(0.012, 0.004, 0.008, m, sx * (0.08 + i * 0.018), top + 0.002, pz - 0.014);
+      led.userData.keep = true;
+      g.add(led);
     }
   }
   g.add(box(0.006, 0.003, 0.05, std(0x050505), -0.34, top + 0.001, pz + 0.002));
@@ -144,6 +150,8 @@ export function buildKeyboard(styleId?: string): KeyboardProp {
   g.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) o.castShadow = true;
   });
+
+  if (!st) useBlenderModel(g, 'keyboard'); // the starter keyboard: tools/blender/build_keyboard.py
 
   // wrists hover just behind the keys, a hand-span apart
   const left = new THREE.Object3D();

@@ -38,8 +38,15 @@ python tools/blender/optimize_glb.py Meshy.glb public/models/monsters/NewBoss.gl
 
 คัดลอก `build_dj_scooter.py` เป็น `build_<ชื่อ>.py` แก้ส่วนสร้างรูปทรง แล้วรัน ถ้าปั้นด้วยมือในโปรแกรม Blender ก็ได้: ทำตามกติกาด้านบน แล้ว File → Export → glTF 2.0 (.glb) จากนั้น `gzip -9` ลงใน `public/models/...`
 
-## ที่ใช้ในเกมแล้ว
+## ที่ใช้ในเกมแล้ว (อาวุธตั้งต้นทุกอาชีพที่ไม่ใช่ MVP)
 
-- `build_guitar.py` → `public/models/weapons/guitar.glb.gz` กีตาร์ตั้งต้นของมือกีตาร์ (5,574 tri, ซันเบิร์สต์ทาสีด้วย vertex color ไม่ใช้ texture)
-  โหลดใน `src/three/bass.ts` (`BLENDER`): ระหว่างรอไฟล์จะวาดกีตาร์จากโค้ดแบบเดิมก่อน แล้วสลับเป็นโมเดล Blender ตำแหน่งมือ/สายสะพายไม่เปลี่ยน
-  โมเดลต้องอยู่ในกรอบเดียวกับ `buildStringed()`: เมตร, คอชี้ +X, จุด 0 ตรงรอยต่อคอกับตัว, หน้ากีตาร์หัน +Z
+| สคริปต์ | ไฟล์ | tri | แทนของเดิมใน |
+| --- | --- | --- | --- |
+| `build_guitar.py --kind guitar` | `weapons/guitar.glb.gz` | 5,574 | `buildStringed('guitar')` (bass.ts) |
+| `build_guitar.py --kind bass` | `weapons/bass.glb.gz` | 5,148 | `buildStringed('bass')` |
+| `build_sticks_mic.py` | `weapons/stick.glb.gz`, `weapons/mic.glb.gz` | 704 / 2,758 | ไม้กลองกับไมค์ธรรมดาใน vrm.ts |
+| `build_keyboard.py` | `weapons/keyboard.glb.gz` | 4,696 | `buildKeyboard()` (keyboard.ts) |
+
+`src/three/blenderProps.ts` `useBlenderModel(group, name)`: เกมวาดของจากโค้ดก่อน แล้วสลับ mesh เป็นโมเดล Blender เมื่อไฟล์โหลดเสร็จ
+จุดยึดมือ/สายสะพาย (Object3D เปล่า) และ mesh ที่ติด `userData.keep` (จอ LCD, ไฟ LED, ตะแกรงลำโพงที่เป็น canvas texture) ไม่ถูกเปลี่ยน
+โมเดลต้องสร้างในกรอบและขนาดเดียวกับโค้ดเดิมเสมอ (ดู docstring ของแต่ละสคริปต์)

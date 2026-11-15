@@ -81,13 +81,13 @@ def _finish(obj, material=None, name=None, smooth=False, bevel=0.0, segments=2):
     return obj
 
 
-def box(name, size, loc, material=None, bevel=0.0, rot=(0, 0, 0)):
+def box(name, size, loc, material=None, bevel=0.0, rot=(0, 0, 0), segments=2):
     """Box of size (x, y, z) centred at loc."""
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=rot)
     o = bpy.context.active_object
     o.scale = size
     bpy.ops.object.transform_apply(scale=True)
-    return _finish(o, material, name, bevel=bevel)
+    return _finish(o, material, name, bevel=bevel, segments=segments)
 
 
 def cyl(name, r, depth, loc, material=None, rot=(0, 0, 0), verts=16, smooth=True, bevel=0.0):
@@ -107,6 +107,39 @@ def torus(name, major, minor, loc, material=None, rot=(0, 0, 0), seg=24, minor_s
     bpy.ops.mesh.primitive_torus_add(major_radius=major, minor_radius=minor, location=loc, rotation=rot,
                                      major_segments=seg, minor_segments=minor_seg)
     return _finish(bpy.context.active_object, material, name, smooth=True)
+
+
+def lathe(name, profile, material=None, segs=16, z_up=True, smooth=True):
+    """Turned shape: profile is [(radius, height), ...] from bottom to top, spun round Blender Z
+    (= the game's Y). A radius of 0 at either end closes it to a point."""
+    bm = bmesh.new()
+    rings = []
+    for r, h in profile:
+        if r <= 1e-6:
+            rings.append([bm.verts.new((0, 0, h))])
+        else:
+            rings.append([bm.verts.new((r * math.cos(2 * math.pi * i / segs), r * math.sin(2 * math.pi * i / segs), h)) for i in range(segs)])
+    for a, b in zip(rings, rings[1:]):
+        if len(a) == 1 and len(b) == 1:
+            continue
+        for i in range(segs):
+            if len(a) == 1:
+                bm.faces.new((a[0], b[i], b[(i + 1) % segs]))
+            elif len(b) == 1:
+                bm.faces.new((a[i], a[(i + 1) % segs], b[0]))
+            else:
+                bm.faces.new((a[i], a[(i + 1) % segs], b[(i + 1) % segs], b[i]))
+    if len(rings[0]) > 1:
+        bm.faces.new(list(reversed(rings[0])))
+    if len(rings[-1]) > 1:
+        bm.faces.new(rings[-1])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    return _finish(o, material, name, smooth=smooth)
 
 
 def text(name, body, loc, size, material=None, rot=(math.radians(90), 0, 0), depth=0.01, font=None):
