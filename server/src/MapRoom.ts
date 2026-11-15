@@ -3,7 +3,7 @@ import { schema, t, type SchemaType } from '@colyseus/schema';
 import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ENDOW_SEC, ITEMS, type Element, elementMult, monsterElement, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
   STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, HEALER_BUFF_SEC, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
-  skillHeal, skillPower, skillSp, skillStatMult, targetsMonster, castTime, WAVE_FALL_MS, skillWaves, MONSTER_DAMAGE, targetsPlayer, totalStats, outfitOf, MONSTER_SKILLS,
+  skillHeal, skillPower, skillSp, skillStatMult, targetsGround, targetsMonster, castTime, WAVE_FALL_MS, skillWaves, MONSTER_DAMAGE, targetsPlayer, totalStats, outfitOf, MONSTER_SKILLS,
   VEND_SKILL, VEND_MAX_PRICE, VEND_MAX_TOTAL, vendSlots,
 } from '../../src/data/index.ts';
 import { ARENA_SPAWNS, CASTLE_CRYSTAL, CASTLE_INNER, GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
@@ -305,7 +305,7 @@ export class MapRoom extends Room<{ state: MapState }> {
 
     this.onMessage('move', (c, msg: { x: number; y: number }) => this.onMove(c, msg));
     this.onMessage('attack', (c, msg: { id: string }) => this.onAttack(c, msg));
-    this.onMessage('skill', (c, msg: { id: string; target?: string }) => this.onSkill(c, msg));
+    this.onMessage('skill', (c, msg: { id: string; target?: string; gx?: number; gy?: number }) => this.onSkill(c, msg));
     this.onMessage('sit', (c) => this.onSit(c));
     this.onMessage('heal', (c) => this.onHeal(c));
     this.onMessage('warp', (c) => this.onWarp(c));
@@ -590,10 +590,32 @@ export class MapRoom extends Room<{ state: MapState }> {
     const p = this.state.players.get(c.sessionId);
     const seat = this.seats.get(c.sessionId);
     if (!p || !seat || p.dead || seat.busy) return;
+    // ปีกผีเสื้อ: look first, so a bad place doesn't use the wing up
+    const want = seat.inv.find((i) => i.id === String(msg?.invId));
+    if (want && ITEMS[want.item_id]?.warp) {
+      if (this.pvp) return c.send('error', { text: 'ใช้ปีกผีเสื้อในลานประลองหรือปราสาทไม่ได้' });
+      if (seat.shop) return c.send('error', { text: 'กำลังเปิดร้านอยู่ ปิดร้านก่อนจึงจะใช้ได้' });
+    }
     seat.busy = true;
     try {
       const itemId = await MapRoom.db.useItem(seat.userId, seat.char.id, String(msg?.invId));
       const it = ITEMS[itemId];
+      if (it.warp) {
+        const to = await MapRoom.db.savePoint(seat.userId, seat.char.id);
+        this.cancelTrade(seat.trade, 'อีกฝ่ายหายไป');
+        await this.resync(seat);
+        if (to.map === this.map.id) {
+          // the save point is on this map: just jump there
+          Object.assign(p, { x: to.x, y: to.y, sitting: false });
+          seat.lastMoveAt = this.now;
+          c.send('correct', { x: p.x, y: p.y });
+        } else {
+          arrivals.set(seat.char.id, { map: to.map, x: to.x, y: to.y, at: Date.now(), hp: p.hp, sp: p.sp, endow: this.endowOf(seat) });
+          await MapRoom.db.saveState(seat.userId, seat.char.id, { hp: p.hp, sp: p.sp, map: to.map, x: to.x, y: to.y });
+          c.send('warp', { map: to.map });
+        }
+        return;
+      }
       p.hp = Math.min(p.maxHp, p.hp + (it.heal ?? 0));
       p.sp = Math.min(p.maxSp, p.sp + (it.sp ?? 0));
       if (it.endow) {
@@ -726,7 +748,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     else this.engage(brain, c.sessionId);
   }
 
-  private onSkill(c: Client, msg: { id: string; target?: string }) {
+  private onSkill(c: Client, msg: { id: string; target?: string; gx?: number; gy?: number }) {
     const p = this.state.players.get(c.sessionId);
     const seat = this.seats.get(c.sessionId);
     const skill = SKILLS[msg?.id];
@@ -740,7 +762,19 @@ export class MapRoom extends Room<{ state: MapState }> {
 
     // find and validate the target
     const aim: Aim = { x: p.x, y: p.y };
-    if (targetsMonster(skill) && this.state.players.has(msg.target ?? '')) {
+    if (targetsGround(skill)) {
+      // รถแห่ / บูทดีเจ: a spot on the ground, pulled in to the skill's range (a wall too close goes one tile out)
+      const gx = Number(msg.gx);
+      const gy = Number(msg.gy);
+      if (!Number.isFinite(gx) || !Number.isFinite(gy)) return;
+      const d = dist(p.x, p.y, gx, gy);
+      const reach = skill.range ?? 1;
+      const k = d > reach ? reach / d : 1;
+      const out = d < 1 && skill.type === 'wall'; // a wall needs a direction; a circle can go right under you
+      const dx = out ? 1 : (gx - p.x) * k;
+      const dy = out ? 0 : (gy - p.y) * k;
+      Object.assign(aim, { x: Math.min(Math.max(p.x + dx, 0), this.map.w - 0.5), y: Math.min(Math.max(p.y + dy, 0), this.map.h - 0.5) });
+    } else if (targetsMonster(skill) && this.state.players.has(msg.target ?? '')) {
       // PVP: an attack skill on another player
       const f = this.state.players.get(msg.target!)!;
       if (!this.hostile(c.sessionId, msg.target!)) return c.send('error', { text: this.pvp ? 'ตีคนในปาร์ตี้/กิลด์เดียวกันไม่ได้' : 'ที่นี่ตีผู้เล่นไม่ได้' });

@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Character, InvItem } from '../../src/data/index.ts';
-import { LocalStore } from '../../src/services/localStore.ts';
+import { LocalStore, TOWN_SPAWN } from '../../src/services/localStore.ts';
 import type { KillResult, RewardShare, TradeOffer } from '../../src/services/store.ts';
 import { CHAR_COLUMNS, selectInventory } from '../../src/services/supabaseStore.ts';
 
@@ -21,6 +21,8 @@ export interface ServerDb {
   grantReward(userId: string, charId: string, r: RewardShare): Promise<KillResult>;
   useItem(userId: string, charId: string, invId: string): Promise<string>;
   onDeath(userId: string, charId: string): Promise<Character>;
+  /** Where the character respawns / ปีกผีเสื้อ takes them (the town's default when none is saved or the SQL isn't run). */
+  savePoint(userId: string, charId: string): Promise<{ map: string; x: number; y: number }>;
   saveState(userId: string, charId: string, s: SavedState): Promise<void>;
   /** Takes `cost` zeny and moves the character to `s` in one go (บูรพา's warp). Throws if they can't pay. */
   payWarp(userId: string, charId: string, cost: number, s: SavedState): Promise<Character>;
@@ -121,6 +123,12 @@ export class SupabaseDb implements ServerDb {
 
   async useItem(userId: string, charId: string, invId: string) {
     return check(await this.sb.rpc('use_item', { p_user: userId, p_char: charId, p_inv: invId })) as string;
+  }
+
+  async savePoint(userId: string, charId: string) {
+    const res = await this.sb.from('characters').select('save_map,save_x,save_y').eq('id', charId).eq('user_id', userId).single();
+    const r = res.data as { save_map?: string | null; save_x?: number | null; save_y?: number | null } | null;
+    return r?.save_map ? { map: r.save_map, x: r.save_x ?? TOWN_SPAWN.x, y: r.save_y ?? TOWN_SPAWN.y } : { ...TOWN_SPAWN };
   }
 
   async onDeath(userId: string, charId: string) {
@@ -249,6 +257,11 @@ export class DevDb implements ServerDb {
 
   onDeath(_u: string, charId: string) {
     return this.store.onDeath(charId);
+  }
+
+  async savePoint(_u: string, charId: string) {
+    const c = await this.store.getCharacter(charId);
+    return c.save_map ? { map: c.save_map, x: c.save_x ?? TOWN_SPAWN.x, y: c.save_y ?? TOWN_SPAWN.y } : { ...TOWN_SPAWN };
   }
 
   saveState(_u: string, charId: string, s: SavedState) {

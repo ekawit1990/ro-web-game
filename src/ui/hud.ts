@@ -517,7 +517,7 @@ export class Hud implements WorldHooks {
     const stats = [
       stat('Atk', it.atk, rb.atk), stat('Matk', it.matk, rb.matk), stat('Def', it.def, rb.def), stat('Aspd', it.aspd, 0, '%'),
       stat('Flee', it.flee), stat('Critical', it.crit),
-      it.heal ? `<span>ฟื้น HP <b>${it.heal}</b></span>` : '', it.sp ? `<span>ฟื้น SP <b>${it.sp}</b></span>` : '',
+      it.heal ? `<span>ฟื้น HP <b>${it.heal}</b></span>` : '', it.sp ? `<span>ฟื้น SP <b>${it.sp}</b></span>` : '', it.warp ? `<span>วาร์ปกลับจุดเซฟ</span>` : '',
     ].filter(Boolean).join('');
     const lines: string[] = [];
     const sub = [TYPE_LABEL[it.type] ?? it.type];
@@ -946,7 +946,7 @@ export class Hud implements WorldHooks {
       : `เปลี่ยนจากวัยรุ่นได้ที่${getMap(jobTown(key)).name} (ครูแนะแนวอาชีพ) เมื่อ Base Lv ${JOB_CHANGE.level} และกำจัดมอนสเตอร์ Lv ${JOB_CHANGE.monsterLevel}+ ครบ ${JOB_CHANGE.kills} ตัว`;
     const typeName: Record<string, string> = {
       single: 'โจมตีเป้าเดียว', aoe: 'โจมตีเป็นวง', aoe_self: 'โจมตีรอบตัว', line: 'โจมตีเป็นแนว', heal: 'ฟื้นฟูตัวเอง',
-      heal_target: 'ฮีลเพื่อน', buff: 'บัพตัวเอง', buff_target: 'บัพเพื่อน', buff_party: 'บัพปาร์ตี้', revive: 'ชุบชีวิต', passive: 'ติดตัว', vend: 'เปิดร้าน', wall: 'กำแพงไฟ', ward: 'วงกันประชิด',
+      heal_target: 'ฮีลเพื่อน', buff: 'บัพตัวเอง', buff_target: 'บัพเพื่อน', buff_party: 'บัพปาร์ตี้', revive: 'ชุบชีวิต', passive: 'ติดตัว', vend: 'เปิดร้าน', wall: 'กำแพงไฟ (กดที่พื้น)', ward: 'วงกันประชิด',
     };
     const time = (ms: number) => (ms >= 60000 ? `${+(ms / 60000).toFixed(1)} นาที` : `${+(ms / 1000).toFixed(1)} วิ`);
     const skills = skillsOf(key).map(([, sk]) => {

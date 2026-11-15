@@ -112,6 +112,8 @@ export interface ItemDef {
   color: string;
   heal?: number;
   sp?: number;
+  /** Using it warps you: 'save' = back to your save point (ปีกผีเสื้อ). */
+  warp?: 'save';
   atk?: number;
   matk?: number;
   def?: number;
@@ -253,13 +255,15 @@ export interface SpawnDef {
 export type SkillType = 'single' | 'aoe' | 'aoe_self' | 'line' | 'heal' | 'heal_target' | 'buff' | 'buff_target' | 'buff_party' | 'revive' | 'passive'
   /** รถแห่ (DJ): a wall of fire across the target that burns and knocks back monsters walking into it */
   | 'wall'
-  /** บูทดีเจ (DJ): a 1-tile circle on the ground under you or a friend that stops melee physical hits */
+  /** บูทดีเจ (DJ): a 1-tile circle on the ground at a spot you click that stops melee physical hits */
   | 'ward'
   /** เปิดแผงขายของ: opens the player-shop window instead of going to the server as a skill */
   | 'vend';
-export const targetsPlayer = (s: SkillDef) => s.type === 'heal_target' || s.type === 'buff_target' || s.type === 'revive' || s.type === 'ward';
+export const targetsPlayer = (s: SkillDef) => s.type === 'heal_target' || s.type === 'buff_target' || s.type === 'revive';
 /** Skills aimed at a monster (a 'line' skill only uses it for the direction). */
-export const targetsMonster = (s: SkillDef) => s.type === 'single' || s.type === 'aoe' || s.type === 'line' || s.type === 'wall';
+export const targetsMonster = (s: SkillDef) => s.type === 'single' || s.type === 'aoe' || s.type === 'line' || (s.type === 'wall' && !s.ground);
+/** Skills you click on the ground (no target): the spot is sent as gx, gy and pulled in to the skill's range. */
+export const targetsGround = (s: SkillDef) => !!s.ground;
 
 /** What a skill's damage grows with besides ATK: a stat, or HIT. */
 export type ScaleStat = StatKey | 'hit';
@@ -330,6 +334,8 @@ export interface SkillDef {
   bolts?: boolean;
   /** Chance (%) that a monster the skill hits is stunned / frozen for `sec` (rolled once per monster per cast; not bosses). */
   status?: { kind: 'stun' | 'freeze'; chance: number; sec: number };
+  /** Aimed at a spot on the ground instead of a target (รถแห่). */
+  ground?: boolean;
   /** 'wall': `length` tiles across the target, lasts secPerLv x level seconds. */
   wall?: { length: number; secPerLv: number };
   /** 'ward': a circle of `radius` tiles that stops blocksPerLv x level melee hits, lasts secPerLv x level seconds. */

@@ -1,7 +1,7 @@
 import { potionPct, spPotionPct, AUTO_POTION_EVERY } from '../game/autoPrefs';
 import * as THREE from 'three';
 import type { Room } from '@colyseus/sdk';
-import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVEL, MONSTERS, MONSTER_SKILLS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsMonster, targetsPlayer, outfitOf, vrmHatOf, WAVE_FALL_MS } from '../data';
+import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVEL, MONSTERS, MONSTER_SKILLS, SKILLS, SPAWNS, canUseSkill, isBuffSkill, skillPower, skillSp, skillsOf, targetsGround, targetsMonster, targetsPlayer, outfitOf, vrmHatOf, WAVE_FALL_MS } from '../data';
 import { findPath, GameMap, Npc, THEMES, isLava, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
@@ -695,6 +695,13 @@ export class World3D {
     const npc = hit ? this.npcHits.get(hit) : undefined;
     if (this.targetingSkill) {
       const type = SKILLS[this.targetingSkill].type;
+      if (targetsGround(SKILLS[this.targetingSkill])) {
+        // รถแห่: the spot you click, whatever is standing on it
+        const id = this.targetingSkill;
+        this.cancelTargeting();
+        if (ground) this.sendGroundSkill(id, ground.x, ground.z);
+        return;
+      }
       if (type === 'revive') {
         // ชุบชีวิต: only a player who is down
         if (pid && this.players.get(pid)?.dead) return this.castAt(this.targetingSkill, pid);
@@ -825,7 +832,10 @@ export class World3D {
     if (skill.type === 'vend') return this.hooks.openVend();
     if (this.session.sp < skillSp(skill, lv)) return this.hooks.toast('SP ไม่พอ', 'bad');
     if (this.me.cast) return this.hooks.toast('กำลังร่ายสกิลอยู่', 'bad');
-    if (targetsMonster(skill)) {
+    if (targetsGround(skill)) {
+      if (this.targetingSkill === id) return this.cancelTargeting(); // press again = never mind
+      this.startTargeting(id);
+    } else if (targetsMonster(skill)) {
       const t = this.target?.kind === 'monster' ? this.monsters.get(this.target.id) : undefined;
       if (t && !t.dead) return this.castAt(id, t.id);
       if (this.target?.kind === 'foe' && this.hostile(this.target.id)) return this.castAt(id, this.target.id);
@@ -843,6 +853,15 @@ export class World3D {
       this.castWait = performance.now() + 1500;
     }
     this.room.send('skill', { id });
+  }
+
+  /** A skill clicked onto the ground: stop walking first so the cast isn't broken. */
+  private sendGroundSkill(id: string, gx: number, gy: number) {
+    this.path = [];
+    this.pendingSkill = null;
+    this.face(this.me, gx, gy);
+    if (SKILLS[id]?.castMs) this.castWait = performance.now() + 1500;
+    this.room.send('skill', { id, gx, gy });
   }
 
   private startTargeting(id: string) {
