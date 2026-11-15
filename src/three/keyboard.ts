@@ -151,7 +151,7 @@ export function buildKeyboard(styleId?: string): KeyboardProp {
     if ((o as THREE.Mesh).isMesh) o.castShadow = true;
   });
 
-  if (!st) useBlenderModel(g, 'keyboard'); // the starter keyboard: tools/blender/build_keyboard.py
+  useBlenderModel(g, st ? `weapons/keyboards/${styleId}` : 'keyboard'); // tools/blender/build_keyboard.py (--mvp)
 
   // wrists hover just behind the keys, a hand-span apart
   const left = new THREE.Object3D();

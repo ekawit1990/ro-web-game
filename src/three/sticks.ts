@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { useBlenderModel } from './blenderProps';
 
 /**
  * The 6 MVP drumstick pairs (item `shape` of drummer weapons): a painted shaft, natural-wood taper and bead tip.
@@ -49,11 +50,13 @@ export function buildStick(id: string): THREE.Object3D {
   const style = STICK_STYLES[id] ?? { color: '#e3c18f' };
   const g = new THREE.Group();
   // painted shaft from the butt to where the taper starts
-  g.add(lathe([[0, -0.2], [0.017, -0.199], [0.019, -0.195], [0.019, 0.07], [0.0185, 0.1]], paint(style)));
+  const shaft = lathe([[0, -0.2], [0.017, -0.199], [0.019, -0.195], [0.019, 0.07], [0.0185, 0.1]], paint(style));
+  shaft.userData.keep = !!style.glitter; // the glitter flecks stay when the Blender model swaps in
+  g.add(shaft);
   // bare-wood taper, neck and bead tip
   g.add(lathe([[0.0185, 0.1], [0.016, 0.13], [0.011, 0.16], [0.0075, 0.178], [0.0105, 0.186], [0.0115, 0.192], [0.009, 0.198], [0, 0.2]], wood()));
   g.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) o.castShadow = true;
   });
-  return g;
+  return STICK_STYLES[id] ? useBlenderModel(g, `weapons/sticks/${id}`) : g; // tools/blender/build_sticks_mic.py
 }

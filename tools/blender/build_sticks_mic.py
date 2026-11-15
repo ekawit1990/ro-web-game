@@ -62,3 +62,31 @@ join(parts, 'mic')
 if png:
     render_preview(png.replace('.png', '_mic.png'), angle_deg=25, elev_deg=12)
 export_glb(os.path.join(out_dir, 'mic.glb'), budget=3000)
+
+# ---------------------------------------------------------------- the 6 MVP stick pairs (src/three/sticks.ts STICK_STYLES)
+# painted shaft (glossy, the black one metal-flake), bare-wood taper and bead tip, a wrapped grip band
+STICK_STYLES = {
+    'stick_black': ('#1c1c22', True), 'stick_red': ('#e8361f', False), 'stick_blue': ('#56c2ee', False),
+    'stick_green': ('#8fdc6a', False), 'stick_pink': ('#f27aa6', False), 'stick_purple': ('#c7a2ec', False),
+}
+for sid, (col, glitter) in STICK_STYLES.items():
+    reset()
+    PAINT = mat(f'{sid}_paint', col, rough=0.3 if glitter else 0.22, metal=0.55 if glitter else 0.0)
+    WOOD = mat('hickory', '#e3c18f', rough=0.55)
+    DARK = mat('hickory_dark', '#c99a62', rough=0.5)
+    RING = mat(f'{sid}_ring', '#f4f1ea' if col != '#f4f1ea' else '#222', rough=0.35)
+    # the black glitter shaft stays the game's (its silver flecks are a canvas texture)
+    parts = [] if glitter else [
+        lathe('butt', [(0, -0.2), (0.016, -0.1995), (0.0185, -0.197), (0.019, -0.19)], PAINT, segs=14),
+        lathe('shaft', [(0.019, -0.19), (0.019, 0.07), (0.0185, 0.1)], PAINT, segs=14),
+    ]
+    parts += [
+        lathe('taper', [(0.0185, 0.1), (0.016, 0.13), (0.011, 0.16), (0.0078, 0.176)], WOOD, segs=14),
+        lathe('tip', [(0.0078, 0.176), (0.0102, 0.184), (0.0114, 0.19), (0.0098, 0.196), (0.005, 0.1995), (0, 0.2)], DARK, segs=14),
+        # a thin pin-stripe where the paint stops, and two round the grip
+        lathe('stripe', [(0.0187, 0.094), (0.0192, 0.096), (0.0192, 0.1), (0.0187, 0.102)], RING, segs=14),
+    ]
+    for i, z in enumerate((-0.17, -0.06)):
+        parts.append(lathe(f'band{i}', [(0.0191, z - 0.003), (0.0196, z - 0.002), (0.0196, z + 0.002), (0.0191, z + 0.003)], RING, segs=14))
+    join(parts, sid)
+    export_glb(os.path.join(out_dir, 'sticks', f'{sid}.glb'), budget=1500)
