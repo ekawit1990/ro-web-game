@@ -1,0 +1,243 @@
+-- Music Land patch: equipment level requirement + Lv 61-99 EXP -70%
+-- รันไฟล์นี้ครั้งเดียวใน Supabase SQL Editor
+
+-- Music Land: every equipment item has a minimum Base Lv to wear (2026-11-15).
+-- Run once in Supabase SQL Editor. Safe to run again.
+
+alter table public.item_defs add column if not exists req_level int not null default 1;
+
+update public.item_defs as d set req_level = v.lv
+from (values
+  ('basic_mic', 1),
+  ('golden_mic', 20),
+  ('acoustic_guitar', 1),
+  ('electric_guitar', 20),
+  ('wood_sticks', 1),
+  ('steel_sticks', 12),
+  ('basic_bass', 1),
+  ('five_string_bass', 20),
+  ('mini_keyboard', 1),
+  ('synth', 20),
+  ('band_tshirt', 1),
+  ('leather_jacket', 12),
+  ('note_ribbon', 3),
+  ('headphones', 5),
+  ('rock_cap', 14),
+  ('pick_necklace', 10),
+  ('metronome_charm', 14),
+  ('dagger', 1),
+  ('steel_dagger', 14),
+  ('sneakers', 1),
+  ('stage_boots', 10),
+  ('dance_shoes', 18),
+  ('rock_boots', 20),
+  ('note_stud', 1),
+  ('pick_earring', 10),
+  ('star_earring', 18),
+  ('crystal_earring', 20),
+  ('earbuds', 1),
+  ('in_ear_monitor', 10),
+  ('gaming_headset', 18),
+  ('dj_headphones', 22),
+  ('cat_headphones', 20),
+  ('outfit_aqua_hoodie', 7),
+  ('outfit_light_hoodie', 8),
+  ('outfit_gray_hoodie', 10),
+  ('outfit_white_cardigan', 11),
+  ('outfit_black_hoodie', 11),
+  ('outfit_sailor_school', 12),
+  ('outfit_navy_school', 12),
+  ('outfit_gakuran', 13),
+  ('outfit_sport_orange', 13),
+  ('outfit_orange_fox', 14),
+  ('outfit_leopard_swim', 14),
+  ('outfit_beach_lace', 14),
+  ('outfit_maid', 15),
+  ('outfit_rock_hoodie', 15),
+  ('outfit_alice', 16),
+  ('outfit_street', 16),
+  ('outfit_gal_black', 17),
+  ('outfit_street_black', 17),
+  ('outfit_bunny_butler', 18),
+  ('outfit_white_priest', 18),
+  ('outfit_black_coat', 19),
+  ('outfit_gray_suit', 19),
+  ('outfit_gothic', 20),
+  ('outfit_cyber_mint', 21),
+  ('outfit_tuxedo', 21),
+  ('outfit_red_singer', 22),
+  ('outfit_dark_idol', 22),
+  ('outfit_glitter_black', 23),
+  ('outfit_red_evening', 24),
+  ('outfit_red_qipao', 24),
+  ('outfit_kungfu', 26),
+  ('outfit_blue_swords', 27),
+  ('outfit_violet_cat', 28),
+  ('outfit_night_wolf', 28),
+  ('outfit_astronaut_f', 29),
+  ('outfit_astronaut', 30),
+  ('outfit_night_general', 20),
+  ('outfit_bunny_lolita', 20),
+  ('outfit_crimson_prince', 24),
+  ('outfit_forest_elf', 24),
+  ('outfit_kimono', 27),
+  ('outfit_witch', 27),
+  ('outfit_tactical', 31),
+  ('outfit_shadow_battle', 31),
+  ('outfit_white_coat', 35),
+  ('outfit_frost_princess', 35),
+  ('outfit_vampire_count', 40),
+  ('outfit_halloween_vampire', 40),
+  ('hat_witch', 27),
+  ('ears_frost_fox', 35),
+  ('horn_ribbon', 22),
+  ('glasses_bold', 11),
+  ('glasses_thin', 13),
+  ('crystal_dagger', 58),
+  ('banshee_mic', 68),
+  ('inferno_guitar', 99),
+  ('thunder_sticks', 82),
+  ('kraken_bass', 45),
+  ('cathedral_organ', 82),
+  ('magma_plate', 99),
+  ('gtr_offset_mini', 20),
+  ('gtr_ttype', 24),
+  ('gtr_thinline', 27),
+  ('gtr_doublehorn', 31),
+  ('gtr_offset', 35),
+  ('gtr_stype', 40),
+  ('gtr_flametop', 45),
+  ('gtr_arrow', 58),
+  ('gtr_hollow', 68),
+  ('gtr_singlecut', 82),
+  ('gtr_vshape', 99),
+  ('gtr_spike', 99),
+  ('stk_pink', 20),
+  ('stk_green', 24),
+  ('stk_blue', 27),
+  ('stk_red', 31),
+  ('stk_purple', 68),
+  ('stk_black', 82),
+  ('kbd_red', 40),
+  ('kbd_white', 45),
+  ('kbd_slim', 58),
+  ('kbd_stage', 82),
+  ('bss_mikro', 20),
+  ('bss_pbass', 27),
+  ('bss_sr', 31),
+  ('bss_jag_short', 35),
+  ('bss_jazz5', 58),
+  ('bss_sire5', 99),
+  ('hat_note_cap', 1),
+  ('hat_mint_beanie', 2),
+  ('hat_cat_band', 2),
+  ('hat_chick', 3),
+  ('hat_beat_bandana', 3),
+  ('hat_mushroom', 4),
+  ('hat_bunny_band', 5),
+  ('hat_spring_notes', 6),
+  ('hat_bee_beanie', 7),
+  ('hat_frog', 8),
+  ('hat_bat_wings', 10),
+  ('hat_owl_beret', 11),
+  ('hat_flower_chorus', 13),
+  ('hat_wizard_note', 13),
+  ('hat_metronome_top', 14),
+  ('hat_tuba_bell', 14),
+  ('hat_ninja_band', 14),
+  ('hat_jazz_fedora', 15),
+  ('hat_alien_goggles', 15),
+  ('hat_viking_drum', 16),
+  ('hat_mariachi', 17),
+  ('hat_cowboy_solo', 18),
+  ('hat_ngob', 18),
+  ('hat_party_cone', 19),
+  ('hat_tribal_plume', 20),
+  ('hat_yeti_beanie', 21),
+  ('hat_samurai', 21),
+  ('hat_ice_tiara', 22),
+  ('hat_santa_bell', 24),
+  ('hat_flame_crown', 26),
+  ('hat_pumpkin', 27),
+  ('hat_devil_horns', 28),
+  ('hat_punk_spikes', 30),
+  ('hat_synth_cloud', 31),
+  ('hat_captain', 32),
+  ('hat_gull_tricorn', 34),
+  ('hat_reggae_beanie', 35),
+  ('hat_dj_goggles', 37),
+  ('hat_speaker', 39),
+  ('hat_crystal_band', 41),
+  ('hat_echo_halo', 43),
+  ('hat_gem_turban', 46),
+  ('hat_snare', 48),
+  ('hat_jester', 50),
+  ('hat_vinyl', 52),
+  ('hat_rap_cap', 55),
+  ('hat_bog_witch', 61),
+  ('hat_opera_beret', 66),
+  ('hat_knight_helm', 69),
+  ('hat_bell_fez', 71),
+  ('hat_shako', 73),
+  ('hat_hymn_board', 76),
+  ('hat_angel_halo', 78),
+  ('hat_hell_horns', 86),
+  ('hat_jelly_crown', 20),
+  ('hat_ancient_laurel', 24),
+  ('hat_marsh_tiara', 27),
+  ('hat_dragon_horns', 31),
+  ('hat_snow_crown', 35),
+  ('hat_metal_helm', 40),
+  ('hat_kraken_tricorn', 45),
+  ('hat_crystal_crown', 58),
+  ('hat_banshee_halo', 68),
+  ('hat_phantom_top', 82),
+  ('hat_inferno_chada', 99),
+  ('hat_reaper_hood', 99),
+  ('mic_inst', 20),
+  ('mic_stick', 27),
+  ('mic_red', 31),
+  ('mic_taper', 35),
+  ('mic_silverband', 40),
+  ('mic_ball', 58),
+  ('mic_vintage', 82),
+  ('mini_dj', 1),
+  ('dj_controller', 20),
+  ('dj_neon', 45),
+  ('dj_grand', 82)
+) as v(id, lv)
+where d.id = v.id;
+
+create or replace function public.set_equipped(p_char uuid, p_inv uuid, p_equipped boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare c public.characters; r public.inventory; it public.item_defs;
+begin
+  c := public._own_char(p_char);
+  select * into r from public.inventory where id = p_inv and character_id = p_char;
+  if not found then raise exception 'ไม่พบไอเท็ม'; end if;
+  select * into it from public.item_defs where id = r.item_id;
+  if it.type not in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring') then raise exception 'สวมใส่ไม่ได้'; end if;
+  if p_equipped and it.classes is not null and not (c.cls = any (it.classes)) then
+    raise exception 'อาชีพนี้ใช้ไม่ได้';
+  end if;
+  if p_equipped and it.gender is not null and c.gender <> it.gender then
+    raise exception '%', case when it.gender = 'f' then 'ชุดนี้สำหรับตัวละครหญิง' else 'ชุดนี้สำหรับตัวละครชาย' end;
+  end if;
+  if p_equipped and c.level < it.req_level then
+    raise exception 'ต้องเลเวล % ขึ้นไปจึงจะสวมใส่ได้', it.req_level;
+  end if;
+  if p_equipped then
+    update public.inventory inv set equipped = false
+      from public.item_defs i
+      where inv.character_id = p_char and inv.equipped and i.id = inv.item_id and i.type = it.type;
+  end if;
+  update public.inventory set equipped = p_equipped where id = p_inv;
+end $$;
+
+
+-- EXP ขึ้นเลเวล: Lv 1-60 /2, Lv 61-99 x0.3
+create or replace function public.exp_to_next(lvl int) returns int
+language sql immutable as $$
+  select case when lvl <= 60 then ((floor(15 * power(lvl::float8, 1.9))::int + 10) * public.exp_hard(lvl)) / 2
+    else ((floor(15 * power(lvl::float8, 1.9))::int + 10) * public.exp_hard(lvl)) * 3 / 10 end
+$$;

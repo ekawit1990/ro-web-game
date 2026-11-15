@@ -112,6 +112,8 @@ export interface ItemDef {
   color: string;
   heal?: number;
   sp?: number;
+  /** Equipment: the Base Lv needed to wear it (tools/equip_levels.py; must match item_defs.req_level in SQL). */
+  reqLevel?: number;
   /** Using it warps you: 'save' = back to your save point (ปีกผีเสื้อ). */
   warp?: 'save';
   atk?: number;
@@ -375,10 +377,11 @@ export const outfitOf = (armorId: string | undefined) => (armorId && ITEMS[armor
 /** A hat taken from a VRoid model (drawn by grafting it onto the character's model), or ''. */
 export const vrmHatOf = (headId: string | undefined) => (headId && ITEMS[headId]?.part ? headId : '');
 /** Can this character put the item on? (class and gender limits; set_equipped() in SQL checks the same) */
-export function wearBlock(it: ItemDef | undefined, c: { cls: ClassKey; gender: Gender }): string {
+export function wearBlock(it: ItemDef | undefined, c: { cls: ClassKey; gender: Gender; level: number }): string {
   if (!it) return 'ไม่พบไอเท็ม';
   if (it.classes && !it.classes.includes(c.cls)) return 'อาชีพนี้ใช้ไม่ได้';
   if (it.gender && it.gender !== c.gender) return it.gender === 'f' ? 'ชุดนี้สำหรับตัวละครหญิง' : 'ชุดนี้สำหรับตัวละครชาย';
+  if (it.reqLevel && c.level < it.reqLevel) return `ต้องเลเวล ${it.reqLevel} ขึ้นไปจึงจะสวมใส่ได้`;
   return '';
 }
 
@@ -508,7 +511,7 @@ export function expHard(level: number): number {
 /** EXP needed to go from `level` to `level + 1`. Must match exp_to_next() in SQL. */
 export function expToNext(level: number): number {
   const need = (Math.floor(15 * Math.pow(level, 1.9)) + 10) * expHard(level);
-  return level <= 60 ? Math.floor(need / 2) : need; // Lv 1-60 level up 50% easier
+  return level <= 60 ? Math.floor(need / 2) : Math.floor((need * 3) / 10); // Lv 1-60 50% easier, Lv 61-99 70% easier
 }
 
 /** Job EXP needed for the next job level. Must match job_exp_to_next() in SQL. */
@@ -619,8 +622,8 @@ export interface Derived {
   pvpDef?: number;
 }
 
-/** Walking speed multiplier (10% slower since 2026-11-05). */
-export const WALK_RATE = 0.9;
+/** Walking speed multiplier (10% slower since 2026-11-05, half of that again since 2026-11-15). */
+export const WALK_RATE = 0.45;
 
 // ---------------------------------------------------------------- attack speed (2026-11-13)
 /** ASPD tops out at 200. */

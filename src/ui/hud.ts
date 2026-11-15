@@ -4,7 +4,7 @@ import {
   refineBonus, refineChance, refineFee, refineMaterial, refineSafe, skillSp, skillsOf, statCost, statRefund,
   VEND_MAX_PRICE, VEND_SKILL, npcBuyPrice, npcSellPrice, vendSlots, castTime, totalStats,
 } from '../data';
-import { THEMES, WARP_TOWNS, getMap, type GameMap, type Npc } from '../game/maps';
+import { MAP_IDS, THEMES, WARP_TOWNS, getMap, type GameMap, type Npc } from '../game/maps';
 import { ARENA_MAP, CASTLE_MAP, GUILD_COST, GUILD_MAX, PVP_DAMAGE, WAR_PRIZE, durationText, warScheduleText, type GuildView, type PvpInfo, type PvpScore } from '../game/pvp';
 import type { Session } from '../game/session';
 import type { World3D, WorldHooks } from '../three/World3D';
@@ -17,7 +17,7 @@ import { escapeHtml } from './screens';
 interface RankRow { id: string; name: string; cls: string; level: number; job: number; guild: string; online: boolean }
 import { monsterPortrait } from '../three/portrait';
 
-type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'guide' | 'guild' | 'rank' | 'classes'
+type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'globe' | 'guide' | 'guild' | 'rank' | 'classes'
   | 'vend' | 'vshop';
 /** A player shop as the server sends it (shopMine / shopList). */
 type ShopView = { sid: string; open: boolean; name?: string; title?: string; text?: string; items?: { inv: string; item: string; qty: number; price: number; refine: number; cards: string[] }[] };
@@ -90,7 +90,7 @@ export const bonusText = (b: CardBonus) =>
   (Object.entries(b) as [keyof CardBonus, number][]).map(([k, v]) => `${BONUS_LABEL[k]} +${v}${PCT_BONUS.has(k) ? '%' : ''}`).join(' · ');
 const DEFAULT_POS: Record<WinId, [number, number]> = {
   info: [8, 8], equip: [250, 60], inv: [-330, 170], skill: [560, 60], shop: [300, 80], trade: [320, 120],
-  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40], guide: [-1, 30], guild: [8, 250], rank: [-1, 40], classes: [-1, 30],
+  option: [-260, 170], npc: [-1, -1], storage: [300, 80], party: [8, 250], item: [-1, 70], refine: [300, 80], uncard: [300, 80], worldmap: [-1, 40], globe: [-1, 40], guide: [-1, 30], guild: [8, 250], rank: [-1, 40], classes: [-1, 30],
   vend: [-1, 60], vshop: [-1, 70],
 };
 
@@ -170,6 +170,7 @@ export class Hud implements WorldHooks {
     this.closeWin('refine');
     this.closeWin('uncard');
     this.closeWin('worldmap');
+    this.closeWin('globe');
     this.renderPvpBar();
     this.closeTrade();
     // shops belong to a map: mine closed when I left, and the one I was looking at is out of reach
@@ -444,10 +445,36 @@ export class Hud implements WorldHooks {
 
   // ------------------------------------------------------------ inventory
 
+  /** จัดเรียง: on = the bag lists items in a tidy order (worn first, then by type and name) */
+  private invSort = (() => { try { return localStorage.getItem('ml-inv-sort') === '1'; } catch { return false; } })();
+
   private openInv() {
-    this.win('inv', 'Inventory', 'inv');
+    const w = this.win('inv', 'Inventory', 'inv');
+    if (!w.querySelector('.rw-sort')) {
+      const btn = document.createElement('button');
+      btn.className = 'rw-sort';
+      btn.addEventListener('click', () => {
+        this.invSort = !this.invSort;
+        try { localStorage.setItem('ml-inv-sort', this.invSort ? '1' : '0'); } catch { /* private mode */ }
+        this.lastSig.inv = '';
+        this.renderInv();
+      });
+      w.querySelector('.rw-title')!.insertBefore(btn, w.querySelector('.rw-x'));
+    }
     this.lastSig.inv = '';
     this.renderInv();
+  }
+
+  /** The rows of one tab in the order the bag shows them. */
+  private sortedRows(rows: InvItem[]) {
+    if (!this.invSort) return rows;
+    const typeIdx = (id: string) => Math.max(0, (EQUIP_TYPES as string[]).indexOf(ITEMS[id]?.type));
+    return [...rows].sort((a, b) =>
+      Number(!!b.equipped) - Number(!!a.equipped)
+      || typeIdx(a.item_id) - typeIdx(b.item_id)
+      || (ITEMS[b.item_id]?.reqLevel ?? 0) - (ITEMS[a.item_id]?.reqLevel ?? 0)
+      || (ITEMS[a.item_id]?.name ?? '').localeCompare(ITEMS[b.item_id]?.name ?? '', 'th')
+      || (b.refine ?? 0) - (a.refine ?? 0));
   }
 
   private tabOf(type: string): InvTab {
@@ -459,10 +486,15 @@ export class Hud implements WorldHooks {
   private renderInv() {
     const b = this.body('inv');
     if (!b || !this.isOpen('inv')) return;
-    const sig = JSON.stringify([this.invTab, this.s.inv, this.s.derived.weight, !!this.trade, this.s.char.zeny]);
+    const sig = JSON.stringify([this.invTab, this.invSort, this.s.inv, this.s.derived.weight, !!this.trade, this.s.char.zeny]);
     if (this.lastSig.inv === sig) return;
     this.lastSig.inv = sig;
-    const rows = this.s.inv.filter((i) => this.tabOf(ITEMS[i.item_id]?.type) === this.invTab);
+    const rows = this.sortedRows(this.s.inv.filter((i) => this.tabOf(ITEMS[i.item_id]?.type) === this.invTab));
+    const sortBtn = this.wins.get('inv')?.querySelector('.rw-sort');
+    if (sortBtn) {
+      sortBtn.textContent = this.invSort ? '↕ จัดเรียง ✓' : '↕ จัดเรียง';
+      sortBtn.classList.toggle('on', this.invSort);
+    }
     const cells = rows
       .map((r) => `<div class="cell ${r.equipped ? 'on' : ''}" data-inv="${r.id}" draggable="true">
         <img src="${itemIcon(r.item_id)}"/>${r.qty > 1 ? `<i>${r.qty}</i>` : ''}${r.equipped ? '<em>E</em>' : ''}${r.refine ? `<u>+${r.refine}</u>` : ''}</div>`)
@@ -524,6 +556,7 @@ export class Hud implements WorldHooks {
     if (it.classes) sub.push(`ใช้ได้: ${it.classes.map((c) => CLASSES[c].name).join(', ')}`);
     else if ((EQUIP_TYPES as string[]).includes(it.type)) sub.push('ทุกอาชีพ');
     if (it.gender) sub.push(it.gender === 'f' ? 'หญิงเท่านั้น' : 'ชายเท่านั้น');
+    if (it.reqLevel) sub.push(`<span class="${this.s.char.level < it.reqLevel ? 'req-bad' : ''}">ใส่ได้ตั้งแต่ Lv ${it.reqLevel}</span>`);
     if (stats) lines.push(`<div class="it-stats">${stats}</div>`);
     if (it.element && it.type === 'weapon') lines.push(`<div class="it-bonus">โจมตีเป็นธาตุ ${elementLabel(it.element)}</div>`);
     if (it.element && it.type === 'armor') lines.push(`<div class="it-bonus">สวมแล้วตัวเป็นธาตุ ${elementLabel(it.element)}</div>`);
@@ -1367,6 +1400,89 @@ export class Hud implements WorldHooks {
     this.renderWorldMap();
   }
 
+  /** แผนที่โลก: every map as a box laid out by which gate leads where, with your own map lit up. */
+  private toggleGlobe() {
+    if (this.isOpen('globe')) return this.closeWin('globe');
+    this.win('globe', 'แผนที่โลก · Music Land', 'globe');
+    this.renderGlobe();
+  }
+
+  private renderGlobe() {
+    const b = this.body('globe');
+    if (!b) return;
+    const maps = MAP_IDS.map((id) => getMap(id));
+    const byId = new Map(maps.map((m) => [m.id, m]));
+    // a gate on the east edge leads east, on the north edge north, and so on
+    const dirOf = (m: GameMap, p: { x: number; y: number }): [number, number] => {
+      const dx = (p.x + 0.5) / m.w - 0.5;
+      const dy = (p.y + 0.5) / m.h - 0.5;
+      return Math.abs(dx) >= Math.abs(dy) ? [dx > 0 ? 1 : -1, 0] : [0, dy > 0 ? 1 : -1];
+    };
+    const pos = new Map<string, [number, number]>();
+    const taken = new Set<string>();
+    const put = (id: string, c: [number, number]) => { pos.set(id, c); taken.add(c.join(',')); };
+    put('town', [0, 0]);
+    const queue = ['town'];
+    while (queue.length) {
+      const id = queue.shift()!;
+      const m = byId.get(id);
+      if (!m) continue;
+      const [x, y] = pos.get(id)!;
+      for (const pt of m.portals) {
+        if (pos.has(pt.to) || !byId.has(pt.to)) continue;
+        const [dx, dy] = dirOf(m, pt);
+        let c: [number, number] = [x + dx, y + dy];
+        for (let r = 1; taken.has(c.join(',')) && r < 8; r++) {
+          const opts: [number, number][] = [];
+          for (let ox = -r; ox <= r; ox++) for (let oy = -r; oy <= r; oy++) if (Math.max(Math.abs(ox), Math.abs(oy)) === r) opts.push([x + dx + ox, y + dy + oy]);
+          opts.sort((a, b2) => Math.hypot(a[0] - x - dx, a[1] - y - dy) - Math.hypot(b2[0] - x - dx, b2[1] - y - dy));
+          c = opts.find((o) => !taken.has(o.join(','))) ?? c;
+        }
+        put(pt.to, c);
+        queue.push(pt.to);
+      }
+    }
+    // maps no gate leads to (the arena and the castle: reached through an NPC) go in a row below
+    let maxY = Math.max(...[...pos.values()].map((c) => c[1]));
+    let col = 0;
+    for (const m of maps) if (!pos.has(m.id)) put(m.id, [col++, maxY + 2]);
+    const xs = [...pos.values()].map((c) => c[0]);
+    const ys = [...pos.values()].map((c) => c[1]);
+    const minX = Math.min(...xs), minY = Math.min(...ys);
+    const W = 116, H = 54, GX = 18, GY = 14;
+    const cx = (id: string) => (pos.get(id)![0] - minX) * (W + GX) + W / 2 + 8;
+    const cy = (id: string) => (pos.get(id)![1] - minY) * (H + GY) + H / 2 + 8;
+    const width = (Math.max(...xs) - minX + 1) * (W + GX) + 8;
+    const height = (Math.max(...ys) - minY + 1) * (H + GY) + 8;
+    const lv = new Map<string, [number, number]>();
+    for (const s of SPAWNS) {
+      const l = MONSTERS[s.monster]?.level;
+      if (!l) continue;
+      const e = lv.get(s.map) ?? [l, l];
+      lv.set(s.map, [Math.min(e[0], l), Math.max(e[1], l)]);
+    }
+    const drawn = new Set<string>();
+    let lines = '';
+    for (const m of maps) for (const pt of m.portals) {
+      const key = [m.id, pt.to].sort().join('|');
+      if (drawn.has(key) || !pos.has(pt.to)) continue;
+      drawn.add(key);
+      lines += `<line x1="${cx(m.id)}" y1="${cy(m.id)}" x2="${cx(pt.to)}" y2="${cy(pt.to)}"/>`;
+    }
+    const boxes = maps.map((m) => {
+      const r = lv.get(m.id);
+      const sub = m.safe && !r ? 'เมือง · ปลอดภัย' : r ? `Lv ${r[0]}–${r[1]}` : '';
+      const here = m.id === this.map.id;
+      return `<div class="gl-box ${m.safe ? 'town' : ''} ${here ? 'here' : ''}" style="left:${cx(m.id) - W / 2}px;top:${cy(m.id) - H / 2}px;width:${W}px;height:${H}px">
+        <b>${escapeHtml(m.name)}</b><small>${sub}</small>${here ? '<em>📍 คุณอยู่ที่นี่</em>' : ''}</div>`;
+    }).join('');
+    b.innerHTML = `<div class="gl-scroll"><div class="gl-canvas" style="width:${width}px;height:${height}px">
+        <svg width="${width}" height="${height}">${lines}</svg>${boxes}</div></div>
+      <div class="gl-foot"><span class="hint">เส้นเชื่อมคือประตูวาร์ประหว่างแผนที่ · ลานประลองและปราสาทเดินทางผ่าน NPC</span></div>`;
+    const here = b.querySelector<HTMLElement>('.gl-box.here');
+    here?.scrollIntoView({ block: 'center', inline: 'center' });
+  }
+
   /** Spawns on this map grouped by monster: how many, where, and what they're like. */
   private mapMonsters() {
     const by = new Map<string, { id: string; count: number; areas: [number, number, number, number][] }>();
@@ -1406,8 +1522,10 @@ export class Hud implements WorldHooks {
           <div class="wm-list">${rows || '<p class="hint">ปลอดภัย ไม่มีมอนสเตอร์</p>'}</div>
           ${portals ? `<div class="wm-sec">ทางออก</div>${portals}` : ''}
           <div class="wm-legend"><span><i class="me"></i>คุณ</span><span><i class="pl"></i>ผู้เล่นอื่น</span><span><i class="np"></i>NPC</span><span><i class="pt"></i>ทางออก</span></div>
+          <button class="wm-globe" id="wm-globe">🌍 แผนที่โลก</button>
         </div>
       </div>`;
+    b.querySelector('#wm-globe')!.addEventListener('click', () => this.toggleGlobe());
     const cv = b.querySelector<HTMLCanvasElement>('#wm-cv')!;
     cv.addEventListener('click', (e) => {
       const scene = this.actions.scene();

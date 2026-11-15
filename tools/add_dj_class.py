@@ -62,28 +62,28 @@ at = ws.index('synth') + 1
 d['weaponShop'] = ws[:at] + ['mini_dj', 'dj_controller'] + ws[at:]
 
 # ------------------------------------------------------------------ DJ skills (the user's xlsx, 2026-11-15)
-CAST = 'ร่ายเวทย์ 5 วินาที (DEX ยิ่งสูงยิ่งร่ายไว ขยับ = ยกเลิก)'
+CAST = 'ร่ายเวทย์ 3 วินาที (DEX ยิ่งสูงยิ่งร่ายไว ขยับ = ยกเลิก)'
 HITS = 'ตกลงมา 1 ครั้งต่อเลเวลสกิล (Lv 10 = 10 ครั้ง) ความแรงคิดจาก M.Atk (INT) คูลดาวน์ 3 วินาที'
 AOE = dict(cls='dj', type='aoe', magic=True, maxLevel=10, sp=[18, 4], range=9, cooldown=3000, power=[70, 3],
-           radius=1.5, square=True, wavesPerLv=True, waveMs=300, castMs=5000, castDex=True)
+           radius=2, square=True, ground=True, wavesPerLv=True, waveMs=300, castMs=3000, castDex=True)
 S = {
     'dj_edm': dict(AOE, name='EDM', icon='⚡', element='wind', fx='dj_lightning',
-                   desc=f'{CAST} วางวงแหวนเวทย์ 9 ช่อง (3x3) แล้วสายฟ้าธาตุลมฟาดใส่มอนสเตอร์ทุกตัวในวง {HITS}'),
+                   desc=f'{CAST} กดสกิลแล้วคลิกที่พื้น (ไม่ต้องมีเป้าหมาย) วางวงแหวนเวทย์ 16 ช่อง (4x4) แล้วสายฟ้าธาตุลมฟาดใส่มอนสเตอร์ทุกตัวในวง {HITS}'),
     'dj_cha3': dict(AOE, name='3 ช่า', icon='☄️', element='fire', fx='dj_meteor', status={'kind': 'stun', 'chance': 50, 'sec': 3},
-                    desc=f'{CAST} วางวงแหวนเวทย์ 9 ช่อง (3x3) เรียกฝูงอุกกาบาตยักษ์ธาตุไฟ {HITS} มอนสเตอร์มีโอกาสมึนงง 50% นาน 3 วินาที (บอสไม่ติด)'),
+                    desc=f'{CAST} กดสกิลแล้วคลิกที่พื้น (ไม่ต้องมีเป้าหมาย) วางวงแหวนเวทย์ 16 ช่อง (4x4) เรียกฝูงอุกกาบาตยักษ์ธาตุไฟ {HITS} มอนสเตอร์มีโอกาสมึนงง 50% นาน 3 วินาที (บอสไม่ติด)'),
     'dj_joja': dict(AOE, name='โจ๊ะๆ', icon='🪨', element='earth', fx='dj_spikes', status={'kind': 'stun', 'chance': 50, 'sec': 3},
-                    desc=f'{CAST} วางวงแหวนเวทย์ 9 ช่อง (3x3) หนามแหลมธาตุดินพุ่งขึ้นจากพื้น {HITS} มอนสเตอร์มีโอกาสมึนงง 50% นาน 3 วินาที (บอสไม่ติด)'),
+                    desc=f'{CAST} กดสกิลแล้วคลิกที่พื้น (ไม่ต้องมีเป้าหมาย) วางวงแหวนเวทย์ 16 ช่อง (4x4) หนามแหลมธาตุดินพุ่งขึ้นจากพื้น {HITS} มอนสเตอร์มีโอกาสมึนงง 50% นาน 3 วินาที (บอสไม่ติด)'),
     'dj_chill': dict(AOE, name='เบาๆสบายๆ', icon='❄️', element='water', fx='dj_blizzard', status={'kind': 'freeze', 'chance': 80, 'sec': 5},
-                     desc=f'{CAST} วางวงแหวนเวทย์ 9 ช่อง (3x3) เรียกพายุหิมะธาตุน้ำ {HITS} มอนสเตอร์มีโอกาสแช่แข็ง 80% นาน 5 วินาที (บอสไม่ติด)'),
+                     desc=f'{CAST} กดสกิลแล้วคลิกที่พื้น (ไม่ต้องมีเป้าหมาย) วางวงแหวนเวทย์ 16 ช่อง (4x4) เรียกพายุหิมะธาตุน้ำ {HITS} มอนสเตอร์มีโอกาสแช่แข็ง 80% นาน 5 วินาที (บอสไม่ติด)'),
     'dj_love_song': dict(cls='dj', name='เพลงรัก', icon='💗', type='passive', maxLevel=10, passive={'spRegenPct': 5},
                          desc='สกิลติดตัว: SP ฟื้นเร็วขึ้น 5% ต่อเลเวล (Lv 10 = +50%) และฟื้นส่วนที่เพิ่มขึ้นระหว่างต่อสู้ด้วย'),
     'dj_parade': dict(cls='dj', name='รถแห่', icon='🔥', type='wall', ground=True, magic=True, maxLevel=10, sp=[10, 2], range=7, cooldown=2000,
-                      power=[50, 5], element='fire', knockback=1, castMs=2000, castDex=True, fx='dj_firewall',
-                      wall={'length': 5, 'secPerLv': 1},
-                      desc='ร่าย 2 วินาที กดเลือกจุดบนพื้น (ไม่ต้องมีเป้าหมาย) สร้างกำแพงไฟ 5 แท่งขวางตรงจุดนั้น ถ้าไกลเกินระยะจะวางที่ขอบระยะ มอนสเตอร์ที่เดินชนกำแพงโดนไฟ (คิดจาก M.Atk) และกระเด็นถอยหลัง 1 ช่อง กำแพงอยู่ได้ 1 วินาทีต่อเลเวล (Lv 10 = 10 วินาที) คูลดาวน์ 2 วินาที'),
+                      power=[50, 5], element='fire', knockback=1, castMs=1000, castDex=True, fx='dj_firewall',
+                      wall={'length': 5, 'secPerLv': 2},
+                      desc='ร่าย 1 วินาที กดเลือกจุดบนพื้น (ไม่ต้องมีเป้าหมาย) สร้างกำแพงไฟ 5 แท่งขวางตรงจุดนั้น ถ้าไกลเกินระยะจะวางที่ขอบระยะ มอนสเตอร์ที่เดินชนกำแพงโดนไฟ (คิดจาก M.Atk) และกระเด็นถอยหลัง 1 ช่อง กำแพงอยู่ได้ 2 วินาทีต่อเลเวล (Lv 10 = 20 วินาที) คูลดาวน์ 2 วินาที'),
     'dj_serenade': dict(cls='dj', name='เปิดเพลงให้สาว', icon='🎆', type='single', magic=True, maxLevel=10, sp=[12, 3], range=9,
-                        cooldown=5000, power=[100, 0], element='fire', bolts=True, waveMs=180, castMs=5000, castDex=True, fx='dj_firebolt',
-                        desc=f'{CAST} แท่งไฟธาตุไฟตกลงมาจากฟ้าใส่มอนสเตอร์ 1 ตัว 1 แท่งต่อเลเวลสกิล (Lv 10 = 10 แท่ง) แท่งละ 100% M.Atk (INT) คูลดาวน์ 5 วินาที'),
+                        cooldown=5000, power=[100, 0], element='fire', bolts=True, ground=True, waveMs=180, castMs=3000, castDex=True, fx='dj_firebolt',
+                        desc=f'{CAST} คลิกที่พื้นใกล้มอนสเตอร์ตัวไหนก็ได้ (ไม่ต้องมีเป้าหมาย) แท่งไฟธาตุไฟตกลงมาจากฟ้าใส่มอนสเตอร์ตัวที่อยู่ใกล้จุดนั้นที่สุด 1 ตัว 1 แท่งต่อเลเวลสกิล (Lv 10 = 10 แท่ง) แท่งละ 100% M.Atk (INT) คูลดาวน์ 5 วินาที'),
     'dj_booth': dict(cls='dj', name='บูทดีเจ', icon='🎧', type='ward', ground=True, maxLevel=10, sp=[15, 3], range=7, cooldown=2000,
                      castMs=1000, castDex=True, fx='dj_booth', ward={'blocksPerLv': 2, 'secPerLv': 5, 'radius': 0.75},
                      desc='ร่าย 1 วินาที กดเลือกจุดบนพื้น (ไม่ต้องมีเป้าหมาย ไกลเกินระยะจะวางที่ขอบระยะ) วางวงแหวนเวทย์ 1 ช่อง ใครยืนในวงจะไม่โดนการโจมตีกายภาพระยะประชิด กันได้ 2 ครั้งต่อเลเวล (Lv 10 = 20 ครั้ง) อยู่ได้ 5 วินาทีต่อเลเวล หรือจนกันครบ'),

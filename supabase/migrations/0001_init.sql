@@ -30,6 +30,7 @@ alter table public.item_defs add column if not exists card_slot text;
 alter table public.item_defs add column if not exists gender text;
 -- which NPC shop sells it: 'shop' = the item shop (ป้ามะลิ's list, cheaper with ต่อราคาเก่ง), 'weapons' = the weapon shop
 alter table public.item_defs add column if not exists shop_kind text;
+alter table public.item_defs add column if not exists req_level int not null default 1;
 
 create table if not exists public.monster_defs (
   id text primary key,
@@ -155,7 +156,7 @@ $$;
 create or replace function public.exp_to_next(lvl int) returns int
 language sql immutable as $$
   select case when lvl <= 60 then ((floor(15 * power(lvl::float8, 1.9))::int + 10) * public.exp_hard(lvl)) / 2
-    else (floor(15 * power(lvl::float8, 1.9))::int + 10) * public.exp_hard(lvl) end
+    else ((floor(15 * power(lvl::float8, 1.9))::int + 10) * public.exp_hard(lvl)) * 3 / 10 end
 $$;
 
 create or replace function public.job_exp_to_next(lvl int) returns int
@@ -363,6 +364,9 @@ begin
   end if;
   if p_equipped and it.gender is not null and c.gender <> it.gender then
     raise exception '%', case when it.gender = 'f' then 'ชุดนี้สำหรับตัวละครหญิง' else 'ชุดนี้สำหรับตัวละครชาย' end;
+  end if;
+  if p_equipped and c.level < it.req_level then
+    raise exception 'ต้องเลเวล % ขึ้นไปจึงจะสวมใส่ได้', it.req_level;
   end if;
   if p_equipped then
     update public.inventory inv set equipped = false
