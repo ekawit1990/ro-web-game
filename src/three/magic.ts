@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import type { GameMap, Obj } from '../game/maps';
 import { Pile, rngFor } from './ruins';
 import { canvasTexture, sparkTexture } from './toon';
+import { buildBlenderHouses, houseColours, landmark } from './magicHouses';
+import { PHONE } from './device';
 
 /**
  * Code-built scenery for เมืองคีย์มนตรา (the keyboardists' city of magic) and อเวจี (the abyss):
@@ -272,16 +274,37 @@ export function buildMagicProps(map: GameMap): THREE.Group | null {
   const p = new Pile();
   for (const o of map.objects) {
     const r = rngFor(Math.floor(o.x) * 7919 + Math.floor(o.y) * 104729 + 29);
-    if (o.kind === 'building' && o.style === 'magic') house(p, r, o);
-    else if (o.kind === 'octwall') octWall(p, o);
+    if (o.kind === 'octwall') octWall(p, o);
     else if (o.kind === 'spike') spike(p, r, o);
     else if (o.kind === 'spire') {
       g.add(spire(o));
+    } else if (o.kind === 'hall' || o.kind === 'gazebo') {
+      // the conservatory (door on +y) and the lake park's gazebo (open side towards the pond, -x)
+      const [w, d] = o.kind === 'hall' ? [o.w, o.h] : [4, 4];
+      const lm = landmark(o.kind === 'hall' ? 'magic_hall' : 'magic_gazebo', w, d, o.kind === 'hall' ? 6 : 3);
+      lm.position.set(o.x + w / 2, 0, o.y + d / 2);
+      if (o.kind === 'gazebo') lm.rotation.y = -Math.PI / 4;
+      g.add(lm);
     } else if (o.kind === 'bloodcircle') {
       g.add(bloodCircle(o, p));
     }
   }
   const stone = p.mesh(new THREE.MeshToonMaterial({ vertexColors: true }));
   if (stone) g.add(stone);
+  // houses: drawn from code at once, then swapped for the Blender houses (magicHouses.ts) when they arrive
+  const houses = map.objects.filter((o): o is Extract<Obj, { kind: 'building' }> => o.kind === 'building' && o.style === 'magic');
+  if (houses.length) {
+    const hp = new Pile();
+    for (const o of houses) house(hp, rngFor(Math.floor(o.x) * 7919 + Math.floor(o.y) * 104729 + 29), o);
+    const code = hp.mesh(new THREE.MeshToonMaterial({ vertexColors: true }))!;
+    g.add(code);
+    // ~1.5k triangles a house x 230 houses: desktop only, phones keep the light code houses (GPU memory, see device.ts)
+    if (!PHONE) void buildBlenderHouses(houses, (o) => houseColours(WALL[o.wall % WALL.length], ROOF[o.roof % ROOF.length], TRIM)).then((b) => {
+      if (!b || !code.parent) return;
+      g.add(b);
+      g.remove(code);
+      code.geometry.dispose();
+    });
+  }
   return g.children.length ? g : null;
 }
