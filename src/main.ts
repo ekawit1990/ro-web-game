@@ -14,6 +14,7 @@ import { $, characterScreen, httpBase, loginScreen, show } from './ui/screens';
 import { playMusic, sfx, unlockAudio } from './audio/sound';
 import { assetShare, assetsIdle, reset as resetAssets } from './ui/loadProgress';
 import { initInstall } from './ui/install';
+import { applyOverrides, fetchOverrides } from './data/overrides';
 
 const container = document.getElementById('game')!;
 initInstall();
@@ -294,6 +295,14 @@ async function main() {
   unlockAudio();
   // iOS Safari ignores user-scalable=no: stop its page pinch-zoom so two fingers zoom the game camera instead
   for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+  // admin edits to items / skills / monsters (admin.html): names, prices and descriptions shown here match the server
+  if (supabase) {
+    const sb = supabase;
+    await Promise.race([
+      fetchOverrides(sb).then(applyOverrides).catch(() => 0), // table not made yet: gamedata.json as shipped
+      new Promise((r) => setTimeout(r, 4000)),
+    ]);
+  }
   for (;;) {
     playMusic('title');
     if (supabase) {

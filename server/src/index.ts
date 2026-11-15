@@ -1,4 +1,6 @@
+import { createClient } from '@supabase/supabase-js';
 import { defineRoom, defineServer, listen } from 'colyseus';
+import { applyOverrides, fetchOverrides } from '../../src/data/overrides.ts';
 import { MAP_IDS } from '../../src/game/maps.ts';
 import { setupAuthRoutes } from './auth.ts';
 import { DevDb, SupabaseDb } from './db.ts';
@@ -17,6 +19,26 @@ if (url && serviceKey) {
 }
 console.log(`Music Land server: database = ${MapRoom.db.name}`);
 void Guilds.init(MapRoom.db);
+
+// Admin edits (admin.html -> public.game_overrides): load before the rooms open, then every 30 s so a saved
+// change reaches the game without a redeploy. If the table isn't there yet (SQL not run) the game uses gamedata.json.
+if (url && serviceKey) {
+  const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
+  let last = '';
+  const reload = async (first = false) => {
+    try {
+      const rows = await fetchOverrides(sb);
+      const sig = JSON.stringify(rows.map((r) => [r.kind, r.id, r.updated_at]).sort());
+      if (sig === last) return;
+      last = sig;
+      console.log(`game_overrides: ${applyOverrides(rows)} admin edit(s) applied`);
+    } catch (e) {
+      if (first) console.warn(`game_overrides not loaded (${(e as Error).message}); using gamedata.json`);
+    }
+  };
+  await reload(true);
+  setInterval(() => void reload(), 30_000);
+}
 
 // one room per map: "town", "field"
 const server = defineServer({
