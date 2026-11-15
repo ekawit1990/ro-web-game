@@ -28,7 +28,7 @@ export interface NpcLife {
 }
 
 const STROLL = 1.5; // tiles from its post at most
-const SPEED = 0.4; // tiles a second: an unhurried walk
+const SPEED = 0.52; // tiles a second: an unhurried walk (0.4 x 1.3 since 2026-11-15)
 const NOTICE = 3.2; // tiles: a player this close gets its attention
 
 export function npcLife(npc: Npc, rig: CharRig, label: THREE.Vector3): NpcLife {

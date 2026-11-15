@@ -131,7 +131,7 @@ export const BOT_COUNT = BOTS.length;
 
 const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
-const WALK = (150 * 0.45) / 32; // tiles/s, a player's walking speed
+const WALK = (150 * 0.585) / 32; // tiles/s, a player's walking speed
 /** One single-target skill per class the bots show off now and then (keyboardists just attack). */
 const BOT_SKILL: Partial<Record<ClassKey, string>> = {
   teen: 'quick_slash', singer: 'dynamics', guitarist: 'hammer_on', drummer: 'snare_roll', bassist: 'root_note',
