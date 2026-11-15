@@ -622,31 +622,30 @@ export interface Derived {
   pvpDef?: number;
 }
 
-/** Walking speed multiplier (10% slower since 2026-11-05, half of that again since 2026-11-15). */
-export const WALK_RATE = 0.45;
+/** Walking speed multiplier (10% slower since 2026-11-05, half of that again 2026-11-15, then 30% faster again 2026-11-15: 0.45 x 1.3). */
+export const WALK_RATE = 0.585;
 
-// ---------------------------------------------------------------- attack speed (2026-11-13)
-/** ASPD tops out at 200. */
-export const ASPD_MAX = 200;
-/** What AGI (and a little DEX) alone can give: the rest up to 200 comes from the % bonuses. */
-export const ASPD_STAT_MAX = 190;
+// ---------------------------------------------------------------- attack speed (2026-11-13, formula 2026-11-15)
+/** ASPD tops out at 220 (the user's choice, 2026-11-15). */
+export const ASPD_MAX = 220;
+/** AGI alone can go all the way to the cap (AGI 170). */
+export const ASPD_STAT_MAX = 220;
 /**
- * ASPD: from AGI only, 135 + AGI x 0.4 (the user's choice, 2026-11-14; DEX no longer counts); the stats alone
- * reach 190 only at AGI 137.5, so AGI 99 = 174.6. Then the % from equipment, cards, buffs and the class bonus closes that much of the gap
- * left to 200, like RO's ASPD % (the user's choice, 2026-11-14): it cuts the attack delay by that %, the
- * same balance as before. Example: AGI 99 = 174.6; +10% = 174.6 + 25.4 x 10% = 177.1; +100% = 200.
+ * ASPD: from AGI only, base = 135 + AGI x 0.5 (the user's choice, 2026-11-15), so AGI 1 = 135.5, AGI 99 = 184.5.
+ * Then the % from equipment, cards, buffs and the class bonus closes that much of the gap left to 220, like RO's
+ * ASPD %. Example: AGI 99 = 184.5; +10% = 184.5 + 35.5 x 10% = 188.05; +100% = 220.
  */
 export function aspdOf(agi: number, pct: number) {
-  const base = Math.min(ASPD_STAT_MAX, 135 + agi * 0.4);
+  const base = Math.min(ASPD_STAT_MAX, 135 + agi * 0.5);
   return Math.max(100, Math.min(ASPD_MAX, base + ((ASPD_MAX - base) * Math.min(100, Math.max(0, pct))) / 100));
 }
 /**
  * Time between normal attacks (ms). Up to ASPD 190 it is the same as before: 20 ms per point below 200
- * (135 = 1.3 s, 185 = 0.3 s, 190 = 0.2 s); from 190 to 200 it goes on down to 0.15 s (about 6.7 hits a second).
+ * (135 = 1.3 s, 185 = 0.3 s, 190 = 0.2 s); from 190 to 220 it goes on down to 0.1 s (10 hits a second).
  */
 export function aspdDelay(aspd: number) {
   if (aspd <= 190) return Math.round(20 * (200 - aspd));
-  return Math.round(200 - (aspd - 190) * 5);
+  return Math.round(200 - ((Math.min(ASPD_MAX, aspd) - 190) * 100) / 30);
 }
 
 export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Derived {
