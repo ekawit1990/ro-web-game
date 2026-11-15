@@ -1,5 +1,6 @@
 import { Client, type Room } from '@colyseus/sdk';
 import './style.css';
+import './ui/theme.css';
 import type { Character } from './data';
 import { getMap } from './game/maps';
 import { Session } from './game/session';

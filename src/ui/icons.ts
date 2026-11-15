@@ -1,4 +1,4 @@
-import { ITEMS } from '../data';
+import { CLASSES, ITEMS, SKILLS } from '../data';
 import * as THREE from 'three';
 import { buildCharacter, setEar, type CharRig, type Look } from '../three/models';
 import { buildHat } from '../three/hats';
@@ -27,6 +27,18 @@ const EMOJI: Record<string, string> = {
   lava_carapace: '🦀', boiling_gel: '🫧', hellfire_fang: '🦷', demon_pick: '🔻', obsidian_core: '⚫', lava_scale: '🐉', volcano_heart: '❤️‍🔥',
   note_stud: '🎵', pick_earring: '🔸', star_earring: '⭐', crystal_earring: '💎', rabbit_ear: '🐰', frog_skin: '🐸', bat_wing: '🦇', gear_spring: '⚙️',
 };
+
+/**
+ * A skill's icon as a little gem: its emoji on a round-cornered badge in the class's effect colour
+ * (drummer purple, guitarist red, bassist green…), so every skill bar looks like one set (UI refresh 2026-11-15).
+ */
+export function skillBadge(id: string): string {
+  const sk = SKILLS[id];
+  if (!sk) return '';
+  const cls = sk.cls === 'all' ? undefined : CLASSES[sk.cls];
+  const c = cls?.fxColor ?? cls?.color ?? '#e6b84a';
+  return `<span class="skb" style="--sc:${c}"><span>${sk.icon}</span></span>`;
+}
 
 /** A 32x32 icon for an item, as a data URL (drawn once, then cached). */
 export function itemIcon(id: string): string {
