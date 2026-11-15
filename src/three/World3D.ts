@@ -26,6 +26,7 @@ import { bassAura, bassBuffCast, rootNoteChop, straightBeatQuake } from './bassf
 import { bendingStorm, hammerOnBlast, palmMuting, slideDash, vibratoAura } from './guitarfx';
 import { doubleKickBlast, sendOffDash, snareGhost, snareHit, snareStorm, xSlashWave } from './xslash';
 import { MIC_STYLES, buildMic } from './mics';
+import { useBlenderModel } from './blenderProps';
 
 /** Classes with their own attack moves in vrm.ts (the hit lands when the blow does). */
 const MOVE_CLASSES = new Set<ClassKey>(['drummer', 'guitarist', 'bassist', 'singer']);
@@ -2585,7 +2586,7 @@ export class World3D {
     const mic = new THREE.Group();
     if (style) {
       // the singer's own MVP mic flies (2026-11-13)
-      const own = buildMic(style);
+      const own = useBlenderModel(buildMic(style), `weapons/mics/${style}`);
       own.position.y = -0.06;
       mic.add(own);
       mic.scale.setScalar(size * 1.5);

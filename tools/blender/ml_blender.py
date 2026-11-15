@@ -45,8 +45,12 @@ _mats: dict[str, bpy.types.Material] = {}
 def mat(name: str, hex_color: str, emission: float = 0.0, rough: float = 0.6, metal: float = 0.0):
     """A plain colour material, reused by name. hex like '#7b3cff'."""
     key = f'{name}'
-    if key in _mats and _mats[key].name in bpy.data.materials:
-        return _mats[key]
+    if key in _mats:
+        try:
+            if _mats[key].name in bpy.data.materials:
+                return _mats[key]
+        except ReferenceError:  # removed by reset()
+            pass
     h = hex_color.lstrip('#')
     rgb = tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
     lin = tuple(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb)

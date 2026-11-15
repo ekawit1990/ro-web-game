@@ -607,7 +607,7 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean, shape
   } else if (cls === 'singer' && handR) {
     if (shape && MIC_STYLES[shape]) {
       // an MVP mic (2026-11-13), a little bigger than life so its grille reads in game
-      const mic = buildMic(shape);
+      const mic = useBlenderModel(buildMic(shape), `weapons/mics/${shape}`); // tools/blender/build_mvp_mics.py
       mic.scale.setScalar(1.25);
       prop.add(mic);
     }

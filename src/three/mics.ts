@@ -257,6 +257,7 @@ function buildVintage(s: MicStyle) {
     prof.push([Math.max(0.0008, s.headR * Math.pow(Math.max(0, 1 - Math.pow(k, 2.8)), 1 / 2.8)), y]);
   }
   const cap = new THREE.Mesh(lathe(prof, 28), ribs);
+  cap.userData.keep = true; // kept when the Blender model swaps in (tools/blender/build_mvp_mics.py)
   cap.scale.set(1, 1, 0.72);
   cap.position.y = 0.12;
   g.add(cap);
@@ -287,6 +288,7 @@ export function buildMic(style: string) {
   if (s.head === 'ball') {
     const ball = new THREE.Mesh(new THREE.SphereGeometry(s.headR, 24, 18), grilleMat(s));
     ball.scale.y = 0.94;
+    ball.userData.keep = true;
     ball.position.y = y0 + s.headR * 0.78;
     g.add(ball);
     // the seam round the middle of the ball and the collar it screws into
@@ -304,7 +306,9 @@ export function buildMic(style: string) {
     g.add(ring(s.headR * 1.02, y0 + 0.006, 0.01, chrome(s.grille)));
     return g;
   }
-  g.add(new THREE.Mesh(lathe(headProfile(s, y0), 24), grilleMat(s)));
+  const head = new THREE.Mesh(lathe(headProfile(s, y0), 24), grilleMat(s));
+  head.userData.keep = s.pattern === 'mesh'; // the woven mesh texture stays; Blender brings the rest
+  g.add(head);
   if (s.head === 'flat') {
     const cap = new THREE.Mesh(new THREE.CircleGeometry(s.headR, 24), s.pattern === 'slots' ? grilleMat({ ...s, pattern: 'mesh', grille: '#55595f' }, 'top') : grilleMat(s, 'top'));
     cap.rotation.x = -Math.PI / 2;
