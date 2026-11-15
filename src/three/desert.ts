@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Obj } from '../game/maps';
 import { canvasTexture, outline, shadows, toon } from './toon';
+import { PHONE } from './device';
+import { buildBlenderDesert } from './desertHouses';
 
 /**
  * The desert town's buildings, built from code: flat-roofed adobe houses (some with a little dome
@@ -15,17 +17,17 @@ import { canvasTexture, outline, shadows, toon } from './toon';
 type House = Extract<Obj, { kind: 'building' }>;
 type Palace = Extract<Obj, { kind: 'palace' }>;
 
-const PLASTER = ['#e9cf9f', '#dcb986', '#efdcb6'];
-const DOME = ['#f4ead4', '#5e9fc4', '#e0c18e'];
-const DARK = '#3b2a1e';
-const WOOD = '#7a5233';
+export const PLASTER = ['#e9cf9f', '#dcb986', '#efdcb6'];
+export const DOME = ['#f4ead4', '#5e9fc4', '#e0c18e'];
+export const DARK = '#3b2a1e';
+export const WOOD = '#7a5233';
 
 function rng(seed: number) {
   let s = seed % 2147483647 || 1;
   return () => ((s = (s * 16807) % 2147483647) / 2147483647);
 }
 
-const gradient = (() => {
+export const gradient = (() => {
   const t = new THREE.DataTexture(new Uint8Array([95, 95, 95, 255, 185, 185, 185, 255, 255, 255, 255, 255]), 3, 1, THREE.RGBAFormat);
   t.minFilter = t.magFilter = THREE.NearestFilter;
   t.needsUpdate = true;
@@ -34,7 +36,7 @@ const gradient = (() => {
 
 /** Hand-smoothed plaster: soft blotches and specks, tiling every 2 units. */
 let plasterTex: THREE.Texture | null = null;
-function plaster() {
+export function plaster() {
   if (plasterTex) return plasterTex;
   const r = rng(29);
   plasterTex = canvasTexture(128, 128, (c) => {
@@ -56,7 +58,7 @@ function plaster() {
 }
 
 /** World-space box UVs, so the plaster runs on across merged pieces. */
-function boxUV(g: THREE.BufferGeometry, k = 0.5) {
+export function boxUV(g: THREE.BufferGeometry, k = 0.5) {
   const p = g.attributes.position, n = g.attributes.normal;
   const uv = new Float32Array(p.count * 2);
   for (let i = 0; i < p.count; i++) {
@@ -189,6 +191,18 @@ export function buildDesertHouses(objects: Obj[]): THREE.Group | null {
   if (!p.solid.length) return null;
   const g = p.build();
   g.name = 'desert-houses';
+  // swapped for the Blender houses (desertHouses.ts) once they load; phones keep these light ones
+  if (!PHONE) {
+    const houses = objects.filter((o): o is House => o.kind === 'building' && o.style === 'desert');
+    void buildBlenderDesert(houses).then((b) => {
+      if (!b || !g.parent) return;
+      for (const c of [...g.children]) {
+        g.remove(c);
+        (c as THREE.Mesh).geometry?.dispose();
+      }
+      g.add(...b.children);
+    });
+  }
   return g;
 }
 
