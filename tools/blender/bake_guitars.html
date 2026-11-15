@@ -1,0 +1,32 @@
+<!doctype html><html><body><script type="module">
+import * as THREE from 'three';
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
+import { BASS_SHAPES, GUITAR_SHAPES, buildShaped } from '/src/three/guitarShapes.ts';
+const out = {};
+const ex = new GLTFExporter();
+for (const [kind, set] of [['guitars', GUITAR_SHAPES], ['basses', BASS_SHAPES]]) for (const id of Object.keys(set)) {
+  const g = buildShaped(set[id]).group;
+  const root = new THREE.Group();
+  g.updateMatrixWorld(true);
+  g.traverse((o) => {
+    if (!o.isMesh || o.userData.keep) return;
+    const geo = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    let m = o.material;
+    const fix = (mm) => {
+      if (!mm.map || (mm.map.repeat.x === 1 && mm.map.offset.x === 0)) return mm;
+      const uv = geo.attributes.uv; const t = mm.map;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * t.repeat.x + t.offset.x, uv.getY(i) * t.repeat.y + t.offset.y);
+      const c = mm.clone(); c.map = t.clone(); c.map.repeat.set(1, 1); c.map.offset.set(0, 0); c.map.needsUpdate = true; return c;
+    };
+    if (Array.isArray(m)) {
+      // only the first group carries the map (body top), assume uv shared: fix once
+      m = m.map(fix);
+    } else m = fix(m);
+    const mesh = new THREE.Mesh(geo, m); mesh.name = o.name || 'part'; root.add(mesh);
+  });
+  const buf = await ex.parseAsync(root, { binary: true });
+  let bin = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 8192) bin += String.fromCharCode(...u.subarray(i, i + 8192));
+  out[`${kind}/${id}`] = btoa(bin);
+}
+window.__out = out; window.__done = true;
+</script></body></html>

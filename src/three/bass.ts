@@ -1,11 +1,6 @@
 import * as THREE from 'three';
 import { BASS_SHAPES, GUITAR_SHAPES, buildShaped } from './guitarShapes';
-
-/**
- * A detailed electric bass / guitar built from code, at real size in metres.
- * Frame: the neck runs along +X (headstock at +X), +Y is the side that faces up when played
- * (thickest string), +Z is out of the face. The origin is where the neck meets the body.
- */
+import { useBlenderModel } from './blenderProps';
 
 export interface StringedProp {
   group: THREE.Group;
@@ -106,8 +101,13 @@ function rod(a: THREE.Vector3, b: THREE.Vector3, r: number, m: THREE.Material) {
 }
 
 export function buildStringed(kind: 'bass' | 'guitar', shape?: string): StringedProp {
-  if (kind === 'guitar' && shape && GUITAR_SHAPES[shape]) return buildShaped(GUITAR_SHAPES[shape]);
-  if (kind === 'bass' && shape && BASS_SHAPES[shape]) return buildShaped(BASS_SHAPES[shape]);
+  // MVP shapes: built from code, then swapped for the Blender-finished model (tools/blender/refine_mvp_guitars.py)
+  const mvp = kind === 'guitar' ? shape && GUITAR_SHAPES[shape] : shape && BASS_SHAPES[shape];
+  if (mvp && shape) {
+    const sp = buildShaped(mvp);
+    useBlenderModel(sp.group, `weapons/${kind === 'guitar' ? 'guitars' : 'basses'}/${shape}`);
+    return sp;
+  }
   const sp = SPECS[kind];
   const k = sp.bodyScale;
   const g = new THREE.Group();
@@ -222,6 +222,7 @@ export function buildStringed(kind: 'bass' | 'guitar', shape?: string): Stringed
   g.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) o.castShadow = true;
   });
+  useBlenderModel(g, kind); // Blender model in this same frame (tools/blender/build_guitar.py --kind)
 
   const grip = new THREE.Object3D();
   grip.position.set(fretX(kind === 'bass' ? 5 : 6), -0.03, face + 0.01);

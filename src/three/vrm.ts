@@ -5,6 +5,7 @@ import { VRM, VRMLoaderPlugin, VRMSpringBoneJoint, VRMUtils, type VRMHumanBoneNa
 import { HAIR_COLORS, ITEMS, type ClassKey } from '../data';
 import { animateCharacter, buildDagger, setHat, type CharRig, type Look } from './models';
 import { buildStringed } from './bass';
+import { useBlenderModel } from './blenderProps';
 import { buildKeyboard } from './keyboard';
 import { buildDjDeck } from './djdeck';
 import { STICK_STYLES, buildStick } from './sticks';
@@ -606,13 +607,16 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean, shape
   } else if (cls === 'singer' && handR) {
     if (shape && MIC_STYLES[shape]) {
       // an MVP mic (2026-11-13), a little bigger than life so its grille reads in game
-      const mic = buildMic(shape);
+      const mic = useBlenderModel(buildMic(shape), `weapons/mics/${shape}`); // tools/blender/build_mvp_mics.py
       mic.scale.setScalar(1.25);
       prop.add(mic);
     }
     else {
-      prop.add(mesh(new THREE.CylinderGeometry(0.025, 0.02, 0.2, 10), toon('#222222'), 0, 0.06, 0));
-      prop.add(mesh(new THREE.SphereGeometry(0.05, 12, 10), toon('#b0b6bd'), 0, 0.18, 0));
+      // the starter mic: drawn from code, swapped for the Blender model when it has loaded
+      const mic = new THREE.Group();
+      mic.add(mesh(new THREE.CylinderGeometry(0.025, 0.02, 0.2, 10), toon('#222222'), 0, 0.06, 0));
+      mic.add(mesh(new THREE.SphereGeometry(0.05, 12, 10), toon('#b0b6bd'), 0, 0.18, 0));
+      prop.add(useBlenderModel(mic, 'mic'));
     }
     prop.position.set(-0.08 * s, 0, 0.03 * s);
     handR.add(prop);
@@ -622,7 +626,8 @@ function attachInstrument(vrm: VRM, cls: ClassKey, s: number, v0: boolean, shape
   } else if (cls === 'drummer' && handR && handL) {
     const pieces: Piece[] = [];
     for (const [h, side] of [[handR, -1], [handL, 1]] as const) {
-      const stick = shape && STICK_STYLES[shape] ? buildStick(shape) : mesh(new THREE.CylinderGeometry(0.014, 0.02, 0.4, 8), toon('#e3c18f'));
+      const stick = shape && STICK_STYLES[shape] ? buildStick(shape)
+        : useBlenderModel(new THREE.Group().add(mesh(new THREE.CylinderGeometry(0.014, 0.02, 0.4, 8), toon('#e3c18f'))), 'stick');
       stick.scale.setScalar(s * 0.9);
       stick.position.set(side * 0.08 * s, 0, 0.12 * s);
       stick.rotation.x = Math.PI / 2;

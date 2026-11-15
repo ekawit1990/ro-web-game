@@ -49,6 +49,9 @@ export type Obj =
   /** เมืองคีย์มนตรา (magic.ts): the octagonal city wall round (x, y) at radius r, a gate `gate` wide on each side; the piano spire. */
   | { kind: 'octwall'; x: number; y: number; r: number; gate: number }
   | { kind: 'spire'; x: number; y: number; r: number }
+  /** เมืองคีย์มนตรา (2026-11-15): the conservatory (หอดนตรีมนตรา, x/y = top-left, door on +y) and the lake park's gazebo. */
+  | { kind: 'hall'; x: number; y: number; w: number; h: number }
+  | { kind: 'gazebo'; x: number; y: number }
   /** อเวจี: a jagged bone-and-obsidian spike; the reaper's blood circle with skulls round it. */
   | { kind: 'spike'; x: number; y: number; s: number }
   | { kind: 'bloodcircle'; x: number; y: number; r: number };
@@ -478,8 +481,11 @@ function buildDesert(): GameMap {
  * เมืองคีย์มนตรา, the city of magic where keyboardists change job: an octagonal wall with a gate on each
  * flat side, two ring roads and a plaza round the piano spire in the middle, radial avenues out to the gates
  * and lilac stone houses with violet roofs in between. The south gate leads down to the marsh.
+ * Grown from 96 to 128 tiles (2026-11-15) with three districts between the ring roads: the conservatory
+ * (หอดนตรีมนตรา) at the end of the north avenue, a market square with a fountain on the east avenue and a
+ * lake park with a gazebo on the west one.
  */
-export const MAGIC_SIZE = 96;
+export const MAGIC_SIZE = 128;
 
 function buildMagic(): GameMap {
   const N = MAGIC_SIZE;
@@ -490,7 +496,13 @@ function buildMagic(): GameMap {
     m.objects.push(o);
     block(m, Math.floor(o.x), Math.floor(o.y), w, h);
   };
-  const WALL = 44, OUTER = [35, 38.5], INNER = [21, 24], PLAZA = 11;
+  const WALL = 60, OUTER = [47, 50.5], INNER = [27, 30.5], PLAZA = 12;
+  // the districts between the ring roads (left, top, right, bottom in tiles), kept clear of houses
+  const HALL = { x: C - 7, y: C - 45, w: 14, h: 9 };
+  const COURT = [C - 9, C - 36, C + 9, C - 31]; // paved forecourt in front of the conservatory
+  const MARKET = [C + 32, C - 8, C + 46, C + 8];
+  const PARK = [C - 46, C - 9, C - 31, C + 9];
+  const inBox = (x: number, y: number, r: number[]) => x >= r[0] && x < r[2] && y >= r[1] && y < r[3];
   const oct = (a: number, b: number) => Math.max(a, b, (a + b) / Math.SQRT2);
   const zone: Z[][] = Array.from({ length: N }, () => Array(N).fill(Z.Block));
   for (let y = 0; y < N; y++) {
@@ -506,12 +518,34 @@ function buildMagic(): GameMap {
       else if (o >= WALL - 4) { z = Z.Street; g = G.Dirt; } // the lane inside the wall
       else if (a < 2.5 || b < 2.5) { z = Z.Street; g = G.Cobble; } // the four avenues
       else if (Math.abs(a - b) < 1.6 && o > PLAZA && o < OUTER[0]) { z = Z.Street; g = G.Cobble; } // diagonal lanes
+      else if (inBox(x, y, COURT) || inBox(x, y, MARKET)) { z = Z.Street; g = G.Plaza; }
+      else if (inBox(x, y, PARK)) { z = Z.Street; g = rnd() < 0.4 ? G.Grass2 : G.Grass; }
+      else if (x >= HALL.x - 1 && x < HALL.x + HALL.w + 1 && y >= HALL.y - 1 && y < HALL.y + HALL.h) z = Z.Street; // kept for the hall
       zone[y][x] = z;
       m.ground[y][x] = g;
       if (z === Z.Wall) m.blocked[y][x] = true;
     }
   }
   m.objects.push({ kind: 'octwall', x: C, y: C, r: WALL, gate: 5 });
+  // the conservatory, its forecourt lamps and planters
+  put({ kind: 'hall', ...HALL }, HALL.w, HALL.h);
+  for (const dx of [-8, 8]) put({ kind: 'lamp', x: C + dx, y: C - 34 });
+  for (const dx of [-5, 4]) put({ kind: 'planter', x: C + dx, y: C - 35 });
+  // the market square: two rows of stalls round a fountain, benches at the corners
+  m.objects.push({ kind: 'fountain', x: C + 37.5, y: C - 1.5 });
+  block(m, C + 37, C - 2, 4, 4);
+  let stallColor = 0;
+  for (const sy of [-7, 5]) for (const sx of [33, 37, 41]) put({ kind: 'stall', x: C + sx, y: C + sy, color: stallColor++ % 4 }, 2, 2);
+  for (const [bx, by] of [[C + 33, C - 3], [C + 33, C + 2], [C + 44, C - 3], [C + 44, C + 2]]) put({ kind: 'bench', x: bx, y: by });
+  // the lake park: an oval pond, the gazebo on its east shore, trees, benches and lamps round it
+  for (let y = PARK[1]; y < PARK[3]; y++) for (let x = PARK[0]; x < PARK[2]; x++) {
+    const ex = (x + 0.5 - (C - 40)) / 5.2, ey = (y + 0.5 - C) / 6.4;
+    if (ex * ex + ey * ey < 1) { m.ground[y][x] = G.Water; m.blocked[y][x] = true; }
+  }
+  put({ kind: 'gazebo', x: C - 35, y: C - 9 }, 4, 4);
+  for (const [tx, ty] of [[C - 45, C - 8], [C - 45, C + 7], [C - 38, C - 8], [C - 33, C + 7], [C - 46, C - 1], [C - 36, C + 8]]) if (free(m, tx, ty)) put({ kind: 'tree', x: tx, y: ty, big: true });
+  for (const [bx, by] of [[C - 41, C - 8], [C - 40, C + 8], [C - 34, C + 4]]) if (free(m, bx, by)) put({ kind: 'bench', x: bx, y: by });
+  for (const [lx, ly] of [[C - 46, C - 4], [C - 46, C + 4], [C - 31, C - 7], [C - 31, C + 7]]) if (free(m, lx, ly)) put({ kind: 'lamp', x: lx, y: ly });
   // the piano spire on the plaza, a ring of lamps and trees round it
   put({ kind: 'spire', x: C - 4, y: C - 4, r: 4 }, 8, 8);
   for (let i = 0; i < 8; i++) {
@@ -577,8 +611,8 @@ function buildMagic(): GameMap {
   }
   // lamps along the ring roads
   for (const rr of [OUTER[0] - 0.6, INNER[0] - 0.6]) {
-    for (let i = 0; i < 24; i++) {
-      const t = (i / 24) * Math.PI * 2 + 0.13;
+    for (let i = 0; i < 32; i++) {
+      const t = (i / 32) * Math.PI * 2 + 0.13;
       const k = rr / Math.max(Math.abs(Math.cos(t)), Math.abs(Math.sin(t)), (Math.abs(Math.cos(t)) + Math.abs(Math.sin(t))) / Math.SQRT2);
       const x = Math.floor(C + Math.cos(t) * k), y = Math.floor(C + Math.sin(t) * k);
       if (free(m, x, y) && zone[y][x] === Z.Block) put({ kind: 'lamp', x, y });
