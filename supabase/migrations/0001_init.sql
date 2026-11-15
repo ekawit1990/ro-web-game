@@ -153,7 +153,10 @@ language sql immutable as $$
 $$;
 
 create or replace function public.exp_to_next(lvl int) returns int
-language sql immutable as $$ select (floor(15 * power(lvl::float8, 1.9))::int + 10) * public.exp_hard(lvl) $$;
+language sql immutable as $$
+  select case when lvl <= 60 then ((floor(15 * power(lvl::float8, 1.9))::int + 10) * public.exp_hard(lvl)) / 2
+    else (floor(15 * power(lvl::float8, 1.9))::int + 10) * public.exp_hard(lvl) end
+$$;
 
 create or replace function public.job_exp_to_next(lvl int) returns int
 language sql immutable as $$ select floor(12 * power(lvl::float8, 1.8))::int + 8 $$;
