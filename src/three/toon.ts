@@ -48,6 +48,30 @@ export function outline(group: THREE.Object3D, thickness = 0.018) {
   }
 }
 
+/**
+ * Outline for merged meshes (Blender models): the hull is pushed out along the vertex normals instead
+ * of scaled from the mesh origin, which would slide hulls of parts far from the origin over them.
+ */
+export function outlineByNormals(group: THREE.Object3D, thickness = 0.012) {
+  const meshes: THREE.Mesh[] = [];
+  group.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh && !o.userData.noOutline && !o.userData.isOutline) meshes.push(o as THREE.Mesh);
+  });
+  for (const m of meshes) {
+    const g = m.geometry.clone();
+    if (!g.attributes.normal) g.computeVertexNormals();
+    const p = g.attributes.position as THREE.BufferAttribute;
+    const n = g.attributes.normal as THREE.BufferAttribute;
+    for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) + n.getX(i) * thickness, p.getY(i) + n.getY(i) * thickness, p.getZ(i) + n.getZ(i) * thickness);
+    p.needsUpdate = true;
+    g.computeBoundingSphere();
+    const o = new THREE.Mesh(g, outlineMat);
+    o.userData.isOutline = true;
+    o.castShadow = false;
+    m.add(o);
+  }
+}
+
 export function shadows(group: THREE.Object3D, cast = true, receive = false) {
   group.traverse((o) => {
     if ((o as THREE.Mesh).isMesh && !o.userData.isOutline) {

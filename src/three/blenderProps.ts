@@ -8,9 +8,14 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
  * targets, strap pins: plain Object3Ds) and meshes tagged `userData.keep` stay as they are.
  */
 
-const BASE = `${import.meta.env.BASE_URL ?? '/'}models/weapons/`;
+const BASE = `${import.meta.env.BASE_URL ?? '/'}models/`;
 const loading = new Map<string, Promise<THREE.Object3D | null>>();
 const ready = new Map<string, THREE.Object3D>();
+
+/** Loads models/<name>.glb.gz once (name like 'weapons/guitar'); null if missing or broken. */
+export function loadBlenderModel(name: string) {
+  return load(name.includes('/') ? name : `weapons/${name}`);
+}
 
 function load(name: string) {
   if (!loading.has(name)) {
@@ -49,8 +54,14 @@ function swap(g: THREE.Object3D, model: THREE.Object3D) {
 
 /** Swaps `g`'s code-built meshes for the Blender model `name`: now if it's loaded, else when it arrives. */
 export function useBlenderModel(g: THREE.Object3D, name: string) {
-  const model = ready.get(name);
+  const key = name.includes('/') ? name : `weapons/${name}`;
+  const model = ready.get(key);
   if (model) swap(g, model);
-  else void load(name).then((m) => m && swap(g, m));
+  else void load(key).then((m) => m && swap(g, m));
   return g;
+}
+
+/** The loaded model if it is already here (no fetch). */
+export function blenderModelNow(name: string) {
+  return ready.get(name.includes('/') ? name : `weapons/${name}`);
 }

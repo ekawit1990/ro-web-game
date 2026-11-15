@@ -50,3 +50,11 @@ python tools/blender/optimize_glb.py Meshy.glb public/models/monsters/NewBoss.gl
 `src/three/blenderProps.ts` `useBlenderModel(group, name)`: เกมวาดของจากโค้ดก่อน แล้วสลับ mesh เป็นโมเดล Blender เมื่อไฟล์โหลดเสร็จ
 จุดยึดมือ/สายสะพาย (Object3D เปล่า) และ mesh ที่ติด `userData.keep` (จอ LCD, ไฟ LED, ตะแกรงลำโพงที่เป็น canvas texture) ไม่ถูกเปลี่ยน
 โมเดลต้องสร้างในกรอบและขนาดเดียวกับโค้ดเดิมเสมอ (ดู docstring ของแต่ละสคริปต์)
+
+## หมวก 65 ชิ้น (55 ทรง)
+
+`build_hats.py` → `public/models/hats/<kind>[_<v>].glb.gz` (รวมราว 1.9 MB, ทรงละ 0.8k–7k tri)
+- เขียนด้วย `three_like.py` ซึ่งเลียนแบบ primitive ของ three.js (แกน Y ขึ้น, หน้า +Z) จึงพอร์ตจาก `src/three/hats.ts` ได้ตรงพิกัด
+- วัสดุไม่มีสีจริง ใช้ชื่อแทน: `c1`–`c3` = สีของไอเท็ม, `glow_c2` = เรืองแสง, `trans_c2` = โปร่ง, `#rrggbb` = สีตายตัว, ต่อท้าย `|no` = ไม่มีเส้นขอบ
+- `src/three/blenderHats.ts` ทาสีตาม `hat.c` ของไอเท็มแล้วใส่แทนหมวกที่วาดจากโค้ด เส้นขอบใช้ `outlineByNormals` (ดันตาม normal) เพราะ mesh รวมชิ้นแล้ว
+- ไอคอนหมวกในช่องเก็บของยังวาดจากโค้ดเดิม

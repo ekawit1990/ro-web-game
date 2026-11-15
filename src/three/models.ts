@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { Appearance, ClassKey, HAIR_COLORS, ITEMS, MONSTERS } from '../data';
-import { canvasTexture, mesh, outline, shade, shadows, sparkTexture, toon } from './toon';
+import { canvasTexture, mesh, outline, outlineByNormals, shade, shadows, sparkTexture, toon } from './toon';
 import { buildHat } from './hats';
+import { useBlenderHat } from './blenderHats';
 
 /**
  * Chibi anime characters and monsters built from primitives (no third-party models).
@@ -397,6 +398,12 @@ export function setHat(rig: CharRig, item: string) {
   outline(g, 0.012);
   shadows(g);
   rig.hatSlot.add(g);
+  const look = ITEMS[item]?.hat;
+  // the smoother Blender model of the same hat replaces this one once it has loaded
+  if (look) useBlenderHat(g, look, () => rig.hat === item && g.parent === rig.hatSlot, (h) => {
+    outlineByNormals(h, 0.01);
+    shadows(h);
+  });
 }
 
 /** A headband over the top of the head (half torus). */
