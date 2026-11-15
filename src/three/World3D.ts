@@ -962,7 +962,11 @@ export class World3D {
     };
     const cast = (id: string, target?: string) => {
       this.autoReady.set(id, t + Math.max(SKILLS[id].cooldown ?? 1000, 800));
-      if (target) this.castAt(id, target);
+      // a ground skill (all DJ spells) wants the spot, not a target: send where the monster stands
+      if (targetsGround(SKILLS[id]) && target && this.monsters.has(target)) {
+        const mm = this.monsters.get(target)!;
+        this.sendGroundSkill(id, mm.x, mm.y);
+      } else if (target) this.castAt(id, target);
       else this.sendSelfSkill(id);
     };
     const mine = Object.keys(s.char.skills ?? {}).filter((id) => SKILLS[id] && ready(id));
@@ -996,7 +1000,9 @@ export class World3D {
       .filter((id) => {
         const sk = SKILLS[id];
         if (sk.type === 'aoe_self') return sk.power && near <= (sk.radius ?? 2);
-        return sk.type === 'single' || sk.type === 'aoe' || sk.type === 'line';
+        // ground skills only once the monster is within their reach (otherwise walk up and hit it as usual)
+        if (targetsGround(sk) && near > (sk.range ?? 5)) return false;
+        return sk.type === 'single' || sk.type === 'aoe' || sk.type === 'line' || (sk.type === 'wall' && !!sk.power && !!sk.ground);
       })
       .sort((a, b) => score(b) - score(a))[0];
     if (attack) cast(attack, SKILLS[attack].type === 'aoe_self' ? undefined : m.id);
