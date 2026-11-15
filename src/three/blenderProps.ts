@@ -44,10 +44,10 @@ function load(name: string) {
 
 function swap(g: THREE.Object3D, model: THREE.Object3D) {
   for (const c of [...g.children]) {
-    const m = c as THREE.Mesh;
-    if (!m.isMesh || m.userData.keep) continue;
-    g.remove(m);
-    m.geometry.dispose(); // materials are shared caches in the builders: leave them
+    // anchors (plain Object3Ds: hand targets, strap pins) and `keep` meshes stay; meshes and groups of them go
+    if (c.userData.keep || !((c as THREE.Mesh).isMesh || (c as THREE.Group).isGroup)) continue;
+    g.remove(c);
+    c.traverse((o) => (o as THREE.Mesh).geometry?.dispose()); // materials are shared caches in the builders: leave them
   }
   g.add(model.clone());
 }

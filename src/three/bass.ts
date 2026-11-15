@@ -101,8 +101,13 @@ function rod(a: THREE.Vector3, b: THREE.Vector3, r: number, m: THREE.Material) {
 }
 
 export function buildStringed(kind: 'bass' | 'guitar', shape?: string): StringedProp {
-  if (kind === 'guitar' && shape && GUITAR_SHAPES[shape]) return buildShaped(GUITAR_SHAPES[shape]);
-  if (kind === 'bass' && shape && BASS_SHAPES[shape]) return buildShaped(BASS_SHAPES[shape]);
+  // MVP shapes: built from code, then swapped for the Blender-finished model (tools/blender/refine_mvp_guitars.py)
+  const mvp = kind === 'guitar' ? shape && GUITAR_SHAPES[shape] : shape && BASS_SHAPES[shape];
+  if (mvp && shape) {
+    const sp = buildShaped(mvp);
+    useBlenderModel(sp.group, `weapons/${kind === 'guitar' ? 'guitars' : 'basses'}/${shape}`);
+    return sp;
+  }
   const sp = SPECS[kind];
   const k = sp.bodyScale;
   const g = new THREE.Group();

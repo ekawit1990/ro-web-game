@@ -541,7 +541,9 @@ export function buildShaped(s: GuitarShape): StringedProp {
   const neckWood = std(s.board === 'maple' ? 0xe6ad62 : 0x8a4a22, 0, 0.4);
   const boardMat = std({ maple: 0xe8b46a, rosewood: 0x3b1d14, ebony: 0x141010 }[s.board], 0, s.board === 'maple' ? 0.35 : 0.7);
   const dotMat = std(s.board === 'maple' ? 0x1a1a1a : 0xf4f1ea, 0, 0.3);
-  g.add(tapered(heelX, NUT, 0.022, neckWood, face + 0.004));
+  const neck = tapered(heelX, NUT, 0.022, neckWood, face + 0.004);
+  neck.name = 'neck'; // tools/blender/refine_mvp_guitars.py rounds its back
+  g.add(neck);
   g.add(tapered(boardEnd, NUT, 0.006, boardMat, face + 0.018));
   const boardTop = face + 0.021;
   for (let n = 1; n <= FRETS; n++) {

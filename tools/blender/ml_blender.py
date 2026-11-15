@@ -232,7 +232,7 @@ def decimate(obj, target_tris: int):
     return tri_count([obj])
 
 
-def export_glb(out_path: str, gz: bool = True, budget: int | None = None, selected_only=False, animations=False, vertex_colors=False):
+def export_glb(out_path: str, gz: bool = True, budget: int | None = None, selected_only=False, animations=False, vertex_colors=False, image_format='AUTO'):
     """Export the scene to GLB (Y-up, modifiers applied). With gz=True also writes out_path + '.gz'
     (the game fetches *.glb.gz and unpacks it in the browser) and removes the plain .glb."""
     tris = tri_count()
@@ -253,6 +253,7 @@ def export_glb(out_path: str, gz: bool = True, budget: int | None = None, select
         export_extras=True,
         export_vertex_color='MATERIAL' if vertex_colors else 'NONE',
         export_all_vertex_colors=False,
+        export_image_format=image_format,
     )
     final = out_path
     if gz:
