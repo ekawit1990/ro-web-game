@@ -877,6 +877,67 @@ function grip(vrm: VRM, side: 'left' | 'right', at: THREE.Vector3, fingers: THRE
   return H.addScaledVector(fingers, kf).addScaledVector(palm, kp);
 }
 
+/**
+ * Bends a leg so the thigh points along `thigh` and the shin along `shin` (world space), twisting the thigh so the
+ * knee stays a plain hinge (the shin swings the way a knee really bends).
+ */
+function legTo(vrm: VRM, side: 'left' | 'right', thigh: THREE.Vector3, shin: THREE.Vector3, back: THREE.Vector3) {
+  const up = vrm.humanoid.getNormalizedBoneNode(`${side}UpperLeg`);
+  const lo = vrm.humanoid.getNormalizedBoneNode(`${side}LowerLeg`);
+  const foot = vrm.humanoid.getNormalizedBoneNode(`${side}Foot`);
+  if (!up || !lo || !foot) return;
+  up.quaternion.identity();
+  lo.quaternion.identity();
+  up.updateWorldMatrix(true, true);
+  const H = up.getWorldPosition(new THREE.Vector3());
+  const K = lo.getWorldPosition(new THREE.Vector3());
+  // rest frame: the thigh hanging down, the knee bending the shin backwards
+  const a = K.sub(H).normalize();
+  const bb = back.clone().addScaledVector(a, -back.dot(a)).normalize();
+  const A = thigh.clone().normalize();
+  const B = shin.clone().addScaledVector(A, -shin.dot(A));
+  if (B.lengthSq() < 1e-6) B.copy(bb);
+  B.normalize();
+  const m0 = new THREE.Matrix4().makeBasis(a, bb, new THREE.Vector3().crossVectors(a, bb));
+  const m1 = new THREE.Matrix4().makeBasis(A, B, new THREE.Vector3().crossVectors(A, B));
+  _q.setFromRotationMatrix(m1.multiply(m0.transpose()));
+  up.parent!.getWorldQuaternion(_p);
+  up.getWorldQuaternion(_w);
+  up.quaternion.copy(_p.invert().multiply(_q.multiply(_w)));
+  up.updateWorldMatrix(false, true);
+  const K1 = lo.getWorldPosition(new THREE.Vector3());
+  const F1 = foot.getWorldPosition(new THREE.Vector3());
+  aim(lo, F1.sub(K1), shin.clone());
+}
+
+/** Sitting on the ground: men cross-legged, women kneeling on their heels; hands resting on the knees. */
+const SIT = {
+  m: { thigh: [0.62, 0.05, 0.78], shin: [-0.97, -0.08, -0.15], cross: 0.12, hu: 0.05, hb: 0.15, fing: [-0.35, -0.55, 0.75], pole: [1, -0.2, -0.6] },
+  f: { thigh: [0.06, -0.12, 1], shin: [0.02, -0.12, -1], cross: 0, hu: 0.05, hb: 0.4, fing: [-0.1, -0.35, 1], pole: [1, -0.3, -0.5] },
+};
+function sitPose(vrm: VRM, body: THREE.Object3D, female: boolean) {
+  const P = female ? SIT.f : SIT.m;
+  body.parent!.updateMatrixWorld(true);
+  const bq = body.getWorldQuaternion(new THREE.Quaternion());
+  const W = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z).applyQuaternion(bq).normalize();
+  for (const side of ['left', 'right'] as const) {
+    const sg = side === 'left' ? 1 : -1;
+    // the left shin sits a little higher and in front of the right one
+    legTo(vrm, side, W(P.thigh[0] * sg, P.thigh[1], P.thigh[2]), W(P.shin[0] * sg, P.shin[1] + (sg > 0 ? P.cross : 0), P.shin[2] + (sg > 0 ? P.cross : 0)), W(0, 0, -1));
+  }
+  for (const side of ['left', 'right'] as const) {
+    const sg = side === 'left' ? 1 : -1;
+    const hip = vrm.humanoid.getNormalizedBoneNode(`${side}UpperLeg`)!.getWorldPosition(new THREE.Vector3());
+    const knee = vrm.humanoid.getNormalizedBoneNode(`${side}LowerLeg`)!.getWorldPosition(new THREE.Vector3());
+    const at = knee.clone().lerp(hip, P.hb).add(W(0, 1, 0).multiplyScalar(P.hu));
+    const fing = W(P.fing[0] * sg, P.fing[1], P.fing[2]);
+    const palm = W(0, -1, 0);
+    const thumb = new THREE.Vector3().crossVectors(fing, palm).multiplyScalar(-sg);
+    const pole = at.clone().add(W(P.pole[0] * sg, P.pole[1], P.pole[2]));
+    grip(vrm, side, at, fing, thumb.normalize(), palm, pole, 0.05);
+  }
+}
+
 const FINGERS = ['Index', 'Middle', 'Ring', 'Little'] as const;
 const JOINTS = ['Proximal', 'Intermediate', 'Distal'] as const;
 
@@ -1319,33 +1380,11 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
     b('spine')!.rotation.x += a * 0.15;
   }
   if (s.sitting) {
-    if (rig.root.userData.gender === 'f') {
-      // girls kneel, sitting on their heels, knees together, hands resting on the knees
-      set('leftUpperLeg', -1.35, 0, -0.04);
-      set('rightUpperLeg', -1.35, 0, 0.04);
-      set('leftLowerLeg', 2.7, 0, 0);
-      set('rightLowerLeg', 2.7, 0, 0);
-      set('leftFoot', 0.4, 0, 0);
-      set('rightFoot', 0.4, 0, 0);
-      set('rightUpperArm', -0.4, 0, 1.2);
-      set('leftUpperArm', -0.4, 0, -1.2);
-      set('rightLowerArm', 0, 0.9, 0);
-      set('leftLowerArm', 0, -0.9, 0);
-      rig.body.position.y = -0.62;
-    } else {
-      // boys sit cross-legged, shins crossed, hands on the knees
-      set('leftUpperLeg', -1.0, 0, 1.1);
-      set('rightUpperLeg', -1.0, 0, -1.1);
-      set('leftLowerLeg', 2.5, 0, 0);
-      set('rightLowerLeg', 2.5, 0, 0);
-      set('leftFoot', 0.2, 0, 0);
-      set('rightFoot', 0.2, 0, 0);
-      set('rightUpperArm', -0.4, 0, 1.2);
-      set('leftUpperArm', -0.4, 0, -1.2);
-      set('rightLowerArm', 0, 0.9, 0);
-      set('leftLowerArm', 0, -0.9, 0);
-      rig.body.position.y = -0.55;
-    }
+    // legs and hands are placed after the pose (sitPose); here only how low the hips sit and the feet
+    const f = rig.root.userData.gender === 'f';
+    set('leftFoot', f ? 0.4 : 0.2, 0, 0);
+    set('rightFoot', f ? 0.4 : 0.2, 0, 0);
+    rig.body.position.y = f ? -0.62 : -0.55;
   }
   if (s.dead) {
     rig.body.rotation.x = -Math.PI / 2;
@@ -1360,6 +1399,7 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
       if (r) r.set(-r.x, r.y, -r.z);
     }
   }
+  if (s.sitting && !s.dead) sitPose(vrm, rig.body, rig.root.userData.gender === 'f');
 
   rig.root.userData.bladeDir = undefined;
   rig.root.userData.bladeHilt = undefined;
