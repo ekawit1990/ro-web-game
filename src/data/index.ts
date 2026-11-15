@@ -501,7 +501,8 @@ export function expHard(level: number): number {
 
 /** EXP needed to go from `level` to `level + 1`. Must match exp_to_next() in SQL. */
 export function expToNext(level: number): number {
-  return (Math.floor(15 * Math.pow(level, 1.9)) + 10) * expHard(level);
+  const need = (Math.floor(15 * Math.pow(level, 1.9)) + 10) * expHard(level);
+  return level <= 60 ? Math.floor(need / 2) : need; // Lv 1-60 level up 50% easier
 }
 
 /** Job EXP needed for the next job level. Must match job_exp_to_next() in SQL. */
