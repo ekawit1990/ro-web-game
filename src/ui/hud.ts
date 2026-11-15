@@ -10,7 +10,8 @@ import type { Session } from '../game/session';
 import type { World3D, WorldHooks } from '../three/World3D';
 import { potionPct, setAutoPotionPct, setAutoSpPotionPct, spPotionPct } from '../game/autoPrefs';
 import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
-import { drawLook, itemIcon } from './icons';
+import { drawLook, itemIcon, skillBadge } from './icons';
+import { UI_ICONS } from './uiIcons';
 import { escapeHtml } from './screens';
 
 /** One row of อันดับผู้กล้า (server/src/MapRoom.ts onRanking). */
@@ -307,14 +308,14 @@ export class Hud implements WorldHooks {
       <div class="bi-row"><label>Job Lv. <b id="bi-jlv"></b></label><div class="gauge exp"><i id="bi-jexp"></i></div><span id="bi-jexpt"></span></div>
       <div class="bi-foot"><span>Weight : <b id="bi-w"></b></span><span>Zeny : <b id="bi-z"></b></span></div>
       <div class="bi-menu">
-        <button data-open="equip" title="Alt+Q">สถานะ<i id="bi-pts" class="dot hidden"></i></button>
-        <button data-open="skill" title="Alt+S">สกิล<i id="bi-spts" class="dot hidden"></i></button>
-        <button data-open="inv" title="Alt+E">ไอเท็ม</button>
-        <button data-open="party" title="Alt+Z">ปาร์ตี้</button>
-        <button data-open="guild" title="Alt+G">กิลด์</button>
-        <button data-open="map" title="Tab">แผนที่</button>
-        <button data-open="sit" title="Insert">นั่ง</button>
-        <button data-open="option" title="Esc">ตั้งค่า</button>
+        <button data-open="equip" title="Alt+Q">${UI_ICONS.status}<span>สถานะ</span><i id="bi-pts" class="dot hidden"></i></button>
+        <button data-open="skill" title="Alt+S">${UI_ICONS.skill}<span>สกิล</span><i id="bi-spts" class="dot hidden"></i></button>
+        <button data-open="inv" title="Alt+E">${UI_ICONS.item}<span>ไอเท็ม</span></button>
+        <button data-open="party" title="Alt+Z">${UI_ICONS.party}<span>ปาร์ตี้</span></button>
+        <button data-open="guild" title="Alt+G">${UI_ICONS.guild}<span>กิลด์</span></button>
+        <button data-open="map" title="Tab">${UI_ICONS.map}<span>แผนที่</span></button>
+        <button data-open="sit" title="Insert">${UI_ICONS.sit}<span>นั่ง</span></button>
+        <button data-open="option" title="Esc">${UI_ICONS.option}<span>ตั้งค่า</span></button>
       </div>
       </div>`;
     w.querySelector('.bi-expand')!.addEventListener('click', () => this.setInfoMini(false));
@@ -689,7 +690,7 @@ export class Hud implements WorldHooks {
       const lv = c.skills?.[id] ?? 0;
       const passive = sk.type === 'passive';
       return `<div class="sk-row ${lv ? '' : 'locked'}">
-        <div class="sk-icon" data-skill="${id}" draggable="${!passive && lv > 0}" title="${passive ? 'สกิลติดตัว' : 'ลากไปช่องปุ่มลัด / ดับเบิลคลิกเพื่อใช้'}">${sk.icon}</div>
+        <div class="sk-icon" data-skill="${id}" draggable="${!passive && lv > 0}" title="${passive ? 'สกิลติดตัว' : 'ลากไปช่องปุ่มลัด / ดับเบิลคลิกเพื่อใช้'}">${skillBadge(id)}</div>
         <div class="sk-info" data-skinfo="${id}"><b>${escapeHtml(sk.name)} <span class="sk-more">${this.skOpen === id ? '▴' : 'ⓘ'}</span></b><small>${passive ? 'ติดตัว' : sk.type === 'vend' ? 'ทุกอาชีพ' : `Sp : ${skillSp(sk, Math.max(1, lv))}`}</small></div>
         <div class="sk-lv">Lv : ${lv} / ${sk.maxLevel}</div>
         <button class="up" data-learn="${id}" ${c.skill_points > 0 && lv < sk.maxLevel && (sk.cls === c.cls || sk.cls === 'all') ? '' : 'disabled'}>Lv Up</button>
@@ -792,7 +793,7 @@ export class Hud implements WorldHooks {
     bar.innerHTML = this.hotkeys
       .map((h, i) => {
         let inner = '';
-        if (h?.t === 's' && SKILLS[h.id]) inner = `<span class="em">${SKILLS[h.id].icon}</span>`;
+        if (h?.t === 's' && SKILLS[h.id]) inner = skillBadge(h.id);
         if (h?.t === 'i' && ITEMS[h.id]) {
           const n = this.s.countItem(h.id);
           inner = `<img src="${itemIcon(h.id)}" class="${n ? '' : 'gone'}"/><i>${n}</i>`;
@@ -910,16 +911,16 @@ export class Hud implements WorldHooks {
       </div>`);
     this.root.querySelector('#mini-online')!.addEventListener('click', () => this.toggleRank());
     this.root.querySelector('#mini-cv')!.addEventListener('click', () => this.toggleWorldMap());
-    this.root.insertAdjacentHTML('beforeend', `<button id="guide-btn" class="guide-btn" title="คู่มือ: มอนสเตอร์ อุปกรณ์ การ์ด (Alt+G)"><i>📖</i><span>คู่มือ</span></button>`);
+    this.root.insertAdjacentHTML('beforeend', `<button id="guide-btn" class="guide-btn" title="คู่มือ: มอนสเตอร์ อุปกรณ์ การ์ด (Alt+G)"><i>${UI_ICONS.guide}</i><span>คู่มือ</span></button>`);
     this.root.querySelector('#guide-btn')!.addEventListener('click', () => this.toggleGuide());
     // /auto sits under the guide button (moved out of Basic Info, 2026-11-13)
-    this.root.insertAdjacentHTML('beforeend', `<button id="auto-btn" class="guide-btn auto-btn" title="/auto · ตีและใช้สกิลอัตโนมัติ"><i>⚔️</i><span>ออโต้</span></button>`);
+    this.root.insertAdjacentHTML('beforeend', `<button id="auto-btn" class="guide-btn auto-btn" title="/auto · ตีและใช้สกิลอัตโนมัติ"><i>${UI_ICONS.auto}</i><span>ออโต้</span></button>`);
     this.root.querySelector('#auto-btn')!.addEventListener('click', () => this.toggleAuto());
     // อันดับผู้กล้า under the auto button (2026-11-13)
-    this.root.insertAdjacentHTML('beforeend', `<button id="rank-btn" class="guide-btn rank-btn" title="อันดับผู้กล้า: เลเวลสูงสุดไล่ลงมา (Alt+R)"><i>🏆</i><span>อันดับ</span></button>`);
+    this.root.insertAdjacentHTML('beforeend', `<button id="rank-btn" class="guide-btn rank-btn" title="อันดับผู้กล้า: เลเวลสูงสุดไล่ลงมา (Alt+R)"><i>${UI_ICONS.rank}</i><span>อันดับ</span></button>`);
     this.root.querySelector('#rank-btn')!.addEventListener('click', () => this.toggleRank());
     // คู่มืออาชีพ: left of the guide button (2026-11-14)
-    this.root.insertAdjacentHTML('beforeend', `<button id="class-btn" class="guide-btn class-btn" title="คู่มืออาชีพ: รายละเอียดอาชีพและสกิล"><i>🎼</i><span>อาชีพ</span></button>`);
+    this.root.insertAdjacentHTML('beforeend', `<button id="class-btn" class="guide-btn class-btn" title="คู่มืออาชีพ: รายละเอียดอาชีพและสกิล"><i>${UI_ICONS.classes}</i><span>อาชีพ</span></button>`);
     this.root.querySelector('#class-btn')!.addEventListener('click', () => this.toggleClasses());
   }
 
@@ -939,7 +940,7 @@ export class Hud implements WorldHooks {
   private toggleClasses() {
     if (this.isOpen('classes')) return this.closeWin('classes');
     if (!this.classTab) this.classTab = this.s.char.cls;
-    const w = this.win('classes', '🎼 คู่มืออาชีพ', 'classes');
+    const w = this.win('classes', 'คู่มืออาชีพ', 'classes');
     if (!w.dataset.wired) {
       w.dataset.wired = '1';
       w.addEventListener('click', (e) => {
@@ -982,7 +983,7 @@ export class Hud implements WorldHooks {
       heal_target: 'ฮีลเพื่อน', buff: 'บัพตัวเอง', buff_target: 'บัพเพื่อน', buff_party: 'บัพปาร์ตี้', revive: 'ชุบชีวิต', passive: 'ติดตัว', vend: 'เปิดร้าน', wall: 'กำแพงไฟ (กดที่พื้น)', ward: 'วงกันประชิด',
     };
     const time = (ms: number) => (ms >= 60000 ? `${+(ms / 60000).toFixed(1)} นาที` : `${+(ms / 1000).toFixed(1)} วิ`);
-    const skills = skillsOf(key).map(([, sk]) => {
+    const skills = skillsOf(key).map(([id, sk]) => {
       const tags = [
         typeName[sk.type] ?? sk.type,
         `Lv สูงสุด ${sk.maxLevel}`,
@@ -994,7 +995,7 @@ export class Hud implements WorldHooks {
         sk.power ? `ธาตุ ${sk.element ? elementLabel(sk.element) : 'ตามอาวุธ'}` : '',
         sk.cls === 'all' ? 'ทุกอาชีพ' : '',
       ].filter(Boolean).map((t) => `<span>${escapeHtml(t)}</span>`).join('');
-      return `<div class="cg-skill"><div class="cg-ic">${sk.icon}</div><div><b>${escapeHtml(sk.name)}</b><div class="cg-tags">${tags}</div><div class="cg-desc">${escapeHtml(sk.desc)}</div></div></div>`;
+      return `<div class="cg-skill"><div class="cg-ic">${skillBadge(id)}</div><div><b>${escapeHtml(sk.name)}</b><div class="cg-tags">${tags}</div><div class="cg-desc">${escapeHtml(sk.desc)}</div></div></div>`;
     }).join('');
     const extra = [
       `HP ${c.hpMod >= 1 ? 'สูง' : 'ต่ำ'} (x${c.hpMod})`,
@@ -1023,7 +1024,7 @@ export class Hud implements WorldHooks {
 
   private toggleRank() {
     if (this.isOpen('rank')) return this.closeWin('rank');
-    this.win('rank', '🏆 อันดับผู้กล้า', 'rank');
+    this.win('rank', 'อันดับผู้กล้า', 'rank');
     this.renderRank(true);
     this.askRank();
   }
@@ -1174,7 +1175,7 @@ export class Hud implements WorldHooks {
       g.pick[g.tab] = pick;
       g.detail = true;
     }
-    this.win('guide', '📖 คู่มือ Music Land', 'guide');
+    this.win('guide', 'คู่มือ Music Land', 'guide');
     this.renderGuide();
     this.fitGuide();
     requestAnimationFrame(this.fitGuide); // after win() places it
@@ -2239,7 +2240,7 @@ export class Hud implements WorldHooks {
   openVend() {
     const lv = this.s.char.skills?.[VEND_SKILL] ?? 0;
     if (lv < 1) return this.toast('ต้องเรียนสกิลเปิดแผงขายของก่อน', 'bad');
-    this.win('vend', '🏪 เปิดแผงขายของ', 'vend');
+    this.win('vend', 'เปิดแผงขายของ', 'vend');
     this.lastSig.vend = '';
     this.renderVend();
   }
