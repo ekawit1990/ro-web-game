@@ -27,6 +27,11 @@ import { bendingStorm, hammerOnBlast, palmMuting, slideDash, vibratoAura } from 
 import { doubleKickBlast, sendOffDash, snareGhost, snareHit, snareStorm, xSlashWave } from './xslash';
 import { MIC_STYLES, buildMic } from './mics';
 import { useBlenderModel } from './blenderProps';
+import { EPIC, epicBless, epicCast, epicCharge, epicImpact, type EpicCtx, type Palette } from './epicfx';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 /** Classes with their own attack moves in vrm.ts (the hit lands when the blow does). */
 const MOVE_CLASSES = new Set<ClassKey>(['drummer', 'guitarist', 'bassist', 'singer']);
@@ -178,6 +183,8 @@ type Effect = (dt: number) => boolean; // false = finished
 
 // one WebGL renderer for the whole session (map switches only swap the scene)
 let renderer: THREE.WebGLRenderer | null = null;
+/** Desktop only: bloom while big skill effects are going off (epicfx.ts), made with the first world. */
+let composer: { c: EffectComposer; render: RenderPass; bloom: UnrealBloomPass } | null = null;
 
 /** Closest camera zoom (the wheel / pinch range is MIN_ZOOM..28). */
 const MIN_ZOOM = 3.2;
@@ -206,6 +213,13 @@ export class World3D {
   /** Camera shake from your own big hits: seconds left and strength. */
   private shakeT = 0;
   private shakeAmp = 0;
+  /** Bloom from skill effects, 0..1, fading out (desktop). */
+  private glowAmt = 0;
+  /** Desktop pool of point lights the skill effects flash (always in the scene so shaders never recompile). */
+  private fxLights: { l: THREE.PointLight; t: number; life: number; power: number }[] = [];
+  /** A coloured flash over the screen for your own big skills. */
+  private screenFlash?: HTMLDivElement;
+  private screenFlashAmt = 0;
 
   private me!: PlayerActor;
   private players = new Map<string, PlayerActor>();
@@ -269,6 +283,21 @@ export class World3D {
     this.overlay = document.createElement('div');
     this.overlay.className = 'world-overlay';
     container.appendChild(this.overlay);
+    if (!PHONE && !composer) {
+      try {
+        // bloom works on the linear picture before tone mapping: only what the effects push past white glows
+        const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+        const c = new EffectComposer(renderer!, rt);
+        const render = new RenderPass(this.scene, this.camera);
+        const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0, 0.45, 1.2);
+        c.addPass(render);
+        c.addPass(bloom);
+        c.addPass(new OutputPass());
+        composer = { c, render, bloom };
+      } catch {
+        composer = null;
+      }
+    }
 
     this.buildScene();
     this.marker = new THREE.Mesh(
@@ -335,6 +364,7 @@ export class World3D {
     this.ac.abort();
     this.unsubs.forEach((u) => u());
     this.overlay.remove();
+    this.screenFlash?.remove();
     renderer?.domElement.remove();
     // free the GPU side of everything on this map (cached models re-upload if the next map uses them):
     // phones reload the page once enough old maps pile up in GPU memory
@@ -382,6 +412,13 @@ export class World3D {
     this.sun.shadow.bias = -0.0005;
     this.sun.shadow.normalBias = 0.02;
     this.scene.add(this.sun, this.sun.target);
+    if (!PHONE) {
+      for (let i = 0; i < 3; i++) {
+        const l = new THREE.PointLight(0xffffff, 0, 9, 1.6);
+        this.scene.add(l);
+        this.fxLights.push({ l, t: 0, life: 1, power: 0 });
+      }
+    }
     this.scene.add(buildGround(this.map));
     preloadMonsters(SPAWNS.filter((sp) => sp.map === this.map.id).map((sp) => sp.monster));
     const props = buildProps(this.map);
@@ -1345,7 +1382,13 @@ export class World3D {
     }
     this.sun.position.copy(this.camTarget).add(this.sunOffset);
     this.sun.target.position.copy(this.camTarget);
-    renderer!.render(this.scene, this.camera);
+    this.tickEpic(dt);
+    if (composer && this.glowAmt > 0.01) {
+      composer.render.scene = this.scene;
+      composer.render.camera = this.camera;
+      composer.bloom.strength = 0.7 * Math.min(1, this.glowAmt);
+      composer.c.render(dt);
+    } else renderer!.render(this.scene, this.camera);
     this.updateOverlay();
   }
 
@@ -1965,6 +2008,22 @@ export class World3D {
       }
     }
     if (a && skill.scale === 'crowd') a.spin = 0.55;
+    // the grand layer under every class's own effects (epicfx.ts): light, flares, shafts, the class motif
+    const pal = this.epicPal(clsOf(skill), msg.skill);
+    if (pal) {
+      const ectx = this.epicCtx(!!a && a === this.me);
+      const support = skill.type === 'buff' || skill.type === 'buff_party' || skill.type === 'buff_target' || skill.type === 'heal_target' || skill.type === 'revive' || skill.type === 'heal';
+      if (support) {
+        const ids = msg.allies?.length ? msg.allies : [msg.target ?? msg.by];
+        ids.forEach((sid, i) => {
+          const t = this.players.get(sid);
+          if (t) setTimeout(() => epicBless(ectx, () => new THREE.Vector3(t.x, 0, t.y), pal), 120 + i * 60);
+        });
+      } else if (a) {
+        epicCast(ectx, () => new THREE.Vector3(a.x, 0, a.y), pal);
+        if (skill.type === 'wall' || skill.type === 'ward') setTimeout(() => epicImpact(ectx, new THREE.Vector3(msg.x, 0.5, msg.y), pal, 0.8), 150);
+      }
+    }
     if (skill.cls === 'keyboardist') {
       this.keyboardFx(a, msg);
       return;
@@ -2307,6 +2366,8 @@ export class World3D {
     msg.hits.forEach((h, i) => {
       setTimeout(() => {
         const m = h.m ? this.monsters.get(h.m) : undefined;
+        const pp = !m && h.p ? this.players.get(h.p) : undefined;
+        if (m || pp) this.epicHit(this.epicPal(clsOf(skill)), mine, m ? new THREE.Vector3(m.x, m.rig.height * 0.55, m.y) : new THREE.Vector3(pp!.x, 0.9, pp!.y), i, msg.hits.length);
         if (!m && h.p) return this.playerNumber(h.p, h.dmg, msg.by, i, c);
         if (!m) return;
         this.floatText(this.top(m).add(new THREE.Vector3(0, (i % 4) * 0.1, 0)), String(h.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
@@ -2363,6 +2424,7 @@ export class World3D {
           this.floatText(this.top(m).add(new THREE.Vector3(0, (i % 4) * 0.1, 0)), String(h.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
           this.flash(m.rig.root, 0x38d4ff);
           m.anim?.hit();
+          this.epicHit(this.epicPal('keyboardist'), mine, new THREE.Vector3(m.x, m.rig.height * 0.55, m.y), i, msg.hits.length);
         } else if (h.p) this.playerNumber(h.p, h.dmg, msg.by, i, 0x38d4ff);
       }, h.at !== undefined ? h.at + 40 : skill.type === 'revive' ? 700 : 300 + i * 110);
     });
@@ -2414,6 +2476,7 @@ export class World3D {
           this.floatText(this.top(m).add(new THREE.Vector3(0, (i % 4) * 0.1, 0)), String(h.dmg), msg.by === this.room.sessionId ? 'skill' : 'other');
           this.flash(m.rig.root, col);
           m.anim?.hit();
+          this.epicHit(this.epicPal('dj', msg.skill), mine, new THREE.Vector3(m.x, m.rig.height * 0.55, m.y), i, msg.hits.length);
         } else if (h.p) this.playerNumber(h.p, h.dmg, msg.by, i, col);
       }, h.at !== undefined ? h.at + 40 : 300 + i * 110);
     });
@@ -2468,6 +2531,84 @@ export class World3D {
       },
       sparkTexture(),
     );
+  }
+
+  /** The context of the grand layer (epicfx.ts): lights, bloom and the screen flash, the flash and shake only for your own skills. */
+  private epicCtx(mine: boolean): EpicCtx {
+    return {
+      scene: this.scene,
+      add: (e) => this.effects.push(e),
+      light: (at, color, power, ms) => this.fxLight(at, color, power, ms),
+      glow: (amount) => {
+        // other players' skills bloom less, so a crowded field doesn't glow all the time
+        this.glowAmt = Math.max(this.glowAmt, mine ? amount : amount * 0.5);
+      },
+      flash: (color, amount) => mine && this.flashScreen(color, amount),
+      shake: (amp) => mine && this.shake(amp),
+    };
+  }
+
+  /** The grand-layer colours of a skill's class (the DJ's take the spell's own colour). */
+  private epicPal(cls: string, skill?: string): Palette | undefined {
+    const p = EPIC[cls];
+    if (!p) return undefined;
+    if (cls === 'dj' && skill) {
+      const c = DJ_FX[SKILLS[skill]?.fx ?? '']?.color;
+      if (c !== undefined) return { ...p, glow: c };
+    }
+    return p;
+  }
+
+  /** Grand-layer impacts for a skill's hits: one per moment (hits close together share one), the last one big. */
+  private epicHit(pal: Palette | undefined, mine: boolean, at: THREE.Vector3, i: number, n: number) {
+    if (!pal) return;
+    const now = performance.now();
+    const last = i === n - 1;
+    if (!last && now - this.lastEpicHit < 90) return;
+    this.lastEpicHit = now;
+    const power = last ? Math.min(1, 0.7 + n * 0.04) : 0.3;
+    epicImpact(this.epicCtx(mine), at, pal, power);
+  }
+  private lastEpicHit = 0;
+
+  private fxLight(at: THREE.Vector3, color: number, power: number, ms: number) {
+    if (!this.fxLights.length) return;
+    // take the dimmest light of the pool
+    const slot = this.fxLights.reduce((a, b) => (b.l.intensity < a.l.intensity ? b : a));
+    slot.l.color.setHex(color);
+    slot.l.position.copy(at);
+    slot.t = 0;
+    slot.life = ms / 1000;
+    slot.power = power * 1.1;
+    slot.l.intensity = slot.power;
+  }
+
+  private flashScreen(color: number, amount: number) {
+    if (!this.screenFlash) {
+      const d = document.createElement('div');
+      d.style.cssText = 'position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;opacity:0;z-index:1';
+      this.container.appendChild(d);
+      this.screenFlash = d;
+    }
+    const c = new THREE.Color(color);
+    const rgb = `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)}`;
+    this.screenFlash.style.background = `radial-gradient(ellipse at center, rgba(255,255,255,0.55) 0%, rgba(${rgb},0.6) 35%, rgba(${rgb},0.15) 75%, rgba(${rgb},0) 100%)`;
+    this.screenFlashAmt = Math.max(this.screenFlashAmt, amount);
+  }
+
+  /** Fade the effect lights, the bloom and the screen flash. */
+  private tickEpic(dt: number) {
+    for (const s of this.fxLights) {
+      if (s.l.intensity <= 0) continue;
+      s.t += dt;
+      const k = s.t / s.life;
+      s.l.intensity = k >= 1 ? 0 : s.power * (1 - k) ** 2;
+    }
+    this.glowAmt = Math.max(0, this.glowAmt - dt * 0.9);
+    if (this.screenFlash) {
+      this.screenFlashAmt = Math.max(0, this.screenFlashAmt - dt * 1.6);
+      this.screenFlash.style.opacity = String(this.screenFlashAmt);
+    }
   }
 
   /** The context the big skill effects in xslash.ts / guitarfx.ts draw with. */
@@ -2539,6 +2680,8 @@ export class World3D {
     sfxWheet(vol());
     let lastWheet = 0;
     a.cast = { start, ms, bar, fill };
+    const epal = this.epicPal(clsOf(skill));
+    if (epal) epicCharge(this.epicCtx(a === this.me), () => new THREE.Vector3(a.x, 0, a.y), epal, ms, () => a.cast?.start === start && !a.dead);
     a.performUntil = start + ms;
     a.combat = COMBAT_TIME;
     a.ready = READY_TIME;
@@ -3155,6 +3298,8 @@ export class World3D {
     const w = this.container.clientWidth || window.innerWidth;
     const h = this.container.clientHeight || window.innerHeight;
     renderer!.setSize(w, h);
+    composer?.c.setPixelRatio(renderer!.getPixelRatio());
+    composer?.c.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
   }
