@@ -7,7 +7,7 @@ import { canvasTexture } from './toon';
  * ground and the characters, lens flares with a wide streak, shock rings, light shafts out of the sky, a dark
  * blast mark that makes the glow stand out on bright ground, and showers of the class's own motif (gold stars
  * for the singer, embers for the guitarist, purple lightning shards for the drummer, emerald hexagons for the
- * bassist, ice-blue crystals for the keyboardist, neon squares and club lasers for the DJ). The desktop also
+ * bassist, ice-blue crystals for the keyboardist, neon squares for the DJ). The desktop also
  * blooms the bright parts of the picture while a skill is going off (World3D, `glow`).
  *
  * Particles of one burst are a single THREE.Points (one draw call); phones get fewer of them, no lights and
@@ -464,46 +464,6 @@ export function groundGlow(ctx: EpicCtx, at: THREE.Vector3, p: Palette, radius: 
   });
 }
 
-/** Club lasers fanning out from the DJ and sweeping (the DJ's touch). */
-export function lasers(ctx: EpicCtx, from: () => THREE.Vector3, ms = 1200, n = 6) {
-  const count = Math.max(3, Math.round(n * (PHONE ? 0.6 : 1)));
-  const group = new THREE.Group();
-  const beams: THREE.Mesh[] = [];
-  for (let i = 0; i < count; i++) {
-    const len = 9;
-    const geo = new THREE.CylinderGeometry(0.025, 0.06, len, 6, 1, true);
-    geo.translate(0, len / 2, 0);
-    const m = new THREE.Mesh(geo, add(new THREE.MeshBasicMaterial({ color: NEON[i % NEON.length], blending: THREE.AdditiveBlending })));
-    const glowGeo = new THREE.CylinderGeometry(0.08, 0.22, len, 6, 1, true);
-    glowGeo.translate(0, len / 2, 0);
-    m.add(new THREE.Mesh(glowGeo, add(new THREE.MeshBasicMaterial({ color: NEON[i % NEON.length], blending: THREE.AdditiveBlending, opacity: 0.35 }))));
-    group.add(m);
-    beams.push(m);
-  }
-  ctx.scene.add(group);
-  let t = 0;
-  const life = ms / 1000;
-  ctx.add((dt) => {
-    t += dt;
-    const k = Math.min(1, t / life);
-    const p = from();
-    group.position.set(p.x, 1.1, p.z);
-    const a = k < 0.12 ? k / 0.12 : 1 - Math.max(0, (k - 0.6) / 0.4);
-    beams.forEach((b, i) => {
-      const yaw = (i / count) * Math.PI * 2 + Math.sin(t * 2.2 + i) * 0.9;
-      const tilt = 0.75 + Math.sin(t * 3.1 + i * 1.7) * 0.4;
-      b.rotation.set(0, 0, 0);
-      b.rotateY(yaw);
-      b.rotateX(tilt);
-      const on = Math.sin(t * 22 + i * 2) > -0.6 ? 1 : 0.3; // strobing
-      (b.material as THREE.MeshBasicMaterial).opacity = a * on;
-      ((b.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = a * on * 0.35;
-    });
-    if (k >= 1) kill(ctx.scene, group);
-    return k < 1;
-  });
-}
-
 /** An upward spiral of light round a point (charging / buffs). */
 export function spiral(ctx: EpicCtx, follow: () => THREE.Vector3, p: Palette, ms = 1200, radius = 0.9) {
   const strands = 3;
@@ -550,7 +510,7 @@ export function spiral(ctx: EpicCtx, follow: () => THREE.Vector3, p: Palette, ms
 
 // ------------------------------------------------------------ the three moments of a skill
 
-/** The moment a skill is let go: light under the caster, a spiral and a burst of the motif, DJ lasers. */
+/** The moment a skill is let go: light under the caster, a spiral and a burst of the motif. */
 export function epicCast(ctx: EpicCtx, follow: () => THREE.Vector3, p: Palette, big = true) {
   const at = follow();
   groundGlow(ctx, at, p, 1.3, 900, false);
@@ -559,7 +519,6 @@ export function epicCast(ctx: EpicCtx, follow: () => THREE.Vector3, p: Palette, 
   motifBurst(ctx, at.clone().setY(0.4), p, 18, { mode: 'up', speed: 2.6, radius: 0.9, life: 1.2, size: 0.34 });
   ctx.light?.(at.clone().setY(1.3), p.glow, big ? 5 : 3, 380);
   ctx.glow?.(big ? 0.6 : 0.35);
-  if (p.motif === 'neon') lasers(ctx, follow, 1300);
 }
 
 /**
@@ -595,7 +554,6 @@ export function epicBless(ctx: EpicCtx, follow: () => THREE.Vector3, p: Palette)
   motifBurst(ctx, at.clone().setY(0.2), p, 22, { mode: 'up', speed: 1.8, radius: 1, life: 1.8, size: 0.32 });
   ctx.light?.(at.clone().setY(1.6), p.glow, 4, 600);
   ctx.glow?.(0.6);
-  if (p.motif === 'neon') lasers(ctx, follow, 1100, 4);
 }
 
 /** Charging a long cast: the motif is pulled in from a ring round the caster, again and again. */
