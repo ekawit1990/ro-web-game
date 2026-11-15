@@ -37,3 +37,9 @@ python tools/blender/optimize_glb.py Meshy.glb public/models/monsters/NewBoss.gl
 ## ทำโมเดลใหม่
 
 คัดลอก `build_dj_scooter.py` เป็น `build_<ชื่อ>.py` แก้ส่วนสร้างรูปทรง แล้วรัน ถ้าปั้นด้วยมือในโปรแกรม Blender ก็ได้: ทำตามกติกาด้านบน แล้ว File → Export → glTF 2.0 (.glb) จากนั้น `gzip -9` ลงใน `public/models/...`
+
+## ที่ใช้ในเกมแล้ว
+
+- `build_guitar.py` → `public/models/weapons/guitar.glb.gz` กีตาร์ตั้งต้นของมือกีตาร์ (5,574 tri, ซันเบิร์สต์ทาสีด้วย vertex color ไม่ใช้ texture)
+  โหลดใน `src/three/bass.ts` (`BLENDER`): ระหว่างรอไฟล์จะวาดกีตาร์จากโค้ดแบบเดิมก่อน แล้วสลับเป็นโมเดล Blender ตำแหน่งมือ/สายสะพายไม่เปลี่ยน
+  โมเดลต้องอยู่ในกรอบเดียวกับ `buildStringed()`: เมตร, คอชี้ +X, จุด 0 ตรงรอยต่อคอกับตัว, หน้ากีตาร์หัน +Z

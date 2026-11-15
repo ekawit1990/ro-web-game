@@ -1,5 +1,54 @@
 import * as THREE from 'three';
 import { BASS_SHAPES, GUITAR_SHAPES, buildShaped } from './guitarShapes';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+/**
+ * Instruments modelled in Blender (tools/blender/build_*.py -> public/models/weapons/*.glb.gz) in
+ * this same frame. Until the file has arrived the instrument is drawn from code as before, then
+ * its meshes are swapped; the hand targets and strap pins never move.
+ */
+const BLENDER: Partial<Record<'bass' | 'guitar', string>> = { guitar: 'guitar' };
+const blenderLoading = new Map<string, Promise<THREE.Object3D | null>>();
+const blenderReady = new Map<string, THREE.Object3D>();
+
+function blenderModel(name: string) {
+  if (!blenderLoading.has(name)) {
+    blenderLoading.set(name, (async () => {
+      try {
+        const base = `${import.meta.env.BASE_URL ?? '/'}models/weapons/`;
+        const res = await fetch(`${base}${name}.glb.gz`);
+        if (!res.ok) return null;
+        let buf = await res.arrayBuffer();
+        const b = new Uint8Array(buf);
+        if (b[0] === 0x1f && b[1] === 0x8b) buf = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+        const gltf = await new GLTFLoader().parseAsync(buf, base);
+        gltf.scene.traverse((o) => {
+          if ((o as THREE.Mesh).isMesh) o.castShadow = true;
+        });
+        blenderReady.set(name, gltf.scene);
+        return gltf.scene;
+      } catch (e) {
+        console.warn('instrument model failed', name, e);
+        return null;
+      }
+    })());
+  }
+  return blenderLoading.get(name)!;
+}
+
+/** Swaps a code-drawn instrument's meshes for the Blender model once it has loaded. */
+function upgrade(g: THREE.Group, name: string) {
+  void blenderModel(name).then((src) => {
+    if (!src) return;
+    for (const c of [...g.children]) {
+      const m = c as THREE.Mesh;
+      if (!m.isMesh) continue;
+      g.remove(m);
+      m.geometry.dispose();
+    }
+    g.add(src.clone());
+  });
+}
 
 /**
  * A detailed electric bass / guitar built from code, at real size in metres.
@@ -111,6 +160,7 @@ export function buildStringed(kind: 'bass' | 'guitar', shape?: string): Stringed
   const sp = SPECS[kind];
   const k = sp.bodyScale;
   const g = new THREE.Group();
+  const model = !shape && BLENDER[kind] ? blenderReady.get(BLENDER[kind]!) : undefined;
   const T = 0.042 * k; // body thickness
 
   // offset-waist body with a long upper horn
@@ -222,6 +272,14 @@ export function buildStringed(kind: 'bass' | 'guitar', shape?: string): Stringed
   g.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) o.castShadow = true;
   });
+  if (model) {
+    // already downloaded: drop what was drawn above and use the Blender model straight away
+    for (const c of [...g.children]) {
+      g.remove(c);
+      (c as THREE.Mesh).geometry?.dispose();
+    }
+    g.add(model.clone());
+  } else if (!shape && BLENDER[kind]) upgrade(g, BLENDER[kind]!);
 
   const grip = new THREE.Object3D();
   grip.position.set(fretX(kind === 'bass' ? 5 : 6), -0.03, face + 0.01);
