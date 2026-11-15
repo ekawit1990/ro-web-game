@@ -120,6 +120,26 @@
     "luk": 3
    },
    "fxColor": "#2fb3a8"
+  },
+  "dj": {
+   "name": "ดีเจ",
+   "desc": "สายเวทย์โจมตี: ร่ายเวทย์วงกว้าง 9 ช่อง สายฟ้า อุกกาบาต หนามดิน พายุหิมะ กำแพงไฟ และบูธกันการโจมตีประชิด",
+   "color": "#8f7dff",
+   "hpMod": 0.85,
+   "spMod": 1.5,
+   "range": 5.5,
+   "attackType": "magic",
+   "projectile": "chord",
+   "startWeapon": "mini_dj",
+   "baseStats": {
+    "str": 1,
+    "agi": 4,
+    "vit": 3,
+    "int": 10,
+    "dex": 7,
+    "luk": 3
+   },
+   "fxColor": "#8f7dff"
   }
  },
  "items": {
@@ -5896,6 +5916,80 @@
    },
    "desc": "ไมค์โครเมียมยุคเก่า หัวทรงรีเซาะร่องบนขาตั้งรูปตัว U ของรางวัลสูงสุดของนักร้อง โจมตีเป็นธาตุศักดิ์สิทธิ์ (ดรอปจากมินิบอส ราชาไร้บัลลังก์แห่งโอเปร่า, มินิบอส จักรพรรดิภูเขาไฟเมทัล, บอส MVP ยมทูตเคียวโลหิต)",
    "element": "holy"
+  },
+  "mini_dj": {
+   "name": "ดีเจคอนโทรลเลอร์จิ๋ว",
+   "type": "weapon",
+   "atk": 6,
+   "matk": 15,
+   "price": 60,
+   "classes": [
+    "dj"
+   ],
+   "color": "#2b2d33",
+   "weight": 60,
+   "slots": 1,
+   "shape": "dj_mini",
+   "desc": "ดีเจคอนโทรลเลอร์ตัวเล็ก 2 แผ่นหมุน พกพาง่าย ใช้ร่ายเวทเสียงได้"
+  },
+  "dj_controller": {
+   "name": "ดีเจคอนโทรลเลอร์ 2 แทร็ก",
+   "type": "weapon",
+   "atk": 13,
+   "matk": 46,
+   "price": 750,
+   "classes": [
+    "dj"
+   ],
+   "color": "#1c1d22",
+   "weight": 60,
+   "slots": 2,
+   "shape": "dj_basic",
+   "desc": "คอนโทรลเลอร์ 2 แทร็กพร้อมมิกเซอร์กลาง แผ่นหมุนใหญ่ จอสีบอกจังหวะ พลังเวทสูง"
+  },
+  "dj_neon": {
+   "name": "ดีเจคอนโทรลเลอร์นีออน \"ไนท์คลับ\"",
+   "type": "weapon",
+   "atk": 24,
+   "matk": 80,
+   "price": 4000,
+   "classes": [
+    "dj"
+   ],
+   "color": "#14141a",
+   "weight": 70,
+   "slots": 1,
+   "shape": "dj_neon",
+   "desc": "คอนโทรลเลอร์สีดำไฟนีออนฟ้าชมพูรอบแผ่นหมุน เปิดเพลงทีไรฟลอร์ระเบิด โจมตีเป็นธาตุลม (ดรอปจากมินิบอส ราชันย์หมึกยักษ์ซาวด์เวฟ, มินิบอส ราชาคริสตัลเสียงก้อง)",
+   "element": "wind",
+   "bonus": {
+    "int": 3,
+    "matkPct": 5,
+    "pvpAtkPct": 5
+   },
+   "mvp": true
+  },
+  "dj_grand": {
+   "name": "ดีเจบูธใหญ่ \"เทศกาลเสียง\"",
+   "type": "weapon",
+   "atk": 32,
+   "matk": 104,
+   "price": 4000,
+   "classes": [
+    "dj"
+   ],
+   "color": "#f2f0ea",
+   "weight": 70,
+   "slots": 1,
+   "shape": "dj_grand",
+   "desc": "ชุดดีเจ 4 แทร็กตัวใหญ่สีขาวขลิบทอง จอกลางกว้าง ใช้เปิดเพลงบนเวทีเทศกาล โจมตีเป็นธาตุไฟ (ดรอปจากมินิบอส ราชาไร้บัลลังก์แห่งโอเปร่า, มินิบอส จักรพรรดิภูเขาไฟเมทัล, บอส MVP ยมทูตเคียวโลหิต)",
+   "element": "fire",
+   "bonus": {
+    "int": 5,
+    "matkPct": 8,
+    "pvpAtkPct": 5
+   },
+   "mvp": true
   }
  },
  "shop": [
@@ -6603,6 +6697,10 @@
     [
      "mic_inst",
      0.08
+    ],
+    [
+     "dj_controller",
+     0.15
     ]
    ],
    "boss": true,
@@ -6828,6 +6926,10 @@
     [
      "mic_inst",
      0.08
+    ],
+    [
+     "dj_controller",
+     0.12
     ]
    ],
    "model": "Big_MushroomKing",
@@ -7903,6 +8005,10 @@
     [
      "mic_silverband",
      0.08
+    ],
+    [
+     "dj_controller",
+     0.3
     ]
    ],
    "model": "Flying_Tribal",
@@ -9586,6 +9692,10 @@
     [
      "mic_stick",
      0.08
+    ],
+    [
+     "dj_neon",
+     0.08
     ]
    ],
    "glow": "#5a3cff",
@@ -9979,6 +10089,10 @@
     ],
     [
      "mic_ball",
+     0.08
+    ],
+    [
+     "dj_neon",
      0.08
     ]
    ],
@@ -10772,6 +10886,10 @@
     [
      "mic_vintage",
      0.08
+    ],
+    [
+     "dj_grand",
+     0.08
     ]
    ],
    "glow": "#c060ff",
@@ -11187,6 +11305,10 @@
     [
      "mic_vintage",
      0.08
+    ],
+    [
+     "dj_grand",
+     0.08
     ]
    ],
    "glow": "#ff6a00",
@@ -11361,6 +11483,10 @@
     ],
     [
      "mic_vintage",
+     0.1
+    ],
+    [
+     "dj_grand",
      0.1
     ]
    ],
@@ -12411,6 +12537,8 @@
   "five_string_bass",
   "mini_keyboard",
   "synth",
+  "mini_dj",
+  "dj_controller",
   "rock_cap"
  ],
  "skills": {
@@ -13140,6 +13268,26 @@
    "castMs": 1000,
    "castDex": true
   },
+  "calm_melody": {
+   "cls": "keyboardist",
+   "name": "ทำนองผ่อนคลาย",
+   "icon": "💙",
+   "type": "buff_party",
+   "maxLevel": 10,
+   "sp": [
+    20,
+    3
+   ],
+   "cooldown": 1000,
+   "buff": {
+    "spRegenPct": 10,
+    "durationSec": 180
+   },
+   "fx": "calm",
+   "castMs": 1000,
+   "castDex": true,
+   "desc": "SP ฟื้นเร็วขึ้น 10% ต่อเลเวล (Lv 10 = เร็วขึ้น 2 เท่า และฟื้นส่วนที่เพิ่มระหว่างต่อสู้ด้วย) ให้ตัวเองและเพื่อนในปาร์ตี้ทุกคนในแผนที่พร้อมกัน นาน 180 วินาที (3 นาที)"
+  },
   "chorus_ward": {
    "cls": "keyboardist",
    "name": "ประสานเสียง",
@@ -13213,6 +13361,215 @@
    "passive": {
     "npcSellPct": 2.5
    }
+  },
+  "dj_edm": {
+   "cls": "dj",
+   "type": "aoe",
+   "magic": true,
+   "maxLevel": 10,
+   "sp": [
+    18,
+    4
+   ],
+   "range": 9,
+   "cooldown": 3000,
+   "power": [
+    70,
+    3
+   ],
+   "radius": 1.5,
+   "square": true,
+   "wavesPerLv": true,
+   "waveMs": 300,
+   "castMs": 5000,
+   "castDex": true,
+   "name": "EDM",
+   "icon": "⚡",
+   "element": "wind",
+   "fx": "dj_lightning",
+   "desc": "ร่ายเวทย์ 5 วินาที (DEX ยิ่งสูงยิ่งร่ายไว ขยับ = ยกเลิก) วางวงแหวนเวทย์ 9 ช่อง (3x3) แล้วสายฟ้าธาตุลมฟาดใส่มอนสเตอร์ทุกตัวในวง ตกลงมา 1 ครั้งต่อเลเวลสกิล (Lv 10 = 10 ครั้ง) ความแรงคิดจาก M.Atk (INT) คูลดาวน์ 3 วินาที"
+  },
+  "dj_cha3": {
+   "cls": "dj",
+   "type": "aoe",
+   "magic": true,
+   "maxLevel": 10,
+   "sp": [
+    18,
+    4
+   ],
+   "range": 9,
+   "cooldown": 3000,
+   "power": [
+    70,
+    3
+   ],
+   "radius": 1.5,
+   "square": true,
+   "wavesPerLv": true,
+   "waveMs": 300,
+   "castMs": 5000,
+   "castDex": true,
+   "name": "3 ช่า",
+   "icon": "☄️",
+   "element": "fire",
+   "fx": "dj_meteor",
+   "status": {
+    "kind": "stun",
+    "chance": 50,
+    "sec": 3
+   },
+   "desc": "ร่ายเวทย์ 5 วินาที (DEX ยิ่งสูงยิ่งร่ายไว ขยับ = ยกเลิก) วางวงแหวนเวทย์ 9 ช่อง (3x3) เรียกฝูงอุกกาบาตยักษ์ธาตุไฟ ตกลงมา 1 ครั้งต่อเลเวลสกิล (Lv 10 = 10 ครั้ง) ความแรงคิดจาก M.Atk (INT) คูลดาวน์ 3 วินาที มอนสเตอร์มีโอกาสมึนงง 50% นาน 3 วินาที (บอสไม่ติด)"
+  },
+  "dj_joja": {
+   "cls": "dj",
+   "type": "aoe",
+   "magic": true,
+   "maxLevel": 10,
+   "sp": [
+    18,
+    4
+   ],
+   "range": 9,
+   "cooldown": 3000,
+   "power": [
+    70,
+    3
+   ],
+   "radius": 1.5,
+   "square": true,
+   "wavesPerLv": true,
+   "waveMs": 300,
+   "castMs": 5000,
+   "castDex": true,
+   "name": "โจ๊ะๆ",
+   "icon": "🪨",
+   "element": "earth",
+   "fx": "dj_spikes",
+   "status": {
+    "kind": "stun",
+    "chance": 50,
+    "sec": 3
+   },
+   "desc": "ร่ายเวทย์ 5 วินาที (DEX ยิ่งสูงยิ่งร่ายไว ขยับ = ยกเลิก) วางวงแหวนเวทย์ 9 ช่อง (3x3) หนามแหลมธาตุดินพุ่งขึ้นจากพื้น ตกลงมา 1 ครั้งต่อเลเวลสกิล (Lv 10 = 10 ครั้ง) ความแรงคิดจาก M.Atk (INT) คูลดาวน์ 3 วินาที มอนสเตอร์มีโอกาสมึนงง 50% นาน 3 วินาที (บอสไม่ติด)"
+  },
+  "dj_chill": {
+   "cls": "dj",
+   "type": "aoe",
+   "magic": true,
+   "maxLevel": 10,
+   "sp": [
+    18,
+    4
+   ],
+   "range": 9,
+   "cooldown": 3000,
+   "power": [
+    70,
+    3
+   ],
+   "radius": 1.5,
+   "square": true,
+   "wavesPerLv": true,
+   "waveMs": 300,
+   "castMs": 5000,
+   "castDex": true,
+   "name": "เบาๆสบายๆ",
+   "icon": "❄️",
+   "element": "water",
+   "fx": "dj_blizzard",
+   "status": {
+    "kind": "freeze",
+    "chance": 80,
+    "sec": 5
+   },
+   "desc": "ร่ายเวทย์ 5 วินาที (DEX ยิ่งสูงยิ่งร่ายไว ขยับ = ยกเลิก) วางวงแหวนเวทย์ 9 ช่อง (3x3) เรียกพายุหิมะธาตุน้ำ ตกลงมา 1 ครั้งต่อเลเวลสกิล (Lv 10 = 10 ครั้ง) ความแรงคิดจาก M.Atk (INT) คูลดาวน์ 3 วินาที มอนสเตอร์มีโอกาสแช่แข็ง 80% นาน 5 วินาที (บอสไม่ติด)"
+  },
+  "dj_love_song": {
+   "cls": "dj",
+   "name": "เพลงรัก",
+   "icon": "💗",
+   "type": "passive",
+   "maxLevel": 10,
+   "passive": {
+    "spRegenPct": 5
+   },
+   "desc": "สกิลติดตัว: SP ฟื้นเร็วขึ้น 5% ต่อเลเวล (Lv 10 = +50%) และฟื้นส่วนที่เพิ่มขึ้นระหว่างต่อสู้ด้วย"
+  },
+  "dj_parade": {
+   "cls": "dj",
+   "name": "รถแห่",
+   "icon": "🔥",
+   "type": "wall",
+   "magic": true,
+   "maxLevel": 10,
+   "sp": [
+    10,
+    2
+   ],
+   "range": 7,
+   "cooldown": 2000,
+   "power": [
+    50,
+    5
+   ],
+   "element": "fire",
+   "knockback": 1,
+   "castMs": 2000,
+   "castDex": true,
+   "fx": "dj_firewall",
+   "wall": {
+    "length": 5,
+    "secPerLv": 1
+   },
+   "desc": "ร่าย 2 วินาที สร้างกำแพงไฟ 5 แท่งขวางตรงมอนสเตอร์ที่เลือก มอนสเตอร์ที่เดินชนกำแพงโดนไฟ (คิดจาก M.Atk) และกระเด็นถอยหลัง 1 ช่อง กำแพงอยู่ได้ 1 วินาทีต่อเลเวล (Lv 10 = 10 วินาที) คูลดาวน์ 2 วินาที"
+  },
+  "dj_serenade": {
+   "cls": "dj",
+   "name": "เปิดเพลงให้สาว",
+   "icon": "🎆",
+   "type": "single",
+   "magic": true,
+   "maxLevel": 10,
+   "sp": [
+    12,
+    3
+   ],
+   "range": 9,
+   "cooldown": 5000,
+   "power": [
+    100,
+    0
+   ],
+   "element": "fire",
+   "bolts": true,
+   "waveMs": 180,
+   "castMs": 5000,
+   "castDex": true,
+   "fx": "dj_firebolt",
+   "desc": "ร่ายเวทย์ 5 วินาที (DEX ยิ่งสูงยิ่งร่ายไว ขยับ = ยกเลิก) แท่งไฟธาตุไฟตกลงมาจากฟ้าใส่มอนสเตอร์ 1 ตัว 1 แท่งต่อเลเวลสกิล (Lv 10 = 10 แท่ง) แท่งละ 100% M.Atk (INT) คูลดาวน์ 5 วินาที"
+  },
+  "dj_booth": {
+   "cls": "dj",
+   "name": "บูทดีเจ",
+   "icon": "🎧",
+   "type": "ward",
+   "maxLevel": 10,
+   "sp": [
+    15,
+    3
+   ],
+   "range": 7,
+   "cooldown": 2000,
+   "castMs": 1000,
+   "castDex": true,
+   "fx": "dj_booth",
+   "ward": {
+    "blocksPerLv": 2,
+    "secPerLv": 5,
+    "radius": 0.75
+   },
+   "desc": "ร่าย 1 วินาที วางวงแหวนเวทย์ 1 ช่องใต้ตัวเองหรือเพื่อนที่เลือก (ใช้ซ้ำ 2 ครั้ง = ใส่ตัวเอง) ใครยืนในวงจะไม่โดนการโจมตีกายภาพระยะประชิด กันได้ 2 ครั้งต่อเลเวล (Lv 10 = 20 ครั้ง) อยู่ได้ 5 วินาทีต่อเลเวล หรือจนกันครบ"
   }
  }
 }

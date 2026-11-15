@@ -7,6 +7,7 @@ import { animateRig, buildVrmCharacter, releaseVrm } from '../three/vrm';
 import { BASS_SHAPES, GUITAR_SHAPES } from '../three/guitarShapes';
 import { STICK_STYLES } from '../three/sticks';
 import { KEYBOARD_STYLES } from '../three/keyboard';
+import { DJ_STYLES } from '../three/djdeck';
 import { MIC_STYLES } from '../three/mics';
 
 const cache = new Map<string, string>();
@@ -102,6 +103,36 @@ export function itemIcon(id: string): string {
       c.lineTo(5 + i * 2.2, 22);
       c.stroke();
     }
+  } else if (item?.shape && DJ_STYLES[item.shape]) {
+    // DJ controller: body, two jog wheels, the mixer screen in the middle
+    if (item.mvp) mvpGlow(c);
+    const k = DJ_STYLES[item.shape];
+    const hex = (n: number) => '#' + n.toString(16).padStart(6, '0');
+    c.fillStyle = hex(k.body);
+    c.fillRect(1, 9, 30, 15);
+    c.strokeStyle = hex(k.trim);
+    c.lineWidth = 0.8;
+    c.strokeRect(1, 9, 30, 15);
+    for (const x of [8, 24]) {
+      c.fillStyle = '#9aa0ab';
+      c.beginPath();
+      c.arc(x, 16.5, 5.6, 0, Math.PI * 2);
+      c.fill();
+      c.fillStyle = '#15171d';
+      c.beginPath();
+      c.arc(x, 16.5, 3.8, 0, Math.PI * 2);
+      c.fill();
+      c.fillStyle = k.glow ? hex(k.glow) : k.accent;
+      c.fillRect(x - 0.6, 13, 1.2, 2);
+    }
+    c.fillStyle = '#0b0d14';
+    c.fillRect(13.5, 11, 5, 11);
+    c.fillStyle = k.accent;
+    c.fillRect(14.3, 12, 3.4, 2.4);
+    c.fillStyle = hex(k.pads[0]);
+    c.fillRect(14.3, 18, 1.4, 2.6);
+    c.fillStyle = hex(k.pads[1 % k.pads.length]);
+    c.fillRect(16.3, 18, 1.4, 2.6);
   } else if (item?.type === 'consumable' && !EMOJI[id]) {
     // potion bottle in the item's colour
     c.fillStyle = '#d9d9d9';

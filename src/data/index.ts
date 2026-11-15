@@ -4,19 +4,19 @@ export type StatKey = 'str' | 'agi' | 'vit' | 'int' | 'dex' | 'luk';
 export const STAT_KEYS: StatKey[] = ['str', 'agi', 'vit', 'int', 'dex', 'luk'];
 export type Stats = Record<StatKey, number>;
 
-export type ClassKey = 'teen' | 'singer' | 'guitarist' | 'drummer' | 'bassist' | 'keyboardist';
+export type ClassKey = 'teen' | 'singer' | 'guitarist' | 'drummer' | 'bassist' | 'keyboardist' | 'dj';
 /** Every new character starts as a Teen (class 1). */
 export const START_CLASS: ClassKey = 'teen';
 /** Class 2 jobs a Teen can change into at the job-change NPC. */
-export const CLASS_KEYS: ClassKey[] = ['singer', 'guitarist', 'drummer', 'bassist', 'keyboardist'];
+export const CLASS_KEYS: ClassKey[] = ['singer', 'guitarist', 'drummer', 'bassist', 'keyboardist', 'dj'];
 
 /** Job change: Base Lv needed, then this many kills of monsters at or above this level. Must match change_job() in SQL. */
 export const JOB_CHANGE = { level: 10, monsterLevel: 10, kills: 30 };
 /**
- * Which town's job-change NPC hands out each class 2 (map id). Drummers change in the desert town,
- * everyone else in Melodia. Must match change_job() in SQL.
+ * Which town's job-change NPC hands out each class 2 (map id). Drummers change in the desert town, the two
+ * magic classes (keyboardist, DJ) in the city of magic, everyone else in Melodia. Must match change_job() in SQL.
  */
-export const JOB_TOWN: Partial<Record<ClassKey, string>> = { drummer: 'desert', keyboardist: 'magic' };
+export const JOB_TOWN: Partial<Record<ClassKey, string>> = { drummer: 'desert', keyboardist: 'magic', dj: 'magic' };
 export const jobTown = (cls: ClassKey) => JOB_TOWN[cls] ?? 'town';
 
 /** บูรพา's account-wide storage: most rows (one per stack, one per piece of equipment). Must match storage_put() in SQL. */
@@ -251,11 +251,15 @@ export interface SpawnDef {
  * revive picks a player who is down (ชุบชีวิต).
  */
 export type SkillType = 'single' | 'aoe' | 'aoe_self' | 'line' | 'heal' | 'heal_target' | 'buff' | 'buff_target' | 'buff_party' | 'revive' | 'passive'
+  /** รถแห่ (DJ): a wall of fire across the target that burns and knocks back monsters walking into it */
+  | 'wall'
+  /** บูทดีเจ (DJ): a 1-tile circle on the ground under you or a friend that stops melee physical hits */
+  | 'ward'
   /** เปิดแผงขายของ: opens the player-shop window instead of going to the server as a skill */
   | 'vend';
-export const targetsPlayer = (s: SkillDef) => s.type === 'heal_target' || s.type === 'buff_target' || s.type === 'revive';
+export const targetsPlayer = (s: SkillDef) => s.type === 'heal_target' || s.type === 'buff_target' || s.type === 'revive' || s.type === 'ward';
 /** Skills aimed at a monster (a 'line' skill only uses it for the direction). */
-export const targetsMonster = (s: SkillDef) => s.type === 'single' || s.type === 'aoe' || s.type === 'line';
+export const targetsMonster = (s: SkillDef) => s.type === 'single' || s.type === 'aoe' || s.type === 'line' || s.type === 'wall';
 
 /** What a skill's damage grows with besides ATK: a stat, or HIT. */
 export type ScaleStat = StatKey | 'hit';
@@ -285,6 +289,8 @@ export interface SkillDef {
     aspdPct?: number; def?: number; stats?: Partial<Record<StatKey, [number, number]>>; blocks?: [number, number]; durationSec: number;
     /** per level: % HIT, % Flee, % of damage reflected at the monster, % faster HP regen, % of party members' damage taken over */
     hitPct?: number; fleePct?: number; reflectPct?: number; regenPct?: number; guardPct?: number;
+    /** per level: % faster SP regen (ทำนองผ่อนคลาย) */
+    spRegenPct?: number;
     /** invisible to players and to monsters that aren't bosses, until you attack */
     stealth?: boolean;
   };
@@ -292,6 +298,8 @@ export interface SkillDef {
   passive?: {
     maxHpPct?: number; maxSpPct?: number; atkPct?: number; matkPct?: number; hit?: number;
     stats?: Partial<Record<StatKey, number>>; flee?: number; def?: number; mdef?: number; regenPct?: number;
+    /** % faster SP regen per level (เพลงรัก) */
+    spRegenPct?: number;
     /** % cheaper at ป้ามะลิ's item shop (ต่อราคาเก่ง) / % more when selling to NPC shops (ปากหวานขายเก่ง) */
     npcBuyPct?: number; npcSellPct?: number;
   };
@@ -316,6 +324,16 @@ export interface SkillDef {
   /** Damage comes down in this many volleys, waveMs apart; every monster in the area at each volley is hit. */
   waves?: number;
   waveMs?: number;
+  /** As `waves`, one volley per skill level (the DJ's EDM / 3 ช่า / โจ๊ะๆ / เบาๆสบายๆ). */
+  wavesPerLv?: boolean;
+  /** 'single': one bolt per skill level falls on the target, waveMs apart (เปิดเพลงให้สาว). */
+  bolts?: boolean;
+  /** Chance (%) that a monster the skill hits is stunned / frozen for `sec` (rolled once per monster per cast; not bosses). */
+  status?: { kind: 'stun' | 'freeze'; chance: number; sec: number };
+  /** 'wall': `length` tiles across the target, lasts secPerLv x level seconds. */
+  wall?: { length: number; secPerLv: number };
+  /** 'ward': a circle of `radius` tiles that stops blocksPerLv x level melee hits, lasts secPerLv x level seconds. */
+  ward?: { blocksPerLv: number; secPerLv: number; radius: number };
   /** Palm muting: pulls monsters in the radius next to you and lowers their Def by defDownPct for debuffSec [Lv 1, per level] seconds. */
   pull?: boolean;
   defDownPct?: number;
@@ -398,6 +416,10 @@ export function castTime(s: SkillDef, dex: number) {
 }
 /** When the first volley of a 'waves' skill lands after it goes off (the notes falling out of the sky). */
 export const WAVE_FALL_MS = 300;
+/** Volleys a 'waves' skill brings down at this level (one per level for the DJ's area spells). */
+export const skillWaves = (s: SkillDef, lv: number) => (s.wavesPerLv ? Math.max(1, lv) : s.waves ?? 0);
+/** Every monster's damage to players is this share of its listed numbers (cut by 30% on 2026-11-15). */
+export const MONSTER_DAMAGE = 0.7;
 
 export const skillsOf = (cls: ClassKey) => Object.entries(SKILLS).filter(([, s]) => s.cls === cls || s.cls === 'all');
 /** Only your own class's skills (and the ones every class has): the job change refunds Teen skills (see change_job in SQL). */

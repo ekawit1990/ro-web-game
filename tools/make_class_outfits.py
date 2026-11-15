@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Builds the five class outfits (streetwear idol style, one colour scheme per class) worn after the job change:
-    public/models/class_<cls>_<m|f>.vrm.gz   cls = singer, guitarist, drummer, bassist, keyboardist
+    public/models/class_<cls>_<m|f>.vrm.gz   cls = singer, guitarist, drummer, bassist, keyboardist, dj
 
 The game grafts the clothes and the body of these files onto the player's own model (like the school uniform), so the
 player keeps their own face and hair. Each file is an existing model whose clothes are recoloured texel by texel:
@@ -34,6 +34,8 @@ SCHEMES = {
     'drummer':     dict(dark='#181b22', light='#2f7bff', vivid='#29a8ff', pale='#cfe2ff'),   # blue / black
     'bassist':     dict(dark='#1b1822', light='#8e4dff', vivid='#b25bff', pale='#e4d4ff'),   # purple / black
     'keyboardist': dict(dark='#1d2742', light='#f4f6fb', vivid='#2f6bff', pale='#f4f6fb'),   # white / blue
+    # 2026-11-15, the user's picture: a white puffer jacket with a lavender tint and blue trims over black
+    'dj':          dict(dark='#17151f', light='#ece8fa', vivid='#6f8dff', pale='#d6cff4'),   # lavender white / black
 }
 
 
@@ -102,7 +104,9 @@ def build_boy(cls, sch, out):
 def build_girl(cls, sch, out):
     v = Vrm(f'{MODELS}/avatar_b.vrm.gz')
     # cropped jacket: black body, class-coloured sleeves (the keyboardist's is white with blue sleeves)
-    paint(v, 'Tops', {'dark': 'light', 'vivid': 'light', 'light': 'vivid'} if cls == 'keyboardist' else {}, sch)
+    roles = {'dark': 'light', 'vivid': 'light', 'light': 'vivid'} if cls == 'keyboardist' else \
+        {'dark': 'light', 'vivid': 'pale', 'light': 'light'} if cls == 'dj' else {}  # the DJ: the whole jacket lavender white
+    paint(v, 'Tops', roles, sch)
     paint(v, 'Bottoms', {'light': 'dark', 'vivid': 'vivid'}, sch)
     paint(v, 'Shoes', {'light': 'pale'}, sch)
     paint(v, 'Body_00_SKIN', {'light': 'pale'}, sch, skin=True)

@@ -285,12 +285,12 @@ declare c public.characters; d public.class_defs; v_town text;
 begin
   c := public._own_char(p_char);
   if c.cls <> 'teen' then raise exception 'เปลี่ยนอาชีพไปแล้ว'; end if;
-  if p_cls not in ('singer', 'guitarist', 'drummer', 'bassist', 'keyboardist') then raise exception 'ไม่มีอาชีพนี้'; end if;
+  if p_cls not in ('singer', 'guitarist', 'drummer', 'bassist', 'keyboardist', 'dj') then raise exception 'ไม่มีอาชีพนี้'; end if;
   if c.level < 10 or c.job_quest < 30 then raise exception 'ยังทำเควสไม่สำเร็จ'; end if;
   -- each class is handed out in its own town (JOB_TOWN in src/data/index.ts): drummers in the desert,
-  -- keyboardists in the city of magic, everyone else in the first town
+  -- keyboardists and DJs in the city of magic, everyone else in the first town
   -- (the town goes into a variable first: inside IF ... THEN, plpgsql would stop at the CASE's own THEN)
-  v_town := case p_cls when 'drummer' then 'desert' when 'keyboardist' then 'magic' else 'town' end;
+  v_town := case p_cls when 'drummer' then 'desert' when 'keyboardist' then 'magic' when 'dj' then 'magic' else 'town' end;
   if c.map <> v_town then
     raise exception 'ต้องเปลี่ยนอาชีพนี้ที่%', case v_town when 'desert' then 'เมืองทะเลทรายตะโพน' when 'magic' then 'เมืองคีย์มนตรา' else 'เมืองเมโลเดีย' end;
   end if;

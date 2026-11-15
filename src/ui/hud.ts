@@ -946,7 +946,7 @@ export class Hud implements WorldHooks {
       : `เปลี่ยนจากวัยรุ่นได้ที่${getMap(jobTown(key)).name} (ครูแนะแนวอาชีพ) เมื่อ Base Lv ${JOB_CHANGE.level} และกำจัดมอนสเตอร์ Lv ${JOB_CHANGE.monsterLevel}+ ครบ ${JOB_CHANGE.kills} ตัว`;
     const typeName: Record<string, string> = {
       single: 'โจมตีเป้าเดียว', aoe: 'โจมตีเป็นวง', aoe_self: 'โจมตีรอบตัว', line: 'โจมตีเป็นแนว', heal: 'ฟื้นฟูตัวเอง',
-      heal_target: 'ฮีลเพื่อน', buff: 'บัพตัวเอง', buff_target: 'บัพเพื่อน', buff_party: 'บัพปาร์ตี้', revive: 'ชุบชีวิต', passive: 'ติดตัว', vend: 'เปิดร้าน',
+      heal_target: 'ฮีลเพื่อน', buff: 'บัพตัวเอง', buff_target: 'บัพเพื่อน', buff_party: 'บัพปาร์ตี้', revive: 'ชุบชีวิต', passive: 'ติดตัว', vend: 'เปิดร้าน', wall: 'กำแพงไฟ', ward: 'วงกันประชิด',
     };
     const time = (ms: number) => (ms >= 60000 ? `${+(ms / 60000).toFixed(1)} นาที` : `${+(ms / 1000).toFixed(1)} วิ`);
     const skills = skillsOf(key).map(([, sk]) => {
