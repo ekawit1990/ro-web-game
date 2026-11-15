@@ -2240,7 +2240,7 @@ export class Hud implements WorldHooks {
   openVend() {
     const lv = this.s.char.skills?.[VEND_SKILL] ?? 0;
     if (lv < 1) return this.toast('ต้องเรียนสกิลเปิดแผงขายของก่อน', 'bad');
-    this.win('vend', '🏪 เปิดแผงขายของ', 'vend');
+    this.win('vend', 'เปิดแผงขายของ', 'vend');
     this.lastSig.vend = '';
     this.renderVend();
   }
