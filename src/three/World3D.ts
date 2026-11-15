@@ -699,7 +699,10 @@ export class World3D {
         // รถแห่: the spot you click, whatever is standing on it
         const id = this.targetingSkill;
         this.cancelTargeting();
-        if (ground) this.sendGroundSkill(id, ground.x, ground.z);
+        // a monster under the cursor counts as the spot it stands on
+        const m = mid ? this.monsters.get(mid) : undefined;
+        if (m && !m.dead) this.sendGroundSkill(id, m.x, m.y);
+        else if (ground) this.sendGroundSkill(id, ground.x, ground.z);
         return;
       }
       if (type === 'revive') {

@@ -774,6 +774,22 @@ export class MapRoom extends Room<{ state: MapState }> {
       const dx = out ? 1 : (gx - p.x) * k;
       const dy = out ? 0 : (gy - p.y) * k;
       Object.assign(aim, { x: Math.min(Math.max(p.x + dx, 0), this.map.w - 0.5), y: Math.min(Math.max(p.y + dy, 0), this.map.h - 0.5) });
+      if (skill.type === 'aoe') {
+        // an area spell sits on the tile grid: an even 4x4 is centred on a grid corner
+        aim.x = Math.round(aim.x);
+        aim.y = Math.round(aim.y);
+      } else if (skill.type === 'single') {
+        // เปิดเพลงให้สาว: the monster standing nearest the spot you clicked
+        let best = '';
+        let bd = 2.5;
+        this.state.monsters.forEach((m, mid) => {
+          const d = dist(aim.x, aim.y, m.x, m.y);
+          if (!m.dead && d < bd && !(MONSTERS[m.key].structure && !this.mayHit(c.sessionId, m))) { bd = d; best = mid; }
+        });
+        if (!best) return c.send('error', { text: 'ไม่มีมอนสเตอร์ตรงจุดที่คลิก' });
+        const m = this.state.monsters.get(best)!;
+        Object.assign(aim, { monster: best, x: m.x, y: m.y });
+      }
     } else if (targetsMonster(skill) && this.state.players.has(msg.target ?? '')) {
       // PVP: an attack skill on another player
       const f = this.state.players.get(msg.target!)!;
@@ -2093,7 +2109,7 @@ export class MapRoom extends Room<{ state: MapState }> {
         if (spRegenPct > 0) p.sp = Math.min(p.maxSp, p.sp + Math.ceil((spTick * spRegenPct) / 100));
         return;
       }
-      const boost = (this.map.safe ? 3 : 1) * (p.sitting ? 2 : 1);
+      const boost = (this.map.safe ? 3 : 1) * (p.sitting ? 4 : 1); // sitting: 4x (was 2x, +100%)
       p.hp = Math.min(p.maxHp, p.hp + Math.ceil(hpTick * boost * (1 + regenPct / 100)));
       p.sp = Math.min(p.maxSp, p.sp + Math.ceil(spTick * boost * (1 + spRegenPct / 100)));
     });

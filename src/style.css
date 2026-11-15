@@ -553,6 +553,21 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .wm-legend i.me { background: #fff; border: 1px solid #000; }
 .wm-legend i.pl { background: #ff7bd5; border-radius: 1px; }
 .wm-legend i.np { background: #ffd54a; border-radius: 1px; }
+button.rw-sort { margin-left: auto; margin-right: 6px; padding: 1px 8px; font-size: 12px; font-weight: 700; }
+button.rw-sort.on { background: linear-gradient(#fff9e6, #f2d58a); color: #1d2533; }
+.req-bad { color: #c0392b; font-weight: 700; }
+button.wm-globe { align-self: flex-end; margin-top: 6px; padding: 5px 12px; font-weight: 700; }
+.rw.globe { width: min(720px, calc(100% - 16px)); }
+.gl-scroll { max-height: min(460px, 68vh); overflow: auto; background: #e8eef7; border: 1px solid #c3cde0; border-radius: 4px; }
+.gl-canvas { position: relative; }
+.gl-canvas svg { position: absolute; left: 0; top: 0; pointer-events: none; }
+.gl-canvas line { stroke: #7a8aa8; stroke-width: 3; stroke-dasharray: 6 4; }
+.gl-box { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-align: center; background: #fff; border: 2px solid #8fa3c4; border-radius: 6px; padding: 2px 4px; font-size: 12px; line-height: 1.15; }
+.gl-box.town { background: #eaf7ea; border-color: #5fae6a; }
+.gl-box small { color: #5b6a85; }
+.gl-box.here { border-color: #e0a100; background: #fff4cf; box-shadow: 0 0 0 3px rgba(224, 161, 0, 0.35); }
+.gl-box em { font-style: normal; font-size: 11px; color: #b36b00; font-weight: 700; }
+.gl-foot { margin-top: 4px; }
 @media (max-width: 520px) and (orientation: portrait) {
   .wm-wrap { flex-direction: column; }
   #wm-cv { width: 100%; }

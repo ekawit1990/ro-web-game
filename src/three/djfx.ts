@@ -105,20 +105,20 @@ function circle() {
   }));
 }
 
-/** The 3x3 target area: nine glowing tiles. */
+/** The 4x4 target area: sixteen glowing tiles. */
 function grid() {
   return (gridTex ??= canvasTexture(256, 256, (c) => {
-    for (let i = 0; i < 9; i++) {
-      const x = (i % 3) * 85 + 4;
-      const y = Math.floor(i / 3) * 85 + 4;
-      const g = c.createRadialGradient(x + 39, y + 39, 4, x + 39, y + 39, 56);
+    for (let i = 0; i < 16; i++) {
+      const x = (i % 4) * 64 + 3;
+      const y = Math.floor(i / 4) * 64 + 3;
+      const g = c.createRadialGradient(x + 29, y + 29, 3, x + 29, y + 29, 42);
       g.addColorStop(0, 'rgba(255,255,255,0.65)');
       g.addColorStop(1, 'rgba(255,255,255,0.12)');
       c.fillStyle = g;
-      c.fillRect(x, y, 78, 78);
+      c.fillRect(x, y, 58, 58);
       c.strokeStyle = 'rgba(255,255,255,0.95)';
       c.lineWidth = 3;
-      c.strokeRect(x, y, 78, 78);
+      c.strokeRect(x, y, 58, 58);
     }
   }));
 }

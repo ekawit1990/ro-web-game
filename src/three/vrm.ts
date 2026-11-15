@@ -501,6 +501,7 @@ export async function buildVrmCharacter(look: Look, hat = ''): Promise<CharRig |
   rig.root.userData.outfit = dressed ? look.outfit : '';
   if (look.cls) rig.root.userData.gear = attachInstrument(vrm, look.cls, 1 / (HEIGHT / h), v0, look.gear);
   rig.root.userData.cls = look.cls;
+  rig.root.userData.gender = look.gender;
   setHat(rig, hat);
   return rig;
 }
@@ -1318,11 +1319,33 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
     b('spine')!.rotation.x += a * 0.15;
   }
   if (s.sitting) {
-    set('leftUpperLeg', -1.5, 0, 0.1);
-    set('rightUpperLeg', -1.5, 0, -0.1);
-    set('leftLowerLeg', 1.5, 0, 0);
-    set('rightLowerLeg', 1.5, 0, 0);
-    rig.body.position.y = -0.55;
+    if (rig.root.userData.gender === 'f') {
+      // girls kneel, sitting on their heels, knees together, hands resting on the knees
+      set('leftUpperLeg', -1.35, 0, -0.04);
+      set('rightUpperLeg', -1.35, 0, 0.04);
+      set('leftLowerLeg', 2.7, 0, 0);
+      set('rightLowerLeg', 2.7, 0, 0);
+      set('leftFoot', 0.4, 0, 0);
+      set('rightFoot', 0.4, 0, 0);
+      set('rightUpperArm', -0.4, 0, 1.2);
+      set('leftUpperArm', -0.4, 0, -1.2);
+      set('rightLowerArm', 0, 0.9, 0);
+      set('leftLowerArm', 0, -0.9, 0);
+      rig.body.position.y = -0.62;
+    } else {
+      // boys sit cross-legged, shins crossed, hands on the knees
+      set('leftUpperLeg', -1.0, 0, 1.1);
+      set('rightUpperLeg', -1.0, 0, -1.1);
+      set('leftLowerLeg', 2.5, 0, 0);
+      set('rightLowerLeg', 2.5, 0, 0);
+      set('leftFoot', 0.2, 0, 0);
+      set('rightFoot', 0.2, 0, 0);
+      set('rightUpperArm', -0.4, 0, 1.2);
+      set('leftUpperArm', -0.4, 0, -1.2);
+      set('rightLowerArm', 0, 0.9, 0);
+      set('leftLowerArm', 0, -0.9, 0);
+      rig.body.position.y = -0.55;
+    }
   }
   if (s.dead) {
     rig.body.rotation.x = -Math.PI / 2;
