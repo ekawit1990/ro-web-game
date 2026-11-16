@@ -235,7 +235,7 @@ export function playRecorded(keys: string | string[], vol = 1, o: RecOpts = {}):
   src.buffer = buf;
   src.playbackRate.value = (o.rate ?? 1) * (1 + (Math.random() * 2 - 1) * (o.jitter ?? 0));
   const g = c.createGain();
-  g.gain.value = Math.min(1.5, vol) * 1.6; // recorded files sit lower than the synth peaks
+  g.gain.value = Math.min(1.5, vol); // files are loudness-normalised on import (tools/import_sounds.py)
   src.connect(g);
   g.connect(sfxBus);
   voices++;

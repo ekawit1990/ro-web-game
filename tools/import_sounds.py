@@ -19,9 +19,11 @@ MAX_SEC = {'skill': 5, 'cast': 4, 'boss': 5, 'mon': 4, 'attack': 1.5, 'sfx': 4}
 def key_of(path):
     rel = path.replace('\\', '/')
     m = re.search(r'(?:^|/)(skill|cast|attack|mon|sfx|boss|music)/([^/]+)$', rel)
-    name = os.path.splitext(os.path.basename(rel))[0].strip().lower()
+    name = os.path.basename(rel).strip().lower()
+    while os.path.splitext(name)[1] in EXT:  # "skill.x_wave.mp3.mp3" (renamed while the download kept its .mp3)
+        name = os.path.splitext(name)[0]
     if m:
-        return f"{m.group(1)}/{os.path.splitext(m.group(2))[0].lower()}"
+        return f"{m.group(1)}/{name}"
     if '.' in name:
         a, b = name.split('.', 1)
         return f'{a}/{b}'
@@ -52,7 +54,7 @@ def convert(src, key):
         af = ('silenceremove=start_periods=1:start_threshold=-50dB,'
               'areverse,silenceremove=start_periods=1:start_threshold=-55dB,areverse,'
               f'atrim=0:{cap},afade=t=out:st={max(0.1, cap - 0.25)}:d=0.25,'
-              'loudnorm=I=-14:TP=-1:LRA=7')
+              'loudnorm=I=-14:TP=-1:LRA=7,alimiter=limit=0.8:level=false')
         args = ['-ac', '1', '-ar', '44100', '-b:a', '96k']
     subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', src, '-af', af, *args, '-map_metadata', '-1', dst], check=True)
     return dst
