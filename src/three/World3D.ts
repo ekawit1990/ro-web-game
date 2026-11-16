@@ -895,7 +895,7 @@ export class World3D {
       this.path = [];
       this.castWait = performance.now() + 1500;
     }
-    this.room.send('skill', { id });
+    this.sendSkill({ id });
   }
 
   /** A skill clicked onto the ground: stop walking first so the cast isn't broken. */
@@ -904,7 +904,7 @@ export class World3D {
     this.pendingSkill = null;
     this.face(this.me, gx, gy);
     if (SKILLS[id]?.castMs) this.castWait = performance.now() + 1500;
-    this.room.send('skill', { id, gx, gy });
+    this.sendSkill({ id, gx, gy });
   }
 
   private startTargeting(id: string) {
@@ -1604,7 +1604,7 @@ export class World3D {
           this.path = [];
           this.face(me, m.x, m.y);
           if (this.pendingSkill) {
-            this.room.send('skill', this.pendingSkill);
+            this.sendSkill(this.pendingSkill);
             this.pendingSkill = null;
             this.lastAttack = time;
           } else if (time - this.lastAttack >= this.session.derived.attackDelay) {
@@ -1628,7 +1628,7 @@ export class World3D {
           this.path = [];
           this.face(me, f.x, f.y);
           if (this.pendingSkill) {
-            this.room.send('skill', this.pendingSkill);
+            this.sendSkill(this.pendingSkill);
             this.pendingSkill = null;
             this.lastAttack = time;
           } else if (time - this.lastAttack >= this.session.derived.attackDelay) {
@@ -1646,7 +1646,7 @@ export class World3D {
           if (!this.path.length) this.walkNear(p.x, p.y, Math.max(1, reach - 0.4));
         } else {
           this.path = [];
-          this.room.send('skill', this.pendingSkill);
+          this.sendSkill(this.pendingSkill);
           this.pendingSkill = null;
         }
       }
@@ -1746,6 +1746,22 @@ export class World3D {
       f.el.style.opacity = String(age > 0.7 ? (1 - age) / 0.3 : 1);
       return true;
     });
+  }
+
+  /**
+   * Sends a skill, first flushing my position: moves go out only every MOVE_SEND_MS, so the last step of the walk
+   * up to the target would otherwise reach the server just after the skill and break its cast (จังหวะส่ง failing
+   * whenever you ran at a monster before using it).
+   */
+  private sendSkill(msg: { id: string; [k: string]: unknown }) {
+    const me = this.me;
+    if (me.x !== this.sentX || me.y !== this.sentY) {
+      this.sentX = me.x;
+      this.sentY = me.y;
+      this.lastSend = this.now;
+      this.room.send('move', { x: me.x, y: me.y });
+    }
+    this.room.send('skill', msg);
   }
 
   /** Effect volume: full for my own actions, quieter with distance for everyone else's. */
