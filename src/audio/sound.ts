@@ -1,8 +1,10 @@
 import type { ClassKey } from '../data';
+import { PHONE } from '../three/device';
 
 /**
- * All game audio is synthesized with the Web Audio API: no sound files to download or license.
- * Music is a small step sequencer; effects are short synth recipes (one per class instrument).
+ * Game audio is synthesized with the Web Audio API (a small step sequencer for music, short synth recipes for
+ * effects). Recorded files (made with ElevenLabs) dropped into src/assets/sounds/ replace any of those sounds
+ * by name: see src/assets/sounds/README.md for the list. A sound without a file keeps its synth recipe.
  * Browsers only allow audio after a click or key press, so `unlockAudio()` is wired to the first one.
  */
 
@@ -57,8 +59,13 @@ function init(): AudioContext | null {
   applyPrefs();
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
-    if (document.hidden) void ctx.suspend();
-    else if (unlocked) void ctx.resume();
+    if (document.hidden) {
+      void ctx.suspend();
+      musicEl?.pause();
+    } else if (unlocked) {
+      void ctx.resume();
+      if (recSong) void musicEl?.play().catch(() => {});
+    }
   });
   return ctx;
 }
@@ -106,6 +113,7 @@ export function unlockAudio() {
   const go = () => {
     const c = init();
     if (!c || document.hidden) return;
+    kickMusic(); // iOS lets a media element play only once it has been started inside a gesture
     if (c.state === 'running' && unlocked) return;
     // a one-sample silent buffer started inside the gesture is what wakes older iOS versions
     const src = c.createBufferSource();
@@ -116,12 +124,188 @@ export function unlockAudio() {
       if (c.state !== 'running') return;
       const first = !unlocked;
       unlocked = true;
-      if (first && pendingSong !== undefined) playMusic(pendingSong);
+      if (first && pendingSong !== undefined) playMusic(pendingSong, pendingFallback);
     };
     if (c.state === 'running') ok();
     else void c.resume().then(ok, () => {});
   };
   for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, go, { capture: true, passive: true });
+}
+
+// ------------------------------------------------------------ recorded sounds (ElevenLabs files)
+
+/**
+ * Every audio file under src/assets/sounds/, keyed by its path without the extension ("skill/x_wave",
+ * "mon/growl_die", "music/town"). Vite only emits the URLs here; a file is fetched the first time it is needed
+ * (or preloaded for the player's own class), so a phone never downloads sounds it doesn't hear.
+ */
+const FILES = import.meta.glob('../assets/sounds/**/*.{mp3,m4a,ogg,wav}', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
+const URLS = new Map<string, string>();
+for (const [path, url] of Object.entries(FILES)) {
+  const m = /sounds\/(.+)\.\w+$/.exec(path);
+  if (m) URLS.set(m[1].toLowerCase(), url);
+}
+/** True once at least one recorded sound ships with the game (then the ElevenLabs credit is shown). */
+export const hasRecordedSounds = () => URLS.size > 0;
+
+const bufs = new Map<string, AudioBuffer>(); // insertion order = least recently used first
+const loading = new Map<string, Promise<AudioBuffer | null>>();
+const failed = new Set<string>();
+// decoded audio is raw PCM in memory: keep phones (iOS kills the tab near its memory cap) to a small set
+const MAX_BUFS = PHONE ? 40 : 120;
+const MAX_VOICES = PHONE ? 10 : 24;
+let voices = 0;
+const lastPlay = new Map<string, number>();
+
+function load(key: string): Promise<AudioBuffer | null> {
+  const url = URLS.get(key);
+  const c = init();
+  if (!url || !c || failed.has(key)) return Promise.resolve(null);
+  const b = bufs.get(key);
+  if (b) {
+    bufs.delete(key);
+    bufs.set(key, b);
+    return Promise.resolve(b);
+  }
+  let p = loading.get(key);
+  if (p) return p;
+  p = fetch(url)
+    .then((r) => {
+      if (!r.ok) throw new Error(String(r.status));
+      return r.arrayBuffer();
+    })
+    // the callback form: older Safari has no promise-returning decodeAudioData
+    .then((a) => new Promise<AudioBuffer>((ok, bad) => c.decodeAudioData(a, ok, bad)))
+    .then((buf) => {
+      bufs.set(key, buf);
+      while (bufs.size > MAX_BUFS) bufs.delete(bufs.keys().next().value as string);
+      return buf;
+    })
+    .catch(() => {
+      failed.add(key);
+      return null;
+    })
+    .finally(() => loading.delete(key));
+  loading.set(key, p);
+  return p;
+}
+
+/** Starts fetching + decoding these sounds (keys or "prefix/" for a whole folder) so their first play isn't the synth. */
+export function preloadSounds(keys: string[]) {
+  if (!URLS.size) return;
+  for (const k of keys) {
+    if (k.endsWith('/')) {
+      for (const key of URLS.keys()) if (key.startsWith(k) && !key.startsWith('music/')) void load(key);
+    } else if (URLS.has(k)) void load(k);
+  }
+}
+
+/** The first of `keys` that has a recorded file. */
+const recKey = (keys: string[]) => keys.find((k) => URLS.has(k) && !failed.has(k));
+
+export interface RecOpts {
+  at?: number; // seconds from now
+  rate?: number; // playback speed (also the pitch)
+  jitter?: number; // +-random rate so repeats don't sound copy-pasted
+  gap?: number; // seconds: the same file won't start again sooner than this
+}
+
+/**
+ * Plays the recorded file for the first of `keys` that has one. Returns true when a file exists (the caller
+ * then stays quiet, even if this one play was throttled), false when the caller should play its synth recipe:
+ * no file at all, or the file is still loading on its very first use.
+ */
+export function playRecorded(keys: string | string[], vol = 1, o: RecOpts = {}): boolean {
+  if (!URLS.size) return false;
+  const key = recKey(Array.isArray(keys) ? keys : [keys]);
+  if (!key) return false;
+  const buf = bufs.get(key);
+  if (!buf) {
+    void load(key);
+    return false;
+  }
+  if (!ready() || vol <= 0) return true;
+  const c = ctx!;
+  const t = c.currentTime;
+  if (t - (lastPlay.get(key) ?? -9) < (o.gap ?? 0.04) || voices >= MAX_VOICES) return true;
+  lastPlay.set(key, t);
+  bufs.delete(key);
+  bufs.set(key, buf);
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.playbackRate.value = (o.rate ?? 1) * (1 + (Math.random() * 2 - 1) * (o.jitter ?? 0));
+  const g = c.createGain();
+  g.gain.value = Math.min(1.5, vol) * 1.6; // recorded files sit lower than the synth peaks
+  src.connect(g);
+  g.connect(sfxBus);
+  voices++;
+  src.onended = () => {
+    voices--;
+    g.disconnect();
+  };
+  src.start(t + 0.01 + (o.at ?? 0));
+  return true;
+}
+
+// recorded music streams through one <audio> element (a decoded 2-minute song would be ~45 MB of PCM)
+let musicEl: HTMLAudioElement | null = null;
+let musicGain: GainNode | null = null;
+let recSong: string | null = null;
+// 0.1 s of silence: what the element plays inside the first gesture so iOS lets it play songs later
+const SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+const hasMusicFiles = () => [...URLS.keys()].some((k) => k.startsWith('music/'));
+
+function musicElement(): HTMLAudioElement | null {
+  if (musicEl || !ctx) return musicEl;
+  const el = new Audio();
+  el.loop = true;
+  el.preload = 'auto';
+  el.setAttribute('playsinline', '');
+  try {
+    const src = ctx.createMediaElementSource(el);
+    musicGain = ctx.createGain();
+    src.connect(musicGain);
+    musicGain.connect(musicBus);
+  } catch {
+    return null;
+  }
+  musicEl = el;
+  return el;
+}
+
+function kickMusic() {
+  if (!hasMusicFiles()) return;
+  const el = musicElement();
+  if (!el) return;
+  if (recSong) {
+    if (el.paused) void el.play().catch(() => {});
+  } else if (!el.src) {
+    el.src = SILENT;
+    void el.play().then(() => !recSong && el.pause(), () => {});
+  }
+}
+
+function playRecordedSong(key: string | null) {
+  if (key === recSong) return;
+  recSong = key;
+  const el = musicElement();
+  if (!el || !musicGain || !ctx) return;
+  const t = ctx.currentTime;
+  musicGain.gain.cancelScheduledValues(t);
+  musicGain.gain.setTargetAtTime(0, t, 0.25);
+  const want = key;
+  setTimeout(() => {
+    if (recSong !== want || !ctx || !musicGain) return;
+    if (!want) {
+      el.pause();
+      return;
+    }
+    el.src = URLS.get(want)!;
+    void el.play().catch(() => {});
+    musicGain.gain.cancelScheduledValues(ctx.currentTime);
+    musicGain.gain.setValueAtTime(0, ctx.currentTime);
+    musicGain.gain.setTargetAtTime(1, ctx.currentTime + 0.1, 0.8);
+  }, key ? 700 : 900);
 }
 
 // ------------------------------------------------------------ synth building blocks
@@ -279,6 +463,7 @@ const ready = () => !!ctx && unlocked && !prefs.muted && ctx.state === 'running'
 /** An attack: a random in-key note on the class instrument. */
 export function sfxAttack(cls: ClassKey, vol = 1) {
   if (!ready() || vol <= 0) return;
+  if (playRecorded(`attack/${cls}`, vol, { jitter: 0.05, gap: 0.06 })) return;
   const inst = INSTRUMENTS[cls] ?? INSTRUMENTS.singer;
   inst(cls === 'drummer' ? Math.floor(Math.random() * 2) : pentaNote(67), now(), cls === 'singer' ? 0.28 : 0.22, vol);
 }
@@ -493,6 +678,9 @@ export function sfxMonster(key: string, model: string, size: number, kind: 'hurt
   const v = voiceOf(model);
   const die = kind === 'die';
   const f = keyPitch(key) / Math.sqrt(Math.max(0.5, size)) * (boss ? 0.7 : 1);
+  // a file just for this monster plays as is; a shared voice file is pitched per monster like the synth is
+  if (playRecorded(`mon/${key}_${kind}`, vol, { jitter: 0.04, gap: die ? 0 : 0.14 })) return;
+  if (playRecorded([...(boss ? [`mon/boss_${kind}`] : []), `mon/${v}_${kind}`], vol, { rate: boss ? 1 : Math.min(1.3, Math.max(0.75, f)), jitter: 0.05, gap: die ? 0 : 0.14 })) return;
   const L = (die ? 2.2 : 1) * (boss ? 1.4 : 1); // length
   const g = (die ? 1.15 : 0.8) * vol;
   switch (v) {
@@ -583,6 +771,7 @@ export function sfxSkill(cls: ClassKey, type: string, vol = 1) {
 
 export function sfx(name: Sfx, vol = 1) {
   if (!ready() || vol <= 0) return;
+  if (playRecorded(`sfx/${name}`, vol, { jitter: name === 'hit' || name === 'crit' || name === 'miss' || name === 'hurt' ? 0.07 : 0, gap: 0.05 })) return;
   const t = now();
   switch (name) {
     case 'hit':
@@ -704,6 +893,7 @@ const SONGS: Record<string, Song> = {
 let song: Song | null = null;
 let songName: string | null = null;
 let pendingSong: string | null | undefined;
+let pendingFallback: string | undefined;
 let step = 0;
 let nextAt = 0;
 let timer: number | undefined;
@@ -744,12 +934,18 @@ function schedule() {
   }
 }
 
-/** Switches the background music ('title', 'town', 'field', or null for silence). */
-export function playMusic(name: string | null) {
+/**
+ * Switches the background music: a map id, 'title', or null for silence. A recorded music/<name> file wins,
+ * then music/<fallback> (e.g. 'town' for every town without its own song), then the synth song of that name.
+ */
+export function playMusic(name: string | null, fallback?: string) {
   pendingSong = name;
+  pendingFallback = fallback;
   if (!ctx || !unlocked) return;
   if (name === songName) return;
   songName = name;
+  const rec = name ? recKey([`music/${name}`, ...(fallback ? [`music/${fallback}`] : [])]) ?? null : null;
+  playRecordedSong(rec);
   // fade out the old song on its own bus, then drop it
   if (songBus) {
     const old = songBus;
@@ -757,7 +953,7 @@ export function playMusic(name: string | null) {
     setTimeout(() => old.disconnect(), 2000);
   }
   songBus = null;
-  song = name ? SONGS[name] ?? null : null;
+  song = name && !rec ? SONGS[name] ?? null : null;
   if (timer) clearInterval(timer);
   timer = undefined;
   if (!song) return;
@@ -948,6 +1144,7 @@ export function sfxBassBuff(vol = 1) {
 /** The reaper's skills: a whooshing slash, a chain rattle, a flame roar, the judgement boom. */
 export function sfxReaper(kind: 'warn' | 'sweep' | 'chain' | 'fire' | 'judge', vol = 1) {
   if (!ready() || vol <= 0) return;
+  if (playRecorded([`boss/reaper_${kind}`, `boss/${kind}`], vol, { gap: 0.2 })) return;
   const t = now();
   if (kind === 'warn') {
     // a low choir-ish drone that rises while the reaper charges
@@ -979,6 +1176,7 @@ export function sfxReaper(kind: 'warn' | 'sweep' | 'chain' | 'fire' | 'judge', v
 /** The MVP fanfare: a bright brass-ish arpeggio up to a held chord with a cymbal. */
 export function sfxMvp(vol = 1) {
   if (!ready() || vol <= 0) return;
+  if (playRecorded('sfx/mvp', vol, { gap: 1 })) return;
   const t = now();
   const notes = [60, 64, 67, 72];
   notes.forEach((n, i) => {
