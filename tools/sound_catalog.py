@@ -160,6 +160,43 @@ M = [
 for key, label, prompt in M:
     add(G, f'music/{key}', label, 90, prompt + MUS, kind='music')
 
+# ---------------------------------------------------------------- "classic 2000s MMORPG" (RO-like) variants
+# The style is described in words only: never name a game, studio or composer (ElevenLabs refuses that, and we
+# must not copy anyone's music).
+RO_FX = ', early 2000s Korean fantasy MMORPG skill sound effect, short and crisp, bright magical sparkle, slightly retro lo-fi 22kHz character, cute anime style, no music, no voice'
+RO_SOFT = ', early 2000s Korean fantasy MMORPG buff sound effect, light twinkling chimes and soft magical shimmer, slightly retro lo-fi, cute anime style, no music, no voice'
+RO_MON = ', cute cartoonish monster sound from an early 2000s anime MMORPG, short and bouncy, slightly retro lo-fi, no music, no speech'
+RO_UI = ', early 2000s anime MMORPG UI sound, simple bright retro chime, no voice'
+RO_MUS = {
+    'title': 'Nostalgic early 2000s Korean fantasy MMORPG title theme, gentle orchestral strings, warm acoustic guitar and flute, bittersweet and dreamy, slightly retro MIDI-like sound, 85 BPM.',
+    'town': 'Cheerful early 2000s fantasy MMORPG capital town theme, bouncy 3/4 waltz, accordion, pizzicato strings, flute and glockenspiel, warm and nostalgic, slightly retro MIDI-like sound, 110 BPM.',
+    'desert': 'Early 2000s fantasy MMORPG desert town theme, exotic Middle Eastern scale on oud and flute, hand drums and tambourine, playful and warm, slightly retro MIDI-like sound, 100 BPM.',
+    'magic': 'Early 2000s fantasy MMORPG magic city theme, harpsichord and music box, soft choir pad and celesta, mysterious and elegant, slightly retro MIDI-like sound, 90 BPM.',
+    'field': 'Upbeat early 2000s fantasy MMORPG field theme, acoustic guitar strumming, fiddle and tin whistle melody, light drums, adventurous and carefree, slightly retro MIDI-like sound, 125 BPM.',
+    'forest': 'Early 2000s fantasy MMORPG forest theme, soft flute and harp over gentle strings, birdsong-like woodwinds, peaceful and a little mysterious, slightly retro MIDI-like sound, 100 BPM.',
+    'marsh': 'Early 2000s fantasy MMORPG swamp theme, quirky bassoon and clarinet, plucked low strings, slightly spooky but playful, slightly retro MIDI-like sound, 95 BPM.',
+    'canyon': 'Early 2000s fantasy MMORPG canyon theme, driving rock drums with electric guitar and strings, heroic and energetic, slightly retro MIDI-like sound, 135 BPM.',
+    'snow': 'Early 2000s fantasy MMORPG snow village theme, sleigh bells, celesta and soft strings, cozy and wintry, slightly retro MIDI-like sound, 105 BPM.',
+    'volcano': 'Early 2000s fantasy MMORPG lava dungeon theme, heavy electric guitar riff with dark strings and pounding toms, tense, slightly retro MIDI-like sound, 150 BPM.',
+    'beach': 'Early 2000s fantasy MMORPG seaside town theme, ukulele, steel drums and light bossa nova groove, sunny and relaxed, slightly retro MIDI-like sound, 115 BPM.',
+    'cave': 'Early 2000s fantasy MMORPG cave dungeon theme, echoing bells, slow bass ostinato and eerie synth pad, tense and mysterious, slightly retro MIDI-like sound, 90 BPM.',
+    'deadwood': 'Early 2000s fantasy MMORPG haunted forest dungeon theme, creepy music box, harpsichord and low strings, spooky, slightly retro MIDI-like sound, 100 BPM.',
+    'ruins': 'Early 2000s fantasy MMORPG ruined castle dungeon theme, gothic pipe organ, choir pad and dramatic strings, dark and grand, slightly retro MIDI-like sound, 115 BPM.',
+    'inferno': 'Early 2000s fantasy MMORPG deep hell dungeon theme, fast metal guitars, double kick drums and dark synth strings, intense, slightly retro MIDI-like sound, 165 BPM.',
+    'abyss': 'Early 2000s fantasy MMORPG final boss theme, dramatic choir, pipe organ, crashing drums and electric guitar, frantic and dark, slightly retro MIDI-like sound, 150 BPM.',
+    'pvp': 'Early 2000s fantasy MMORPG guild war siege theme, marching snare drums, brass fanfare and electric guitar, heroic and urgent, slightly retro MIDI-like sound, 140 BPM.',
+}
+for c in C:
+    if c['kind'] == 'music':
+        c['prompt_ro'] = RO_MUS[c['key'].split('/')[1]] + MUS
+    else:
+        p = c['prompt']
+        for a, b in ((FX, RO_FX), (SOFT, RO_SOFT), (MON, RO_MON), (UI, RO_UI)):
+            if p.endswith(a):
+                p = p[: -len(a)] + b
+                break
+        c['prompt_ro'] = p.replace('colossal', 'big').replace('enormous', 'big').replace('brutal', 'sharp')
+
 here = os.path.dirname(os.path.abspath(__file__))
 root = os.path.dirname(here)
 json.dump(C, open(os.path.join(here, 'sound_catalog.json'), 'w'), ensure_ascii=False, indent=1)
@@ -171,7 +208,7 @@ g = None
 for c in C:
     if c['group'] != g:
         g = c['group']
-        out += ['', f'## {g}', '', '| ไฟล์ | อะไร | ยาว (วิ) | Prompt |', '|---|---|---|---|']
-    out.append(f"| `{c['key']}` | {c['label']} | {c['seconds']} | {c['prompt']} |")
+        out += ['', f'## {g}', '', '| ไฟล์ | อะไร | ยาว (วิ) | Prompt อลังการ | Prompt แนว MMORPG ยุค 2000 (คล้าย RO) |', '|---|---|---|---|---|']
+    out.append(f"| `{c['key']}` | {c['label']} | {c['seconds']} | {c['prompt']} | {c['prompt_ro']} |")
 open(os.path.join(root, 'src/assets/sounds/README.md'), 'w').write('\n'.join(out) + '\n')
 print(len(C), 'sounds')
