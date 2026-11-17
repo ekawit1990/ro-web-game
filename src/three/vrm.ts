@@ -35,12 +35,34 @@ const buffers = new Map<string, Promise<ArrayBuffer>>();
 const loader = new GLTFLoader();
 loader.register((parser) => new VRMLoaderPlugin(parser));
 
+/**
+ * The model list. A failed fetch (no connection for a moment, the site being re-deployed) is not kept:
+ * the next character asks again, instead of every character staying the blocky built-in one until a reload (2026-11-17).
+ */
 export function vrmCatalog(): Promise<VrmCatalog | null> {
-  catalog ??= fetch(`${BASE}models.json`)
+  if (catalog) return catalog;
+  const p = fetchRetry(`${BASE}models.json`)
     .then((r) => (r.ok ? r.json() : null))
     .then((c) => (c && (c.m?.length || c.f?.length) ? c : null))
     .catch(() => null);
-  return catalog;
+  catalog = p;
+  p.then((c) => {
+    if (!c && catalog === p) catalog = null;
+  });
+  return p;
+}
+
+/** fetch with two more tries (0.8 s, 2.4 s) when the network or the server fails. */
+async function fetchRetry(url: string): Promise<Response> {
+  for (let i = 0; ; i++) {
+    try {
+      const r = await fetch(url);
+      if (r.ok || r.status === 404 || i >= 2) return r;
+    } catch (e) {
+      if (i >= 2) throw e;
+    }
+    await new Promise((res) => setTimeout(res, 800 * 3 ** i));
+  }
 }
 
 /** How many VRM models the creator can pick from for a gender (0 = built-in characters). */
@@ -60,11 +82,13 @@ function modelFor(cat: VrmCatalog, look: Look): string | null {
 async function parse(file: string): Promise<VRM> {
   let buf = buffers.get(file);
   if (!buf) {
-    buf = fetch(BASE + file).then((r) => {
+    buf = fetchRetry(BASE + file).then((r) => {
       if (!r.ok) throw new Error(`${file}: ${r.status}`);
       return r.arrayBuffer();
     }).then(gunzip);
     buffers.set(file, buf);
+    // a failed download is not remembered: the next character with this model tries again
+    buf.catch(() => buffers.get(file) === buf && buffers.delete(file));
   }
   const data = await buf;
   const gltf = await loader.parseAsync(data, BASE);
