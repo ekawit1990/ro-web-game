@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { defineRoom, defineServer, listen } from 'colyseus';
+import { WebSocketTransport, defineRoom, defineServer, listen } from 'colyseus';
 import { applyOverrides, fetchOverrides } from '../../src/data/overrides.ts';
 import { MAP_IDS } from '../../src/game/maps.ts';
 import { setupAuthRoutes } from './auth.ts';
@@ -42,6 +42,9 @@ if (url && serviceKey) {
 
 // one room per map: "town", "field"
 const server = defineServer({
+  // Bandwidth (Render bills outbound traffic): compress what goes to the browsers (permessage-deflate; every browser
+  // supports it). Small messages aren't worth the CPU: only ones over 128 bytes get compressed.
+  transport: new WebSocketTransport({ perMessageDeflate: { threshold: 128, concurrencyLimit: 4 } }),
   rooms: Object.fromEntries(MAP_IDS.map((id) => [id, defineRoom(MapRoom, { map: id })])),
   // username/password accounts and "forgot password" (see auth.ts)
   express: (app) => setupAuthRoutes(app, url, serviceKey),

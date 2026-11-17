@@ -610,6 +610,15 @@ export class World3D {
     this.players.delete(a.id);
   }
 
+  /** A monster the server stopped sending (it is far away now, see VIEW_OUT in server/src/MapRoom.ts). */
+  private destroyMonster(m: MonsterActor) {
+    this.scene.remove(m.rig.root);
+    m.label.el.remove();
+    this.hits = this.hits.filter((h) => h !== m.hit);
+    this.monsters.delete(m.id);
+    if (this.target?.kind === 'monster' && this.target.id === m.id) this.target = null;
+  }
+
   private makeMonster(id: string, rm: RemoteMonster): MonsterActor {
     const def = MONSTERS[rm.key];
     const rig = buildMonster(rm.key);
@@ -627,7 +636,7 @@ export class World3D {
     if (def.mvp) label.el.classList.add('mvp');
     const m: MonsterActor = {
       id, key: rm.key, rig, x: rm.x, y: rm.y, dead: rm.dead, hp: rm.hp, maxHp: rm.maxHp, phase: Math.random() * 6, moving: false, label, hit,
-      fade: rm.dead ? 0 : 1,
+      fade: 0, // grows in (also when it walks into view: the server only sends monsters near us)
     };
     rig.root.visible = !rm.dead;
     this.monsters.set(id, m);
@@ -1512,6 +1521,8 @@ export class World3D {
 
   private syncMonsters(state: RemoteState, dt: number, t: number) {
     const k = Math.min(1, dt * 10);
+    // the server only sends the monsters near us: ones that dropped out of its list are far away now
+    for (const m of this.monsters.values()) if (!state.monsters.get(m.id)) this.destroyMonster(m);
     state.monsters.forEach((rm, id) => {
       const m = this.monsters.get(id) ?? this.makeMonster(id, rm);
       if (rm.dead && !m.dead) {

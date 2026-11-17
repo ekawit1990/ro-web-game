@@ -1,5 +1,5 @@
 import { Room, type Client } from 'colyseus';
-import { schema, t, type SchemaType } from '@colyseus/schema';
+import { StateView, schema, t, type SchemaType } from '@colyseus/schema';
 import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ENDOW_SEC, ITEMS, type Element, elementMult, monsterElement, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
   STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, HEALER_BUFF_SEC, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
@@ -15,6 +15,17 @@ import { Guilds } from './guild.ts';
 import { BOT_COUNT, RoomBots, isBot, type BotHost, type BotPlayer } from './bots.ts';
 
 const TICK_MS = 50;
+/**
+ * Bandwidth (Render bills outbound traffic): state goes out 10 times a second, not the default 20 (the browser
+ * glides between updates anyway), and each player only gets the monsters near them (see updateViews).
+ */
+const PATCH_MS = 100;
+/** A monster enters a player's view within VIEW_IN tiles and leaves it past VIEW_OUT (the gap stops flicker at the edge). */
+const VIEW_IN = 30;
+const VIEW_OUT = 35;
+const VIEW_MS = 400;
+/** Positions ride the wire as 16-bit numbers (0.004 tile steps) instead of 8-byte floats; maps are at most 128 tiles. */
+const coord = () => t.quantized({ min: -8, max: 248 });
 const TILE_PX = 32; // moveSpeed is in pixels/second at this tile size
 
 export const PlayerState = schema({
@@ -29,8 +40,8 @@ export const PlayerState = schema({
   weapon: t.string(), // equipped weapon item id ('' = bare hands), for drawing
   ear: t.string(), // equipped headphones item id, for drawing
   body: t.string(), // equipped outfit item id (armor with a VRoid model, '' = none): the character's look
-  x: t.number(),
-  y: t.number(),
+  x: coord(),
+  y: coord(),
   hp: t.number(),
   maxHp: t.number(),
   sp: t.number(),
@@ -45,8 +56,8 @@ export type PlayerState = SchemaType<typeof PlayerState>;
 
 export const MonsterState = schema({
   key: t.string(),
-  x: t.number(),
-  y: t.number(),
+  x: coord(),
+  y: coord(),
   hp: t.number(),
   maxHp: t.number(),
   dead: t.boolean(),
@@ -56,7 +67,8 @@ export type MonsterState = SchemaType<typeof MonsterState>;
 export const MapState = schema({
   map: t.string(),
   players: t.map(PlayerState),
-  monsters: t.map(MonsterState),
+  // each player only receives the monsters near them (client.view, see updateViews)
+  monsters: t.map(MonsterState).view(),
 }, 'MapState');
 export type MapState = SchemaType<typeof MapState>;
 
@@ -361,6 +373,8 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.onMessage('ranking', (c) => this.onRanking(c));
 
     this.setSimulationInterval((dt) => this.tick(dt), TICK_MS);
+    this.setPatchRate(PATCH_MS);
+    this.clock.setInterval(() => this.updateViews(), VIEW_MS);
     this.clock.setInterval(() => this.regen(), 2000);
     this.clock.setInterval(() => this.saveAll(), 30000);
     this.clock.setInterval(() => this.sendOnline(), 5000);
@@ -406,6 +420,10 @@ export class MapRoom extends Room<{ state: MapState }> {
     });
     this.state.players.set(client.sessionId, p);
     this.seats.set(client.sessionId, seat);
+    // the monster list itself is always sent (even empty, as in town: the browser expects it), then only its near monsters
+    client.view = new StateView();
+    client.view.add(this.state.monsters);
+    this.updateView(client, p);
     if (carry.endow && carry.endow.until > Date.now() && ITEMS[carry.endow.item]?.endow) {
       const left = carry.endow.until - Date.now();
       seat.buffs.set(ENDOW_KEY(carry.endow.item), { until: this.now + left, endow: ITEMS[carry.endow.item].endow });
@@ -449,6 +467,25 @@ export class MapRoom extends Room<{ state: MapState }> {
     }
     // a portal already saved the new map; don't overwrite it
     if (seat && p && !arrivals.has(seat.char.id)) await this.save(seat, p).catch((e) => console.warn('save failed', e.message));
+  }
+
+  /** Bandwidth: each player gets the monsters within VIEW_IN tiles; ones that wander past VIEW_OUT drop out of their state. */
+  private updateViews() {
+    for (const [sid, seat] of this.seats) {
+      const p = this.state.players.get(sid);
+      if (p) this.updateView(seat.client, p);
+    }
+  }
+
+  private updateView(client: Client, p: PlayerState) {
+    const view = client.view;
+    if (!view) return;
+    this.state.monsters.forEach((m) => {
+      const d = dist(m.x, m.y, p.x, p.y);
+      const has = view.has(m);
+      if (!has && d <= VIEW_IN) view.add(m);
+      else if (has && d > VIEW_OUT) view.remove(m);
+    });
   }
 
   /** Everyone online across all maps; only sent when the number changed. */
