@@ -3,6 +3,7 @@ import { pondShore } from './pond';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { G, type GameMap, type Theme } from '../game/maps';
 import { track } from '../ui/loadProgress';
+import { PHONE } from './device';
 
 /**
  * Trees, bushes, flowers, grass and rocks from Quaternius' Ultimate Stylized Nature pack (CC0),
@@ -207,25 +208,48 @@ function plan(map: GameMap): Spot[] {
   return out;
 }
 
-/** Instanced draw of every spot, one InstancedMesh per model part. */
+/** Side of the square patches the scenery is cut into (tiles). */
+const CELL = 16;
+/** Trees in a patch further than this (tiles, its nearest part about) use the lighter <Tree>_lod model (tools/nature_lod.mjs). */
+const LOD_FROM = PHONE ? 8 : 16;
+const hasLod = (name: string) => /Tree_\d$/.test(name);
+
+/**
+ * Instanced draw of every spot: one InstancedMesh per model part and per CELL x CELL patch of the map.
+ * One mesh for the whole map was always drawn whole (its bounds cover the map), every tree twice a frame
+ * with the shadow pass: millions of triangles on the forest maps (2026-11-17). Cut into patches, three.js
+ * skips the patches off screen and outside the sun's shadow box, and World3D hides the far ones (userData.far).
+ */
 function instance(spots: Spot[], meshes: Map<string, THREE.Mesh[]>, theme: Theme) {
+  const parts = (name: string) => meshes.get(name)!.map((m) => ({ m, lod: undefined as 'hi' | 'lo' | undefined }));
   const g = new THREE.Group();
   g.name = 'nature';
-  const byModel = new Map<string, Spot[]>();
+  const byKey = new Map<string, Spot[]>();
   for (const s of spots) {
     if (!meshes.has(s.model)) continue;
-    if (!byModel.has(s.model)) byModel.set(s.model, []);
-    byModel.get(s.model)!.push(s);
+    const key = `${s.model}|${Math.floor(s.x / CELL)}|${Math.floor(s.z / CELL)}`;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key)!.push(s);
   }
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
-  for (const [name, list] of byModel) {
-    for (const part of meshes.get(name)!) {
+  const pos = new THREE.Vector3(), scale = new THREE.Vector3();
+  for (const [key, list] of byKey) {
+    const name = key.split('|')[0];
+    const small = !/Tree|Rock|Bush/.test(name);
+    const [, cx, cz] = key.split('|').map(Number);
+    const lod = meshes.has(`${name}_lod`);
+    const all = lod ? [...parts(name).map((p) => ({ ...p, lod: 'hi' as const })), ...parts(`${name}_lod`).map((p) => ({ ...p, lod: 'lo' as const }))] : parts(name);
+    for (const { m: part, lod: which } of all) {
       const im = new THREE.InstancedMesh(part.geometry, material(part.userData.mat, theme), list.length);
-      list.forEach((s, i) => im.setMatrixAt(i, m.compose(new THREE.Vector3(s.x, s.y ?? 0, s.z), q.setFromAxisAngle(up, s.rot), new THREE.Vector3(s.s, s.s, s.s))));
-      const small = !/Tree|Rock|Bush/.test(name);
+      list.forEach((s, i) => im.setMatrixAt(i, m.compose(pos.set(s.x, s.y ?? 0, s.z), q.setFromAxisAngle(up, s.rot), scale.setScalar(s.s))));
       im.castShadow = !small;
       im.receiveShadow = true;
       im.computeBoundingSphere();
+      // grass and flowers are tiny: not worth drawing far away
+      im.userData.far = small ? 34 : 0;
+      // close trees full detail, far ones the light copy (World3D switches them, see cullScenery)
+      if (which) Object.assign(im.userData, { cx: (cx + 0.5) * CELL, cz: (cz + 0.5) * CELL, far: which === 'hi' ? LOD_FROM : 0, from: which === 'lo' ? LOD_FROM : 0 });
+      if (which === 'lo') im.visible = false;
       g.add(im);
     }
   }
@@ -235,7 +259,8 @@ function instance(spots: Spot[], meshes: Map<string, THREE.Mesh[]>, theme: Theme
 /** Replaces the placeholder trees and rocks of `props` and scatters grass, flowers and bushes. */
 export async function upgradeNature(props: THREE.Group, map: GameMap, alive: () => boolean) {
   const spots = plan(map);
-  const names = [...new Set(spots.map((s) => s.model))];
+  const used = [...new Set(spots.map((s) => s.model))];
+  const names = [...used, ...used.filter(hasLod).map((n) => `${n}_lod`)];
   const loaded = await Promise.all(names.map(load));
   if (!alive()) return;
   const meshes = new Map<string, THREE.Mesh[]>();

@@ -58,7 +58,8 @@ function strollTarget(map: GameMap, n: NpcLife) {
 }
 
 /** One frame of an NPC's life. `me`: the local player (map units), whom it notices. */
-export function tickNpc(n: NpcLife, map: GameMap, t: number, dt: number, me: { x: number; y: number } | null) {
+/** `animate` false: it still walks and turns, but its bones aren't posed (off screen, or a far one's skipped frame). */
+export function tickNpc(n: NpcLife, map: GameMap, t: number, dt: number, me: { x: number; y: number } | null, animate = true) {
   const near = !!me && Math.hypot(me.x - n.x, me.y - n.y) < NOTICE;
   const away = Math.hypot(n.x - n.home.x, n.y - n.home.y);
   if (near) {
@@ -100,5 +101,5 @@ export function tickNpc(n: NpcLife, map: GameMap, t: number, dt: number, me: { x
   n.rig.root.position.set(n.x, 0, n.y);
   n.rig.root.rotation.y = n.yaw;
   n.label.set(n.x, 0, n.y);
-  animateRig(n.rig, t + n.rig.root.id, { moving, sitting: false, dead: false, attack: 0 });
+  if (animate) animateRig(n.rig, t + n.rig.root.id, { moving, sitting: false, dead: false, attack: 0 });
 }
