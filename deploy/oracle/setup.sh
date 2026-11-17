@@ -11,6 +11,16 @@ ENV_FILE=/etc/music-land.env
 
 [ "$(id -u)" = 0 ] || { echo "Run with sudo"; exit 1; }
 
+echo "== 0/6 Swap (the free E2.1.Micro has only 1 GB of memory)"
+if ! swapon --show | grep -q /swapfile; then
+  fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+free -m
+
 echo "== 1/6 Installing Docker and git"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
@@ -30,10 +40,11 @@ if [ ! -s "$ENV_FILE" ]; then
   read -rs KEY < /dev/tty
   echo
   [ -n "$KEY" ] || { echo "No key given"; exit 1; }
-  printf 'SUPABASE_URL=%s\nSUPABASE_SERVICE_ROLE_KEY=%s\nPORT=2567\n' "$SUPABASE_URL" "$KEY" > "$ENV_FILE"
+  printf 'SUPABASE_URL=%s\nSUPABASE_SERVICE_ROLE_KEY=%s\nPORT=2567\nNODE_OPTIONS=--max-old-space-size=512\n' "$SUPABASE_URL" "$KEY" > "$ENV_FILE"
   chmod 600 "$ENV_FILE"
 else
   echo "(kept the key in $ENV_FILE)"
+  grep -q NODE_OPTIONS "$ENV_FILE" || echo 'NODE_OPTIONS=--max-old-space-size=512' >> "$ENV_FILE"
 fi
 
 echo "== 4/6 Getting the game code"
@@ -43,7 +54,7 @@ else git clone -q --depth 1 "$REPO" "$DIR"; fi
 echo "== 5/6 Building and starting the game server"
 docker build -q -t music-land-server "$DIR"
 docker rm -f music-land-server >/dev/null 2>&1 || true
-docker run -d --name music-land-server --restart unless-stopped --env-file "$ENV_FILE" -p 127.0.0.1:2567:2567 music-land-server >/dev/null
+docker run -d --name music-land-server --restart unless-stopped --memory 700m --memory-swap 1500m --env-file "$ENV_FILE" -p 127.0.0.1:2567:2567 music-land-server >/dev/null
 
 echo "== 6/6 HTTPS (wss://) with a free automatic certificate"
 IP=$(curl -fsS https://api.ipify.org)
