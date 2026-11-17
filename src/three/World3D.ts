@@ -189,6 +189,17 @@ let composer: { c: EffectComposer; render: RenderPass; bloom: UnrealBloomPass } 
 /** Closest camera zoom (the wheel / pinch range is MIN_ZOOM..28). */
 const MIN_ZOOM = 3.2;
 
+/**
+ * Resolution that follows the frame rate (2026-11-17): a device that can't keep up draws fewer pixels
+ * (down to DPR_MIN), and goes back up once it has run smoothly for a while. Kept between maps.
+ */
+const DPR_MAX = Math.min(PHONE ? 1.5 : 2, window.devicePixelRatio || 1);
+const DPR_MIN = Math.min(DPR_MAX, 1);
+let dprNow = DPR_MAX;
+const fps = { time: 0, frames: 0, good: 0, slow: 0 };
+/** Still slow at the lowest resolution: no bloom and no effect lights from then on (desktop extras). */
+let lite = false;
+
 export class World3D {
   private session: Session;
   private room: Room;
@@ -256,6 +267,13 @@ export class World3D {
   private staticLabels: { el: HTMLElement; pos: THREE.Vector3 }[] = [];
   private marker: THREE.Mesh;
   private animated: THREE.Object3D[] = [];
+  /** What the camera saw last frame (actors outside it aren't drawn or animated), see seen(). */
+  private frustum = new THREE.Frustum();
+  private viewProj = new THREE.Matrix4();
+  private cullSphere = new THREE.Sphere();
+  private frameNo = 0;
+  /** Scenery that is hidden beyond userData.far tiles from the camera target (grass, flowers). */
+  private farCulled: THREE.Object3D[] = [];
   private unsubs: (() => void)[] = [];
   private ac = new AbortController();
   private hoverMonster: MonsterActor | null = null;
@@ -274,7 +292,7 @@ export class World3D {
 
     if (!renderer) {
       renderer = new THREE.WebGLRenderer({ antialias: !PHONE });
-      renderer.setPixelRatio(Math.min(PHONE ? 1.5 : 2, window.devicePixelRatio));
+      renderer.setPixelRatio(dprNow);
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = PHONE ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
       renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -393,6 +411,9 @@ export class World3D {
     // lava maps see further (the big volcano), the cave and the haunted maps less far
     const [near, far] = isLava(this.map.theme) ? [60, 150] : this.map.theme === 'cave' ? [26, 72] : this.map.theme === 'deadwood' || this.map.theme === 'ruins' || this.map.theme === 'abyss' ? [30, 88] : [42, 105];
     this.scene.fog = new THREE.Fog(this.scene.background, near, far);
+    // nothing past the fog can be seen: don't draw it (the camera used to reach 300 tiles)
+    this.camera.far = far + 10;
+    this.camera.updateProjectionMatrix();
     const mood = MOODS[this.map.theme];
     renderer!.toneMapping = THREE.NeutralToneMapping;
     renderer!.toneMappingExposure = mood.exposure;
@@ -412,7 +433,7 @@ export class World3D {
     this.sun.shadow.bias = -0.0005;
     this.sun.shadow.normalBias = 0.02;
     this.scene.add(this.sun, this.sun.target);
-    if (!PHONE) {
+    if (!PHONE && !lite) {
       for (let i = 0; i < 3; i++) {
         const l = new THREE.PointLight(0xffffff, 0, 9, 1.6);
         this.scene.add(l);
@@ -430,7 +451,12 @@ export class World3D {
     const fountain = this.map.objects.find((o) => o.kind === 'fountain');
     const center = fountain ? { x: fountain.x + 2, y: fountain.y + 2 } : { x: this.map.w / 2, y: this.map.h / 2 };
     void upgradeVillage(props, this.map.objects, center, alive);
-    void upgradeNature(props, this.map, alive);
+    void upgradeNature(props, this.map, alive).then(() => {
+      if (!alive()) return;
+      this.farCulled = [];
+      props.traverse((o) => (o.userData.far || o.userData.from) && this.farCulled.push(o));
+      this.cullScenery();
+    });
 
     for (const n of this.map.npcs) {
       const rig = buildCharacter({ ...n.look });
@@ -1328,8 +1354,90 @@ export class World3D {
 
   // ------------------------------------------------------------ frame
 
+  /**
+   * Is an actor standing at (x, y), `h` tall, in the picture? Off-screen characters and monsters are neither
+   * drawn (nor their shadows) nor animated (2026-11-17): their meshes can't be culled by three.js because skinned
+   * bounds don't follow the animation (frustumCulled = false), so every VRoid on the map was drawn twice a frame.
+   */
+  private seen(x: number, y: number, h = 1.7) {
+    this.cullSphere.center.set(x, h * 0.5, y);
+    this.cullSphere.radius = Math.max(1.4, h * 0.75);
+    return this.frameNo < 2 || this.frustum.intersectsSphere(this.cullSphere);
+  }
+
+  /**
+   * Scenery by distance from the camera target (nature.ts): grass and flowers vanish past userData.far tiles;
+   * a tree patch shows its full model nearer than LOD_FROM (`far`) and its light copy from there on (`from`).
+   */
+  private cullScenery() {
+    const R = 11.3; // half the diagonal of a 16-tile patch
+    for (const o of this.farCulled) {
+      const u = o.userData;
+      let d: number;
+      if (u.cx !== undefined) d = Math.hypot(u.cx - this.camTarget.x, u.cz - this.camTarget.z) - R;
+      else {
+        const sp = (o as THREE.InstancedMesh).boundingSphere;
+        d = sp ? Math.hypot(sp.center.x - this.camTarget.x, sp.center.z - this.camTarget.z) - sp.radius : 0;
+      }
+      o.visible = (!u.far || d < u.far) && (!u.from || d >= u.from);
+    }
+  }
+
+  private adaptResolution(raw: number) {
+    // the first seconds on a map load models and build shaders: not the device's usual speed; a hidden tab pauses
+    if (this.frameNo < 180 || raw > 0.5) return;
+    fps.time += raw;
+    fps.frames++;
+    if (fps.time < 2) return;
+    const rate = fps.frames / fps.time;
+    fps.time = fps.frames = 0;
+    let next = dprNow;
+    if (rate < 45) {
+      fps.good = 0;
+      next = Math.max(DPR_MIN, dprNow - 0.25);
+      if (dprNow === DPR_MIN && !PHONE && !lite && ++fps.slow >= 3) {
+        lite = true;
+        for (const s of this.fxLights) s.l.removeFromParent();
+        this.fxLights = [];
+      }
+    } else if (rate > 57 && ++fps.good >= 5) {
+      fps.good = 0;
+      next = Math.min(DPR_MAX, dprNow + 0.25);
+    }
+    if (next !== dprNow) {
+      dprNow = next;
+      renderer!.setPixelRatio(dprNow);
+      this.resize();
+    }
+  }
+
+  /**
+   * Only characters near the camera target cast a shadow and draw their outline (a VRoid is ~20 meshes,
+   * most drawn a second time for the MToon outline and a third time into the shadow map; further away both
+   * are a pixel or two). Walks the model only when it crosses the line.
+   */
+  private detailNear(root: THREE.Object3D, x: number, y: number) {
+    const near = Math.hypot(x - this.camTarget.x, y - this.camTarget.z) < (PHONE ? 7 : 11);
+    if (root.userData.detailOn === near) return;
+    root.userData.detailOn = near;
+    root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || o.userData.noOutline) return;
+      m.castShadow = near;
+      if (Array.isArray(m.material)) for (const mat of m.material) if ((mat as { isOutline?: boolean }).isOutline) mat.visible = near;
+    });
+  }
+
+  /** Far-away characters move their bones every other frame (they're a few pixels tall). */
+  private animSkip(x: number, y: number, id: number) {
+    return (this.frameNo + id) % 2 === 1 && Math.hypot(x - this.camTarget.x, y - this.camTarget.z) > 15;
+  }
+
   private frame() {
-    const dt = Math.min(0.25, this.clock.getDelta()); // slow devices still walk at the right speed
+    this.frameNo++;
+    const raw = this.clock.getDelta();
+    const dt = Math.min(0.25, raw); // slow devices still walk at the right speed
+    this.adaptResolution(raw);
     this.now += dt * 1000;
     const t = this.now / 1000;
     const state = this.room.state as RemoteState | undefined;
@@ -1340,7 +1448,12 @@ export class World3D {
     }
     // town NPCs: idling at their posts, strolling round them, turning to the player
     const me = this.me ? { x: this.me.x, y: this.me.y } : null;
-    for (const n of this.npcs) tickNpc(n, this.map, t, dt, me);
+    for (const n of this.npcs) {
+      const show = this.seen(n.x, n.y);
+      n.rig.root.visible = show;
+      if (show) this.detailNear(n.rig.root, n.x, n.y);
+      tickNpc(n, this.map, t, dt, me, show && !this.animSkip(n.x, n.y, n.rig.root.id));
+    }
     // ambient animation
     for (const o of this.animated) {
       if (o.name === 'flag') o.rotation.y = Math.sin(t * 2 + o.id) * 0.25;
@@ -1368,7 +1481,7 @@ export class World3D {
     const d = this.dist;
     const near = THREE.MathUtils.smoothstep(d, MIN_ZOOM, 9);
     const pitch = THREE.MathUtils.lerp(0.32, this.pitch, near);
-    this.camTarget.lerp(new THREE.Vector3(this.me.x, THREE.MathUtils.lerp(1.15, 0.8, near), this.me.y), Math.min(1, dt * 8));
+    this.camTarget.lerp(this.labelAt.set(this.me.x, THREE.MathUtils.lerp(1.15, 0.8, near), this.me.y), Math.min(1, dt * 8));
     this.camera.position.set(
       this.camTarget.x + Math.sin(this.yaw) * Math.cos(pitch) * d,
       this.camTarget.y + Math.sin(pitch) * d,
@@ -1382,8 +1495,13 @@ export class World3D {
     }
     this.sun.position.copy(this.camTarget).add(this.sunOffset);
     this.sun.target.position.copy(this.camTarget);
+    // remember what the camera sees: next frame's actors outside it skip drawing and animating
+    this.camera.updateMatrixWorld();
+    this.viewProj.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
+    this.frustum.setFromProjectionMatrix(this.viewProj);
+    if (this.frameNo % 10 === 0) this.cullScenery();
     this.tickEpic(dt);
-    if (composer && this.glowAmt > 0.01) {
+    if (composer && !lite && this.glowAmt > 0.01) {
       composer.render.scene = this.scene;
       composer.render.camera = this.camera;
       composer.bloom.strength = 0.7 * Math.min(1, this.glowAmt);
@@ -1425,7 +1543,8 @@ export class World3D {
       m.maxHp = rm.maxHp;
       // a rigged monster plays its death clip before sinking away; a drawn one squashes flat
       m.fade = Math.max(0, Math.min(1, m.fade + (m.dead ? -dt * (m.burst ? 9 : m.anim ? 0.7 : 2.5) : dt * 2.5)));
-      m.rig.root.visible = m.fade > 0;
+      const inView = this.seen(m.x, m.y, m.rig.height);
+      m.rig.root.visible = m.fade > 0 && inView;
       const kb = m.knock && !m.dead ? knockAmount(m.knock, performance.now()) * m.knock.dist : 0;
       if (m.knock && !kb && performance.now() - m.knock.at >= KNOCK_MS) m.knock = undefined;
       m.rig.root.position.set(m.x + (m.knock?.dx ?? 0) * kb, 0, m.y + (m.knock?.dy ?? 0) * kb);
@@ -1433,12 +1552,13 @@ export class World3D {
       const held = !m.dead && (m.stunUntil ?? 0) > performance.now();
       if (m.anim) {
         m.rig.root.scale.setScalar(m.dead ? Math.min(1, m.fade * 2.5) : 0.2 + m.fade * 0.8);
-        if (!held) m.anim.update(dt, m.moving && !m.dead);
+        // off screen the clips wait (catching up the time missed when it comes back is not needed)
+        if (!held && inView) m.anim.update(dt, m.moving && !m.dead);
       } else if (held) {
         m.rig.root.scale.set(1, 0.2 + m.fade * 0.8, 1);
       } else {
         m.rig.root.scale.set(1, 0.2 + m.fade * 0.8, 1);
-        animateMonster(m.rig, m.key, t, m.phase, m.moving);
+        if (inView) animateMonster(m.rig, m.key, t, m.phase, m.moving);
       }
     });
   }
@@ -1465,7 +1585,8 @@ export class World3D {
         }
         if (a === this.me) for (const o of this.players.values()) o.label.el.classList.toggle('foe', this.pvp && this.hostile(o.id));
       }
-      a.label.el.classList.toggle('foe', this.pvp && this.hostile(id));
+      const foe = this.pvp && this.hostile(id);
+      if (a.label.el.classList.contains('foe') !== foe) a.label.el.classList.toggle('foe', foe);
       if ((rp.shop ?? '') !== (a.shop ?? '')) this.setShopSign(a, rp.shop ?? '');
       if (a === this.me && a.look !== lookKey(rp)) {
         // our own job change: swap the model in place (keeps the camera and our label)
@@ -1492,7 +1613,7 @@ export class World3D {
           this.hooks.death(rp.dead);
           if (rp.dead) sfx('death');
         }
-        if (a.label.sp) a.label.sp.style.width = `${(rp.sp / Math.max(1, rp.maxSp)) * 100}%`;
+        this.bar(a.label.sp, rp.sp / Math.max(1, rp.maxSp));
       } else {
         a.tx = rp.x;
         a.ty = rp.y;
@@ -1518,8 +1639,11 @@ export class World3D {
         if (a.hidden) this.hideAura(a);
       }
       // hidden players aren't drawn for anyone else; we still see ourselves (with a purple haze)
-      a.rig.root.visible = !a.hidden || a === this.me;
-      a.label.el.style.visibility = a.hidden && a !== this.me ? 'hidden' : '';
+      const inView = a === this.me || this.seen(a.x, a.y);
+      a.rig.root.visible = (!a.hidden || a === this.me) && inView;
+      if (inView) this.detailNear(a.rig.root, a.x, a.y);
+      const vis = a.hidden && a !== this.me ? 'hidden' : '';
+      if (a.label.el.style.visibility !== vis) a.label.el.style.visibility = vis;
       a.hp = rp.hp;
       a.maxHp = rp.maxHp;
       setHat(a.rig, rp.head);
@@ -1527,7 +1651,7 @@ export class World3D {
       if (rp.level >= MAX_LEVEL) {
         a.maxAura ??= buildMaxAura();
         if (a.maxAura.parent !== a.rig.root) a.rig.root.add(a.maxAura); // the model was swapped (outfit, job change)
-        animateMaxAura(a.maxAura, performance.now() / 1000);
+        if (inView) animateMaxAura(a.maxAura, performance.now() / 1000);
       } else if (a.maxAura) {
         a.maxAura.removeFromParent();
         a.maxAura = undefined;
@@ -1551,10 +1675,10 @@ export class World3D {
           a.rig.root.position.set(a.dash.x + (a.x - a.dash.x) * e, 0, a.dash.y + (a.y - a.dash.y) * e);
         }
       }
-      animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0 || a.ready > 0, armed: a.armed, combo: a.combo, perform: a.perform, ready: a.ready > 0 });
+      if (inView && (a === this.me || !this.animSkip(a.x, a.y, a.rig.root.id))) animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0 || a.ready > 0, armed: a.armed, combo: a.combo, perform: a.perform, ready: a.ready > 0 });
       if (a.cast) {
         const k = Math.min(1, (performance.now() - a.cast.start) / a.cast.ms);
-        a.cast.fill.style.width = `${(k * 100).toFixed(1)}%`;
+        this.bar(a.cast.fill, k);
       }
       if (a.spin && a.spin > 0) {
         a.spin = Math.max(0, a.spin - dt);
@@ -1685,31 +1809,56 @@ export class World3D {
 
   // ------------------------------------------------------------ overlay (names, bars, numbers, bubbles)
 
+  private projTmp = new THREE.Vector3();
+  private labelAt = new THREE.Vector3();
+
   private project(v: THREE.Vector3) {
-    const p = v.clone().project(this.camera);
+    const p = this.projTmp.copy(v).project(this.camera);
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     return { x: (p.x * 0.5 + 0.5) * w, y: (-p.y * 0.5 + 0.5) * h, visible: p.z < 1 && Math.abs(p.x) < 1.2 && Math.abs(p.y) < 1.2 };
   }
 
+  /** Moves a name tag / number over a point. Writes the page only when something changed: style writes every frame for every label were a big part of the frame time with a crowd (2026-11-17). */
   private place(el: HTMLElement, v: THREE.Vector3, show = true) {
-    const p = this.project(v);
-    const vis = show && p.visible;
-    if (vis) el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
+    let vis = false;
+    if (show) {
+      const p = this.project(v);
+      vis = p.visible;
+      if (vis) {
+        const tr = `translate(${p.x.toFixed(0)}px, ${p.y.toFixed(0)}px)`;
+        const e = el as HTMLElement & { _tr?: string };
+        if (e._tr !== tr) {
+          e._tr = tr;
+          el.style.transform = tr;
+        }
+      }
+    }
     if (el.hidden === vis) el.hidden = !vis;
+  }
+
+  /** Sets a bar's width (%), only when it changed. */
+  private bar(el: HTMLElement | undefined, k: number) {
+    if (!el) return;
+    const w = `${Math.round(Math.max(0, Math.min(1, k)) * 1000) / 10}%`;
+    const e = el as HTMLElement & { _w?: string };
+    if (e._w !== w) {
+      e._w = w;
+      el.style.width = w;
+    }
   }
 
   private updateOverlay() {
     for (const s of this.staticLabels) this.place(s.el, s.pos);
     for (const a of this.players.values()) {
-      this.place(a.label.el, new THREE.Vector3(a.x, 0, a.y));
-      if (a.shopEl) this.place(a.shopEl, new THREE.Vector3(a.x, a.sitting ? 1.75 : 2.2, a.y), !a.hidden);
-      if (a.label.fill) a.label.fill.style.width = `${(a.hp / Math.max(1, a.maxHp)) * 100}%`;
+      this.place(a.label.el, this.labelAt.set(a.x, 0, a.y));
+      if (a.shopEl) this.place(a.shopEl, this.labelAt.set(a.x, a.sitting ? 1.75 : 2.2, a.y), !a.hidden);
+      this.bar(a.label.fill, a.hp / Math.max(1, a.maxHp));
       if (a.bubble) {
         if (this.now > a.bubble.until) {
           a.bubble.el.remove();
           a.bubble = undefined;
-        } else this.place(a.bubble.el, new THREE.Vector3(a.x, a.sitting ? 1.6 : 2.0, a.y));
+        } else this.place(a.bubble.el, this.labelAt.set(a.x, a.sitting ? 1.6 : 2.0, a.y));
       }
     }
     for (const m of this.monsters.values()) {
@@ -1718,9 +1867,10 @@ export class World3D {
       const named = !!def.boss || !!def.structure || this.hoverMonster === m || targeted
         || (TOUCH && Math.hypot(m.x - this.me.x, m.y - this.me.y) < TOUCH_NAME_RANGE);
       const show = !m.dead && (named || m.hp < m.maxHp);
-      this.place(m.label.el, new THREE.Vector3(m.x, 0, m.y), show);
-      m.label.el.classList.toggle('named', named);
-      if (m.label.fill) m.label.fill.style.width = `${(m.hp / Math.max(1, m.maxHp)) * 100}%`;
+      this.place(m.label.el, this.labelAt.set(m.x, 0, m.y), show);
+      if (!show) continue;
+      if (m.label.el.classList.contains('named') !== named) m.label.el.classList.toggle('named', named);
+      this.bar(m.label.fill, m.hp / Math.max(1, m.maxHp));
     }
     this.floats = this.floats.filter((f) => {
       const age = (this.now - f.born) / f.life;
@@ -1729,7 +1879,7 @@ export class World3D {
         return false;
       }
       const up = Math.sin(Math.min(1, age * 1.6) * Math.PI * 0.5) * f.rise;
-      this.place(f.el, f.pos.clone().add(new THREE.Vector3(f.dx * age, up, 0)));
+      this.place(f.el, this.labelAt.copy(f.pos).add({ x: f.dx * age, y: up, z: 0 } as THREE.Vector3));
       f.el.style.opacity = String(age > 0.7 ? (1 - age) / 0.3 : 1);
       return true;
     });
