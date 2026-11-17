@@ -433,6 +433,10 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 .sound-opts label { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 8px; }
 .sound-opts label.chk { display: flex; gap: 6px; }
 .sound-opts input[type=range] { width: 100%; accent-color: #4a7fc0; }
+.sound-credit { font-size: 11px; color: #6b7a90; }
+.sound-credit a { color: inherit; }
+.login-credit { margin: 10px 0 0; font-size: 11px; opacity: 0.7; text-align: center; }
+.login-credit a { color: inherit; }
 .world-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; font-family: 'Kanit', Tahoma, sans-serif; }
 .world-overlay > * { position: absolute; left: 0; top: 0; will-change: transform; }
 .world-overlay > [hidden] { display: none !important; } /* .wl sets display:flex, which would beat the hidden attribute */

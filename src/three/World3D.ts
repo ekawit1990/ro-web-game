@@ -13,7 +13,7 @@ import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
 import { djAreaCharge, djAreaStrike, djBooth, djCircle, djFireBolts, djFireWall, DJ_FX, iceBlock, stunStars } from './djfx';
 import { blueCircle, chorusFx, controlFx, keyAura, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet, sfxMonster, sfxDiva, sfxMicBoom, sfxReaper, sfxMvp, sfxDjCharge, sfxDjSpell } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet, sfxMonster, sfxDiva, sfxMicBoom, sfxReaper, sfxMvp, sfxDjCharge, sfxDjSpell, playRecorded } from '../audio/sound';
 import { hellfire, judgement, scytheSweep, soulChain, telegraph } from './reaperfx';
 import { dynamicsHit, earTrainingBlast, highVoiceBeam, singerBuff, singerCharge, SG } from './singerfx';
 import { buildGround, buildPortal, buildProps } from './props';
@@ -235,6 +235,8 @@ export class World3D {
    * answer takes a moment, and a step taken meanwhile would cancel the cast (auto kept re-buffing because of it).
    */
   private castWait = 0;
+  /** True while a skill/cast that has a recorded sound runs its effect code: the synth sounds in it stay quiet. */
+  private synthMute = false;
   private targetingSkill: string | null = null;
   private lastAttack = 0;
   /** /auto: fight the nearest monsters with attacks and skills on its own. */
@@ -893,7 +895,7 @@ export class World3D {
       this.path = [];
       this.castWait = performance.now() + 1500;
     }
-    this.room.send('skill', { id });
+    this.sendSkill({ id });
   }
 
   /** A skill clicked onto the ground: stop walking first so the cast isn't broken. */
@@ -902,7 +904,7 @@ export class World3D {
     this.pendingSkill = null;
     this.face(this.me, gx, gy);
     if (SKILLS[id]?.castMs) this.castWait = performance.now() + 1500;
-    this.room.send('skill', { id, gx, gy });
+    this.sendSkill({ id, gx, gy });
   }
 
   private startTargeting(id: string) {
@@ -1148,8 +1150,15 @@ export class World3D {
       // every skill without a cast bar still gets its "วีด" as it goes off (cast skills whistle while casting)
       const sk = SKILLS[msg.skill];
       const caster = this.players.get(msg.by);
-      if (sk && !sk.castMs && caster) sfxWheet(this.vol(caster.x, caster.y, caster === this.me) * 0.8);
-      this.skillFx(msg);
+      // a recorded skill sound (src/assets/sounds/skill/<id>) replaces every synth sound of this skill's effect
+      const rec = !!caster && playRecorded(`skill/${msg.skill}`, this.vol(caster.x, caster.y, caster === this.me), { gap: 0.05 });
+      if (sk && !sk.castMs && caster && !rec) sfxWheet(this.vol(caster.x, caster.y, caster === this.me) * 0.8);
+      this.synthMute = rec;
+      try {
+        this.skillFx(msg);
+      } finally {
+        this.synthMute = false;
+      }
       if (msg.by === this.room.sessionId && SKILLS[msg.skill]) {
         this.castWait = 0;
         this.autoReady.set(msg.skill, performance.now() + (SKILLS[msg.skill].cooldown ?? 1000));
@@ -1171,7 +1180,10 @@ export class World3D {
       const skill = SKILLS[msg.skill];
       if (!a || !skill) return;
       this.face(a, msg.x, msg.y);
-      this.castFx(a, skill, msg.ms);
+      // a recorded charge sound (cast/<skill id> or cast/<class>) replaces the "วีด" and the charge synths
+      const rec = playRecorded([`cast/${msg.skill}`, `cast/${skill.cls}`], this.vol(a.x, a.y, a === this.me), { gap: 0.1 });
+      this.synthMute = rec;
+      this.castFx(a, skill, msg.ms, rec);
       if (a === this.me) {
         this.path = [];
         this.castWait = 0;
@@ -1197,6 +1209,7 @@ export class World3D {
         blueCircle(this.fxCtx(false, () => {}), () => new THREE.Vector3(a.x, 0, a.y), 1.1, msg.ms / 1000, 0, 2.5);
         noteRainCharge(this.fxCtx(false, () => {}), msg.x, msg.y, skill.radius ?? 1.5, msg.ms, () => !!a.cast && a.cast.start === start && this.players.get(a.id) === a);
       }
+      this.synthMute = false;
     });
     on('castEnd', (msg: { by: string; done: boolean }) => {
       const a = this.players.get(msg.by);
@@ -1591,7 +1604,7 @@ export class World3D {
           this.path = [];
           this.face(me, m.x, m.y);
           if (this.pendingSkill) {
-            this.room.send('skill', this.pendingSkill);
+            this.sendSkill(this.pendingSkill);
             this.pendingSkill = null;
             this.lastAttack = time;
           } else if (time - this.lastAttack >= this.session.derived.attackDelay) {
@@ -1615,7 +1628,7 @@ export class World3D {
           this.path = [];
           this.face(me, f.x, f.y);
           if (this.pendingSkill) {
-            this.room.send('skill', this.pendingSkill);
+            this.sendSkill(this.pendingSkill);
             this.pendingSkill = null;
             this.lastAttack = time;
           } else if (time - this.lastAttack >= this.session.derived.attackDelay) {
@@ -1633,7 +1646,7 @@ export class World3D {
           if (!this.path.length) this.walkNear(p.x, p.y, Math.max(1, reach - 0.4));
         } else {
           this.path = [];
-          this.room.send('skill', this.pendingSkill);
+          this.sendSkill(this.pendingSkill);
           this.pendingSkill = null;
         }
       }
@@ -1735,8 +1748,25 @@ export class World3D {
     });
   }
 
+  /**
+   * Sends a skill, first flushing my position: moves go out only every MOVE_SEND_MS, so the last step of the walk
+   * up to the target would otherwise reach the server just after the skill and break its cast (จังหวะส่ง failing
+   * whenever you ran at a monster before using it).
+   */
+  private sendSkill(msg: { id: string; [k: string]: unknown }) {
+    const me = this.me;
+    if (me.x !== this.sentX || me.y !== this.sentY) {
+      this.sentX = me.x;
+      this.sentY = me.y;
+      this.lastSend = this.now;
+      this.room.send('move', { x: me.x, y: me.y });
+    }
+    this.room.send('skill', msg);
+  }
+
   /** Effect volume: full for my own actions, quieter with distance for everyone else's. */
   private vol(x: number, y: number, mine: boolean) {
+    if (this.synthMute) return 0;
     if (mine) return 1;
     return Math.max(0, 1 - Math.hypot(x - this.me.x, y - this.me.y) / 14) * 0.45;
   }
@@ -2666,7 +2696,7 @@ export class World3D {
   }
 
   /** The cast of เสียงสูง: a bar over the head, a pulsing circle under the feet, singing. */
-  private castFx(a: PlayerActor, skill: { cls: ClassKey | 'all'; name: string }, ms: number) {
+  private castFx(a: PlayerActor, skill: { cls: ClassKey | 'all'; name: string }, ms: number, recorded = false) {
     const c = this.fxColor(clsOf(skill));
     if (a.cast) a.cast.bar.remove();
     // the cast bar: a dark framed slot under the name that fills up green
@@ -2676,7 +2706,7 @@ export class World3D {
     bar.appendChild(fill);
     a.label.el.appendChild(bar);
     const start = performance.now();
-    const vol = () => this.vol(a.x, a.y, a === this.me);
+    const vol = () => (recorded ? 0 : this.vol(a.x, a.y, a === this.me));
     sfxWheet(vol());
     let lastWheet = 0;
     a.cast = { start, ms, bar, fill };

@@ -2,6 +2,7 @@ import { Client, type Room } from '@colyseus/sdk';
 import './style.css';
 import './ui/theme.css';
 import type { Character } from './data';
+import { skillsOf } from './data';
 import { getMap } from './game/maps';
 import { Session } from './game/session';
 import { World3D } from './three/World3D';
@@ -11,7 +12,7 @@ import { supabase } from './services/supabase';
 import { SupabaseStore } from './services/supabaseStore';
 import { Hud } from './ui/hud';
 import { $, characterScreen, httpBase, loginScreen, show } from './ui/screens';
-import { playMusic, sfx, unlockAudio } from './audio/sound';
+import { hasRecordedSounds, playMusic, preloadSounds, sfx, unlockAudio } from './audio/sound';
 import { assetShare, assetsIdle, reset as resetAssets } from './ui/loadProgress';
 import { initInstall } from './ui/install';
 import { applyOverrides, fetchOverrides } from './data/overrides';
@@ -172,7 +173,11 @@ async function play(char: Character): Promise<void> {
       await new Promise((ok) => setTimeout(ok, 350)); // let the bar reach 100%
       loading(false);
       sfx(old ? 'warp' : 'enter');
-      playMusic(mapId);
+      // a town without its own recorded song plays music/town, a field music/field, the arenas music/pvp
+      playMusic(mapId, map.safe ? 'town' : mapId === 'arena' || mapId === 'gvg' ? 'pvp' : 'field');
+      // my own class's recorded sounds load now, so the first skill already plays its file (the rest load on first use)
+      const cls = session.char.cls;
+      preloadSounds(['sfx/', `attack/${cls}`, `cast/${cls}`, ...skillsOf(cls).map(([id]) => `skill/${id}`), ...skillsOf('teen').map(([id]) => `skill/${id}`)]);
       switching = false;
       console.info(`enter ${mapId}: server join ${Math.round(tJoin - t0)} ms, world ready ${Math.round(performance.now() - t0)} ms`);
     };
@@ -293,6 +298,13 @@ let pvpServer = false;
 
 async function main() {
   unlockAudio();
+  if (hasRecordedSounds()) {
+    // the free ElevenLabs plan asks for a credit wherever the sounds are used
+    const credit = document.createElement('p');
+    credit.className = 'login-credit';
+    credit.innerHTML = 'เสียงประกอบและเพลงบางส่วนสร้างด้วย <a href="https://elevenlabs.io" target="_blank" rel="noopener">ElevenLabs</a>';
+    document.querySelector('#screen-login .card')?.appendChild(credit);
+  }
   // iOS Safari ignores user-scalable=no: stop its page pinch-zoom so two fingers zoom the game camera instead
   for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
   // admin edits to items / skills / monsters (admin.html): names, prices and descriptions shown here match the server

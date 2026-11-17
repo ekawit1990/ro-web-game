@@ -9,7 +9,7 @@ import { ARENA_MAP, CASTLE_MAP, GUILD_COST, GUILD_MAX, PVP_DAMAGE, WAR_PRIZE, du
 import type { Session } from '../game/session';
 import type { World3D, WorldHooks } from '../three/World3D';
 import { potionPct, setAutoPotionPct, setAutoSpPotionPct, spPotionPct } from '../game/autoPrefs';
-import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
+import { audioPrefs, hasRecordedSounds, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon, skillBadge } from './icons';
 import { UI_ICONS } from './uiIcons';
 import { escapeHtml } from './screens';
@@ -2859,6 +2859,7 @@ export class Hud implements WorldHooks {
         <label>เพลง <input type="range" id="opt-music" min="0" max="100"></label>
         <label>เสียงเอฟเฟกต์ <input type="range" id="opt-sfx" min="0" max="100"></label>
         <label class="chk"><input type="checkbox" id="opt-mute"> ปิดเสียงทั้งหมด</label>
+        ${hasRecordedSounds() ? '<div class="sound-credit">เสียงประกอบและเพลงบางส่วนสร้างด้วย ElevenLabs (<a href="https://elevenlabs.io" target="_blank" rel="noopener">elevenlabs.io</a>)</div>' : ''}
       </div>
       <div class="npc-btns"><button class="close" id="opt-exit">กลับไปเลือกตัวละคร</button></div>`;
     b.querySelector('#opt-exit')!.addEventListener('click', () => this.actions.exit());
