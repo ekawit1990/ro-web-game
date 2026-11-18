@@ -5,7 +5,7 @@ import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVE
 import { findPath, GameMap, Npc, THEMES, isLava, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
-import { type MonsterAnimator, preloadMonsters, upgradeMonster } from './monsters';
+import { type MonsterAnimator, preloadMonsters, tickMonsterDeform, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setGlasses, setHat } from './models';
 import { buildMount, disposeMount, spinMount, type MountRig } from './mounts';
 import { animateMaxAura, buildMaxAura } from './levelAura';
@@ -1469,6 +1469,7 @@ export class World3D {
     this.adaptResolution(raw);
     this.now += dt * 1000;
     const t = this.now / 1000;
+    tickMonsterDeform(t);
     const state = this.room.state as RemoteState | undefined;
     if (state?.players) {
       this.syncMonsters(state, dt, t);
@@ -1550,7 +1551,7 @@ export class World3D {
         m.anim?.die();
         const def = MONSTERS[m.key];
         if (def && !def.structure) {
-          sfxMonster(m.key, def.model ?? m.key, def.size, 'die', Math.min(1, this.vol(m.x, m.y, false) * 2.2), def.boss);
+          sfxMonster(m.key, def.voice ?? def.model ?? m.key, def.size, 'die', Math.min(1, this.vol(m.x, m.y, false) * 2.2), def.boss);
           if (m.rig.root.visible) this.shatter(m);
           m.burst = true;
         } else sfx('mdie', Math.min(1, this.vol(m.x, m.y, false) * 2));
@@ -1568,6 +1569,8 @@ export class World3D {
       const dy = rm.y - m.y;
       m.moving = Math.hypot(dx, dy) > 0.02;
       if (m.moving) m.rig.root.rotation.y = Math.atan2(dx, dy);
+      // a Meshy sculpt is only painted well from the front: it turns no more than ~60 degrees away from the camera
+      if (MONSTERS[m.key]?.move) m.rig.root.rotation.y = this.frontToCamera(m.rig.root.rotation.y, m.x, m.y);
       m.x += dx * k;
       m.y += dy * k;
       m.hp = rm.hp;
@@ -1980,6 +1983,15 @@ export class World3D {
 
   // ------------------------------------------------------------ effects
 
+  /** Yaw `yaw` limited to within FRONT_MAX of facing the camera from (x, y). */
+  private frontToCamera(yaw: number, x: number, y: number) {
+    const cam = Math.atan2(this.camera.position.x - x, this.camera.position.z - y);
+    let d = yaw - cam;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    const FRONT_MAX = 1.05;
+    return cam + Math.max(-FRONT_MAX, Math.min(FRONT_MAX, d));
+  }
+
   private face(a: PlayerActor, x: number, y: number) {
     const dx = x - a.x;
     const dy = y - a.y;
@@ -2006,7 +2018,7 @@ export class World3D {
     if (key && MONSTERS[key] && performance.now() - ((o.userData.voiceAt as number) ?? 0) > 140) {
       o.userData.voiceAt = performance.now();
       const def = MONSTERS[key];
-      sfxMonster(key, def.model ?? key, def.size, 'hurt', this.vol(o.position.x, o.position.z, false) * 2.2, def.boss);
+      sfxMonster(key, def.voice ?? def.model ?? key, def.size, 'hurt', this.vol(o.position.x, o.position.z, false) * 2.2, def.boss);
     }
   }
 
