@@ -27,6 +27,12 @@ quantized (KHR_mesh_quantization) and the file gzipped.
 licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Credit: Meshy AI.
 Changes for the game: the one 1.9-million-triangle sculpt holding all 77 monsters was cut into one model per monster
 (`tools/meshy/split_sheet.py`, `split_glb.mjs`), the display stands removed, each made a little deeper front to back,
-simplified to 4,000 triangles and its colours baked onto its own 512 px texture (`tools/meshy/bake_monster.py`,
+given a rounder back built from its front (thickness pushed toward a round profile, the back painted with the body colours of the front with its eyes and mouth filtered out), simplified to 4,000 triangles and its colours baked onto its own 512 px texture (`tools/meshy/bake_monster.py`,
 Blender), the normal and metal/roughness maps dropped, and the file gzipped. They have no skeleton: they move by code
 (PropAnim in `src/three/monsters.ts`).
+
+## MB_<boss>.glb.gz (the 11 mini-bosses)
+
+"Crowned Monsters", made by the game's author with Meshy AI (https://www.meshy.ai), licensed CC BY 4.0
+(https://creativecommons.org/licenses/by/4.0/). Credit: Meshy AI. Cut into one model per boss and baked the same way
+as the normal monsters (6,000 triangles each); `tools/meshy_bosses.py` says which piece is which boss.

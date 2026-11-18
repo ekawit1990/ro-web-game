@@ -313,8 +313,8 @@ function buildTown(): GameMap {
   m.portals = [
     { x: N - 2, y: C - 1, to: 'field', toX: 3.5, toY: FIELD / 2 + 0.5, label: 'ทุ่งเมโลดี้ (Lv 1+)' },
     { x: 1, y: C - 1, to: 'forest', toX: WILD - 3.5, toY: WILD / 2 + 0.5, label: 'ป่าเพลงกระซิบ (Lv 10+)' },
-    { x: C - 1, y: N - 2, to: 'canyon', toX: WILD / 2 + 0.5, toY: 3.5, label: 'หุบผาร็อค (Lv 17+)' },
-    { x: C - 1, y: 1, to: 'snow', toX: WILD / 2 + 0.5, toY: WILD - 3.5, label: 'ยอดเขาหิมะโซปราโน (Lv 21+)' },
+    { x: C - 1, y: N - 2, to: 'canyon', toX: WILD / 2 + 0.5, toY: 3.5, label: 'หุบผาร็อค (Lv 12+)' },
+    { x: C - 1, y: 1, to: 'snow', toX: WILD / 2 + 0.5, toY: WILD - 3.5, label: 'ยอดเขาหิมะโซปราโน (Lv 26+)' },
   ];
   m.spawn = { x: C + 0.5, y: C + 7.5 };
   return m;
@@ -467,8 +467,8 @@ function buildDesert(): GameMap {
   }
 
   m.portals = [
-    { x: C - 1, y: 1, to: 'canyon', toX: WILD / 2 + 0.5, toY: WILD - 3.5, label: 'หุบผาร็อค (Lv 17+)' },
-    { x: C - 1, y: N - 2, ...arrive('deadwood', 'n'), label: 'ป่าไม้ตายเพลงหลอน (Lv 50+)' },
+    { x: C - 1, y: 1, to: 'canyon', toX: WILD / 2 + 0.5, toY: WILD - 3.5, label: 'หุบผาร็อค (Lv 12+)' },
+    { x: C - 1, y: N - 2, ...arrive('deadwood', 'n'), label: 'ป่าไม้ตายเพลงหลอน (Lv 59+)' },
   ];
   m.spawn = { x: C + 0.5, y: C + 6.5 };
   return m;
@@ -729,7 +729,7 @@ function buildField(): GameMap {
   }
   m.portals = [
     { x: 1, y: mid, ...TOWN_GATE.e, label: 'เมืองเมโลเดีย' },
-    { x: m.w - 2, y: mid, ...arrive('beach', 'w'), label: 'หาดคลื่นซินธ์ (Lv 30+)' },
+    { x: m.w - 2, y: mid, ...arrive('beach', 'w'), label: 'หาดคลื่นซินธ์ (Lv 11+)' },
   ];
   m.spawn = { x: 3.5, y: mid + 0.5 };
   return m;
@@ -912,7 +912,7 @@ const buildForest = () => buildWild({
   ground: [[G.Grass2, 0.55], [G.Grass, 0.42], [G.Flower, 0.03]], trees: 0.11, rocks: 0.015, pools: old([[40, 12, 3, 2], [14, 44, 2.5, 2]]),
   gates: [
     { side: 'e', ...TOWN_GATE.w, label: 'เมืองเมโลเดีย' },
-    { side: 'w', ...arrive('marsh', 'e'), label: 'บึงจังหวะ (Lv 14+)' },
+    { side: 'w', ...arrive('marsh', 'e'), label: 'บึงจังหวะ (Lv 35+)' },
   ],
 });
 const buildMarsh = () => buildWild({
@@ -931,6 +931,7 @@ const buildCanyon = () => buildWild({
   gates: [
     { side: 'n', ...TOWN_GATE.s, label: 'เมืองเมโลเดีย' },
     { side: 's', to: 'desert', toX: DC - 0.5, toY: 3.5, label: 'เมืองทะเลทรายตะโพน' },
+    { side: 'w', ...arrive('ghosttown', 'n'), label: 'เมืองร้างกระดูกกลอง (Lv 22+ · อันเดด)' },
   ],
 });
 const buildSnow = () => buildWild({
@@ -938,7 +939,7 @@ const buildSnow = () => buildWild({
   ground: [[G.Grass, 0.65], [G.Grass2, 0.35]], trees: 0.06, rocks: 0.025, pools: old([[16, 14, 4, 3], [40, 44, 5, 3]]),
   gates: [
     { side: 's', ...TOWN_GATE.n, label: 'เมืองเมโลเดีย' },
-    { side: 'n', ...arrive('volcano', 's'), label: 'ภูเขาไฟเมทัล (Lv 26+)' },
+    { side: 'n', ...arrive('volcano', 's'), label: 'ภูเขาไฟเมทัล (Lv 21+)' },
   ],
 });
 /**
@@ -975,7 +976,10 @@ const buildBeach = () => buildWild({
   id: 'beach', name: 'หาดคลื่นซินธ์', theme: 'beach', seed: 61,
   ground: [[G.Grass, 0.6], [G.Grass2, 0.38], [G.Flower, 0.02]], trees: 0.02, rocks: 0.012,
   pools: [[30, 22, 4, 3], [24, 62, 5, 3]],
-  gates: [{ side: 'w', ...arrive('field', 'e'), label: 'ทุ่งเมโลดี้' }],
+  gates: [
+    { side: 'w', ...arrive('field', 'e'), label: 'ทุ่งเมโลดี้' },
+    { side: 's', ...arrive('cove', 'n'), label: 'อ่าวนางเงือกโจรสลัด (Lv 73+)' },
+  ],
   extra: (m, rnd) => {
     // the sea along the east side, with a wavy shore and a sandbar island
     for (let y = 0; y < m.h; y++) {
@@ -996,6 +1000,31 @@ const buildBeach = () => buildWild({
     scatter(m, rnd, 14, [44, 4, 64, 80], (x, y) => ({ kind: 'rock', x, y }));
   },
 });
+/**
+ * อ่าวนางเงือกโจรสลัด (2026-11-18): a rocky cove south of the beach for the deep-sea monsters (mermaids, pirate
+ * octopuses, hunter sharks). The sea wraps round the east and the south, rock stacks stand in the shallows and
+ * tide pools dot the sand; the only gate is north, back to the beach.
+ */
+const buildCove = () => buildWild({
+  id: 'cove', name: 'อ่าวนางเงือกโจรสลัด', theme: 'beach', seed: 149,
+  ground: [[G.Grass, 0.55], [G.Grass2, 0.4], [G.Cobble, 0.05]], trees: 0.012, rocks: 0.03,
+  pools: [[18, 20, 3, 2], [30, 50, 4, 3], [14, 60, 3, 3], [44, 30, 3, 2]],
+  gates: [{ side: 'n', ...arrive('beach', 's'), label: 'หาดคลื่นซินธ์' }],
+  extra: (m, rnd) => {
+    for (let y = 0; y < m.h; y++) {
+      for (let x = 0; x < m.w; x++) {
+        const east = 60 + Math.sin(y * 0.14) * 4 + Math.sin(y * 0.05 + 2) * 3;
+        const south = 70 + Math.sin(x * 0.12 + 1) * 3 + Math.sin(x * 0.04) * 2;
+        if ((x < east && y < south) || m.ground[y][x] === G.Dirt) continue;
+        m.ground[y][x] = G.Water;
+        m.blocked[y][x] = true;
+      }
+    }
+    // sea stacks in the shallows and a reef of rocks along the shore
+    scatter(m, rnd, 22, [36, 6, 62, 72], (x, y) => ({ kind: 'rock', x, y }));
+    scatter(m, rnd, 10, [6, 50, 60, 72], (x, y) => ({ kind: 'rock', x, y }));
+  },
+});
 const buildCave = () => buildWild({
   id: 'cave', name: 'ถ้ำคริสตัลก้องกังวาน', theme: 'cave', seed: 71,
   ground: [[G.Grass, 0.55], [G.Grass2, 0.3], [G.Cobble, 0.15]], trees: 0.03, rocks: 0.07,
@@ -1009,7 +1038,7 @@ const buildDeadwood = () => buildWild({
   pools: [[20, 24, 5, 3], [62, 22, 4, 5], [30, 60, 6, 4], [66, 62, 4, 3]],
   gates: [
     { side: 'n', to: 'desert', toX: DC - 0.5, toY: DESERT_SIZE - 3.5, label: 'เมืองทะเลทรายตะโพน' },
-    { side: 's', ...arrive('ruins', 'n'), label: 'เมืองปราสาทร้างโอเปร่า (Lv 65+)' },
+    { side: 's', ...arrive('ruins', 'n'), label: 'เมืองปราสาทร้างโอเปร่า (Lv 50+ · อันเดด)' },
   ],
   extra: (m, rnd) => scatter(m, rnd, 40, [4, 4, 80, 80], (x, y) => ({ kind: 'grave', x, y })),
 });
@@ -1021,11 +1050,11 @@ const buildDeadwood = () => buildWild({
  * grass, roofless houses, a roofless cathedral on the old square with broken columns round it, a graveyard in
  * the south-east and dead trees everywhere. A hunting map (no NPCs); the only gate is north, to the dead forest.
  */
-function buildRuins(): GameMap {
+function buildRuins(id = 'ruins', name = 'เมืองปราสาทร้างโอเปร่า', seed = 131, back = arrive('deadwood', 's'), backLabel = 'ป่าไม้ตายเพลงหลอน'): GameMap {
   const N = WILD;
   const C = N / 2;
-  const m = blank('ruins', 'เมืองปราสาทร้างโอเปร่า', N, N, G.Grass, false, 'ruins');
-  const rnd = mulberry32(131);
+  const m = blank(id, name, N, N, G.Grass, false, 'ruins');
+  const rnd = mulberry32(seed);
   const put = (o: Obj, w = 1, h = 1) => {
     m.objects.push(o);
     block(m, Math.floor(o.x), Math.floor(o.y), w, h);
@@ -1121,11 +1150,17 @@ function buildRuins(): GameMap {
       else if (r < 0.068) put({ kind: 'grave', x, y });
     }
   }
-  m.portals = [{ x: C, y: 1, ...arrive('deadwood', 's'), label: 'ป่าไม้ตายเพลงหลอน' }];
-  const a = arrive('ruins', 'n');
+  m.portals = [{ x: C, y: 1, ...back, label: backLabel }];
+  const a = arrive(id, 'n');
   m.spawn = { x: a.toX, y: a.toY };
   return m;
 }
+
+/**
+ * เมืองร้างกระดูกกลอง (2026-11-18): a smaller fallen town west of the canyon where the low-level undead walk
+ * (zombies, skeleton knights, archers and mages, hooded ghosts, bone hounds). Same plan as the castle town.
+ */
+const buildGhostTown = () => buildRuins('ghosttown', 'เมืองร้างกระดูกกลอง', 211, arrive('canyon', 'w'), 'หุบผาร็อค');
 
 // ---------------------------------------------------------------- PVP arena and the guild war castle (2026-11-10)
 
@@ -1336,7 +1371,8 @@ function addGateBurapas(m: GameMap) {
 const built = new Map<string, GameMap>();
 const BUILDERS: Record<string, () => GameMap> = {
   town: buildTown, field: buildField, forest: buildForest, marsh: buildMarsh, canyon: buildCanyon, snow: buildSnow, volcano: buildVolcano,
-  desert: buildDesert, beach: buildBeach, cave: buildCave, deadwood: buildDeadwood, ruins: buildRuins, inferno: buildInferno,
+  desert: buildDesert, beach: buildBeach, cave: buildCave, deadwood: buildDeadwood, ruins: () => buildRuins(), inferno: buildInferno,
+  ghosttown: buildGhostTown, cove: buildCove,
   magic: buildMagic, abyss: buildAbyss,
   arena: buildArena, gvg: buildCastle,
 };
