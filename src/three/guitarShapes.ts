@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { paintTiger } from './tiger';
 import type { StringedProp } from './bass';
 
 /**
@@ -16,7 +17,8 @@ type Finish =
   | { kind: 'burst'; stops: string[] }
   | { kind: 'flame'; color: string; light: string; edge: string }
   | { kind: 'zebra'; a: string; b: string }
-  | { kind: 'band'; color: string; band: string };
+  | { kind: 'band'; color: string; band: string }
+  | { kind: 'tiger' };
 type Pickup = { x: number; type: 'single' | 'hum' | 'pbass' | 'jbass' | 'soap'; angle?: number; color?: string; frame?: string };
 
 export interface GuitarShape {
@@ -158,6 +160,17 @@ export const GUITAR_SHAPES: Record<string, GuitarShape> = {
     bridge: 'tom', head: 'pointy', headColor: '#0e0e10', board: 'ebony',
     knobs: [[-0.3, -0.09], [-0.34, -0.09]],
   },
+  // กีตาร์ทรงกรงเล็บ "ลายพยัคฆ์" (ราชาเสือโคร่ง, 2026-11-18): hooked claw horns, tiger stripes, gold hardware
+  tiger: {
+    outline: [[0, 0.034, 1], [0.08, 0.07], [0.15, 0.13], [0.19, 0.2, 1], [0.1, 0.17], [0.02, 0.14], [-0.08, 0.155], [-0.19, 0.19], [-0.3, 0.26, 1],
+      [-0.31, 0.18], [-0.38, 0.14], [-0.47, 0.12, 1], [-0.505, 0.05], [-0.505, -0.05], [-0.47, -0.12, 1], [-0.38, -0.155], [-0.33, -0.235, 1],
+      [-0.24, -0.16], [-0.12, -0.13], [-0.02, -0.12], [0.06, -0.1], [0.11, -0.135, 1], [0.05, -0.06], [0, -0.034, 1]],
+    finish: { kind: 'tiger' },
+    side: '#141010', binding: '#e8b84a',
+    pickups: [{ x: -0.1, type: 'hum', color: '#141010', frame: '#e8b84a' }, { x: -0.205, type: 'hum', color: '#141010', frame: '#e8b84a' }],
+    bridge: 'tom', head: 'pointy', headColor: '#141010', board: 'ebony', gold: true,
+    knobs: [[-0.33, -0.1], [-0.38, -0.1], [-0.42, -0.085]],
+  },
   hollow: {
     outline: [[0, 0.04], [-0.03, 0.12], [-0.1, 0.172], [-0.18, 0.17], [-0.25, 0.15], [-0.32, 0.18], [-0.41, 0.2], [-0.48, 0.15],
       [-0.51, 0.05], [-0.51, -0.05], [-0.48, -0.16], [-0.41, -0.205], [-0.31, -0.182], [-0.23, -0.15], [-0.15, -0.15], [-0.07, -0.16],
@@ -238,6 +251,14 @@ export const BASS_SHAPES: Record<string, GuitarShape> = {
     knobs: [[-0.43, -0.135], [-0.465, -0.125], [-0.5, -0.11]],
     plates: [[-0.465, -0.125, 0.12, 0.034, 0.3]],
   },
+  // เบส 5 สาย "ลายพยัคฆ์" (ราชาเสือโคร่ง, 2026-11-18)
+  tiger: {
+    outline: big(SR, 1.12, 1.24), strings: 5, scale: 0.889, thick: 1.0,
+    finish: { kind: 'tiger' }, side: '#141010', binding: '#e8b84a',
+    pickups: [{ x: -0.24, type: 'soap', color: '#141010' }, { x: -0.34, type: 'soap', color: '#141010' }],
+    bridge: 'bass', head: 'bassSplit', headColor: '#141010', board: 'ebony', gold: true,
+    knobs: [[-0.42, -0.11], [-0.45, -0.125], [-0.42, -0.15], [-0.45, -0.165]],
+  },
   sire5: {
     outline: big(SR, 1.13, 1.25), strings: 5, scale: 0.889, thick: 1.0,
     finish: { kind: 'wood', color: '#1d5f8e', grain: '#0b3658' }, side: '#0b3658',
@@ -292,7 +313,9 @@ function finishMat(id: string, s: GuitarShape): THREE.Material {
   return canvasTex(`fin_${id}`, 512, 368, (g, w, h) => {
     const r = rng(7);
     const mx = cx(-0.22, w), my = cy(0, h);
-    if (f.kind === 'burst') {
+    if (f.kind === 'tiger') {
+      paintTiger(g, w, h, { across: true, seed: id.length * 7 + 3, density: 1.3 });
+    } else if (f.kind === 'burst') {
       const gr = g.createRadialGradient(mx, my, 10, mx, my, w * 0.34);
       f.stops.forEach((c, i) => gr.addColorStop([0, 0.45, 0.78, 1][i] ?? 1, c));
       g.fillStyle = gr;

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ITEMS } from '../data';
 import { mesh, outline, toon } from './toon';
+import { tigerTexture } from './tiger';
 
 /**
  * Music glasses (2026-11-18): the glasses slot, drawn from code like the hats.
@@ -93,7 +94,31 @@ function bridge(g: THREE.Group, mat: THREE.Material, w = 0.07, y = 0.02) {
   g.add(mesh(new THREE.BoxGeometry(w, 0.018, 0.018), mat, 0, y, 0));
 }
 
+/** Tiger eye: an almond lens slanting up to a point at the outer corner (outer side = +x). */
+function tigerEye(s: number): Pt[] {
+  return [[-0.95, 0.0], [-0.7, 0.42], [-0.15, 0.6], [0.5, 0.62], [1.2, 0.78], [1.0, 0.2], [0.7, -0.3], [0.15, -0.5],
+    [-0.45, -0.45], [-0.85, -0.25]].map(([x, y]) => [x * s, y * s] as Pt);
+}
+
 const BUILD: Record<string, (g: THREE.Group, c: string[]) => void> = {
+  // แว่นตาลายพยัคฆ์ (ราชาเสือโคร่ง, 2026-11-18): tiger-striped almond frames, amber lenses, little round ears on top
+  tiger(g, [c1, c2, c3]) {
+    const fur = toon('#ffffff', { map: tigerTexture('glasses', { repeat: [5, 5], size: [128, 128], seed: 31 }) });
+    const ox = pair(g, tigerEye(0.088), fur, lensMat(c2, 0.6), 1.26, 0.03);
+    for (const s of [-1, 1]) {
+      // a round ear on each top corner, black at the back with a white middle
+      const ear = mesh(new THREE.SphereGeometry(0.035, 12, 8), toon(c1), s * (ox - 0.06), 0.085, -0.004);
+      ear.scale.z = 0.45;
+      const inner = mesh(new THREE.SphereGeometry(0.02, 10, 6), toon('#fff4e2'), s * (ox - 0.06), 0.083, 0.008);
+      inner.scale.z = 0.4;
+      inner.userData.noOutline = true;
+      g.add(ear, inner);
+      // a slit pupil glinting in each lens
+      const slit = mesh(new THREE.BoxGeometry(0.01, 0.06, 0.004), toon(c3), s * EYE_X, 0.005, 0.006);
+      slit.userData.noOutline = true;
+      g.add(slit);
+    }
+  },
   round(g, [c1, c2, c3]) {
     const ox = pair(g, circle(0.08), toon(c1), lensMat(c2, 0.45));
     // little leaves on the hinges

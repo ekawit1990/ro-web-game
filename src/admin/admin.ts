@@ -44,7 +44,7 @@ const CARD_SLOTS: Record<string, string> = { weapon: 'อาวุธ', armor: '
 const BONUS_KEYS: Record<string, string> = {
   str: 'STR', agi: 'AGI', vit: 'VIT', int: 'INT', dex: 'DEX', luk: 'LUK', atk: 'ATK', matk: 'MATK', def: 'DEF', mdef: 'MDEF',
   hit: 'HIT', flee: 'Flee', crit: 'คริ', aspd: 'ASPD %', maxHp: 'HP สูงสุด', maxSp: 'SP สูงสุด', maxHpPct: 'HP สูงสุด %',
-  maxSpPct: 'SP สูงสุด %', atkPct: 'ATK %', matkPct: 'MATK %', pvpAtkPct: 'ตีผู้เล่น %', pvpDefPct: 'ลดดาเมจจากผู้เล่น %',
+  maxSpPct: 'SP สูงสุด %', atkPct: 'ATK %', matkPct: 'MATK %', pvpAtkPct: 'ตีผู้เล่น %', pvpDefPct: 'ลดดาเมจจากผู้เล่น %', lifestealPct: 'ดูดเลือด %',
 };
 const SKILL_TYPES: Record<string, string> = {
   single: 'ตีเป้าเดียว', aoe: 'วงรอบเป้า', aoe_self: 'วงรอบตัว', line: 'คลื่นเป็นเส้น', heal: 'ฮีลตัวเอง', heal_target: 'ฮีลคนอื่น',

@@ -112,6 +112,8 @@ interface Seat {
   /** PVP: when another player last hit them (no out-of-fight regen for a while), and who (for the kill). */
   pvpHitAt?: number;
   pvpHitBy?: string;
+  /** May use the GM commands (@item): checked once against GM_USERS. */
+  gm?: boolean;
   /** เปิดแผงขายของ: the stall they sit at, and a lock while one sale goes through the database */
   shop?: Shop;
   shopBusy?: boolean;
@@ -767,6 +769,10 @@ export class MapRoom extends Room<{ state: MapState }> {
       if (said) this.guild(c, (me) => Guilds.chat(me, said));
       return;
     }
+    if (/^@item\b/i.test(text)) {
+      void this.gmItem(c, seat, text);
+      return;
+    }
     const party = /^(?:\/p(?:\s+|$)|%\s*)/i.exec(text);
     if (party) {
       const said = text.slice(party[0].length).trim();
@@ -774,6 +780,38 @@ export class MapRoom extends Room<{ state: MapState }> {
       return;
     }
     this.broadcast('chat', { id: c.sessionId, name: seat.char.name, text });
+  }
+
+  /**
+   * GM command (2026-11-18, the owner's request): "@item <item id> [count]" puts items straight into the bag.
+   * Only for the accounts in GM_USERS (login usernames, comma separated; default the game owner's ekawit1990).
+   * Nobody else sees the line; anyone else just gets told it isn't allowed.
+   */
+  private async gmItem(c: Client, seat: Seat, text: string) {
+    const gms = (process.env.GM_USERS ?? 'ekawit1990').split(',').map((u) => u.trim().toLowerCase()).filter(Boolean);
+    seat.gm ??= gms.includes((await MapRoom.db.username(seat.userId).catch(() => null)) ?? '');
+    if (!seat.gm) {
+      c.send('system', { text: 'คำสั่ง @item ใช้ได้เฉพาะผู้ดูแลเกม' });
+      return;
+    }
+    const [, id, n] = /^@item\s+(\S+)(?:\s+(\d+))?/i.exec(text) ?? [];
+    const item = id && (ITEMS[id] ? id : Object.keys(ITEMS).find((k) => k.toLowerCase() === id.toLowerCase()));
+    if (!item) {
+      c.send('system', { text: id ? `ไม่มีไอเท็ม id "${id}"` : 'วิธีใช้: @item <id ไอเท็ม> [จำนวน] เช่น @item card_tiger_king 1' });
+      return;
+    }
+    const qty = Math.max(1, Math.min(100, Number(n) || 1));
+    try {
+      const r = await MapRoom.db.grantReward(seat.userId, seat.char.id, { exp: 0, jobExp: 0, zeny: 0, items: Array(qty).fill(item), quest: false });
+      seat.char = { ...r.character };
+      seat.inv = (await MapRoom.db.reload(seat.userId, seat.char.id)).inv;
+      const p = this.state.players.get(c.sessionId);
+      if (p) this.applyDerived(seat, p);
+      c.send('sync', { character: seat.char, inventory: seat.inv });
+      c.send('system', { text: `✨ เสก ${ITEMS[item].name} x${qty} เข้ากระเป๋าแล้ว` });
+    } catch (e) {
+      c.send('error', { text: `เสกไอเท็มไม่ได้: ${(e as Error).message}` });
+    }
   }
 
   // ------------------------------------------------------------ combat
@@ -1308,6 +1346,7 @@ export class MapRoom extends Room<{ state: MapState }> {
 
   private damageMonster(id: string, m: MonsterState, brain: Brain, sid: string, amount: number) {
     if (m.dead) return;
+    this.lifesteal(sid, Math.min(amount, m.hp));
     m.hp = Math.max(0, m.hp - amount);
     brain.damage.set(sid, (brain.damage.get(sid) ?? 0) + amount);
     if (isBot(brain.target) && this.seats.has(sid)) brain.target = sid; // a real player takes it over from a bot
@@ -1455,9 +1494,18 @@ export class MapRoom extends Room<{ state: MapState }> {
     if (amount > 0) this.pvpHurt(c.sessionId, to, ts, tp, amount);
   }
 
+  /** ดูดเลือด (การ์ดราชาเสือโคร่ง): the attacker gets back their lifesteal % of the damage dealt as HP. */
+  private lifesteal(sid: string, dealt: number) {
+    const pct = this.seats.get(sid)?.derived.lifesteal ?? 0;
+    const p = pct > 0 && dealt > 0 ? this.state.players.get(sid) : undefined;
+    if (!p || p.dead || p.hp >= p.maxHp) return;
+    p.hp = Math.min(p.maxHp, p.hp + Math.max(1, Math.floor((dealt * pct) / 100)));
+  }
+
   /** Damage from another player; a kill counts on the arena scoreboard. */
   private pvpHurt(by: string, sid: string, seat: Seat, p: PlayerState, dmg: number) {
     if (p.dead) return;
+    this.lifesteal(by, Math.min(dmg, p.hp));
     seat.pvpHitAt = this.now;
     seat.pvpHitBy = by;
     this.unhide(sid, seat, p);
@@ -1927,6 +1975,20 @@ export class MapRoom extends Room<{ state: MapState }> {
       });
     }
     let pulled: { p: string; x: number; y: number } | undefined;
+    if (sk.leap && victims.length) {
+      // the tiger king's pounce: it lands right next to the target, on the side it came from
+      const p = this.state.players.get(victims[0])!;
+      const dd = dist(m.x, m.y, p.x, p.y) || 1;
+      for (const k of [0.9, 0.6, 0.3]) {
+        const nx = p.x + ((m.x - p.x) / dd) * k;
+        const ny = p.y + ((m.y - p.y) / dd) * k;
+        if (this.monsterCanStand(nx, ny)) {
+          m.x = nx;
+          m.y = ny;
+          break;
+        }
+      }
+    }
     for (const sid of victims) {
       const seat = this.seats.get(sid);
       const p = this.state.players.get(sid);

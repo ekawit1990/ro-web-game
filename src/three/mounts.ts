@@ -29,6 +29,7 @@ const SCALE = 1;
 /** A mount for this item (an empty group at first; the model drops in once loaded). */
 export function buildMount(item: string): MountRig | null {
   const model = ITEMS[item]?.mount?.model;
+  const skin = ITEMS[item]?.mount?.skin;
   if (!model) return null;
   const group = new THREE.Group();
   group.name = 'mount';
@@ -59,6 +60,7 @@ export function buildMount(item: string): MountRig | null {
       const old = mesh.material as THREE.MeshStandardMaterial;
       const mat = new THREE.MeshToonMaterial({ map: old.map ?? null, color: old.color ?? 0xffffff });
       if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
+      if (skin === 'tiger') tigerSkin(mat, model);
       mesh.material = mat;
     });
   });
@@ -76,4 +78,38 @@ export function disposeMount(rig: MountRig) {
     const mesh = o as THREE.Mesh;
     if (mesh.isMesh) (mesh.material as THREE.Material).dispose();
   });
+}
+
+/**
+ * The tiger-striped scooters (ราชาเสือโคร่ง drops, 2026-11-18) are the same 3 models with their paint turned into
+ * tiger fur in the shader: texels that are body paint (saturated colour; on the silver one, light grey) become
+ * orange with black stripes laid out in the model's own space, so they run across the body seamlessly whatever the
+ * baked texture's layout. Tyres, seat, chrome and lights keep their colours.
+ */
+function tigerSkin(mat: THREE.MeshToonMaterial, model: string) {
+  const mask = model === 'scooter_silver'
+    ? 'smoothstep(0.42, 0.58, lum) * (1.0 - smoothstep(0.18, 0.32, sat))'
+    : 'smoothstep(0.28, 0.45, sat) * smoothstep(0.1, 0.22, mx)';
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vTigerPos;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTigerPos = position;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vTigerPos;')
+      .replace('#include <map_fragment>', `#include <map_fragment>
+      {
+        vec3 c = diffuseColor.rgb;
+        float mx = max(c.r, max(c.g, c.b));
+        float mn = min(c.r, min(c.g, c.b));
+        float sat = (mx - mn) / max(mx, 1e-3);
+        float lum = dot(c, vec3(0.3, 0.59, 0.11));
+        float paint = ${mask};
+        vec3 fur = mix(vec3(0.62, 0.16, 0.01), vec3(1.0, 0.5, 0.08), smoothstep(0.05, 0.5, lum));
+        vec3 p = vTigerPos;
+        float s = sin(p.z * 20.0 + sin(p.y * 7.0) * 1.6 + sin(p.x * 9.0) * 1.1) + 0.35 * sin(p.y * 29.0 + p.z * 5.0);
+        float stripe = smoothstep(0.6, 0.72, s);
+        diffuseColor.rgb = mix(c, mix(fur, vec3(0.015, 0.01, 0.008), stripe), paint);
+      }`);
+  };
+  mat.customProgramCacheKey = () => `tiger_${model}`;
 }

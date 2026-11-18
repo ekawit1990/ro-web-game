@@ -83,9 +83,9 @@ const pct = (r: number) => `${+(r * 100).toFixed(r < 0.01 ? 2 : r < 0.1 ? 1 : 0)
 const BONUS_LABEL: Record<keyof CardBonus, string> = {
   str: 'Str', agi: 'Agi', vit: 'Vit', int: 'Int', dex: 'Dex', luk: 'Luk', atk: 'Atk', matk: 'Matk', def: 'Def', mdef: 'Mdef',
   hit: 'Hit', flee: 'Flee', crit: 'Critical', aspd: 'Aspd', maxHp: 'MaxHP', maxSp: 'MaxSP', maxHpPct: 'MaxHP', maxSpPct: 'MaxSP',
-  atkPct: 'Atk', matkPct: 'Matk', pvpAtkPct: 'ตีผู้เล่น', pvpDefPct: 'ลดดาเมจจากผู้เล่น',
+  atkPct: 'Atk', matkPct: 'Matk', pvpAtkPct: 'ตีผู้เล่น', pvpDefPct: 'ลดดาเมจจากผู้เล่น', lifestealPct: 'ดูดเลือด',
 };
-const PCT_BONUS = new Set(['aspd', 'maxHpPct', 'maxSpPct', 'atkPct', 'matkPct', 'pvpAtkPct', 'pvpDefPct']);
+const PCT_BONUS = new Set(['aspd', 'maxHpPct', 'maxSpPct', 'atkPct', 'matkPct', 'pvpAtkPct', 'pvpDefPct', 'lifestealPct']);
 /** "Agi +1 · Aspd +3%" */
 export const bonusText = (b: CardBonus) =>
   (Object.entries(b) as [keyof CardBonus, number][]).map(([k, v]) => `${BONUS_LABEL[k]} +${v}${PCT_BONUS.has(k) ? '%' : ''}`).join(' · ');

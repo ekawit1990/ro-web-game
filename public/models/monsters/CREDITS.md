@@ -12,6 +12,15 @@ downscaled from 2048 to 1024 px, the normal and metal/roughness maps dropped (th
 a skeleton of 7 bones with skin weights and five clips (idle, walk, scythe attack, hit, death) added by
 `tools/rig_reaper.mjs`, positions quantized (KHR_mesh_quantization) and the file gzipped.
 
+## Tiger_Warlord.glb.gz (ราชาเสือโคร่ง, the MVP of ทุ่งเมโลดี้)
+
+"Tiger Warlord", made by the game's author with Meshy AI (https://www.meshy.ai) on the free plan,
+licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Credit: Meshy AI.
+Changes for the game: 2.73 million triangles simplified to about 30,000 (meshoptimizer), the colour texture
+downscaled from 2048 to 1024 px, the normal and metal/roughness maps dropped, a skeleton of 13 bones with skin
+weights and five clips (idle, walk, overhead axe chop, hit, death) added by `tools/rig_tiger.mjs`, positions
+quantized (KHR_mesh_quantization) and the file gzipped.
+
 ## ML001.glb.gz .. ML077.glb.gz (the 77 normal monsters)
 
 "Monster Music Land", made by the game's author with Meshy AI (https://www.meshy.ai) from the game's monster sheet,

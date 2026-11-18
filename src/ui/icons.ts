@@ -85,6 +85,10 @@ export function itemIcon(id: string): string {
       c.rotate(a);
       c.fillStyle = STICK_STYLES[item.shape].color;
       c.fillRect(-1.6, -9, 3.2, 22);
+      if (STICK_STYLES[item.shape].tiger) {
+        c.fillStyle = '#141010';
+        for (let y = -7; y < 12; y += 4) c.fillRect(-1.6, y, 3.2, 1.3);
+      }
       c.fillStyle = '#e3c18f';
       c.beginPath();
       c.moveTo(-1.6, -9);
@@ -102,6 +106,14 @@ export function itemIcon(id: string): string {
     const k = KEYBOARD_STYLES[item.shape];
     c.fillStyle = '#' + k.body.toString(16).padStart(6, '0');
     c.fillRect(2, 10, 28, 13);
+    if (k.tiger) {
+      c.save();
+      c.beginPath();
+      c.rect(2, 10, 28, 13);
+      c.clip();
+      iconStripes(c, 2, 10, 28, 13);
+      c.restore();
+    }
     c.strokeStyle = '#555';
     c.lineWidth = 0.6;
     c.strokeRect(2, 10, 28, 13);
@@ -123,6 +135,14 @@ export function itemIcon(id: string): string {
     const hex = (n: number) => '#' + n.toString(16).padStart(6, '0');
     c.fillStyle = hex(k.body);
     c.fillRect(1, 9, 30, 15);
+    if (k.tiger) {
+      c.save();
+      c.beginPath();
+      c.rect(1, 9, 30, 15);
+      c.clip();
+      iconStripes(c, 1, 9, 30, 15);
+      c.restore();
+    }
     c.strokeStyle = hex(k.trim);
     c.lineWidth = 0.8;
     c.strokeRect(1, 9, 30, 15);
@@ -390,6 +410,10 @@ function micIcon(c: CanvasRenderingContext2D, shape: string) {
   c.lineTo(-2.2, 14);
   c.closePath();
   c.fill();
+  if (s.tiger) {
+    c.fillStyle = '#141010';
+    for (let y = hTop + 2; y < 13; y += 3.2) c.fillRect(-3.4, y, 6.8, 1.1);
+  }
   c.fillStyle = 'rgba(255,255,255,0.28)';
   c.fillRect(-2.2, hTop + 1, 1.1, 13);
   c.fillStyle = '#0d0d0f';
@@ -447,6 +471,22 @@ function micIcon(c: CanvasRenderingContext2D, shape: string) {
   c.restore();
 }
 
+/** Black tiger stripes over a rectangle (the caller clips to the shape). */
+function iconStripes(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  c.fillStyle = '#141010';
+  for (let i = 0; x + i * 3.6 < x + w + 4; i++) {
+    const px = x + i * 3.6;
+    const top = i % 2 === 0;
+    const len = h * (0.35 + ((i * 37) % 10) / 30);
+    c.beginPath();
+    c.moveTo(px - 0.8, top ? y : y + h);
+    c.lineTo(px + 0.9, top ? y + len : y + h - len);
+    c.lineTo(px + 0.9, top ? y : y + h);
+    c.closePath();
+    c.fill();
+  }
+}
+
 function guitarIcon(c: CanvasRenderingContext2D, shape: string, color: string) {
   const bass = !GUITAR_SHAPES[shape];
   const sh = GUITAR_SHAPES[shape] ?? BASS_SHAPES[shape];
@@ -465,12 +505,16 @@ function guitarIcon(c: CanvasRenderingContext2D, shape: string, color: string) {
   sh.outline.forEach(([x, y], i) => (i ? c.lineTo(x * k, -y * k) : c.moveTo(x * k, -y * k)));
   c.closePath();
   const fin = sh.finish;
-  c.fillStyle = fin.kind === 'solid' || fin.kind === 'metal' || fin.kind === 'wood' || fin.kind === 'flame' ? fin.color : fin.kind === 'burst' ? fin.stops[1] : fin.kind === 'zebra' ? fin.a : fin.color;
+  c.fillStyle = fin.kind === 'tiger' ? '#f08a1c' : fin.kind === 'solid' || fin.kind === 'metal' || fin.kind === 'wood' || fin.kind === 'flame' ? fin.color : fin.kind === 'burst' ? fin.stops[1] : fin.kind === 'zebra' ? fin.a : fin.color;
   if (fin.kind === 'solid') c.fillStyle = color;
   c.fill();
   c.lineWidth = 1;
   c.strokeStyle = fin.kind === 'band' ? '#f2f2f2' : '#1a1a1a';
   c.stroke();
+  if (fin.kind === 'tiger') {
+    c.clip();
+    iconStripes(c, -18, -8, 16, 16);
+  }
   if (fin.kind === 'zebra') {
     c.clip();
     c.strokeStyle = fin.b;

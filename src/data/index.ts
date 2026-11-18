@@ -144,7 +144,7 @@ export interface ItemDef {
   /** Glasses (2026-11-18): the 3D glasses built in src/three/glasses.ts. */
   glasses?: { kind: string; c: string[] };
   /** Mounts (2026-11-18): the vehicle model (public/models/mounts/<model>.glb.gz) ridden with the ride button. */
-  mount?: { model: string };
+  mount?: { model: string; skin?: 'tiger' };
   /** Drops only from MVP bosses (shown in the item window). */
   mvp?: boolean;
   /** Weapons: the element of your attacks. Armour: your defence element. */
@@ -159,7 +159,9 @@ export type CardSlot = 'weapon' | 'armor' | 'head' | 'shoes' | 'accessory';
 export type CardBonus = Partial<Record<StatKey | 'atk' | 'matk' | 'def' | 'mdef' | 'hit' | 'flee' | 'crit' | 'aspd'
   | 'maxHp' | 'maxSp' | 'maxHpPct' | 'maxSpPct' | 'atkPct' | 'matkPct'
   /** PVP (2026-11-10): % more damage to players / % less damage taken from players */
-  | 'pvpAtkPct' | 'pvpDefPct', number>>;
+  | 'pvpAtkPct' | 'pvpDefPct'
+  /** ดูดเลือด (2026-11-18, การ์ดราชาเสือโคร่ง): this % of the damage you deal comes back to you as HP */
+  | 'lifestealPct', number>>;
 
 export const cardFits = (card: ItemDef | undefined, equip: ItemDef | undefined) =>
   !!card?.card && !!equip && (card.card.slot === equip.type || (card.card.slot === 'head' && (equip.type === 'earring' || equip.type === 'glasses')));
@@ -411,6 +413,8 @@ export interface MonsterSkill {
   mult: number;
   magic?: boolean;
   pull?: boolean;
+  /** 'target' skills: the monster leaps onto the target first (the tiger king's pounce). */
+  leap?: boolean;
   cooldown: number;
   belowHp?: number;
 }
@@ -419,6 +423,11 @@ export const MONSTER_SKILLS: Record<string, MonsterSkill> = {
   soul_chain: { name: 'โซ่ตรวนวิญญาณ', area: 'target', radius: 0, range: 9, castMs: 700, mult: 1.2, pull: true, cooldown: 9000 },
   hellfire: { name: 'เพลิงนรกม่วง', area: 'ground', radius: 2.4, range: 9, castMs: 1600, mult: 2.2, magic: true, cooldown: 8000 },
   judgement: { name: 'คำพิพากษาแห่งอเวจี', area: 'self', radius: 5.5, castMs: 2600, mult: 3, magic: true, cooldown: 20000, belowHp: 0.5 },
+  // ราชาเสือโคร่ง, the MVP of ทุ่งเมโลดี้ (2026-11-18): FX in tigerfx.ts
+  tiger_cleave: { name: 'ขวานพยัคฆ์ผ่าปฐพี', area: 'self', radius: 3.2, castMs: 1000, mult: 1.8, cooldown: 7000 },
+  tiger_pounce: { name: 'พยัคฆ์ตะปบ', area: 'target', radius: 0, range: 9, castMs: 800, mult: 1.5, leap: true, cooldown: 9000 },
+  tiger_claws: { name: 'พายุกรงเล็บพยัคฆ์', area: 'ground', radius: 2.6, range: 9, castMs: 1500, mult: 2.1, cooldown: 9000 },
+  tiger_roar: { name: 'คำรามราชันย์พงไพร', area: 'self', radius: 5.5, castMs: 2400, mult: 2.8, magic: true, cooldown: 20000, belowHp: 0.5 },
 };
 
 /** หมุนตัวแทง counts at most this many monsters around you. */
@@ -638,6 +647,8 @@ export interface Derived {
   /** PVP: % more damage to players, % less taken from players (equipment and cards). */
   pvpAtk?: number;
   pvpDef?: number;
+  /** % of the damage dealt that heals you (cards) */
+  lifesteal?: number;
 }
 
 /** Walking speed multiplier (10% slower since 2026-11-05, half of that again 2026-11-15, then 30% faster again 2026-11-15: 0.45 x 1.3). */
@@ -672,7 +683,7 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
   // cards in worn equipment
   const card: Required<CardBonus> = {
     str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0, atk: 0, matk: 0, def: 0, mdef: 0, hit: 0, flee: 0, crit: 0, aspd: 0,
-    maxHp: 0, maxSp: 0, maxHpPct: 0, maxSpPct: 0, atkPct: 0, matkPct: 0, pvpAtkPct: 0, pvpDefPct: 0,
+    maxHp: 0, maxSp: 0, maxHpPct: 0, maxSpPct: 0, atkPct: 0, matkPct: 0, pvpAtkPct: 0, pvpDefPct: 0, lifestealPct: 0,
   };
   for (const row of worn) {
     for (const [k, v] of Object.entries(ITEMS[row.item_id].bonus ?? {}) as [keyof CardBonus, number][]) card[k] += v;
@@ -730,6 +741,7 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
     defElement: armorElement(worn),
     pvpAtk: card.pvpAtkPct,
     pvpDef: Math.min(60, card.pvpDefPct),
+    lifesteal: Math.min(50, card.lifestealPct),
   };
 }
 

@@ -31,3 +31,9 @@ drummer blue, bassist purple, keyboardist white and blue), from models listed ab
 - girls: AvatarSample_B by pixiv VRoid Project.
 
 Both licences allow modification and redistribution.
+
+## Tiger costumes (`tiger_outfit_<m|f>.vrm.gz`, ราชาเสือโคร่ง drops)
+
+Built by `tools/make_tiger_outfits.py`: the same two base models as the class outfits, recoloured orange, black and
+gold with tiger stripes painted on (VRoid Hub model 3425491812101364740 by siroihakumai; AvatarSample_B by pixiv VRoid
+Project). Both licences allow modification and redistribution.

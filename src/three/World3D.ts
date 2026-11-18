@@ -14,8 +14,9 @@ import { npcLife, tickNpc, type NpcLife } from './townLife';
 import { PHONE } from './device';
 import { djAreaCharge, djAreaStrike, djBooth, djCircle, djFireBolts, djFireWall, DJ_FX, iceBlock, stunStars } from './djfx';
 import { blueCircle, chorusFx, controlFx, keyAura, noteRainCharge, noteRainStrike, restoreFx, reviveFx, soloFx, tempoFx } from './keyfx';
-import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet, sfxMonster, sfxDiva, sfxMicBoom, sfxReaper, sfxMvp, sfxDjCharge, sfxDjSpell } from '../audio/sound';
+import { sfx, sfxAttack, sfxBoom, sfxFak, sfxFring, sfxFwing, sfxHammer, sfxBend, sfxPalmMute, sfxPak, sfxSlide, sfxVibrato, sfxSkill, sfxSlash, sfxWhirl, sfxKeySpell, sfxNoteCharge, sfxNoteFall, sfxBassDrop, sfxBassBuff, sfxWheet, sfxMonster, sfxDiva, sfxMicBoom, sfxReaper, sfxTiger, sfxMvp, sfxDjCharge, sfxDjSpell } from '../audio/sound';
 import { hellfire, judgement, scytheSweep, soulChain, telegraph } from './reaperfx';
+import { clawStorm, tigerCleave, tigerPounce, tigerRoar } from './tigerfx';
 import { dynamicsHit, earTrainingBlast, highVoiceBeam, singerBuff, singerCharge, SG } from './singerfx';
 import { buildGround, buildPortal, buildProps } from './props';
 import { upgradeNature } from './nature';
@@ -1348,13 +1349,22 @@ export class World3D {
       if (!sk) return;
       const meHit = msg.hits.some((h) => h.p === this.room.sessionId);
       const vol = this.vol(msg.x, msg.y, meHit);
+      const tiger = msg.skill.startsWith('tiger_');
       const kind = msg.skill === 'scythe_sweep' ? 'sweep' : msg.skill === 'soul_chain' ? 'chain' : msg.skill === 'hellfire' ? 'fire' : 'judge';
-      const ctx = this.fxCtx(meHit, () => sfxReaper(kind, vol));
+      const tkind = msg.skill === 'tiger_cleave' ? 'cleave' : msg.skill === 'tiger_pounce' ? 'pounce' : msg.skill === 'tiger_claws' ? 'claws' : 'roar';
+      const ctx = this.fxCtx(meHit, () => (tiger ? sfxTiger(tkind, vol) : sfxReaper(kind, vol)));
       if (m) {
         if (m.anim) m.anim.attack();
         else this.lunge(m.rig.root, 0, 0.01);
       }
-      if (msg.skill === 'scythe_sweep') scytheSweep(ctx, msg.x, msg.y, sk.radius);
+      if (msg.skill === 'tiger_cleave') tigerCleave(ctx, msg.x, msg.y, sk.radius);
+      else if (msg.skill === 'tiger_claws') clawStorm(ctx, msg.x, msg.y, sk.radius);
+      else if (msg.skill === 'tiger_roar') tigerRoar(ctx, msg.x, msg.y, sk.radius);
+      else if (msg.skill === 'tiger_pounce') {
+        const v = this.players.get(msg.hits[0]?.p ?? '');
+        const to = v ? new THREE.Vector3(v.x, 0, v.y) : new THREE.Vector3(msg.x, 0, msg.y);
+        tigerPounce(ctx, m ? new THREE.Vector3(m.x, 0, m.y) : to.clone(), to);
+      } else if (msg.skill === 'scythe_sweep') scytheSweep(ctx, msg.x, msg.y, sk.radius);
       else if (msg.skill === 'hellfire') hellfire(ctx, msg.x, msg.y, sk.radius);
       else if (msg.skill === 'judgement') judgement(ctx, msg.x, msg.y, sk.radius);
       else if (msg.skill === 'soul_chain' && m) {
@@ -1373,7 +1383,7 @@ export class World3D {
             this.flash(v.rig.root, 0xff3333);
             if (v === this.me) sfx('hurt');
           }
-        }, msg.skill === 'soul_chain' ? 250 : 60 + i * 20);
+        }, msg.skill === 'soul_chain' || msg.skill === 'tiger_pounce' ? 250 : 60 + i * 20);
       });
       if (msg.pulled?.p === this.room.sessionId) this.hooks.toast(`ถูก${sk.name}ลากเข้าไปหาบอส!`, 'bad');
     });

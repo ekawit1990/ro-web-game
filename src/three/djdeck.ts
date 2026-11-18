@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { tigerMaterial } from './tiger';
 import type { KeyboardProp } from './keyboard';
 
 /**
@@ -105,19 +106,21 @@ function cyl(r: number, h: number, m: THREE.Material, x: number, y: number, z: n
 }
 
 /** Item `shape` of DJ weapons: size and colours. */
-export const DJ_STYLES: Record<string, { body: number; panel: number; trim: number; accent: string; pads: number[]; width: number; jog: number; decks: 2 | 4; glow?: number }> = {
+export const DJ_STYLES: Record<string, { body: number; panel: number; trim: number; accent: string; pads: number[]; width: number; jog: number; decks: 2 | 4; glow?: number; tiger?: boolean }> = {
   dj_mini: { body: 0x2b2d33, panel: 0x1d1f24, trim: 0x8a8f99, accent: '#4fc3ff', pads: [0x4fc3ff, 0xff5fa2], width: 0.6, jog: 0.068, decks: 2 },
   dj_basic: { body: 0x1c1d22, panel: 0x141519, trim: 0x6b6f78, accent: '#ff9d2e', pads: [0xff4d4d, 0xffc94d, 0x4dd2ff, 0x7dff9a], width: 0.78, jog: 0.085, decks: 2 },
   dj_neon: { body: 0x14141a, panel: 0x0c0c10, trim: 0x2a2a34, accent: '#38e8ff', pads: [0x38e8ff, 0xff38c8], width: 0.82, jog: 0.088, decks: 2, glow: 0x38e8ff },
   dj_grand: { body: 0xf2f0ea, panel: 0x22242a, trim: 0xd4af37, accent: '#ffcf4d', pads: [0xff4d4d, 0xffcf4d, 0x4dd2ff, 0xb45cff], width: 0.98, jog: 0.088, decks: 4 },
+  // ดีเจคอนโทรลเลอร์ "ลายพยัคฆ์" (ราชาเสือโคร่ง, 2026-11-18): tiger-striped body and top plate, gold trim and platters
+  dj_tiger: { body: 0xf08a1c, panel: 0xf08a1c, trim: 0xe8b84a, accent: '#ffc94a', pads: [0xff8a1c, 0xffc94a, 0xfff1d6], width: 0.98, jog: 0.088, decks: 4, tiger: true },
 };
 
 export function buildDjDeck(styleId?: string): KeyboardProp {
   const st = DJ_STYLES[styleId ?? ''] ?? DJ_STYLES.dj_basic;
   const g = new THREE.Group();
   const W = st.width, D = 0.3, H = 0.045;
-  const body = std(st.body, 0.45);
-  const panel = std(st.panel, 0.6);
+  const body = st.tiger ? tigerMaterial('djbody', { across: true, size: [512, 128], seed: 5 }) : std(st.body, 0.45);
+  const panel = st.tiger ? tigerMaterial('djtop', { across: true, size: [512, 256], seed: 9, rough: 0.5 }) : std(st.panel, 0.6);
   const trim = std(st.trim, 0.3, 0.6);
   g.add(box(W, H, D, body, 0, H / 2, 0));
   // top plate, chrome edge
