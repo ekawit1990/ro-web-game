@@ -978,6 +978,36 @@ export function sfxReaper(kind: 'warn' | 'sweep' | 'chain' | 'fire' | 'judge', v
   }
 }
 
+/** The tiger king's skills (2026-11-18): an axe crashing into the ground, a pounce with claw rips, a claw storm, the roar. */
+export function sfxTiger(kind: 'cleave' | 'pounce' | 'claws' | 'roar', vol = 1) {
+  if (!ready() || vol <= 0) return;
+  const t = now();
+  const rip = (at: number, g: number) => {
+    noise(at, 0.16, { gain: g * vol, type: 'bandpass', freq: 2500, freqTo: 700, q: 1.4, release: 0.06 });
+    noise(at + 0.03, 0.12, { gain: g * 0.7 * vol, type: 'highpass', freq: 3200, release: 0.05 });
+  };
+  if (kind === 'cleave') {
+    noise(t, 0.25, { gain: 0.35 * vol, type: 'bandpass', freq: 500, freqTo: 2400, q: 1, release: 0.08 });
+    tone(110, t + 0.18, 0.5, { type: 'sine', to: 32, gain: 0.9 * vol, release: 0.2 });
+    noise(t + 0.18, 0.7, { gain: 0.55 * vol, type: 'lowpass', freq: 1600, freqTo: 120, release: 0.3, wet: 0.4 });
+    noise(t + 0.2, 0.08, { gain: 0.5 * vol, type: 'highpass', freq: 1800, release: 0.03 });
+  } else if (kind === 'pounce') {
+    noise(t, 0.3, { gain: 0.25 * vol, type: 'bandpass', freq: 300, freqTo: 1500, q: 0.8, release: 0.1 });
+    tone(150, t + 0.05, 0.35, { type: 'sawtooth', to: 70, gain: 0.15 * vol, vibrato: 0.08, release: 0.15 });
+    rip(t + 0.12, 0.5);
+    rip(t + 0.3, 0.45);
+  } else if (kind === 'claws') {
+    for (let i = 0; i < 6; i++) rip(t + i * 0.07, 0.38);
+    tone(90, t, 0.4, { type: 'sine', to: 45, gain: 0.4 * vol, release: 0.15 });
+  } else {
+    // a big cat's roar: a growling sawtooth sliding down, rough noise through a moving band, a deep thump
+    tone(220, t, 1.3, { type: 'sawtooth', to: 95, gain: 0.22 * vol, vibrato: 0.12, release: 0.45, wet: 0.4 });
+    tone(110, t, 1.3, { type: 'sawtooth', to: 55, gain: 0.2 * vol, vibrato: 0.15, release: 0.45, wet: 0.4 });
+    noise(t, 1.3, { gain: 0.45 * vol, type: 'bandpass', freq: 700, freqTo: 300, q: 1.2, release: 0.5, wet: 0.5 });
+    tone(70, t + 0.1, 0.9, { type: 'sine', to: 28, gain: 0.7 * vol, release: 0.4 });
+  }
+}
+
 /** The MVP fanfare: a bright brass-ish arpeggio up to a held chord with a cymbal. */
 export function sfxMvp(vol = 1) {
   if (!ready() || vol <= 0) return;

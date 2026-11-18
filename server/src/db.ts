@@ -41,6 +41,8 @@ export interface ServerDb {
   castleSet(castle: string, guildId: string | null): Promise<void>;
   /** อันดับผู้กล้า: the highest characters, Base Lv first, then EXP, then Job Lv. */
   ranking(limit: number): Promise<RankRow[]>;
+  /** The login username of an account (public.accounts), lower case; null if it has none. */
+  username(userId: string): Promise<string | null>;
 }
 
 export interface RankRow {
@@ -211,6 +213,11 @@ export class SupabaseDb implements ServerDb {
     check(await this.sb.from('guilds').delete().eq('id', guildId));
   }
 
+  async username(userId: string) {
+    const { data } = await this.sb.from('accounts').select('username').eq('user_id', userId).maybeSingle();
+    return (data?.username as string | undefined)?.toLowerCase() ?? null;
+  }
+
   async castleSet(castle: string, guildId: string | null) {
     check(await this.sb.from('guild_castles').upsert({ castle, guild_id: guildId, since: new Date().toISOString() }));
   }
@@ -284,6 +291,11 @@ export class DevDb implements ServerDb {
   private guilds = new Map<string, { id: string; name: string; leader: string | null; members: string[] }>();
   private castles = new Map<string, string | null>();
   private gseq = 0;
+
+  /** Dev server: every player counts as DEV_USERNAME (unset = nobody), to try the GM commands locally. */
+  async username() {
+    return process.env.DEV_USERNAME?.toLowerCase() ?? null;
+  }
 
   async ranking(limit: number) {
     const all = (await this.store.listCharacters()) as RankRow[];

@@ -141,7 +141,7 @@ const BOT_SKILL: Partial<Record<ClassKey, string>> = {
 /** The parts of a player's state a bot fills in (PlayerState in MapRoom). */
 export interface BotPlayer {
   name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number;
-  head: string; weapon: string; ear: string; body: string; x: number; y: number;
+  head: string; weapon: string; ear: string; glasses: string; mount: string; body: string; x: number; y: number;
   hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean; sitting: boolean; hidden: boolean; guild: string; shop: string;
 }
 interface MonsterLike { key: string; x: number; y: number; hp: number; maxHp: number; dead: boolean }
@@ -198,7 +198,7 @@ export class RoomBots {
       const at = def.shop ? stalls[s++] ?? host.map.spawn : this.huntSpot(def);
       Object.assign(p, {
         name: def.name, cls: def.cls, level: def.level, gender: def.gender, hair: def.hair, hairColor: def.hairColor, face: def.face,
-        head: def.head, weapon: def.weapon, ear: def.ear, body: '', x: at.x, y: at.y,
+        head: def.head, weapon: def.weapon, ear: def.ear, glasses: '', mount: '', body: '', x: at.x, y: at.y,
         hp: maxHp, maxHp, sp: maxSp, maxSp, dead: false, sitting: false, hidden: false, guild: '', shop: '',
       });
       const sid = BOT_PREFIX + def.id;

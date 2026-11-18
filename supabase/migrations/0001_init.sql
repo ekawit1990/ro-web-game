@@ -22,7 +22,7 @@ create table if not exists public.item_defs (
 alter table public.item_defs add column if not exists weight int not null default 1;
 alter table public.item_defs drop constraint if exists item_defs_type_check;
 alter table public.item_defs add constraint item_defs_type_check
-  check (type in ('consumable', 'loot', 'card', 'weapon', 'armor', 'head', 'accessory', 'shoes', 'earring'));
+  check (type in ('consumable', 'loot', 'card', 'weapon', 'armor', 'head', 'accessory', 'shoes', 'earring', 'glasses', 'mount'));
 -- card slots on equipment; for cards, the equipment type they go into (see cardFits in src/data/index.ts)
 alter table public.item_defs add column if not exists slots int not null default 0;
 alter table public.item_defs add column if not exists card_slot text;
@@ -186,7 +186,7 @@ declare t text;
 begin
   select type into t from public.item_defs where id = p_item;
   if t is null then raise exception 'unknown item %', p_item; end if;
-  if t in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring') then
+  if t in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring', 'glasses', 'mount') then
     insert into public.inventory (character_id, item_id, qty)
       select p_char, p_item, 1 from generate_series(1, p_qty);
   else
@@ -358,7 +358,7 @@ begin
   select * into r from public.inventory where id = p_inv and character_id = p_char;
   if not found then raise exception 'ไม่พบไอเท็ม'; end if;
   select * into it from public.item_defs where id = r.item_id;
-  if it.type not in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring') then raise exception 'สวมใส่ไม่ได้'; end if;
+  if it.type not in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring', 'glasses', 'mount') then raise exception 'สวมใส่ไม่ได้'; end if;
   if p_equipped and it.classes is not null and not (c.cls = any (it.classes)) then
     raise exception 'อาชีพนี้ใช้ไม่ได้';
   end if;
@@ -486,7 +486,7 @@ begin
   select * into r from public.inventory where id = p_inv and character_id = p_char for update;
   if not found or r.equipped or p_qty < 1 or p_qty > r.qty then raise exception 'ฝากไม่ได้'; end if;
   select type into t from public.item_defs where id = r.item_id;
-  if t not in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring') then
+  if t not in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring', 'glasses', 'mount') then
     select id into s_id from public.account_storage where user_id = c.user_id and item_id = r.item_id limit 1;
   end if;
   if s_id is null and (select count(*) from public.account_storage where user_id = c.user_id) >= 300 then
@@ -510,7 +510,7 @@ begin
   if s.qty = p_qty then delete from public.account_storage where id = p_row;
   else update public.account_storage set qty = qty - p_qty where id = p_row; end if;
   select type into t from public.item_defs where id = s.item_id;
-  if t in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring') then
+  if t in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring', 'glasses', 'mount') then
     -- equipment keeps its + level and cards
     insert into public.inventory (character_id, item_id, qty, refine, cards)
       select p_char, s.item_id, 1, s.refine, s.cards from generate_series(1, p_qty);
@@ -532,7 +532,7 @@ begin
   select * into ci from public.item_defs where id = cr.item_id;
   select * into ei from public.item_defs where id = er.item_id;
   if ci.type <> 'card' then raise exception 'ไอเท็มนี้ไม่ใช่การ์ด'; end if;
-  if not (ci.card_slot = ei.type or (ci.card_slot = 'head' and ei.type = 'earring')) then
+  if not (ci.card_slot = ei.type or (ci.card_slot = 'head' and ei.type in ('earring', 'glasses'))) then
     raise exception 'การ์ดใบนี้เสียบในไอเท็มนี้ไม่ได้';
   end if;
   if coalesce(array_length(er.cards, 1), 0) >= ei.slots then raise exception 'ไม่มีช่องการ์ดว่าง'; end if;
@@ -693,7 +693,7 @@ begin
       select * into r from public.inventory where id = (o->>'inv')::uuid and character_id = giver for update;
       if not found or r.equipped or q < 1 or q > r.qty then raise exception 'ไอเท็มที่แลกไม่ถูกต้อง'; end if;
       select type into t from public.item_defs where id = r.item_id;
-      if t in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring') then
+      if t in ('weapon', 'armor', 'head', 'accessory', 'shoes', 'earring', 'glasses', 'mount') then
         update public.inventory set character_id = taker, equipped = false where id = r.id;
       else
         if q = r.qty then delete from public.inventory where id = r.id;

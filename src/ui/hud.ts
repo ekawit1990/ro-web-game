@@ -57,19 +57,19 @@ const STAT_HELP: Record<StatKey, string> = {
   int: 'พลังเวทย์ (Matk), SP', dex: 'ความแม่นยำ (Hit), โจมตีไกล', luk: 'คริติคอล, โจมตีเล็กน้อย',
 };
 const SLOT_LABEL: Record<string, string> = {
-  head: 'หมวก', weapon: 'อาวุธ', armor: 'ชุด', accessory: 'เครื่องประดับ', shoes: 'รองเท้า', earring: 'หูฟัง',
+  head: 'หมวก', weapon: 'อาวุธ', armor: 'ชุด', accessory: 'เครื่องประดับ', shoes: 'รองเท้า', earring: 'หูฟัง', glasses: 'แว่นตา', mount: 'พาหนะ',
 };
 const TYPE_LABEL: Record<string, string> = {
   ...SLOT_LABEL, consumable: 'ของใช้', loot: 'ของสะสม / วัตถุดิบ', card: 'การ์ดมอนสเตอร์',
 };
-const CARD_SLOT_LABEL: Record<string, string> = { weapon: 'อาวุธ', armor: 'ชุด', head: 'หมวก / หูฟัง', shoes: 'รองเท้า', accessory: 'เครื่องประดับ' };
+const CARD_SLOT_LABEL: Record<string, string> = { weapon: 'อาวุธ', armor: 'ชุด', head: 'หมวก / หูฟัง / แว่นตา', shoes: 'รองเท้า', accessory: 'เครื่องประดับ' };
 
 type GuideTab = 'mon' | 'equip' | 'card';
 const GUIDE_TABS: Record<GuideTab, string> = { mon: '👾 มอนสเตอร์', equip: '🛡️ อุปกรณ์', card: '🃏 การ์ด' };
 const GUIDE_FILTERS: Record<GuideTab, [string, string][]> = {
   mon: [['', 'ทั้งหมด'], ['1-20', 'Lv 1-20'], ['21-40', '21-40'], ['41-60', '41-60'], ['61-80', '61-80'], ['81-99', '81-99'], ['boss', '★ บอส/MVP'], ['aggr', '⚔ ดุ']],
-  equip: [['', 'ทั้งหมด'], ['weapon', 'อาวุธ'], ['armor', 'ชุด'], ['head', 'หมวก'], ['shoes', 'รองเท้า'], ['accessory', 'เครื่องประดับ'], ['earring', 'ต่างหู']],
-  card: [['', 'ทั้งหมด'], ['weapon', 'อาวุธ'], ['armor', 'ชุด'], ['head', 'หมวก/หูฟัง'], ['shoes', 'รองเท้า'], ['accessory', 'เครื่องประดับ']],
+  equip: [['', 'ทั้งหมด'], ['weapon', 'อาวุธ'], ['armor', 'ชุด'], ['head', 'หมวก'], ['shoes', 'รองเท้า'], ['accessory', 'เครื่องประดับ'], ['earring', 'ต่างหู'], ['glasses', 'แว่นตา'], ['mount', 'พาหนะ']],
+  card: [['', 'ทั้งหมด'], ['weapon', 'อาวุธ'], ['armor', 'ชุด'], ['head', 'หมวก/หูฟัง/แว่น'], ['shoes', 'รองเท้า'], ['accessory', 'เครื่องประดับ']],
 };
 /** The monster a card comes from (each monster has its own card). */
 const dropperOf = (cardId: string) => Object.values(MONSTERS).find((m) => m.drops.some(([d]) => d === cardId));
@@ -83,9 +83,9 @@ const pct = (r: number) => `${+(r * 100).toFixed(r < 0.01 ? 2 : r < 0.1 ? 1 : 0)
 const BONUS_LABEL: Record<keyof CardBonus, string> = {
   str: 'Str', agi: 'Agi', vit: 'Vit', int: 'Int', dex: 'Dex', luk: 'Luk', atk: 'Atk', matk: 'Matk', def: 'Def', mdef: 'Mdef',
   hit: 'Hit', flee: 'Flee', crit: 'Critical', aspd: 'Aspd', maxHp: 'MaxHP', maxSp: 'MaxSP', maxHpPct: 'MaxHP', maxSpPct: 'MaxSP',
-  atkPct: 'Atk', matkPct: 'Matk', pvpAtkPct: 'ตีผู้เล่น', pvpDefPct: 'ลดดาเมจจากผู้เล่น',
+  atkPct: 'Atk', matkPct: 'Matk', pvpAtkPct: 'ตีผู้เล่น', pvpDefPct: 'ลดดาเมจจากผู้เล่น', lifestealPct: 'ดูดเลือด',
 };
-const PCT_BONUS = new Set(['aspd', 'maxHpPct', 'maxSpPct', 'atkPct', 'matkPct', 'pvpAtkPct', 'pvpDefPct']);
+const PCT_BONUS = new Set(['aspd', 'maxHpPct', 'maxSpPct', 'atkPct', 'matkPct', 'pvpAtkPct', 'pvpDefPct', 'lifestealPct']);
 /** "Agi +1 · Aspd +3%" */
 export const bonusText = (b: CardBonus) =>
   (Object.entries(b) as [keyof CardBonus, number][]).map(([k, v]) => `${BONUS_LABEL[k]} +${v}${PCT_BONUS.has(k) ? '%' : ''}`).join(' · ');
@@ -347,6 +347,7 @@ export class Hud implements WorldHooks {
 
   private refreshInfo() {
     const { char: c, derived: d } = this.s;
+    this.root.querySelector('#ride-btn')?.classList.toggle('hidden', !this.s.equippedOf('mount'));
     const set = (id: string, v: string) => {
       const el = this.root.querySelector(`#${id}`);
       if (el && el.textContent !== v) el.textContent = v;
@@ -416,16 +417,16 @@ export class Hud implements WorldHooks {
     ];
     b.innerHTML = `
       <div class="eq-grid">
-        <div class="eq-col">${slot('head')}${slot('armor')}${slot('shoes')}</div>
+        <div class="eq-col">${slot('head')}${slot('glasses')}${slot('armor')}${slot('shoes')}</div>
         <canvas id="eq-preview" width="96" height="134"></canvas>
-        <div class="eq-col">${slot('earring')}${slot('weapon')}${slot('accessory')}</div>
+        <div class="eq-col">${slot('earring')}${slot('weapon')}${slot('accessory')}${slot('mount')}</div>
       </div>
       <div class="st-grid">
         <div>${rows}</div>
         <div class="st-right">${right.map(([k, v]) => `<div><label>${k}</label><b>${v}</b></div>`).join('')}
           <div class="sp-pts"><label>Status Point</label><b>${c.stat_points}</b></div></div>
       </div>`;
-    drawLook(b.querySelector('#eq-preview')!, { ...c, cls: c.cls, outfit: outfitOf(this.s.equippedOf('armor')?.item_id) }, 'f', this.s.equippedOf('head')?.item_id, true, !!this.s.equippedOf('weapon'), this.s.equippedOf('earring')?.item_id);
+    drawLook(b.querySelector('#eq-preview')!, { ...c, cls: c.cls, outfit: outfitOf(this.s.equippedOf('armor')?.item_id) }, 'f', this.s.equippedOf('head')?.item_id, true, !!this.s.equippedOf('weapon'), this.s.equippedOf('earring')?.item_id, false, this.s.equippedOf('glasses')?.item_id);
     b.querySelectorAll<HTMLButtonElement>('[data-stat]').forEach((btn) =>
       btn.addEventListener('click', () => this.run(() => this.s.allocate(btn.dataset.stat as StatKey))),
     );
@@ -916,6 +917,9 @@ export class Hud implements WorldHooks {
     // /auto sits under the guide button (moved out of Basic Info, 2026-11-13)
     this.root.insertAdjacentHTML('beforeend', `<button id="auto-btn" class="guide-btn auto-btn" title="/auto · ตีและใช้สกิลอัตโนมัติ"><i>${UI_ICONS.auto}</i><span>ออโต้</span></button>`);
     this.root.querySelector('#auto-btn')!.addEventListener('click', () => this.toggleAuto());
+    // ขี่รถ: next to the auto button, only while a mount is worn (2026-11-18)
+    this.root.insertAdjacentHTML('beforeend', `<button id="ride-btn" class="guide-btn ride-btn hidden" title="ขี่รถ / ลงจากรถ (เดินเร็วขึ้น 150%)"><i>${UI_ICONS.ride}</i><span>ขี่รถ</span></button>`);
+    this.root.querySelector('#ride-btn')!.addEventListener('click', () => this.actions.scene()?.toggleRide());
     // อันดับผู้กล้า under the auto button (2026-11-13)
     this.root.insertAdjacentHTML('beforeend', `<button id="rank-btn" class="guide-btn rank-btn" title="อันดับผู้กล้า: เลเวลสูงสุดไล่ลงมา (Alt+R)"><i>${UI_ICONS.rank}</i><span>อันดับ</span></button>`);
     this.root.querySelector('#rank-btn')!.addEventListener('click', () => this.toggleRank());
@@ -2880,6 +2884,14 @@ export class Hud implements WorldHooks {
     if (!w) return;
     if (!w.isAuto() && this.map.safe) return this.toast('ในเมืองไม่มีมอนสเตอร์ ออกไปที่ทุ่งก่อนแล้วค่อยเปิดออโต้', 'bad');
     w.setAuto(!w.isAuto());
+  }
+
+  /** On / off the mount: light up the ride button. */
+  rideChanged(on: boolean) {
+    const b = this.root.querySelector('#ride-btn');
+    b?.classList.toggle('on', on);
+    const label = b?.querySelector('span');
+    if (label) label.textContent = on ? 'ลงรถ' : 'ขี่รถ';
   }
 
   /** /auto on/off: light up the button and say so (clicking the ground or dying also turns it off). */

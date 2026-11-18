@@ -18,6 +18,7 @@ export function loadBlenderModel(name: string) {
 }
 
 function load(name: string) {
+  if (name.includes('tiger')) return Promise.resolve(null); // the ราชาเสือโคร่ง set (2026-11-18) is code only: no file to fetch
   if (!loading.has(name)) {
     loading.set(name, (async () => {
       try {

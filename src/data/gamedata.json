@@ -6205,6 +6205,686 @@
    "color": "#c9a8ff",
    "weight": 3,
    "desc": "ปีกผีเสื้อวิเศษ ใช้แล้ววาร์ปกลับเมืองที่จุดเซฟทันที (ใช้ไม่ได้ในลานประลองและปราสาท)"
+  },
+  "gls_piano_shutter": {
+   "name": "แว่นบานเกล็ดคีย์เปียโน",
+   "type": "glasses",
+   "def": 1,
+   "price": 5000,
+   "color": "#fafafa",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "dex": 2,
+    "luk": 2
+   },
+   "glasses": {
+    "kind": "shutter",
+    "c": [
+     "#fafafa",
+     "#212121"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 10,
+   "desc": "แว่นบานเกล็ดลายคีย์เปียโนขาวดำ ใส่แล้วเห็นโลกเป็นจังหวะ (ดรอปจากมินิบอส ราชาเห็ดเสียงเพี้ยน เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_forest_round": {
+   "name": "แว่นกลมกรอบไม้ป่าโบราณ",
+   "type": "glasses",
+   "def": 1,
+   "price": 5000,
+   "color": "#8d6e63",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "int": 2,
+    "vit": 2
+   },
+   "glasses": {
+    "kind": "round",
+    "c": [
+     "#8d6e63",
+     "#c5e1a5",
+     "#66bb6a"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 14,
+   "desc": "แว่นกลมกรอบไม้เก่าแก่ มีใบไม้งอกที่ขาแว่น เลนส์สีเขียวอ่อน (ดรอปจากมินิบอส ราชาเห็ดป่าโบราณ เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_shark_cateye": {
+   "name": "แว่นตาแมวฉลามบึง",
+   "type": "glasses",
+   "def": 2,
+   "price": 5000,
+   "color": "#26a69a",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "agi": 3,
+    "dex": 2
+   },
+   "glasses": {
+    "kind": "cateye",
+    "c": [
+     "#26a69a",
+     "#b2ebf2",
+     "#004d40"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 17,
+   "desc": "แว่นทรงตาแมวสีเขียวน้ำทะเล ปลายแหลมเหมือนครีบฉลาม (ดรอปจากมินิบอส ราชาฉลามบึงทุ้ม เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_rock_flame": {
+   "name": "แว่นกันแดดเปลวร็อก",
+   "type": "glasses",
+   "def": 2,
+   "price": 5000,
+   "color": "#212121",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "str": 3,
+    "crit": 3
+   },
+   "glasses": {
+    "kind": "flame",
+    "c": [
+     "#212121",
+     "#ff7043",
+     "#ffca28"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 21,
+   "desc": "แว่นกันแดดดำ ขอบบนเป็นเปลวไฟส้มเหลือง ใส่แล้วอยากโซโล่กีตาร์ (ดรอปจากมินิบอส มังกรร็อกแอนด์โรล เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_snow_star": {
+   "name": "แว่นดาวหิมะโซปราโน",
+   "type": "glasses",
+   "def": 2,
+   "price": 5000,
+   "color": "#e3f2fd",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "int": 3,
+    "dex": 3
+   },
+   "glasses": {
+    "kind": "star",
+    "c": [
+     "#e3f2fd",
+     "#81d4fa",
+     "#ffffff"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 25,
+   "desc": "เลนส์รูปดาวสีฟ้าน้ำแข็ง ประกายระยิบเหมือนเสียงโซปราโน (ดรอปจากมินิบอส ราชินีหิมะโซปราโน เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_metal_visor": {
+   "name": "แว่นไวเซอร์หมุดเมทัล",
+   "type": "glasses",
+   "def": 2,
+   "price": 5000,
+   "color": "#37474f",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "str": 4,
+    "vit": 3
+   },
+   "glasses": {
+    "kind": "visor",
+    "c": [
+     "#37474f",
+     "#ef5350",
+     "#b0bec5"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 30,
+   "desc": "แว่นแผ่นเดียวสีดำ ขอบตอกหมุดเหล็ก เส้นไฟแดงพาดกลาง สายเมทัลตัวจริง (ดรอปจากมินิบอส จอมมารหน้ากากเมทัล เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_kraken_goggle": {
+   "name": "แว่นดำน้ำคลื่นเสียง",
+   "type": "glasses",
+   "def": 2,
+   "price": 5000,
+   "color": "#1565c0",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "vit": 4,
+    "agi": 3
+   },
+   "glasses": {
+    "kind": "goggle",
+    "c": [
+     "#1565c0",
+     "#80deea",
+     "#ffb300"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 35,
+   "desc": "แว่นดำน้ำกรอบน้ำเงิน เลนส์ใสสะท้อนคลื่นเสียงใต้ทะเล (ดรอปจากมินิบอส ราชันย์หมึกยักษ์ซาวด์เวฟ เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_crystal_hex": {
+   "name": "แว่นคริสตัลหกเหลี่ยม",
+   "type": "glasses",
+   "def": 3,
+   "price": 5000,
+   "color": "#b39ddb",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "int": 4,
+    "dex": 4
+   },
+   "glasses": {
+    "kind": "hex",
+    "c": [
+     "#b39ddb",
+     "#e1bee7",
+     "#7e57c2"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 48,
+   "desc": "แว่นหกเหลี่ยมกรอบคริสตัลม่วง สะท้อนเสียงก้องเป็นประกาย (ดรอปจากมินิบอส ราชาคริสตัลเสียงก้อง เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_banshee_heart": {
+   "name": "แว่นหัวใจเสียงกรีดร้อง",
+   "type": "glasses",
+   "def": 3,
+   "price": 5000,
+   "color": "#ad1457",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "luk": 5,
+    "agi": 4,
+    "maxHp": 204
+   },
+   "glasses": {
+    "kind": "heart",
+    "c": [
+     "#ad1457",
+     "#f48fb1",
+     "#fce4ec"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 58,
+   "desc": "แว่นรูปหัวใจสีชมพูเข้ม ใส่แล้วเสียงกรีดร้องกลายเป็นเพลงรัก (ดรอปจากมินิบอส ราชินีบันชีเสียงกรีดร้อง เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_opera_monocle": {
+   "name": "โมโนเคิลโอเปร่าราตรี",
+   "type": "glasses",
+   "def": 4,
+   "price": 5000,
+   "color": "#ffd54f",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "int": 5,
+    "dex": 5,
+    "maxHp": 246
+   },
+   "glasses": {
+    "kind": "monocle",
+    "c": [
+     "#ffd54f",
+     "#e1f5fe",
+     "#4a148c"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 72,
+   "desc": "แว่นข้างเดียวกรอบทอง ห้อยโซ่ทองคล้องหู ของคู่ราชาแห่งโอเปร่า (ดรอปจากมินิบอส ราชาไร้บัลลังก์แห่งโอเปร่า เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_lava_speaker": {
+   "name": "แว่นลำโพงลาวา",
+   "type": "glasses",
+   "def": 4,
+   "price": 5000,
+   "color": "#3e2723",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "str": 6,
+    "vit": 5,
+    "maxHp": 297
+   },
+   "glasses": {
+    "kind": "speaker",
+    "c": [
+     "#3e2723",
+     "#ff5722",
+     "#ffab40"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 89,
+   "desc": "เลนส์เป็นดอกลำโพงสีลาวาเรืองแสง สั่นตามจังหวะกลองภูเขาไฟ (ดรอปจากมินิบอส จักรพรรดิภูเขาไฟเมทัล เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_abyss_vinyl": {
+   "name": "แว่นแผ่นเสียงยมทูต",
+   "type": "glasses",
+   "def": 5,
+   "price": 5000,
+   "color": "#120a10",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "str": 6,
+    "agi": 6,
+    "dex": 6,
+    "maxHp": 300
+   },
+   "glasses": {
+    "kind": "vinyl",
+    "c": [
+     "#120a10",
+     "#ff1744",
+     "#b04dff"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 90,
+   "desc": "เลนส์เป็นแผ่นเสียงไวนิลดำ ร่องเสียงเรืองแดง ม่วง แว่นที่หายากที่สุดในโลก (ดรอปจากบอส MVP ยมทูตเคียวโลหิต เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "mount_silver_sprint": {
+   "name": "สกู๊ตเตอร์ซิลเวอร์สปรินต์",
+   "type": "mount",
+   "price": 50000,
+   "color": "#b0bec5",
+   "weight": 50,
+   "bonus": {
+    "str": 20,
+    "agi": 20,
+    "vit": 20,
+    "int": 20,
+    "dex": 20,
+    "luk": 20
+   },
+   "mount": {
+    "model": "scooter_silver"
+   },
+   "mvp": true,
+   "desc": "สกู๊ตเตอร์สีเงินทรงสปอร์ต เบาและคล่องตัว สวมใส่แล้ว All Status +20 กดปุ่ม 🛵 ขี่รถ เดินเร็วขึ้น 150% (ดรอปจากบอส MVP ยมทูตเคียวโลหิต เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "mount_red_scooter": {
+   "name": "สกู๊ตเตอร์แดงเพลิง",
+   "type": "mount",
+   "price": 50000,
+   "color": "#e53935",
+   "weight": 50,
+   "bonus": {
+    "str": 20,
+    "agi": 20,
+    "vit": 20,
+    "int": 20,
+    "dex": 20,
+    "luk": 20
+   },
+   "mount": {
+    "model": "scooter_red"
+   },
+   "mvp": true,
+   "desc": "สกู๊ตเตอร์สีแดงสด ขี่ผ่านที่ไหนใครก็หันมอง สวมใส่แล้ว All Status +20 กดปุ่ม 🛵 ขี่รถ เดินเร็วขึ้น 150% (ดรอปจากบอส MVP ยมทูตเคียวโลหิต เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "mount_retro_blue": {
+   "name": "สกู๊ตเตอร์เรโทรฟ้าเหลือง",
+   "type": "mount",
+   "price": 50000,
+   "color": "#42a5f5",
+   "weight": 50,
+   "bonus": {
+    "str": 20,
+    "agi": 20,
+    "vit": 20,
+    "int": 20,
+    "dex": 20,
+    "luk": 20
+   },
+   "mount": {
+    "model": "scooter_retro"
+   },
+   "mvp": true,
+   "desc": "สกู๊ตเตอร์ทรงคลาสสิกสีฟ้าคาดเหลือง ขี่ชิลๆ ฟังเพลงไปด้วย สวมใส่แล้ว All Status +20 กดปุ่ม 🛵 ขี่รถ เดินเร็วขึ้น 150% (ดรอปจากบอส MVP ยมทูตเคียวโลหิต เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "tiger_king_fang": {
+   "name": "เขี้ยวราชาเสือโคร่ง",
+   "type": "loot",
+   "price": 1500,
+   "color": "#fff4e2",
+   "weight": 2,
+   "desc": "เขี้ยวขาวยาวคมกริบของราชาเสือโคร่ง ร้องคำรามทีเดียวทั้งทุ่งเงียบกริบ (ขายได้)"
+  },
+  "tiger_king_pelt": {
+   "name": "ผืนหนังลายพยัคฆ์",
+   "type": "loot",
+   "price": 1500,
+   "color": "#f08a1c",
+   "weight": 5,
+   "desc": "ผืนหนังลายเสือสีส้มดำเงาวับ นุ่มแต่เหนียวจนดาบฟันไม่เข้า (ขายได้)"
+  },
+  "mic_tiger": {
+   "name": "ไมค์พยัคฆ์คำราม",
+   "type": "weapon",
+   "atk": 100,
+   "classes": [
+    "singer"
+   ],
+   "shape": "mic_tiger",
+   "weight": 30,
+   "element": "earth",
+   "bonus": {
+    "dex": 5,
+    "str": 3,
+    "atkPct": 6,
+    "pvpAtkPct": 12
+   },
+   "desc": "ไมค์ด้ามลายเสือส้มดำ หัวตะแกรงสีทองเหมือนแผงคอราชาเสือ ร้องทีไรเหมือนเสือคำราม โจมตีเป็นธาตุดิน (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "price": 4000,
+   "color": "#f08a1c",
+   "mvp": true,
+   "slots": 1,
+   "reqLevel": 90
+  },
+  "gtr_tiger": {
+   "name": "กีตาร์ทรงกรงเล็บ \"ลายพยัคฆ์\"",
+   "type": "weapon",
+   "atk": 108,
+   "classes": [
+    "guitarist"
+   ],
+   "shape": "tiger",
+   "weight": 70,
+   "element": "earth",
+   "bonus": {
+    "str": 4,
+    "atkPct": 6,
+    "crit": 3,
+    "pvpAtkPct": 13
+   },
+   "desc": "กีตาร์ไฟฟ้าทรงหนามแหลมเหมือนกรงเล็บ ลายเสือส้มดำเคลือบเงา ฮาร์ดแวร์ทอง โจมตีเป็นธาตุดิน (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "price": 4000,
+   "color": "#f08a1c",
+   "mvp": true,
+   "slots": 1,
+   "reqLevel": 90
+  },
+  "bss_tiger": {
+   "name": "เบส 5 สาย \"ลายพยัคฆ์\"",
+   "type": "weapon",
+   "atk": 104,
+   "classes": [
+    "bassist"
+   ],
+   "shape": "tiger",
+   "weight": 70,
+   "element": "earth",
+   "bonus": {
+    "str": 4,
+    "vit": 3,
+    "atkPct": 6,
+    "pvpAtkPct": 13
+   },
+   "desc": "เบส 5 สายบอดี้ลายเสือส้มดำ ฮาร์ดแวร์ทอง เสียงต่ำหนักเหมือนเสียงขู่ในลำคอ โจมตีเป็นธาตุดิน (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "price": 4000,
+   "color": "#f08a1c",
+   "mvp": true,
+   "slots": 1,
+   "reqLevel": 90
+  },
+  "stk_tiger": {
+   "name": "ไม้กลองคู่ \"ลายพยัคฆ์\"",
+   "type": "weapon",
+   "atk": 94,
+   "classes": [
+    "drummer"
+   ],
+   "shape": "stick_tiger",
+   "weight": 70,
+   "element": "earth",
+   "bonus": {
+    "agi": 4,
+    "str": 3,
+    "aspd": 3,
+    "pvpAtkPct": 12
+   },
+   "desc": "ไม้กลองคู่ลายเสือส้มดำ ปลายหัวสีทอง ตีรัวได้เร็วเหมือนเสือตะปบ โจมตีเป็นธาตุดิน (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "price": 4000,
+   "color": "#f08a1c",
+   "mvp": true,
+   "slots": 1,
+   "reqLevel": 90
+  },
+  "kbd_tiger": {
+   "name": "คีย์บอร์ด \"ลายพยัคฆ์\"",
+   "type": "weapon",
+   "atk": 30,
+   "matk": 98,
+   "classes": [
+    "keyboardist"
+   ],
+   "shape": "kb_tiger",
+   "weight": 70,
+   "element": "earth",
+   "bonus": {
+    "int": 5,
+    "matkPct": 7,
+    "pvpAtkPct": 6
+   },
+   "desc": "คีย์บอร์ดตัวถังลายเสือส้มดำ ขอบทอง ทุกคีย์ดังก้องเหมือนเสียงป่า โจมตีเป็นธาตุดิน (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "price": 4000,
+   "color": "#f08a1c",
+   "mvp": true,
+   "slots": 1,
+   "reqLevel": 90
+  },
+  "dj_tiger": {
+   "name": "ดีเจคอนโทรลเลอร์ \"ลายพยัคฆ์\"",
+   "type": "weapon",
+   "atk": 30,
+   "matk": 100,
+   "classes": [
+    "dj"
+   ],
+   "shape": "dj_tiger",
+   "weight": 70,
+   "element": "earth",
+   "bonus": {
+    "int": 5,
+    "matkPct": 7,
+    "pvpAtkPct": 6
+   },
+   "desc": "ชุดดีเจ 4 แทร็กตัวถังลายเสือ จานหมุนสีทอง เปิดเพลงทีไรฟลอร์คำรามทั้งงาน โจมตีเป็นธาตุดิน (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "price": 4000,
+   "color": "#f08a1c",
+   "mvp": true,
+   "slots": 1,
+   "reqLevel": 90
+  },
+  "outfit_tiger_m": {
+   "name": "ชุดคอสตูมพยัคฆ์ (ชาย)",
+   "type": "armor",
+   "def": 18,
+   "weight": 60,
+   "gender": "m",
+   "vrm": "tiger_outfit_m.vrm.gz",
+   "slots": 1,
+   "bonus": {
+    "str": 6,
+    "agi": 6,
+    "vit": 6,
+    "maxHpPct": 6
+   },
+   "desc": "แจ็กเก็ตลายเสือส้มดำ ปกและแขนเสื้อสีดำ กางเกงดำแถบส้ม รองเท้าลายเสือ (ใส่แล้วเปลี่ยนเสื้อผ้าทั้งชุด หน้าและผมยังเป็นของเรา) (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "price": 4000,
+   "color": "#f08a1c",
+   "mvp": true,
+   "reqLevel": 90
+  },
+  "outfit_tiger_f": {
+   "name": "ชุดคอสตูมพยัคฆ์ (หญิง)",
+   "type": "armor",
+   "def": 18,
+   "weight": 60,
+   "gender": "f",
+   "vrm": "tiger_outfit_f.vrm.gz",
+   "slots": 1,
+   "bonus": {
+    "str": 6,
+    "agi": 6,
+    "dex": 6,
+    "maxHpPct": 6
+   },
+   "desc": "แจ็กเก็ตครอปลายเสือ เสื้อในขาว กระโปรงพลีตลายเสือ ถุงเท้ายาวสีดำ (ใส่แล้วเปลี่ยนเสื้อผ้าทั้งชุด หน้าและผมยังเป็นของเรา) (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "price": 4000,
+   "color": "#f08a1c",
+   "mvp": true,
+   "reqLevel": 90
+  },
+  "gls_tiger": {
+   "name": "แว่นตาลายพยัคฆ์",
+   "type": "glasses",
+   "def": 4,
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "str": 6,
+    "agi": 6,
+    "luk": 6,
+    "maxHp": 300
+   },
+   "glasses": {
+    "kind": "tiger",
+    "c": [
+     "#f08a1c",
+     "#ffc94a",
+     "#141010"
+    ]
+   },
+   "desc": "แว่นทรงตาเสือ กรอบลายเสือส้มดำ เลนส์สีอำพันเหมือนตาเสือตอนกลางคืน (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "price": 5000,
+   "color": "#f08a1c",
+   "mvp": true,
+   "reqLevel": 90
+  },
+  "hat_tiger_head": {
+   "name": "หมวกหัวราชาเสือ",
+   "type": "head",
+   "def": 14,
+   "weight": 20,
+   "slots": 2,
+   "bonus": {
+    "str": 7,
+    "vit": 7,
+    "maxHp": 400,
+    "pvpDefPct": 6
+   },
+   "hat": {
+    "kind": "tigerhead",
+    "c": [
+     "#f08a1c",
+     "#141010",
+     "#fff4e2"
+    ]
+   },
+   "desc": "หมวกหัวเสือขนนุ่มลายส้มดำ หูกลม ตาอำพัน เขี้ยวขาวห้อยหน้าผาก ใส่แล้วเหมือนราชาแห่งทุ่ง (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "price": 8000,
+   "color": "#f08a1c",
+   "mvp": true,
+   "reqLevel": 95
+  },
+  "card_tiger_king": {
+   "name": "การ์ดราชาเสือโคร่ง",
+   "type": "card",
+   "price": 10000,
+   "color": "#f08a1c",
+   "weight": 1,
+   "card": {
+    "slot": "shoes",
+    "bonus": {
+     "str": 50,
+     "maxHpPct": 50,
+     "lifestealPct": 10
+    }
+   },
+   "desc": "ราชาแห่งทุ่งเมโลดี้ ขวานยักษ์ฟาดลงทีเดียวแผ่นดินแยก (บอส MVP) · เสียบได้ในช่องการ์ดของรองเท้า · ดูดเลือด 10% ของดาเมจที่ทำได้กลับมาเป็น HP · เสียบแล้วถอดไม่ได้"
+  },
+  "mount_tiger_sprint": {
+   "name": "สกู๊ตเตอร์สปรินต์ลายพยัคฆ์",
+   "type": "mount",
+   "price": 50000,
+   "color": "#f08a1c",
+   "weight": 50,
+   "bonus": {
+    "str": 20,
+    "agi": 20,
+    "vit": 20,
+    "int": 20,
+    "dex": 20,
+    "luk": 20
+   },
+   "mount": {
+    "model": "scooter_silver",
+    "skin": "tiger"
+   },
+   "desc": "สกู๊ตเตอร์ทรงสปอร์ตทาลายเสือส้มดำ เบาและเร็วเหมือนเสือวิ่ง สวมใส่แล้ว All Status +20 กดปุ่ม 🛵 ขี่รถ เดินเร็วขึ้น 150% (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "mvp": true,
+   "reqLevel": 1
+  },
+  "mount_tiger_red": {
+   "name": "สกู๊ตเตอร์เพลิงลายพยัคฆ์",
+   "type": "mount",
+   "price": 50000,
+   "color": "#f08a1c",
+   "weight": 50,
+   "bonus": {
+    "str": 20,
+    "agi": 20,
+    "vit": 20,
+    "int": 20,
+    "dex": 20,
+    "luk": 20
+   },
+   "mount": {
+    "model": "scooter_red",
+    "skin": "tiger"
+   },
+   "desc": "สกู๊ตเตอร์ทาลายเสือส้มดำเงาวับ ขี่ผ่านที่ไหนทุกคนต้องหลีกทาง สวมใส่แล้ว All Status +20 กดปุ่ม 🛵 ขี่รถ เดินเร็วขึ้น 150% (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "mvp": true,
+   "reqLevel": 1
+  },
+  "mount_tiger_retro": {
+   "name": "สกู๊ตเตอร์เรโทรลายพยัคฆ์",
+   "type": "mount",
+   "price": 50000,
+   "color": "#f08a1c",
+   "weight": 50,
+   "bonus": {
+    "str": 20,
+    "agi": 20,
+    "vit": 20,
+    "int": 20,
+    "dex": 20,
+    "luk": 20
+   },
+   "mount": {
+    "model": "scooter_retro",
+    "skin": "tiger"
+   },
+   "desc": "สกู๊ตเตอร์ทรงคลาสสิกทาลายเสือ ขี่ชิลๆ แต่ดุดัน สวมใส่แล้ว All Status +20 กดปุ่ม 🛵 ขี่รถ เดินเร็วขึ้น 150% (ดรอปจากบอส MVP ราชาเสือโคร่ง Lv 99 แห่งทุ่งเมโลดี้ เท่านั้น, ไม่มีขายในร้าน)",
+   "mvp": true,
+   "reqLevel": 1
   }
  },
  "shop": [
@@ -6969,6 +7649,10 @@
     [
      "dj_controller",
      0.15
+    ],
+    [
+     "gls_piano_shutter",
+     0.05
     ]
    ],
    "boss": true,
@@ -7209,6 +7893,10 @@
     [
      "dj_controller",
      0.12
+    ],
+    [
+     "gls_forest_round",
+     0.05
     ]
    ],
    "model": "MB_elder_tree",
@@ -7444,6 +8132,10 @@
     [
      "mic_stick",
      0.08
+    ],
+    [
+     "gls_shark_cateye",
+     0.05
     ]
    ],
    "model": "MB_marsh_queen",
@@ -7739,6 +8431,10 @@
     [
      "mic_red",
      0.08
+    ],
+    [
+     "gls_rock_flame",
+     0.05
     ]
    ],
    "model": "MB_rock_dragon",
@@ -8038,6 +8734,10 @@
     [
      "mic_taper",
      0.08
+    ],
+    [
+     "gls_snow_star",
+     0.05
     ]
    ],
    "model": "MB_snow_queen",
@@ -8343,6 +9043,10 @@
     [
      "dj_controller",
      0.3
+    ],
+    [
+     "gls_metal_visor",
+     0.05
     ]
    ],
    "model": "MB_metal_lord",
@@ -10167,6 +10871,10 @@
     [
      "dj_neon",
      0.08
+    ],
+    [
+     "gls_kraken_goggle",
+     0.05
     ]
    ],
    "glow": "#5a3cff",
@@ -10589,6 +11297,10 @@
     [
      "dj_neon",
      0.08
+    ],
+    [
+     "gls_crystal_hex",
+     0.05
     ]
    ],
    "glow": "#7fd8ff",
@@ -10991,6 +11703,10 @@
     [
      "mic_ball",
      0.08
+    ],
+    [
+     "gls_banshee_heart",
+     0.05
     ]
    ],
    "glow": "#c8b0ff",
@@ -11435,6 +12151,10 @@
     [
      "dj_grand",
      0.08
+    ],
+    [
+     "gls_opera_monocle",
+     0.05
     ]
    ],
    "glow": "#c060ff",
@@ -11877,6 +12597,10 @@
     [
      "dj_grand",
      0.08
+    ],
+    [
+     "gls_lava_speaker",
+     0.05
     ]
    ],
    "glow": "#ff6a00",
@@ -12067,10 +12791,134 @@
     [
      "dj_grand",
      0.1
+    ],
+    [
+     "gls_abyss_vinyl",
+     0.04
+    ],
+    [
+     "mount_silver_sprint",
+     0.02
+    ],
+    [
+     "mount_red_scooter",
+     0.02
+    ],
+    [
+     "mount_retro_blue",
+     0.02
     ]
    ],
    "model": "Crimson_Reaper",
    "modelScale": 1.8
+  },
+  "tiger_king": {
+   "name": "ราชาเสือโคร่ง",
+   "level": 99,
+   "hp": 450000,
+   "atk": 760,
+   "def": 100,
+   "exp": 36000,
+   "jobExp": 27000,
+   "zeny": [
+    7000,
+    18000
+   ],
+   "speed": 70,
+   "aggressive": false,
+   "color": "#f08a1c",
+   "size": 2.1,
+   "element": [
+    "earth",
+    3
+   ],
+   "boss": true,
+   "mvp": true,
+   "skills": [
+    "tiger_cleave",
+    "tiger_pounce",
+    "tiger_claws",
+    "tiger_roar"
+   ],
+   "drops": [
+    [
+     "tiger_king_fang",
+     1.0
+    ],
+    [
+     "tiger_king_pelt",
+     1.0
+    ],
+    [
+     "pure_tuning_ore",
+     0.3
+    ],
+    [
+     "gold_velvet",
+     0.3
+    ],
+    [
+     "mic_tiger",
+     0.05
+    ],
+    [
+     "gtr_tiger",
+     0.05
+    ],
+    [
+     "bss_tiger",
+     0.05
+    ],
+    [
+     "stk_tiger",
+     0.05
+    ],
+    [
+     "kbd_tiger",
+     0.05
+    ],
+    [
+     "dj_tiger",
+     0.05
+    ],
+    [
+     "outfit_tiger_m",
+     0.05
+    ],
+    [
+     "outfit_tiger_f",
+     0.05
+    ],
+    [
+     "gls_tiger",
+     0.04
+    ],
+    [
+     "hat_tiger_head",
+     0.04
+    ],
+    [
+     "mount_tiger_sprint",
+     0.0001
+    ],
+    [
+     "mount_tiger_red",
+     0.0001
+    ],
+    [
+     "mount_tiger_retro",
+     0.0001
+    ],
+    [
+     "card_tiger_king",
+     0.0001
+    ]
+   ],
+   "model": "Tiger_Warlord",
+   "modelScale": 1.8,
+   "voice": "roar",
+   "kind": "สัตว์",
+   "rarity": "MVP"
   }
  },
  "spawns": [
@@ -12338,6 +13186,18 @@
     38,
     46,
     46
+   ],
+   "respawnSec": 3600
+  },
+  {
+   "map": "field",
+   "monster": "tiger_king",
+   "count": 1,
+   "area": [
+    62,
+    36,
+    80,
+    56
    ],
    "respawnSec": 3600
   },

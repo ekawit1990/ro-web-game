@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { tigerMaterial } from './tiger';
 
 /**
  * The MVP microphones (item `shape` of singer weapons, 2026-11-13), after the user's pictures of stage mics:
@@ -27,6 +28,8 @@ export interface MicStyle {
   band?: string;
   /** colour of the item / glow */
   color: string;
+  /** tiger-striped handle (ราชาเสือโคร่ง) */
+  tiger?: boolean;
 }
 
 export const MIC_STYLES: Record<string, MicStyle> = {
@@ -53,6 +56,11 @@ export const MIC_STYLES: Record<string, MicStyle> = {
   mic_ball: {
     handle: [[0.0155, -0.065], [0.018, -0.055], [0.025, 0.1], [0.028, 0.114]],
     body: '#1f2023', head: 'ball', headR: 0.045, headH: 0, grille: '#c8ccd1', pattern: 'mesh', band: '#9ca1a7', color: '#c8ccd1',
+  },
+  // ไมค์พยัคฆ์คำราม (ราชาเสือโคร่ง, 2026-11-18): tiger-striped handle, gold ball grille like a mane
+  mic_tiger: {
+    handle: [[0.0155, -0.065], [0.018, -0.055], [0.025, 0.1], [0.028, 0.114]],
+    body: '#f08a1c', tiger: true, head: 'ball', headR: 0.046, headH: 0, grille: '#e8b84a', pattern: 'mesh', band: '#c99a2e', color: '#f08a1c',
   },
   mic_vintage: {
     handle: [], body: '#d4d9de', metal: true, head: 'vintage', headR: 0.046, headH: 0.06, grille: '#d4d9de', pattern: 'ribs', color: '#d4d9de',
@@ -93,6 +101,7 @@ function chrome(color: string) {
 }
 
 function handleMat(s: MicStyle) {
+  if (s.tiger) return tigerMaterial('mic', { across: false, size: [128, 256], seed: 3 });
   if (!s.metal) return mat(`mh${s.body}`, () => new THREE.MeshStandardMaterial({ color: s.body, roughness: 0.6, metalness: 0.15 }));
   return mat(`mhm${s.body}`, () => {
     const map = canvasTex(64, 8, (g) => {

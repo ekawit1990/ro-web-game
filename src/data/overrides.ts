@@ -42,7 +42,7 @@ export const defaultIds = (kind: OverrideKind) => Object.keys(DEFAULTS[kind]);
 
 const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
 const str = (v: unknown) => typeof v === 'string' && v.length > 0;
-const ITEM_TYPES = ['consumable', 'loot', 'card', 'weapon', 'armor', 'head', 'accessory', 'shoes', 'earring'];
+const ITEM_TYPES = ['consumable', 'loot', 'card', 'weapon', 'armor', 'head', 'accessory', 'shoes', 'earring', 'glasses', 'mount'];
 
 /** Why a def can't go into the game ('' = fine). Also used by the admin page before saving. */
 export function checkDef(kind: OverrideKind, id: string, d: unknown): string {

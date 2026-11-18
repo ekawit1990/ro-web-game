@@ -38,13 +38,13 @@ const fmt = (n: unknown) => (typeof n === 'number' ? n.toLocaleString('th-TH', {
 
 const ITEM_TYPES: Record<string, string> = {
   consumable: 'ของใช้', loot: 'วัสดุ/ของดรอป', card: 'การ์ด', weapon: 'อาวุธ', armor: 'ชุด', head: 'หมวก',
-  accessory: 'เครื่องประดับ', shoes: 'รองเท้า', earring: 'ต่างหู/หูฟัง',
+  accessory: 'เครื่องประดับ', shoes: 'รองเท้า', earring: 'ต่างหู/หูฟัง', glasses: 'แว่นตา', mount: 'พาหนะ',
 };
 const CARD_SLOTS: Record<string, string> = { weapon: 'อาวุธ', armor: 'ชุด', head: 'หมวก/หูฟัง', shoes: 'รองเท้า', accessory: 'เครื่องประดับ' };
 const BONUS_KEYS: Record<string, string> = {
   str: 'STR', agi: 'AGI', vit: 'VIT', int: 'INT', dex: 'DEX', luk: 'LUK', atk: 'ATK', matk: 'MATK', def: 'DEF', mdef: 'MDEF',
   hit: 'HIT', flee: 'Flee', crit: 'คริ', aspd: 'ASPD %', maxHp: 'HP สูงสุด', maxSp: 'SP สูงสุด', maxHpPct: 'HP สูงสุด %',
-  maxSpPct: 'SP สูงสุด %', atkPct: 'ATK %', matkPct: 'MATK %', pvpAtkPct: 'ตีผู้เล่น %', pvpDefPct: 'ลดดาเมจจากผู้เล่น %',
+  maxSpPct: 'SP สูงสุด %', atkPct: 'ATK %', matkPct: 'MATK %', pvpAtkPct: 'ตีผู้เล่น %', pvpDefPct: 'ลดดาเมจจากผู้เล่น %', lifestealPct: 'ดูดเลือด %',
 };
 const SKILL_TYPES: Record<string, string> = {
   single: 'ตีเป้าเดียว', aoe: 'วงรอบเป้า', aoe_self: 'วงรอบตัว', line: 'คลื่นเป็นเส้น', heal: 'ฮีลตัวเอง', heal_target: 'ฮีลคนอื่น',
@@ -340,7 +340,7 @@ function setP(o: Obj, path: string, val: unknown) {
   } else cur[last] = val;
 }
 
-const EQUIP = ['weapon', 'armor', 'head', 'accessory', 'shoes', 'earring'];
+const EQUIP = ['weapon', 'armor', 'head', 'accessory', 'shoes', 'earring', 'glasses', 'mount'];
 const isEquip = (d: Obj) => EQUIP.includes(d.type);
 const weaponOpts = () => Object.fromEntries(Object.entries(ITEMS).filter(([, it]) => it.type === 'weapon').map(([id, it]) => [id, `${it.name} (${id})`]));
 

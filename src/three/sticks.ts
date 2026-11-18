@@ -1,17 +1,20 @@
 import * as THREE from 'three';
+import { tigerMaterial } from './tiger';
 import { useBlenderModel } from './blenderProps';
 
 /**
  * The 6 MVP drumstick pairs (item `shape` of drummer weapons): a painted shaft, natural-wood taper and bead tip.
  * Same frame and size as the plain stick: 0.4 long along Y, tip at +Y.
  */
-export const STICK_STYLES: Record<string, { color: string; glitter?: boolean }> = {
+export const STICK_STYLES: Record<string, { color: string; glitter?: boolean; tiger?: boolean }> = {
   stick_black: { color: '#1c1c22', glitter: true },
   stick_red: { color: '#e8361f' },
   stick_blue: { color: '#56c2ee' },
   stick_green: { color: '#8fdc6a' },
   stick_pink: { color: '#f27aa6' },
   stick_purple: { color: '#c7a2ec' },
+  // ไม้กลองคู่ "ลายพยัคฆ์" (ราชาเสือโคร่ง, 2026-11-18): tiger-striped shafts
+  stick_tiger: { color: '#f08a1c', tiger: true },
 };
 
 const mats = new Map<string, THREE.Material>();
@@ -20,7 +23,8 @@ function mat(key: string, make: () => THREE.Material) {
   return mats.get(key)!;
 }
 
-function paint(style: { color: string; glitter?: boolean }) {
+function paint(style: { color: string; glitter?: boolean; tiger?: boolean }) {
+  if (style.tiger) return tigerMaterial('stick', { across: false, size: [64, 256], seed: 21, rough: 0.3 });
   return mat(`stick${style.color}`, () => {
     if (!style.glitter) return new THREE.MeshPhysicalMaterial({ color: style.color, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.1 });
     // black glitter: tiny silver flecks over a dark base
@@ -51,12 +55,12 @@ export function buildStick(id: string): THREE.Object3D {
   const g = new THREE.Group();
   // painted shaft from the butt to where the taper starts
   const shaft = lathe([[0, -0.2], [0.017, -0.199], [0.019, -0.195], [0.019, 0.07], [0.0185, 0.1]], paint(style));
-  shaft.userData.keep = !!style.glitter; // the glitter flecks stay when the Blender model swaps in
+  shaft.userData.keep = !!style.glitter || !!style.tiger; // the glitter flecks stay when the Blender model swaps in
   g.add(shaft);
   // bare-wood taper, neck and bead tip
   g.add(lathe([[0.0185, 0.1], [0.016, 0.13], [0.011, 0.16], [0.0075, 0.178], [0.0105, 0.186], [0.0115, 0.192], [0.009, 0.198], [0, 0.2]], wood()));
   g.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) o.castShadow = true;
   });
-  return STICK_STYLES[id] ? useBlenderModel(g, `weapons/sticks/${id}`) : g; // tools/blender/build_sticks_mic.py
+  return STICK_STYLES[id] && !style.tiger ? useBlenderModel(g, `weapons/sticks/${id}`) : g; // tools/blender/build_sticks_mic.py
 }

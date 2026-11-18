@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mesh, toon } from './toon';
+import { tigerTexture } from './tiger';
 
 /**
  * The 50 music hats (2026-11-10), built from primitives like the other hats.
@@ -581,6 +582,40 @@ const BUILD: Record<string, Build> = {
     });
     pom(g, c2, 0.07, 0, 0.48, 0);
     note(g, c3, 0.12, 0.3, 0.42, 0.2, 0.9);
+  },
+  // หมวกหัวราชาเสือ (ราชาเสือโคร่ง, 2026-11-18): a striped tiger hood with round ears, amber eyes, a pink nose,
+  // white muzzle and brows, fangs over the forehead and white ruff tufts at the sides
+  tigerhead(g, [, c2, c3]) {
+    const fur = toon('#ffffff', { map: tigerTexture('hat', { across: true, repeat: [3, 1], size: [256, 128], seed: 41 }) });
+    g.add(mesh(new THREE.SphereGeometry(0.385, 24, 14, 0, Math.PI * 2, 0, 1.45), fur, 0, 0.03, 0));
+    const white = toon(c3);
+    for (const s of [-1, 1]) {
+      const ear = mesh(S(0.1, 14, 10), toon(c2), s * 0.25, 0.37, -0.02);
+      ear.scale.z = 0.5;
+      const inner = mesh(S(0.06, 12, 8), white, s * 0.25, 0.37, 0.025);
+      inner.scale.z = 0.4;
+      g.add(ear, inner);
+      // brow patch, amber eye with a slit, cheek ruff
+      const brow = mesh(S(0.05, 10, 8), white, s * 0.11, 0.315, 0.27);
+      brow.scale.set(1.2, 0.5, 0.5);
+      const eye = mesh(S(0.042, 12, 8), glow('#ffb627', 0.35), s * 0.11, 0.245, 0.3);
+      eye.scale.z = 0.45;
+      const pupil = mesh(new THREE.BoxGeometry(0.012, 0.05, 0.01), toon(c2), s * 0.11, 0.245, 0.322);
+      g.add(brow, eye, pupil);
+      for (let k = 0; k < 3; k++) {
+        const tuft = mesh(new THREE.ConeGeometry(0.045, 0.14, 6), white, s * (0.33 + k * 0.02), 0.13 - k * 0.05, 0.12 - k * 0.08);
+        tuft.rotation.z = s * (1.9 + k * 0.15);
+        g.add(tuft);
+      }
+      const muzzle = mesh(S(0.05, 12, 8), white, s * 0.045, 0.13, 0.355);
+      muzzle.scale.z = 0.6;
+      const fang = mesh(new THREE.ConeGeometry(0.016, 0.07, 8), white, s * 0.035, 0.07, 0.36);
+      fang.rotation.x = Math.PI;
+      g.add(muzzle, fang);
+    }
+    const nose = mesh(new THREE.ConeGeometry(0.035, 0.035, 3), toon('#d9707a'), 0, 0.165, 0.37);
+    nose.rotation.set(Math.PI / 2, 0, Math.PI);
+    g.add(nose);
   },
   critter(g, [c1, c2, c3], v) {
     // a little animal sitting on the head: frog or chick

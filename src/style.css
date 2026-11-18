@@ -599,6 +599,10 @@ button.wm-globe { align-self: flex-end; margin-top: 6px; padding: 5px 12px; font
 .auto-btn.on:hover { background: linear-gradient(#74de8c, #23963f); }
 @keyframes autoBtnGlow { 0%, 100% { box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4), 0 0 0 0 rgba(95, 211, 122, 0.7); } 50% { box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4), 0 0 0 5px rgba(95, 211, 122, 0); } }
 @media (pointer: coarse), (max-height: 520px) { .auto-btn { top: 60px; } }
+.ride-btn { top: 68px; right: 220px; }
+.ride-btn.hidden { display: none; }
+.ride-btn.on { background: linear-gradient(#6ec8ff, #1e74c8); color: #fff; border-color: #145a9c; }
+@media (pointer: coarse), (max-height: 520px) { .ride-btn { top: 60px; right: 176px; } }
 
 .rw.guide { width: min(700px, calc(100vw - 12px)); }
 .rw.guide .rw-body { padding: 5px 6px 6px; }
@@ -782,6 +786,9 @@ button.wm-globe { align-self: flex-end; margin-top: 6px; padding: 5px 12px; font
 /* narrow phones: Basic Info sits there, so it goes under the ranking button instead */
 @media (max-width: 640px) { .class-btn { right: 120px; top: 188px; } }
 @media (max-width: 640px) and ((pointer: coarse) or (max-height: 520px)) { .class-btn { top: 164px; } }
+/* narrow phones: the Basic Info panel covers the spot left of auto, so the ride button goes under อาชีพ */
+@media (max-width: 640px) { .ride-btn { right: 120px; top: 248px; } }
+@media (max-width: 640px) and ((pointer: coarse) or (max-height: 520px)) { .ride-btn { top: 216px; } }
 .rw.classes { width: min(560px, calc(100vw - 12px)); }
 .rw.classes .rw-body { padding: 5px 6px 6px; }
 .cg-tabs { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 6px; }

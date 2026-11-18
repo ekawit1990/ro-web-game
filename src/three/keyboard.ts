@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { tigerMaterial } from './tiger';
 import { useBlenderModel } from './blenderProps';
 
 /**
@@ -73,18 +74,20 @@ function box(w: number, h: number, d: number, m: THREE.Material, x: number, y: n
 }
 
 /** The 4 MVP keyboards (item `shape` of keyboardist weapons). */
-export const KEYBOARD_STYLES: Record<string, { body: number; trim: number; grille: string; dots: string; keys: number; width: number; slim?: boolean }> = {
+export const KEYBOARD_STYLES: Record<string, { body: number; trim: number; grille: string; dots: string; keys: number; width: number; slim?: boolean; tiger?: boolean }> = {
   kb_white: { body: 0xf4f4f0, trim: 0xd8d8d2, grille: '#e6e6e0', dots: '#b8b8b0', keys: 36, width: 1.0 },
   kb_slim: { body: 0x141416, trim: 0x2a2a2e, grille: '#1e1e22', dots: '#050505', keys: 36, width: 0.9, slim: true },
   kb_stage: { body: 0x1a1b1f, trim: 0x55575e, grille: '#2a2c31', dots: '#0b0b0d', keys: 36, width: 1.02 },
   kb_red: { body: 0xc8202a, trim: 0x8a1018, grille: '#a8141c', dots: '#5a0a0e', keys: 36, width: 0.92, slim: true },
+  // คีย์บอร์ด "ลายพยัคฆ์" (ราชาเสือโคร่ง, 2026-11-18): tiger-striped body, gold trim, black grilles
+  kb_tiger: { body: 0xf08a1c, trim: 0xe8b84a, grille: '#1a1210', dots: '#c97a1a', keys: 36, width: 1.0, tiger: true },
 };
 
 export function buildKeyboard(styleId?: string): KeyboardProp {
   const st = styleId ? KEYBOARD_STYLES[styleId] : undefined;
   const g = new THREE.Group();
   const W = st ? st.width : 0.86, D = st?.slim ? 0.24 : 0.27, H = st?.slim ? 0.05 : 0.06;
-  const body = std(st ? st.body : 0x17181b, 0.45);
+  const body = st?.tiger ? tigerMaterial('kbd', { across: true, size: [512, 128], seed: 13 }) : std(st ? st.body : 0x17181b, 0.45);
   // chassis with a raised back panel and a thin chrome-ish trim
   g.add(box(W, H, D, body, 0, H / 2, 0));
   g.add(box(W - 0.01, 0.004, 0.006, std(st ? st.trim : 0x6b6f78, 0.3, 0.6), 0, H - 0.002, D / 2 - 0.004));
