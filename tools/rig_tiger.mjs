@@ -58,7 +58,9 @@ const FIST = [-0.505, 0.04, -0.07];
 function isAxe(i) {
   const p = [pos[3*i], pos[3*i+1], pos[3*i+2]];
   const [x, y, z] = p;
-  if (segDist(p, HAFT[0], HAFT[1]) < 0.04) return true;
+  if (segDist(p, HAFT[0], HAFT[1]) < (y > 0.3 ? 0.06 : 0.04)) return true;
+  if (y > 0.62 && x < -0.36 && z > 0.05) return true; // the spike on top and the ornaments round it
+  if (y > 0.4 && x < -0.3 && z > 0.22) return true; // the head of the axe stands well in front of the body
   if (x < -0.5 && y > 0.25 && z > 0.08) return true; // the head and its ornaments, in front of the shoulder pad
   if (x < -0.62 && y > -0.08) return true; // the blade
   return false;
@@ -101,6 +103,15 @@ function weights(i) {
 // triangles is split into two copies.
 const scy = new Uint8Array(n);
 for (let i = 0; i < n; i++) scy[i] = isAxe(i) ? 1 : 0;
+
+// Small loose pieces (spikes and studs on the axe: separate islands in the sculpt) go with the axe whole if any of
+// their vertices is on it, so none is left floating where the axe was.
+const parent = new Int32Array(n).map((_, i) => i);
+const find = (a) => { while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; };
+for (let i = 0; i < idx.length; i += 3) { const a = find(idx[i]), b = find(idx[i + 1]), c = find(idx[i + 2]); parent[a] = c; parent[b] = c; }
+const pieces = new Map();
+for (let i = 0; i < n; i++) { const r = find(i); if (!pieces.has(r)) pieces.set(r, []); pieces.get(r).push(i); }
+for (const vs of pieces.values()) if (vs.length <= 400 && vs.some((i) => scy[i])) for (const i of vs) scy[i] = 1;
 const triS = new Uint8Array(idx.length / 3);
 const usedS = new Uint8Array(n), usedB = new Uint8Array(n);
 for (let t = 0; t < triS.length; t++) {

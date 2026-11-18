@@ -47,7 +47,7 @@ export function paintTiger(g: CanvasRenderingContext2D, w: number, h: number, op
     for (const side of [0, 1]) {
       if (r() < 0.12) continue;
       const len = S * (0.28 + r() * 0.3); // how far in from this edge
-      const wid = step * (0.18 + r() * 0.16);
+      const wid = step * (0.26 + r() * 0.2);
       const bend = (r() - 0.5) * step * 0.9;
       const y0 = side ? S : 0;
       const dir = side ? -1 : 1;

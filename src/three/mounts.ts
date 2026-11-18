@@ -106,8 +106,9 @@ function tigerSkin(mat: THREE.MeshToonMaterial, model: string) {
         float paint = ${mask};
         vec3 fur = mix(vec3(0.62, 0.16, 0.01), vec3(1.0, 0.5, 0.08), smoothstep(0.05, 0.5, lum));
         vec3 p = vTigerPos;
-        float s = sin(p.z * 20.0 + sin(p.y * 7.0) * 1.6 + sin(p.x * 9.0) * 1.1) + 0.35 * sin(p.y * 29.0 + p.z * 5.0);
-        float stripe = smoothstep(0.6, 0.72, s);
+        // bands across the length, slanting and wobbling with height; thicker in the middle of each side
+        float s = sin(p.z * 34.0 + p.y * 7.0 + sin(p.y * 11.0 + p.z * 3.0) * 1.3);
+        float stripe = smoothstep(0.42, 0.6, s - 0.25 * abs(sin(p.y * 4.0 + p.z * 2.0)));
         diffuseColor.rgb = mix(c, mix(fur, vec3(0.015, 0.01, 0.008), stripe), paint);
       }`);
   };
