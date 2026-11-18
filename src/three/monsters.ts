@@ -327,6 +327,24 @@ uniform float uDefT;`)
   mat.customProgramCacheKey = () => `monster-deform-${style}-${half.toFixed(3)}-${cx.toFixed(3)}-${y0.toFixed(3)}-${hgt.toFixed(3)}`;
 }
 
+/** How far a sculpt leans back toward the camera, radians (~20 degrees). */
+const LEAN = 0.35;
+const leanAxis = new THREE.Vector3();
+
+/**
+ * A Meshy sculpt is modelled for a straight-on look: its face is on its front and its top is the least detailed part.
+ * The game camera looks down at ~52 degrees, so upright it shows mostly the top of its head (a mushroom shows only its
+ * cap) and reads as a lump. Tipping it back from its feet toward the camera shows the face, like a figure on a
+ * tilted stand. `toCam` = the camera's direction in the monster's own frame (radians around Y, 0 = straight ahead).
+ */
+export function leanToCamera(body: THREE.Object3D, toCam: number) {
+  const lean = body.userData.lean as THREE.Object3D | undefined;
+  if (!lean) return;
+  // the top tips toward u = (sin, 0, cos): rotate about up x u
+  leanAxis.set(Math.cos(toCam), 0, -Math.sin(toCam));
+  lean.quaternion.setFromAxisAngle(leanAxis, LEAN);
+}
+
 const recoloured = new Map<string, THREE.Material>();
 
 /**
@@ -388,7 +406,11 @@ export async function upgradeMonster(rig: MonsterRig, key: string, alive: () => 
   const pivot = src.clips.length ? null : new THREE.Group();
   if (pivot) {
     pivot.add(obj);
-    body.add(pivot);
+    // and leans back toward the camera (see leanToCamera), under the pivot's own motion
+    const lean = new THREE.Group();
+    lean.add(pivot);
+    body.add(lean);
+    body.userData.lean = lean;
   } else body.add(obj);
   // a sculpt mini-boss wears its own crown; the drawn one goes with the drawn body
   const crown = def.move ? undefined : rig.body.getObjectByName('crown');
