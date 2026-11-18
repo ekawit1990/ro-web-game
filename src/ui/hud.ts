@@ -1025,20 +1025,10 @@ export class Hud implements WorldHooks {
       </div>`;
   }
 
-  // ------------------------------------------------------------ welcome (ผู้เล่นใหม่)
+  // ------------------------------------------------------------ welcome (ทุกคน ทุกครั้งที่เข้าเกม)
 
-  /** Seen-flag per character, so the welcome shows once on the character's first entry. */
-  private welcomeKey() {
-    return `ml-welcome-${this.s.char.id}`;
-  }
-
-  /** A brand-new character (Teen, Base Lv 1, no EXP yet) that hasn't closed the welcome before. */
+  /** Shown to every player each time they enter the game (Hud is built once per entry, not per map change). */
   private maybeWelcome() {
-    const c = this.s.char;
-    if (c.cls !== START_CLASS || c.level > 1 || c.exp > 0) return;
-    try {
-      if (localStorage.getItem(this.welcomeKey())) return;
-    } catch { /* storage blocked: still show it */ }
     // wait until the loading screen is gone, so the window isn't hidden behind it
     const tryShow = () => {
       if (this.ac.signal.aborted) return;
@@ -1083,11 +1073,16 @@ export class Hud implements WorldHooks {
         <div class="wc-where">📍 เปลี่ยนอาชีพที่ <b>${escapeHtml(town.name)}</b> กับ <b>${escapeHtml(teacher)}</b>${route ? `<small>${escapeHtml(route)}</small>` : ''}</div>
       </div>`;
     }).join('');
+    const me = this.s.char;
+    const who = `สวัสดี <b>${escapeHtml(me.name)}</b> `;
+    const intro = me.cls === START_CLASS
+      ? `${who}ตอนนี้เธอเป็น <b>${escapeHtml(CLASSES[START_CLASS].name)}</b> (Base Lv ${me.level}) ${me.level >= level ? 'ถึงเลเวลเปลี่ยนอาชีพแล้ว ไปหาครูของอาชีพที่อยากเป็นได้เลย!' : `อีก ${level - me.level} เลเวลก็เปลี่ยนอาชีพได้แล้ว`}`
+      : `${who}เธอเป็น <b>${escapeHtml(CLASSES[me.cls].name)}</b> Base Lv ${me.level} แล้ว ชวนเพื่อนใหม่มาเล่นด้วยกัน และช่วยแนะนำเส้นทางนี้ให้เขานะ`;
     const ov = document.createElement('div');
     ov.className = 'welcome-ov';
     ov.innerHTML = `<div class="welcome rw" role="dialog" aria-label="ยินดีต้อนรับนักผจญภัยใหม่">
       <div class="wc-hero"><div class="wc-notes">♪ ♫ ♪</div><h2>ยินดีต้อนรับนักผจญภัยใหม่!</h2>
-        <p>สวัสดี <b>${escapeHtml(this.s.char.name)}</b> ตอนนี้เธอเป็น <b>${escapeHtml(CLASSES[START_CLASS].name)}</b> ถือมีดสั้น พร้อมออกผจญภัยใน Music Land แล้ว</p></div>
+        <p>${intro}</p></div>
       <div class="wc-scroll">
         <div class="wc-sec">เส้นทางสู่นักดนตรี</div>
         <ol class="wc-steps">
@@ -1102,7 +1097,6 @@ export class Hud implements WorldHooks {
       <div class="wc-btns"><button class="wc-guide">ดูคู่มืออาชีพ</button><button class="ok wc-go">เริ่มผจญภัย!</button></div>
     </div>`;
     const close = () => {
-      try { localStorage.setItem(this.welcomeKey(), '1'); } catch { /* ignore */ }
       ov.remove();
     };
     ov.querySelector('.wc-go')!.addEventListener('click', () => { sfx('item'); close(); });
