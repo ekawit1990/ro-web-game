@@ -457,8 +457,10 @@ export function sfxMicBoom(vol = 1, big = false, at = 0) {
 type Voice = 'squish' | 'wail' | 'growl' | 'chirp' | 'buzz' | 'ribbit' | 'bark' | 'meow' | 'blub' | 'warble' | 'roar' | 'squeak' | 'rattle' | 'crunch';
 
 /** Which kind of voice a monster model has (by the creature in its model name). */
+const VOICES: Voice[] = ['squish', 'wail', 'growl', 'chirp', 'buzz', 'ribbit', 'bark', 'meow', 'blub', 'warble', 'roar', 'squeak', 'rattle', 'crunch'];
 function voiceOf(model: string): Voice {
   const m = model.toLowerCase();
+  if ((VOICES as string[]).includes(m)) return m as Voice;
   if (/skull/.test(m)) return 'rattle';
   if (/ghost|reaper/.test(m)) return 'wail';
   if (/armabee|hywirl/.test(m)) return 'buzz';

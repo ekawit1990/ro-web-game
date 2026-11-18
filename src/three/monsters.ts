@@ -25,7 +25,15 @@ async function gunzip(buf: ArrayBuffer) {
   return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
 }
 
+/** model -> how its monster moves (the sculpts share no model, so the first monster using it decides). */
+const MODEL_MOVE = new Map<string, MoveStyle>();
+function moveOf(model: string) {
+  if (!MODEL_MOVE.size) for (const d of Object.values(MONSTERS)) if (d.model && d.move && !MODEL_MOVE.has(d.model)) MODEL_MOVE.set(d.model, d.move);
+  return MODEL_MOVE.get(model);
+}
+
 function load(model: string) {
+  moveOf(model);
   if (!cache.has(model)) {
     cache.set(model, track((async () => {
       try {
@@ -45,6 +53,11 @@ function load(model: string) {
             mat.color.setScalar(1 - selfLit * 0.6);
             mat.emissive.setScalar(selfLit);
             mat.emissiveMap = src.map;
+          }
+          const style = MODEL_MOVE.get(model);
+          if (style && !gltf.animations.length) {
+            m.geometry.computeBoundingBox();
+            deform(mat, style, m.geometry.boundingBox!);
           }
           m.material = mat;
           m.castShadow = true;
@@ -139,21 +152,28 @@ export class MonsterAnim {
 /** What World3D drives a monster's model with: MonsterAnim (clips) or PropAnim (no clips). */
 export type MonsterAnimator = Pick<MonsterAnim, 'attack' | 'hit' | 'die' | 'revive' | 'update'>;
 
+export type MoveStyle = 'hop' | 'walk' | 'fly' | 'float' | 'slither' | 'plant';
+
 /**
- * A model with no skeleton or clips: it sways and breathes in place, leans into its walk, rears back and swings
- * when it strikes, jolts when hit and topples backwards when it dies. Moves a pivot at its feet, never the body,
- * because World3D's lunge() moves the body.
+ * A model with no skeleton or clips (the Meshy sculpts): moved by a pivot at its feet, never the body, because
+ * World3D's lunge() moves the body. How it moves comes from the monster's `move`:
+ * hop = slimes and blobs bounce with squash and stretch, walk = waddles side to side, fly = hovers with a quick
+ * flutter (its wings flap in the shader, see deform()), float = drifts slowly (ghosts, fish, flames),
+ * slither = stretches and wiggles along its length, plant = stays rooted and sways, snapping forward to bite.
+ * Every style rears back and strikes, jolts when hit and falls (or melts, or sinks) when it dies.
  */
 export class PropAnim {
   private t = Math.random() * 6;
   private lean = 0;
+  private move = 0; // 0..1 eased "is walking"
   private atk = 0; // seconds left of the strike
   private hurt = 0; // seconds left of the jolt
   private dead = -1; // 0..1 into the fall, -1 alive
   static readonly ATK = 0.5;
   static readonly HURT = 0.22;
 
-  constructor(private pivot: THREE.Object3D) {}
+  /** `h` = the model's height in world units (hops and hovers scale with it). */
+  constructor(private pivot: THREE.Object3D, private style: MoveStyle = 'walk', private h = 1) {}
 
   attack() {
     if (this.dead < 0) this.atk = PropAnim.ATK;
@@ -168,38 +188,143 @@ export class PropAnim {
   revive() {
     this.dead = -1;
     this.pivot.rotation.set(0, 0, 0);
+    this.pivot.position.set(0, 0, 0);
     this.pivot.scale.setScalar(1);
   }
 
   update(dt: number, moving: boolean) {
     const p = this.pivot;
+    const st = this.style;
+    const h = this.h;
     if (this.dead >= 0) {
       this.dead = Math.min(1, this.dead + dt * 1.8);
       const k = 1 - (1 - this.dead) ** 2;
-      p.rotation.set(-1.2 * k, 0, 0.18 * k);
-      p.scale.setScalar(1);
+      if (st === 'hop') {
+        // melts into a puddle
+        p.rotation.set(0, 0, 0);
+        p.scale.set(1 + 0.45 * k, 1 - 0.85 * k, 1 + 0.45 * k);
+        p.position.y = 0;
+      } else if (st === 'float' || st === 'fly') {
+        // drops out of the air and tips over
+        p.position.y = Math.max(-0.3 * h, p.position.y - dt * 2.5 * h);
+        p.rotation.set(-1.0 * k, 0, 0.5 * k);
+        p.scale.setScalar(1 - 0.25 * k);
+      } else {
+        p.rotation.set(-1.2 * k, 0, 0.18 * k);
+        p.scale.setScalar(1);
+        p.position.y = 0;
+      }
       return;
     }
     this.t += dt;
     const t = this.t;
-    this.lean += ((moving ? 0.1 : 0) - this.lean) * Math.min(1, dt * 6);
-    let rx = this.lean;
-    let ry = Math.sin(t * 0.7) * 0.06;
+    this.move += ((moving ? 1 : 0) - this.move) * Math.min(1, dt * 6);
+    const mv = this.move;
+    let rx = 0, ry = Math.sin(t * 0.7) * 0.05, rz = 0, y = 0, sx = 1, sy = 1;
+    if (st === 'hop') {
+      // a hop every ~0.4 s while moving: up in an arc, squashed on landing, stretched at take-off
+      const ph = (t * 2.6) % 1;
+      const air = Math.sin(ph * Math.PI);
+      y = air * 0.32 * h * mv;
+      const squash = mv * (ph < 0.12 ? (1 - ph / 0.12) * 0.22 : ph > 0.88 ? ((ph - 0.88) / 0.12) * 0.22 : -air * 0.08);
+      const idle = (1 - mv) * Math.sin(t * 2.4) * 0.05;
+      sy = 1 - squash - idle;
+      sx = 1 + squash * 0.7 + idle;
+      rx = mv * 0.08;
+    } else if (st === 'walk') {
+      // waddle: sway side to side with each step, bob up on the stride
+      rz = Math.sin(t * 9) * 0.1 * mv + Math.sin(t * 1.1) * 0.03 * (1 - mv);
+      y = Math.abs(Math.sin(t * 9)) * 0.05 * h * mv;
+      rx = 0.1 * mv;
+      const breath = Math.sin(t * 2.2) * 0.015 * (1 - mv);
+      sx = 1 + breath;
+      sy = 1 - breath;
+    } else if (st === 'fly') {
+      y = (0.06 + Math.sin(t * 3.2) * 0.06 + Math.sin(t * 13) * 0.015) * h;
+      rx = 0.22 * mv;
+      rz = Math.sin(t * 1.7) * 0.08;
+    } else if (st === 'float') {
+      y = (0.05 + Math.sin(t * 1.6) * 0.06) * h;
+      rx = 0.12 * mv;
+      rz = Math.sin(t * 1.1) * 0.06;
+      ry += Math.sin(t * 0.5) * 0.08;
+    } else if (st === 'slither') {
+      // a wave runs along it: stretch and squeeze, wiggle its heading
+      const w = Math.sin(t * (4 + 4 * mv));
+      p.scale.set(1 - w * 0.06, 1 + Math.sin(t * 1.5) * 0.02, 1 + w * 0.1);
+      ry += w * (0.08 + 0.18 * mv);
+      rz = w * 0.05;
+    } else {
+      // plant: rooted, sways from the base
+      rz = Math.sin(t * 1.3) * 0.07 + Math.sin(t * 9) * 0.05 * mv;
+      rx = Math.sin(t * 0.9) * 0.04;
+      y = Math.abs(Math.sin(t * 7)) * 0.04 * h * mv;
+    }
     if (this.atk > 0) {
       this.atk = Math.max(0, this.atk - dt);
       const u = 1 - this.atk / PropAnim.ATK;
       // rear back for the first third, then swing through and settle
-      rx += u < 0.35 ? -0.16 * Math.sin((u / 0.35) * Math.PI * 0.5) : -0.16 + 0.42 * Math.sin(((u - 0.35) / 0.65) * Math.PI);
-      ry += Math.sin(u * Math.PI) * 0.25;
+      const swing = u < 0.35 ? -0.16 * Math.sin((u / 0.35) * Math.PI * 0.5) : -0.16 + 0.42 * Math.sin(((u - 0.35) / 0.65) * Math.PI);
+      rx += st === 'plant' ? swing * 1.6 : swing;
+      ry += Math.sin(u * Math.PI) * (st === 'hop' ? 0 : 0.25);
+      if (st === 'hop') {
+        // a body slam: crouch, then spring up and forward
+        const k = u < 0.35 ? u / 0.35 : 1 - (u - 0.35) / 0.65;
+        sy *= u < 0.35 ? 1 - 0.25 * k : 1 + 0.2 * k;
+        sx *= u < 0.35 ? 1 + 0.2 * k : 1 - 0.1 * k;
+        y += u < 0.35 ? 0 : Math.sin(((u - 0.35) / 0.65) * Math.PI) * 0.25 * h;
+      }
     }
     if (this.hurt > 0) {
       this.hurt = Math.max(0, this.hurt - dt);
-      rx -= Math.sin((1 - this.hurt / PropAnim.HURT) * Math.PI) * 0.12;
+      const j = Math.sin((1 - this.hurt / PropAnim.HURT) * Math.PI);
+      rx -= j * 0.14;
+      sx *= 1 + j * 0.06;
+      sy *= 1 - j * 0.08;
     }
-    p.rotation.set(rx, ry, Math.sin(t * 1.1) * 0.035);
-    const breath = Math.sin(t * 2.2) * 0.012;
-    p.scale.set(1 + breath, 1 - breath, 1 + breath);
+    p.rotation.set(rx + this.lean, ry, rz);
+    p.position.y = y;
+    if (st !== 'slither') p.scale.set(sx, sy, sx);
   }
+}
+
+/** Shared clock of the shader-side motion (wings, hems), ticked by tickMonsterDeform(). */
+const deformTime = { value: 0 };
+export function tickMonsterDeform(t: number) {
+  deformTime.value = t;
+}
+
+/**
+ * Motion a pivot can't give, done in the vertex shader of a sculpt's material: a flier's wings (its far left and
+ * right) flap up and down, a floater's lower half ripples like a cloak hem or tentacles. Each monster gets its own
+ * phase from where it stands. The box is the model's own (unscaled) bounds.
+ */
+function deform(mat: THREE.Material, style: MoveStyle, box: THREE.Box3) {
+  if (style !== 'fly' && style !== 'float') return;
+  const half = Math.max(1e-3, (box.max.x - box.min.x) / 2);
+  const cx = (box.max.x + box.min.x) / 2;
+  const y0 = box.min.y;
+  const hgt = Math.max(1e-3, box.max.y - box.min.y);
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uDefT = deformTime;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', `#include <common>
+uniform float uDefT;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+{
+  float ph = modelMatrix[3].x * 1.7 + modelMatrix[3].z * 1.3;
+  ${style === 'fly'
+    ? `float ax = abs(position.x - ${cx.toFixed(4)}) / ${half.toFixed(4)};
+  float w = smoothstep(0.38, 1.0, ax);
+  float flap = sin(uDefT * 15.0 + ph);
+  transformed.y += flap * w * w * ${(half * 0.55).toFixed(4)};
+  transformed.x -= sign(position.x - ${cx.toFixed(4)}) * abs(flap) * w * ${(half * 0.12).toFixed(4)};`
+    : `float low = 1.0 - smoothstep(0.0, 0.55, (position.y - ${y0.toFixed(4)}) / ${hgt.toFixed(4)});
+  transformed.x += sin(uDefT * 3.2 + ph + position.y * ${(9 / hgt).toFixed(3)}) * low * ${(half * 0.12).toFixed(4)};
+  transformed.z += cos(uDefT * 2.6 + ph + position.x * ${(7 / half).toFixed(3)}) * low * ${(half * 0.08).toFixed(4)};`}
+}`);
+  };
+  mat.customProgramCacheKey = () => `monster-deform-${style}-${half.toFixed(3)}-${cx.toFixed(3)}-${y0.toFixed(3)}-${hgt.toFixed(3)}`;
 }
 
 const recoloured = new Map<string, THREE.Material>();
@@ -250,7 +375,7 @@ export async function upgradeMonster(rig: MonsterRig, key: string, alive: () => 
   if (def.tint || (def.glow && !src.selfLit)) recolour(obj, key, def.tint, def.glow);
   const box = new THREE.Box3().setFromObject(obj);
   const size = box.getSize(new THREE.Vector3());
-  const flying = def.model.startsWith('Flying_');
+  const flying = def.model.startsWith('Flying_') || def.move === 'fly' || def.move === 'float';
   // as tall as the old body (bosses get their size from the data), never a speck
   const want = Math.max(0.7, def.size * (def.modelScale ?? (def.model.startsWith('Big_') ? 1.25 : 1.0)));
   const s = want / Math.max(size.y, 1e-3);
@@ -281,5 +406,5 @@ export async function upgradeMonster(rig: MonsterRig, key: string, alive: () => 
   root.children.splice(Math.max(0, i), 0, body);
   rig.body = body;
   rig.height = top + (crown ? 0.3 : 0);
-  return pivot ? new PropAnim(pivot) : new MonsterAnim(obj, src.clips);
+  return pivot ? new PropAnim(pivot, def.move ?? 'walk', want) : new MonsterAnim(obj, src.clips);
 }
