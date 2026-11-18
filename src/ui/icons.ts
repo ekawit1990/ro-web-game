@@ -1,7 +1,8 @@
 import { CLASSES, ITEMS, SKILLS } from '../data';
 import * as THREE from 'three';
-import { buildCharacter, setEar, type CharRig, type Look } from '../three/models';
+import { buildCharacter, setEar, setGlasses, type CharRig, type Look } from '../three/models';
 import { buildHat } from '../three/hats';
+import { buildGlasses } from '../three/glasses';
 import { outline } from '../three/toon';
 import { animateRig, buildVrmCharacter, releaseVrm } from '../three/vrm';
 import { BASS_SHAPES, GUITAR_SHAPES } from '../three/guitarShapes';
@@ -45,7 +46,7 @@ export function itemIcon(id: string): string {
   const hit = cache.get(id);
   if (hit) return hit;
   const item = ITEMS[id];
-  if (item?.hat) {
+  if (item?.hat || item?.glasses) {
     const url = hatIcon(id);
     if (url) {
       cache.set(id, url);
@@ -145,6 +146,8 @@ export function itemIcon(id: string): string {
     c.fillRect(14.3, 18, 1.4, 2.6);
     c.fillStyle = hex(k.pads[1 % k.pads.length]);
     c.fillRect(16.3, 18, 1.4, 2.6);
+  } else if (item?.type === 'mount') {
+    scooterIcon(c, item.color);
   } else if (item?.type === 'consumable' && !EMOJI[id]) {
     // potion bottle in the item's colour
     c.fillStyle = '#d9d9d9';
@@ -217,9 +220,15 @@ function hatIcon(id: string): string | null {
     }
     const { r, scene, cam } = hatCam;
     const g = new THREE.Group();
-    if (!buildHat(g, ITEMS[id].hat)) return null;
-    outline(g, 0.012);
-    g.rotation.y = -0.5;
+    const it = ITEMS[id];
+    if (it.glasses) {
+      if (!buildGlasses(g, it.glasses)) return null;
+      g.rotation.y = -0.3;
+    } else {
+      if (!buildHat(g, it.hat)) return null;
+      outline(g, 0.012);
+      g.rotation.y = -0.5;
+    }
     scene.add(g);
     // frame the hat: fit its bounding sphere
     const box = new THREE.Box3().setFromObject(g);
@@ -251,18 +260,61 @@ let preview: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.Perspectiv
 /** Renders a 3D character (with optional hat) onto a 2D canvas: creator preview, character slots, equipment window.
  *  Draws the built-in character at once, then the VRoid model on top when one is configured.
  *  `free`: drop the model from memory once drawn (only where no game world is running, e.g. the creator). */
-export function drawLook(cv: HTMLCanvasElement, look: Look, dir: 'f' | 'b' | number = 'f', hat?: string, vrm = true, armed = true, ear = '', free = false) {
+export function drawLook(cv: HTMLCanvasElement, look: Look, dir: 'f' | 'b' | number = 'f', hat?: string, vrm = true, armed = true, ear = '', free = false, glasses = '') {
   const token = String(Math.random());
   cv.dataset.look = token;
-  render(cv, buildCharacter(look, hat), dir, armed, ear);
+  render(cv, buildCharacter(look, hat), dir, armed, ear, glasses);
   if (vrm) buildVrmCharacter(look, hat).then((rig) => {
-    if (rig && cv.dataset.look === token) render(cv, rig, dir, armed, ear);
+    if (rig && cv.dataset.look === token) render(cv, rig, dir, armed, ear, glasses);
     if (rig && free) releaseVrm(rig);
   });
 }
 
-function render(cv: HTMLCanvasElement, rig: CharRig, dir: 'f' | 'b' | number, armed = true, ear = '') {
+/** Mounts: a little side-on scooter in the item's colour, with the MVP glow. */
+function scooterIcon(c: CanvasRenderingContext2D, color: string) {
+  mvpGlow(c);
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  // body: the rear cowl and the floorboard
+  c.fillStyle = color;
+  c.strokeStyle = '#263238';
+  c.lineWidth = 1;
+  c.beginPath();
+  c.moveTo(6, 22);
+  c.quadraticCurveTo(4, 14, 11, 13);
+  c.lineTo(15, 13);
+  c.lineTo(17, 20);
+  c.lineTo(22, 20);
+  c.lineTo(23, 9);
+  c.lineTo(25, 9);
+  c.lineTo(26, 22);
+  c.closePath();
+  c.fill();
+  c.stroke();
+  // seat and handlebar
+  c.fillStyle = '#3e2723';
+  c.fillRect(7, 11, 8, 2.5);
+  c.strokeStyle = '#37474f';
+  c.lineWidth = 1.6;
+  c.beginPath();
+  c.moveTo(21, 6);
+  c.lineTo(26, 7);
+  c.stroke();
+  for (const x of [8, 25]) {
+    c.fillStyle = '#212121';
+    c.beginPath();
+    c.arc(x, 24, 4.2, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = '#cfd8dc';
+    c.beginPath();
+    c.arc(x, 24, 1.6, 0, Math.PI * 2);
+    c.fill();
+  }
+}
+
+function render(cv: HTMLCanvasElement, rig: CharRig, dir: 'f' | 'b' | number, armed = true, ear = '', glasses = '') {
   setEar(rig, ear);
+  setGlasses(rig, glasses);
   if (!preview) {
     const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     r.outputColorSpace = THREE.SRGBColorSpace;

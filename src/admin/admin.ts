@@ -38,7 +38,7 @@ const fmt = (n: unknown) => (typeof n === 'number' ? n.toLocaleString('th-TH', {
 
 const ITEM_TYPES: Record<string, string> = {
   consumable: 'ของใช้', loot: 'วัสดุ/ของดรอป', card: 'การ์ด', weapon: 'อาวุธ', armor: 'ชุด', head: 'หมวก',
-  accessory: 'เครื่องประดับ', shoes: 'รองเท้า', earring: 'ต่างหู/หูฟัง',
+  accessory: 'เครื่องประดับ', shoes: 'รองเท้า', earring: 'ต่างหู/หูฟัง', glasses: 'แว่นตา', mount: 'พาหนะ',
 };
 const CARD_SLOTS: Record<string, string> = { weapon: 'อาวุธ', armor: 'ชุด', head: 'หมวก/หูฟัง', shoes: 'รองเท้า', accessory: 'เครื่องประดับ' };
 const BONUS_KEYS: Record<string, string> = {
@@ -340,7 +340,7 @@ function setP(o: Obj, path: string, val: unknown) {
   } else cur[last] = val;
 }
 
-const EQUIP = ['weapon', 'armor', 'head', 'accessory', 'shoes', 'earring'];
+const EQUIP = ['weapon', 'armor', 'head', 'accessory', 'shoes', 'earring', 'glasses', 'mount'];
 const isEquip = (d: Obj) => EQUIP.includes(d.type);
 const weaponOpts = () => Object.fromEntries(Object.entries(ITEMS).filter(([, it]) => it.type === 'weapon').map(([id, it]) => [id, `${it.name} (${id})`]));
 

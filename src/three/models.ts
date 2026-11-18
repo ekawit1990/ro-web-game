@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Appearance, ClassKey, HAIR_COLORS, ITEMS, MONSTERS } from '../data';
 import { canvasTexture, mesh, outline, outlineByNormals, shade, shadows, sparkTexture, toon } from './toon';
 import { buildHat } from './hats';
+import { buildGlasses, glassesOf } from './glasses';
 import { useBlenderHat } from './blenderHats';
 
 /**
@@ -31,6 +32,9 @@ export interface CharRig {
   /** Headphones (the ear slot), placed like the hat but drawn independently of it. */
   earSlot: THREE.Group;
   ear: string;
+  /** Glasses (2026-11-18): made on first use next to the ear slot (same space as the hats). */
+  glassesSlot?: THREE.Group;
+  glasses?: string;
   height: number;
 }
 
@@ -429,6 +433,24 @@ function cups(g: THREE.Group, shell: string, pad: string, r = 0.1, x = 0.38, rin
       g.add(l);
     }
   }
+}
+
+/** Glasses slot: the music glasses of src/three/glasses.ts, over the eyes. */
+export function setGlasses(rig: CharRig, item: string) {
+  if ((rig.glasses ?? '') === item) return;
+  rig.glasses = item;
+  if (!rig.glassesSlot) {
+    const slot = new THREE.Group();
+    slot.position.copy(rig.earSlot.position);
+    slot.quaternion.copy(rig.earSlot.quaternion);
+    slot.scale.copy(rig.earSlot.scale);
+    rig.earSlot.parent?.add(slot);
+    rig.glassesSlot = slot;
+  }
+  rig.glassesSlot.clear();
+  const g = new THREE.Group();
+  if (!buildGlasses(g, glassesOf(item))) return;
+  rig.glassesSlot.add(g);
 }
 
 /** Headphones (ear slot): small ones sit in the ears, big ones go over the head. */

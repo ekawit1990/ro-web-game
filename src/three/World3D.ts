@@ -6,7 +6,8 @@ import { findPath, GameMap, Npc, THEMES, isLava, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
 import { type MonsterAnimator, preloadMonsters, upgradeMonster } from './monsters';
-import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setHat } from './models';
+import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setGlasses, setHat } from './models';
+import { buildMount, disposeMount, spinMount, type MountRig } from './mounts';
 import { animateMaxAura, buildMaxAura } from './levelAura';
 import { animateRig, attackHit, attackMoves, attackTime, buildVrmCharacter } from './vrm';
 import { npcLife, tickNpc, type NpcLife } from './townLife';
@@ -59,6 +60,8 @@ export interface WorldHooks {
   targeting(skillName: string | null): void;
   /** /auto switched on or off (by the player, a manual move, death). */
   autoChanged(on: boolean): void;
+  /** Got on / off the mount (the ride button lights up). */
+  rideChanged?(on: boolean): void;
 }
 
 /** The class whose look a skill's effects use (a skill every class has counts as the Teen's). */
@@ -77,6 +80,8 @@ const AUTO_HEAL_HP = 0.6;
 
 interface RemotePlayer {
   name: string; cls: string; level: number; gender: string; hair: number; hairColor: number; face: number; head: string; weapon: string; ear: string; body?: string;
+  /** glasses item id; the mount item they ride ('' = on foot) */
+  glasses?: string; mount?: string;
   x: number; y: number; hp: number; maxHp: number; sp: number; maxSp: number; dead: boolean; sitting: boolean; hidden?: boolean;
   /** guild name ('' = none) */
   guild?: string;
@@ -132,6 +137,11 @@ interface PlayerActor {
   bubble?: { el: HTMLElement; until: number };
   /** Base Lv 99: the golden aura at the feet. */
   maxAura?: THREE.Group;
+  /** The scooter they ride (mount slot + ride button), and where they were last frame (to turn the wheels). */
+  mount?: MountRig;
+  mountId?: string;
+  lastX?: number;
+  lastY?: number;
   /** the guild name shown under the name */
   guild?: string;
   guildEl?: HTMLElement;
@@ -602,6 +612,7 @@ export class World3D {
   }
 
   private destroyPlayer(a: PlayerActor) {
+    if (a.mount) disposeMount(a.mount);
     this.scene.remove(a.rig.root);
     a.label.el.remove();
     a.bubble?.el.remove();
@@ -1084,6 +1095,15 @@ export class World3D {
 
   toggleSit() {
     if (!this.dead) this.room.send('sit'); // moving stands up again on the server
+  }
+
+  /** The ride button: get on / off the worn mount (the server checks one is worn). */
+  toggleRide() {
+    if (!this.dead) this.room.send('ride', {});
+  }
+
+  isRiding() {
+    return !!this.me.mountId;
   }
 
   // ------------------------------------------------------------ server messages
@@ -1659,6 +1679,16 @@ export class World3D {
       a.maxHp = rp.maxHp;
       setHat(a.rig, rp.head);
       setEar(a.rig, rp.ear);
+      setGlasses(a.rig, rp.glasses ?? '');
+      // the mount: built when they get on, dropped when they get off; follows the model if it is swapped
+      const mountId = rp.dead ? '' : rp.mount ?? '';
+      if (mountId !== (a.mountId ?? '')) {
+        if (a.mount) disposeMount(a.mount);
+        a.mount = mountId ? buildMount(mountId) ?? undefined : undefined;
+        a.mountId = mountId;
+        if (a === this.me) this.hooks.rideChanged?.(!!mountId);
+      }
+      if (a.mount && a.mount.group.parent !== a.rig.root) a.rig.root.add(a.mount.group);
       if (rp.level >= MAX_LEVEL) {
         a.maxAura ??= buildMaxAura();
         if (a.maxAura.parent !== a.rig.root) a.rig.root.add(a.maxAura); // the model was swapped (outfit, job change)
@@ -1678,6 +1708,9 @@ export class World3D {
       a.ready = Math.max(0, (a.ready ?? 0) - dt);
       if (a.dead || a.sitting) a.ready = 0;
       a.rig.root.position.set(a.x, 0, a.y);
+      if (a.mount && inView) spinMount(a.mount, Math.min(1, Math.hypot(a.x - (a.lastX ?? a.x), a.y - (a.lastY ?? a.y))));
+      a.lastX = a.x;
+      a.lastY = a.y;
       if (a.dash) {
         const k = (performance.now() - a.dash.t) / DASH_MS;
         if (k >= 1) a.dash = undefined;
@@ -1686,7 +1719,7 @@ export class World3D {
           a.rig.root.position.set(a.dash.x + (a.x - a.dash.x) * e, 0, a.dash.y + (a.y - a.dash.y) * e);
         }
       }
-      if (inView && (a === this.me || !this.animSkip(a.x, a.y, a.rig.root.id))) animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0 || a.ready > 0, armed: a.armed, combo: a.combo, perform: a.perform, ready: a.ready > 0 });
+      if (inView && (a === this.me || !this.animSkip(a.x, a.y, a.rig.root.id))) animateRig(a.rig, t, { moving: a.moving > 0, sitting: a.sitting, dead: a.dead, attack: a.attack, drawn: a.combat > 0 || a.ready > 0, armed: a.armed, combo: a.combo, perform: a.perform, ready: a.ready > 0, ride: a.mount?.seat });
       if (a.cast) {
         const k = Math.min(1, (performance.now() - a.cast.start) / a.cast.ms);
         this.bar(a.cast.fill, k);

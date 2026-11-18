@@ -100,9 +100,9 @@ export interface ClassDef {
   baseStats: Stats;
 }
 
-export type ItemType = 'consumable' | 'loot' | 'card' | 'weapon' | 'armor' | 'head' | 'accessory' | 'shoes' | 'earring';
+export type ItemType = 'consumable' | 'loot' | 'card' | 'weapon' | 'armor' | 'head' | 'accessory' | 'shoes' | 'earring' | 'glasses' | 'mount';
 /** One of each can be worn. Must match the type lists in SQL (item_defs check, _add_item, set_equipped, storage, trade). */
-export const EQUIP_TYPES: ItemType[] = ['weapon', 'armor', 'head', 'accessory', 'shoes', 'earring'];
+export const EQUIP_TYPES: ItemType[] = ['weapon', 'armor', 'head', 'accessory', 'shoes', 'earring', 'glasses', 'mount'];
 
 export interface ItemDef {
   name: string;
@@ -141,6 +141,10 @@ export interface ItemDef {
   shape?: string;
   /** Music hats (2026-11-10): the 3D hat built in src/three/hats.ts. */
   hat?: { kind: string; c: string[]; v?: string };
+  /** Glasses (2026-11-18): the 3D glasses built in src/three/glasses.ts. */
+  glasses?: { kind: string; c: string[] };
+  /** Mounts (2026-11-18): the vehicle model (public/models/mounts/<model>.glb.gz) ridden with the ride button. */
+  mount?: { model: string };
   /** Drops only from MVP bosses (shown in the item window). */
   mvp?: boolean;
   /** Weapons: the element of your attacks. Armour: your defence element. */
@@ -158,7 +162,7 @@ export type CardBonus = Partial<Record<StatKey | 'atk' | 'matk' | 'def' | 'mdef'
   | 'pvpAtkPct' | 'pvpDefPct', number>>;
 
 export const cardFits = (card: ItemDef | undefined, equip: ItemDef | undefined) =>
-  !!card?.card && !!equip && (card.card.slot === equip.type || (card.card.slot === 'head' && equip.type === 'earring'));
+  !!card?.card && !!equip && (card.card.slot === equip.type || (card.card.slot === 'head' && (equip.type === 'earring' || equip.type === 'glasses')));
 
 /** Zeny the reset NPC and the card remover charge. Must match reset_stats / reset_skills / remove_cards in SQL. */
 export const SERVICE_FEE = { resetStats: 10000, resetSkills: 10000, removeCards: 10000 };
@@ -595,7 +599,14 @@ export interface Buffs {
   stats?: Partial<Stats>;
   /** An element converter on your weapon (overrides the weapon's own element). */
   endow?: Element;
+  /** Riding the worn mount (the ride button): walking speed x RIDE_SPEED. */
+  ride?: boolean;
 }
+
+/** Riding a mount: 150% of the walking speed (the user's ask, 2026-11-18). */
+export const RIDE_SPEED = 1.5;
+/** The mount item worn, if any. */
+export const mountOf = (inv: InvItem[]) => inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'mount')?.item_id;
 
 export interface Derived {
   maxHp: number;
@@ -704,7 +715,7 @@ export function derive(base: Character, inv: InvItem[], buffs: Buffs = {}): Deri
     crit: Math.floor(1 + c.luk * 0.3 + c.dex * 0.1) + sum('crit') + card.crit,
     aspd: Math.floor(aspd),
     attackDelay,
-    moveSpeed: Math.round((150 + Math.min(60, c.agi * 2)) * WALK_RATE),
+    moveSpeed: Math.round((150 + Math.min(60, c.agi * 2)) * WALK_RATE * (buffs.ride && worn.some((r) => ITEMS[r.item_id].type === 'mount') ? RIDE_SPEED : 1)),
     weight: inv.reduce((s, i) => s + (ITEMS[i.item_id]?.weight ?? 0) * i.qty, 0),
     maxWeight: 2000 + c.str * 30,
     bonus,

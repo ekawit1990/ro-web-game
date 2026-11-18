@@ -6205,6 +6205,358 @@
    "color": "#c9a8ff",
    "weight": 3,
    "desc": "ปีกผีเสื้อวิเศษ ใช้แล้ววาร์ปกลับเมืองที่จุดเซฟทันที (ใช้ไม่ได้ในลานประลองและปราสาท)"
+  },
+  "gls_piano_shutter": {
+   "name": "แว่นบานเกล็ดคีย์เปียโน",
+   "type": "glasses",
+   "def": 1,
+   "price": 5000,
+   "color": "#fafafa",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "dex": 2,
+    "luk": 2
+   },
+   "glasses": {
+    "kind": "shutter",
+    "c": [
+     "#fafafa",
+     "#212121"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 10,
+   "desc": "แว่นบานเกล็ดลายคีย์เปียโนขาวดำ ใส่แล้วเห็นโลกเป็นจังหวะ (ดรอปจากมินิบอส ราชาเห็ดเสียงเพี้ยน เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_forest_round": {
+   "name": "แว่นกลมกรอบไม้ป่าโบราณ",
+   "type": "glasses",
+   "def": 1,
+   "price": 5000,
+   "color": "#8d6e63",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "int": 2,
+    "vit": 2
+   },
+   "glasses": {
+    "kind": "round",
+    "c": [
+     "#8d6e63",
+     "#c5e1a5",
+     "#66bb6a"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 14,
+   "desc": "แว่นกลมกรอบไม้เก่าแก่ มีใบไม้งอกที่ขาแว่น เลนส์สีเขียวอ่อน (ดรอปจากมินิบอส ราชาเห็ดป่าโบราณ เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_shark_cateye": {
+   "name": "แว่นตาแมวฉลามบึง",
+   "type": "glasses",
+   "def": 2,
+   "price": 5000,
+   "color": "#26a69a",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "agi": 3,
+    "dex": 2
+   },
+   "glasses": {
+    "kind": "cateye",
+    "c": [
+     "#26a69a",
+     "#b2ebf2",
+     "#004d40"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 17,
+   "desc": "แว่นทรงตาแมวสีเขียวน้ำทะเล ปลายแหลมเหมือนครีบฉลาม (ดรอปจากมินิบอส ราชาฉลามบึงทุ้ม เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_rock_flame": {
+   "name": "แว่นกันแดดเปลวร็อก",
+   "type": "glasses",
+   "def": 2,
+   "price": 5000,
+   "color": "#212121",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "str": 3,
+    "crit": 3
+   },
+   "glasses": {
+    "kind": "flame",
+    "c": [
+     "#212121",
+     "#ff7043",
+     "#ffca28"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 21,
+   "desc": "แว่นกันแดดดำ ขอบบนเป็นเปลวไฟส้มเหลือง ใส่แล้วอยากโซโล่กีตาร์ (ดรอปจากมินิบอส มังกรร็อกแอนด์โรล เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_snow_star": {
+   "name": "แว่นดาวหิมะโซปราโน",
+   "type": "glasses",
+   "def": 2,
+   "price": 5000,
+   "color": "#e3f2fd",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "int": 3,
+    "dex": 3
+   },
+   "glasses": {
+    "kind": "star",
+    "c": [
+     "#e3f2fd",
+     "#81d4fa",
+     "#ffffff"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 25,
+   "desc": "เลนส์รูปดาวสีฟ้าน้ำแข็ง ประกายระยิบเหมือนเสียงโซปราโน (ดรอปจากมินิบอส ราชินีหิมะโซปราโน เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_metal_visor": {
+   "name": "แว่นไวเซอร์หมุดเมทัล",
+   "type": "glasses",
+   "def": 2,
+   "price": 5000,
+   "color": "#37474f",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "str": 4,
+    "vit": 3
+   },
+   "glasses": {
+    "kind": "visor",
+    "c": [
+     "#37474f",
+     "#ef5350",
+     "#b0bec5"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 30,
+   "desc": "แว่นแผ่นเดียวสีดำ ขอบตอกหมุดเหล็ก เส้นไฟแดงพาดกลาง สายเมทัลตัวจริง (ดรอปจากมินิบอส จอมมารหน้ากากเมทัล เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_kraken_goggle": {
+   "name": "แว่นดำน้ำคลื่นเสียง",
+   "type": "glasses",
+   "def": 2,
+   "price": 5000,
+   "color": "#1565c0",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "vit": 4,
+    "agi": 3
+   },
+   "glasses": {
+    "kind": "goggle",
+    "c": [
+     "#1565c0",
+     "#80deea",
+     "#ffb300"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 35,
+   "desc": "แว่นดำน้ำกรอบน้ำเงิน เลนส์ใสสะท้อนคลื่นเสียงใต้ทะเล (ดรอปจากมินิบอส ราชันย์หมึกยักษ์ซาวด์เวฟ เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_crystal_hex": {
+   "name": "แว่นคริสตัลหกเหลี่ยม",
+   "type": "glasses",
+   "def": 3,
+   "price": 5000,
+   "color": "#b39ddb",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "int": 4,
+    "dex": 4
+   },
+   "glasses": {
+    "kind": "hex",
+    "c": [
+     "#b39ddb",
+     "#e1bee7",
+     "#7e57c2"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 48,
+   "desc": "แว่นหกเหลี่ยมกรอบคริสตัลม่วง สะท้อนเสียงก้องเป็นประกาย (ดรอปจากมินิบอส ราชาคริสตัลเสียงก้อง เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_banshee_heart": {
+   "name": "แว่นหัวใจเสียงกรีดร้อง",
+   "type": "glasses",
+   "def": 3,
+   "price": 5000,
+   "color": "#ad1457",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "luk": 5,
+    "agi": 4,
+    "maxHp": 204
+   },
+   "glasses": {
+    "kind": "heart",
+    "c": [
+     "#ad1457",
+     "#f48fb1",
+     "#fce4ec"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 58,
+   "desc": "แว่นรูปหัวใจสีชมพูเข้ม ใส่แล้วเสียงกรีดร้องกลายเป็นเพลงรัก (ดรอปจากมินิบอส ราชินีบันชีเสียงกรีดร้อง เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_opera_monocle": {
+   "name": "โมโนเคิลโอเปร่าราตรี",
+   "type": "glasses",
+   "def": 4,
+   "price": 5000,
+   "color": "#ffd54f",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "int": 5,
+    "dex": 5,
+    "maxHp": 246
+   },
+   "glasses": {
+    "kind": "monocle",
+    "c": [
+     "#ffd54f",
+     "#e1f5fe",
+     "#4a148c"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 72,
+   "desc": "แว่นข้างเดียวกรอบทอง ห้อยโซ่ทองคล้องหู ของคู่ราชาแห่งโอเปร่า (ดรอปจากมินิบอส ราชาไร้บัลลังก์แห่งโอเปร่า เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_lava_speaker": {
+   "name": "แว่นลำโพงลาวา",
+   "type": "glasses",
+   "def": 4,
+   "price": 5000,
+   "color": "#3e2723",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "str": 6,
+    "vit": 5,
+    "maxHp": 297
+   },
+   "glasses": {
+    "kind": "speaker",
+    "c": [
+     "#3e2723",
+     "#ff5722",
+     "#ffab40"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 89,
+   "desc": "เลนส์เป็นดอกลำโพงสีลาวาเรืองแสง สั่นตามจังหวะกลองภูเขาไฟ (ดรอปจากมินิบอส จักรพรรดิภูเขาไฟเมทัล เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "gls_abyss_vinyl": {
+   "name": "แว่นแผ่นเสียงยมทูต",
+   "type": "glasses",
+   "def": 5,
+   "price": 5000,
+   "color": "#120a10",
+   "weight": 10,
+   "slots": 1,
+   "bonus": {
+    "str": 6,
+    "agi": 6,
+    "dex": 6,
+    "maxHp": 300
+   },
+   "glasses": {
+    "kind": "vinyl",
+    "c": [
+     "#120a10",
+     "#ff1744",
+     "#b04dff"
+    ]
+   },
+   "mvp": true,
+   "reqLevel": 90,
+   "desc": "เลนส์เป็นแผ่นเสียงไวนิลดำ ร่องเสียงเรืองแดง ม่วง แว่นที่หายากที่สุดในโลก (ดรอปจากบอส MVP ยมทูตเคียวโลหิต เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "mount_silver_sprint": {
+   "name": "สกู๊ตเตอร์ซิลเวอร์สปรินต์",
+   "type": "mount",
+   "price": 50000,
+   "color": "#b0bec5",
+   "weight": 50,
+   "bonus": {
+    "str": 20,
+    "agi": 20,
+    "vit": 20,
+    "int": 20,
+    "dex": 20,
+    "luk": 20
+   },
+   "mount": {
+    "model": "scooter_silver"
+   },
+   "mvp": true,
+   "desc": "สกู๊ตเตอร์สีเงินทรงสปอร์ต เบาและคล่องตัว สวมใส่แล้ว All Status +20 กดปุ่ม 🛵 ขี่รถ เดินเร็วขึ้น 150% (ดรอปจากบอส MVP ยมทูตเคียวโลหิต เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "mount_red_scooter": {
+   "name": "สกู๊ตเตอร์แดงเพลิง",
+   "type": "mount",
+   "price": 50000,
+   "color": "#e53935",
+   "weight": 50,
+   "bonus": {
+    "str": 20,
+    "agi": 20,
+    "vit": 20,
+    "int": 20,
+    "dex": 20,
+    "luk": 20
+   },
+   "mount": {
+    "model": "scooter_red"
+   },
+   "mvp": true,
+   "desc": "สกู๊ตเตอร์สีแดงสด ขี่ผ่านที่ไหนใครก็หันมอง สวมใส่แล้ว All Status +20 กดปุ่ม 🛵 ขี่รถ เดินเร็วขึ้น 150% (ดรอปจากบอส MVP ยมทูตเคียวโลหิต เท่านั้น, ไม่มีขายในร้าน)"
+  },
+  "mount_retro_blue": {
+   "name": "สกู๊ตเตอร์เรโทรฟ้าเหลือง",
+   "type": "mount",
+   "price": 50000,
+   "color": "#42a5f5",
+   "weight": 50,
+   "bonus": {
+    "str": 20,
+    "agi": 20,
+    "vit": 20,
+    "int": 20,
+    "dex": 20,
+    "luk": 20
+   },
+   "mount": {
+    "model": "scooter_retro"
+   },
+   "mvp": true,
+   "desc": "สกู๊ตเตอร์ทรงคลาสสิกสีฟ้าคาดเหลือง ขี่ชิลๆ ฟังเพลงไปด้วย สวมใส่แล้ว All Status +20 กดปุ่ม 🛵 ขี่รถ เดินเร็วขึ้น 150% (ดรอปจากบอส MVP ยมทูตเคียวโลหิต เท่านั้น, ไม่มีขายในร้าน)"
   }
  },
  "shop": [
@@ -6918,6 +7270,10 @@
     [
      "dj_controller",
      0.15
+    ],
+    [
+     "gls_piano_shutter",
+     0.05
     ]
    ],
    "boss": true,
@@ -7147,6 +7503,10 @@
     [
      "dj_controller",
      0.12
+    ],
+    [
+     "gls_forest_round",
+     0.05
     ]
    ],
    "model": "Big_MushroomKing",
@@ -7371,6 +7731,10 @@
     [
      "mic_stick",
      0.08
+    ],
+    [
+     "gls_shark_cateye",
+     0.05
     ]
    ],
    "model": "Big_Fish",
@@ -7652,6 +8016,10 @@
     [
      "mic_red",
      0.08
+    ],
+    [
+     "gls_rock_flame",
+     0.05
     ]
    ],
    "model": "Flying_Dragon_Evolved",
@@ -7937,6 +8305,10 @@
     [
      "mic_taper",
      0.08
+    ],
+    [
+     "gls_snow_star",
+     0.05
     ]
    ],
    "model": "Flying_Goleling_Evolved",
@@ -8226,6 +8598,10 @@
     [
      "dj_controller",
      0.3
+    ],
+    [
+     "gls_metal_visor",
+     0.05
     ]
    ],
    "model": "Flying_Tribal",
@@ -9913,6 +10289,10 @@
     [
      "dj_neon",
      0.08
+    ],
+    [
+     "gls_kraken_goggle",
+     0.05
     ]
    ],
    "glow": "#5a3cff",
@@ -10311,6 +10691,10 @@
     [
      "dj_neon",
      0.08
+    ],
+    [
+     "gls_crystal_hex",
+     0.05
     ]
    ],
    "glow": "#7fd8ff",
@@ -10687,6 +11071,10 @@
     [
      "mic_ball",
      0.08
+    ],
+    [
+     "gls_banshee_heart",
+     0.05
     ]
    ],
    "glow": "#c8b0ff",
@@ -11107,6 +11495,10 @@
     [
      "dj_grand",
      0.08
+    ],
+    [
+     "gls_opera_monocle",
+     0.05
     ]
    ],
    "glow": "#c060ff",
@@ -11526,6 +11918,10 @@
     [
      "dj_grand",
      0.08
+    ],
+    [
+     "gls_lava_speaker",
+     0.05
     ]
    ],
    "glow": "#ff6a00",
@@ -11705,6 +12101,22 @@
     [
      "dj_grand",
      0.1
+    ],
+    [
+     "gls_abyss_vinyl",
+     0.04
+    ],
+    [
+     "mount_silver_sprint",
+     0.02
+    ],
+    [
+     "mount_red_scooter",
+     0.02
+    ],
+    [
+     "mount_retro_blue",
+     0.02
     ]
    ],
    "model": "Crimson_Reaper",

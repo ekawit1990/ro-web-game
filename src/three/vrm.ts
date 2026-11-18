@@ -11,6 +11,7 @@ import { buildDjDeck } from './djdeck';
 import { STICK_STYLES, buildStick } from './sticks';
 import { MIC_STYLES, buildMic } from './mics';
 import { mesh, toon } from './toon';
+import type { RideSeat } from './mounts';
 import { PHONE } from './device';
 import { track } from '../ui/loadProgress';
 
@@ -967,6 +968,59 @@ function sitPose(vrm: VRM, body: THREE.Object3D, female: boolean) {
   }
 }
 
+/**
+ * Riding a scooter: hips on the seat, thighs forward, feet on the floorboard, and (when not playing or fighting)
+ * both hands on the grips. Points come from the mount model's Seat / GripL / GripR / Foot nodes.
+ */
+function ridePose(vrm: VRM, rig: CharRig, seat: RideSeat, hands: boolean) {
+  const root = rig.root;
+  const hips = vrm.humanoid.getNormalizedBoneNode('hips');
+  if (!hips) return;
+  root.updateMatrixWorld(true);
+  const hip = root.worldToLocal(hips.getWorldPosition(new THREE.Vector3()));
+  // lift the body so the hips sit on the seat (a little above: the bone is inside the pelvis)
+  rig.body.position.y += seat.seat.y + 0.06 - hip.y;
+  rig.body.position.z += seat.seat.z - hip.z;
+  rig.body.updateMatrixWorld(true);
+  const rq = root.getWorldQuaternion(new THREE.Quaternion());
+  const W = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z).applyQuaternion(rq).normalize();
+  const P = (v: THREE.Vector3) => root.localToWorld(v.clone());
+  for (const side of ['left', 'right'] as const) {
+    const sg = side === 'left' ? 1 : -1;
+    const up = vrm.humanoid.getNormalizedBoneNode(`${side}UpperLeg`)!;
+    const H = root.worldToLocal(up.getWorldPosition(new THREE.Vector3()));
+    // the feet go onto the floorboard, a hand apart, under the front of the seat
+    const F = new THREE.Vector3(sg * 0.1, seat.foot.y + 0.05, Math.max(seat.foot.z, H.z + 0.12));
+    const toFoot = F.clone().sub(H);
+    const d = toFoot.length();
+    // knee: thigh and shin about the same length; lift the knee forward until both fit
+    const lo = vrm.humanoid.getNormalizedBoneNode(`${side}LowerLeg`)!;
+    const ft = vrm.humanoid.getNormalizedBoneNode(`${side}Foot`)!;
+    const l1 = up.getWorldPosition(new THREE.Vector3()).distanceTo(lo.getWorldPosition(new THREE.Vector3()));
+    const l2 = lo.getWorldPosition(new THREE.Vector3()).distanceTo(ft.getWorldPosition(new THREE.Vector3()));
+    const a = Math.min(d, l1 + l2 - 1e-3);
+    const along = (a * a + l1 * l1 - l2 * l2) / (2 * a);
+    const h = Math.sqrt(Math.max(0, l1 * l1 - along * along));
+    const dir = toFoot.normalize();
+    const bend = new THREE.Vector3(0, 1, 0.4).addScaledVector(dir, -new THREE.Vector3(0, 1, 0.4).dot(dir)).normalize();
+    const K = H.clone().addScaledVector(dir, along).addScaledVector(bend, h);
+    K.x += sg * 0.05;
+    const thigh = K.clone().sub(H).applyQuaternion(rq).normalize();
+    const shin = F.clone().sub(K).applyQuaternion(rq).normalize();
+    legTo(vrm, side, thigh, shin, W(0, 0, -1));
+  }
+  if (!hands) return;
+  for (const side of ['left', 'right'] as const) {
+    const sg = side === 'left' ? 1 : -1;
+    const at = P(side === 'left' ? seat.gripL : seat.gripR);
+    const fing = W(sg * 0.35, -0.55, 0.75);
+    const palm = W(0, -0.75, -0.65);
+    const thumb = W(-sg, 0, 0.2);
+    const pole = at.clone().add(W(sg * 1, -0.5, -0.6));
+    grip(vrm, side, at, fing, thumb, palm, pole, 0.05);
+  }
+}
+
 const FINGERS = ['Index', 'Middle', 'Ring', 'Little'] as const;
 const JOINTS = ['Proximal', 'Intermediate', 'Distal'] as const;
 
@@ -1173,6 +1227,8 @@ export interface AnimState {
   perform?: number;
   /** Still in a fight between attacks, waiting to hit the next monster: a light stance, rocking from foot to foot. */
   ready?: boolean;
+  /** On a mount (2026-11-18): where the seat, grips and floorboard are, in the character root's frame. */
+  ride?: RideSeat;
 }
 
 const DRAW_TIME = 0.22; // seconds to swing the instrument from the back into the hands
@@ -1227,7 +1283,8 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
     ud[key] = v;
     return v * v * (3 - 2 * v);
   };
-  const free = !s.sitting && !s.dead;
+  const riding = !!s.ride && !s.dead && !s.sitting;
+  const free = !s.sitting && !s.dead && !riding;
   const W = fade('walkW', s.moving && free ? 1 : 0, 6);
   const R = fade('readyW', s.ready && !s.moving && free ? 1 : 0, 3.5) * (1 - g);
   const I = (1 - W) * (1 - R);
@@ -1429,6 +1486,7 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
     }
   }
   if (s.sitting && !s.dead) sitPose(vrm, rig.body, rig.root.userData.gender === 'f');
+  if (riding) ridePose(vrm, rig, s.ride!, k < 0.05 && !(s.attack > 0));
 
   rig.root.userData.bladeDir = undefined;
   rig.root.userData.bladeHilt = undefined;
@@ -1544,7 +1602,11 @@ export function animateVrm(rig: CharRig & { vrm?: VRM }, t: number, s: AnimState
 /** Animates either kind of character. */
 export function animateRig(rig: CharRig, t: number, s: AnimState) {
   if ((rig as CharRig & { vrm?: VRM }).vrm) animateVrm(rig, t, s);
-  else animateCharacter(rig, t, s);
+  else if (s.ride && !s.dead && !s.sitting) {
+    // the stand-in model (before the VRoid one loads): sat on the seat
+    animateCharacter(rig, t, { ...s, sitting: true, moving: false });
+    rig.body.position.y += s.ride.seat.y * 0.8;
+  } else animateCharacter(rig, t, s);
 }
 
 

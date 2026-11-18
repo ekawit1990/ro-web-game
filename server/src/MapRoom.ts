@@ -4,7 +4,7 @@ import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ENDOW_SEC, ITEMS, type Element, elementMult, monsterElement, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
   STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, HEALER_BUFF_SEC, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
   skillHeal, skillPower, skillSp, skillStatMult, targetsGround, targetsMonster, castTime, WAVE_FALL_MS, skillWaves, MONSTER_DAMAGE, targetsPlayer, totalStats, outfitOf, MONSTER_SKILLS,
-  VEND_SKILL, VEND_MAX_PRICE, VEND_MAX_TOTAL, vendSlots,
+  VEND_SKILL, VEND_MAX_PRICE, VEND_MAX_TOTAL, vendSlots, mountOf,
 } from '../../src/data/index.ts';
 import { ARENA_SPAWNS, CASTLE_CRYSTAL, CASTLE_INNER, GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
 import { ARENA_MAP, CASTLE_MAP, EMPERIUM, PVP_DAMAGE, pvpOn, warNow, type PvpInfo, type PvpScore } from '../../src/game/pvp.ts';
@@ -39,6 +39,8 @@ export const PlayerState = schema({
   head: t.string(), // equipped headgear item id, for drawing
   weapon: t.string(), // equipped weapon item id ('' = bare hands), for drawing
   ear: t.string(), // equipped headphones item id, for drawing
+  glasses: t.string(), // equipped glasses item id, for drawing (2026-11-18)
+  mount: t.string(), // the mount item they ride ('' = on foot), for drawing the vehicle (2026-11-18)
   body: t.string(), // equipped outfit item id (armor with a VRoid model, '' = none): the character's look
   x: coord(),
   y: coord(),
@@ -113,6 +115,8 @@ interface Seat {
   /** เปิดแผงขายของ: the stall they sit at, and a lock while one sale goes through the database */
   shop?: Shop;
   shopBusy?: boolean;
+  /** On their mount (the ride button); only counts while a mount is worn. */
+  riding?: boolean;
 }
 
 /** One kind of item in a player shop: `inv` is the seller's inventory row it comes out of. */
@@ -207,6 +211,8 @@ const arrivals = new Map<string, {
   map: string; x: number; y: number; at: number; hp?: number; sp?: number;
   /** an element converter still on the weapon: which item, and when it wears off (Date.now() ms) */
   endow?: { item: string; until: number };
+  /** still on their mount */
+  ride?: boolean;
 }>();
 
 /** Where a skill was aimed: a monster, a player, or just a spot. */
@@ -319,6 +325,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     this.onMessage('attack', (c, msg: { id: string }) => this.onAttack(c, msg));
     this.onMessage('skill', (c, msg: { id: string; target?: string; gx?: number; gy?: number }) => this.onSkill(c, msg));
     this.onMessage('sit', (c) => this.onSit(c));
+    this.onMessage('ride', (c, msg: { on?: boolean }) => this.onRide(c, msg));
     this.onMessage('heal', (c) => this.onHeal(c));
     this.onMessage('warp', (c) => this.onWarp(c));
     this.onMessage('npcWarp', (c, msg: { to: string }) => this.onNpcWarp(c, msg));
@@ -400,7 +407,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       cooldowns: new Map(), lastAttack: 0, lastMoveAt: this.now, lastChat: 0, busy: false,
     };
     let { x, y } = this.map.spawn;
-    let carry: { hp?: number; sp?: number; endow?: { item: string; until: number } } = {};
+    let carry: { hp?: number; sp?: number; endow?: { item: string; until: number }; ride?: boolean } = {};
     const arrival = arrivals.get(c.id);
     if (arrival && arrival.map === this.map.id && Date.now() - arrival.at < 60000) {
       ({ x, y } = arrival);
@@ -413,7 +420,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const p = new PlayerState();
     Object.assign(p, {
       name: c.name, cls: c.cls, level: c.level, gender: c.gender, hair: c.hair, hairColor: c.hair_color, face: c.face,
-      head: '', weapon: '', ear: '', body: '', hidden: false, guild: Guilds.nameOf(c.id), shop: '', x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
+      head: '', weapon: '', ear: '', glasses: '', mount: '', body: '', hidden: false, guild: Guilds.nameOf(c.id), shop: '', x, y, maxHp: seat.derived.maxHp, maxSp: seat.derived.maxSp,
       hp: (carry.hp ?? c.hp) > 0 ? Math.min(carry.hp ?? c.hp, seat.derived.maxHp) : seat.derived.maxHp,
       sp: (carry.sp ?? c.sp) >= 0 ? Math.min(carry.sp ?? c.sp, seat.derived.maxSp) : seat.derived.maxSp,
       dead: false, sitting: false,
@@ -429,6 +436,7 @@ export class MapRoom extends Room<{ state: MapState }> {
       seat.buffs.set(ENDOW_KEY(carry.endow.item), { until: this.now + left, endow: ITEMS[carry.endow.item].endow });
       client.send('buff', { skill: ENDOW_KEY(carry.endow.item), seconds: left / 1000 });
     }
+    if (carry.ride) seat.riding = true;
     this.applyDerived(seat, p);
     client.send('welcome', { map: this.map.id, x, y });
     Parties.online({
@@ -559,8 +567,31 @@ export class MapRoom extends Room<{ state: MapState }> {
 
   private onSit(c: Client) {
     const p = this.state.players.get(c.sessionId);
-    if (this.seats.get(c.sessionId)?.shop) return this.closeShop(c.sessionId, 'ลุกขึ้นยืน ปิดร้านแล้ว');
-    if (p && !p.dead) p.sitting = !p.sitting;
+    const seat = this.seats.get(c.sessionId);
+    if (seat?.shop) return this.closeShop(c.sessionId, 'ลุกขึ้นยืน ปิดร้านแล้ว');
+    if (!p || p.dead) return;
+    // sitting down gets off the mount first
+    if (seat?.riding && !p.sitting) {
+      seat.riding = false;
+      this.applyDerived(seat, p);
+    }
+    p.sitting = !p.sitting;
+  }
+
+  /** The ride button: get on / off the worn mount (faster walking, see RIDE_SPEED). */
+  private onRide(c: Client, msg: { on?: boolean }) {
+    const p = this.state.players.get(c.sessionId);
+    const seat = this.seats.get(c.sessionId);
+    if (!p || !seat || p.dead) return;
+    const want = typeof msg?.on === 'boolean' ? msg.on : !seat.riding;
+    if (want && !mountOf(seat.inv)) {
+      c.send('system', { text: 'ยังไม่ได้สวมพาหนะ (ช่องพาหนะในหน้าต่าง Equipment)' });
+      return;
+    }
+    if (want && seat.shop) return;
+    seat.riding = want;
+    if (want) p.sitting = false;
+    this.applyDerived(seat, p);
   }
 
   private onHeal(c: Client) {
@@ -590,7 +621,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     if (!p || !seat || p.dead || !portal) return;
     this.cancelTrade(seat.trade, 'อีกฝ่ายออกจากแผนที่');
     // the next room gets hp/sp from here, so the player doesn't wait for the database save
-    arrivals.set(seat.char.id, { map: portal.to, x: portal.toX, y: portal.toY, at: Date.now(), hp: p.hp, sp: p.sp, endow: this.endowOf(seat) });
+    arrivals.set(seat.char.id, { map: portal.to, x: portal.toX, y: portal.toY, at: Date.now(), hp: p.hp, sp: p.sp, endow: this.endowOf(seat), ride: seat.riding });
     c.send('warp', { map: portal.to });
     MapRoom.db
       .saveState(seat.userId, seat.char.id, { hp: p.hp, sp: p.sp, map: portal.to, x: portal.toX, y: portal.toY })
@@ -613,7 +644,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     try {
       const to = getMap(dest.map).spawn;
       seat.char = await MapRoom.db.payWarp(seat.userId, seat.char.id, dest.cost, { hp: p.hp, sp: p.sp, map: dest.map, x: to.x, y: to.y });
-      arrivals.set(seat.char.id, { map: dest.map, x: to.x, y: to.y, at: Date.now(), hp: p.hp, sp: p.sp, endow: this.endowOf(seat) });
+      arrivals.set(seat.char.id, { map: dest.map, x: to.x, y: to.y, at: Date.now(), hp: p.hp, sp: p.sp, endow: this.endowOf(seat), ride: seat.riding });
       c.send('sync', { character: seat.char, inventory: seat.inv });
       c.send('warp', { map: dest.map });
     } catch (e) {
@@ -647,7 +678,7 @@ export class MapRoom extends Room<{ state: MapState }> {
           seat.lastMoveAt = this.now;
           c.send('correct', { x: p.x, y: p.y });
         } else {
-          arrivals.set(seat.char.id, { map: to.map, x: to.x, y: to.y, at: Date.now(), hp: p.hp, sp: p.sp, endow: this.endowOf(seat) });
+          arrivals.set(seat.char.id, { map: to.map, x: to.x, y: to.y, at: Date.now(), hp: p.hp, sp: p.sp, endow: this.endowOf(seat), ride: seat.riding });
           await MapRoom.db.saveState(seat.userId, seat.char.id, { hp: p.hp, sp: p.sp, map: to.map, x: to.x, y: to.y });
           c.send('warp', { map: to.map });
         }
@@ -1469,7 +1500,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     const to = getMap(dest);
     const g = Guilds.of(seat.char.id);
     const at = dest === CASTLE_MAP && g && g === Guilds.castleOwner() ? CASTLE_INNER : to.spawn;
-    arrivals.set(seat.char.id, { map: dest, x: at.x, y: at.y, at: Date.now(), hp: p.hp, sp: p.sp, endow: this.endowOf(seat) });
+    arrivals.set(seat.char.id, { map: dest, x: at.x, y: at.y, at: Date.now(), hp: p.hp, sp: p.sp, endow: this.endowOf(seat), ride: seat.riding });
     c.send('warp', { map: dest });
     MapRoom.db
       .saveState(seat.userId, seat.char.id, { hp: p.hp, sp: p.sp, map: dest, x: at.x, y: at.y })
@@ -1609,6 +1640,10 @@ export class MapRoom extends Room<{ state: MapState }> {
     const title = cleanText(msg?.title, 30) || `ร้านของ ${seat.char.name}`;
     seat.shop = { title, items };
     p.shop = title;
+    if (seat.riding) {
+      seat.riding = false;
+      this.applyDerived(seat, p);
+    }
     p.sitting = true;
     c.send('shopMine', this.shopOf(c.sessionId, seat));
   }
@@ -2187,6 +2222,9 @@ export class MapRoom extends Room<{ state: MapState }> {
       for (const k of STAT_KEYS) if (b.stats?.[k]) stats[k] = (stats[k] ?? 0) + b.stats[k]!;
     }
     if (Object.keys(stats).length) buffs.stats = stats;
+    const mount = mountOf(seat.inv);
+    if (!mount) seat.riding = false;
+    buffs.ride = !!seat.riding;
     seat.derived = derive(seat.char, seat.inv, buffs);
     p.level = seat.char.level;
     p.cls = seat.char.cls;
@@ -2199,6 +2237,8 @@ export class MapRoom extends Room<{ state: MapState }> {
     p.head = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'head')?.item_id ?? '';
     p.weapon = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'weapon')?.item_id ?? '';
     p.ear = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'earring')?.item_id ?? '';
+    p.glasses = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'glasses')?.item_id ?? '';
+    p.mount = seat.riding && mount ? mount : '';
     const armor = seat.inv.find((i) => i.equipped && ITEMS[i.item_id]?.type === 'armor')?.item_id;
     p.body = outfitOf(armor) ? armor! : '';
     seat.client.send('derived', { derived: seat.derived });

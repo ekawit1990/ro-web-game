@@ -28,6 +28,8 @@ export const UI_ICONS = {
   /** แผนที่: a folded map with a pin */
   map: svg(`<path d="M3 6.5l5.5-2.5 7 2.5L21 4v13.5L15.5 20l-7-2.5L3 20z" fill="currentColor" fill-opacity=".14"/><path d="M8.5 4v13.5M15.5 6.5V20"/><path d="M12 13.8s-2.2-2.2-2.2-3.8a2.2 2.2 0 0 1 4.4 0c0 1.6-2.2 3.8-2.2 3.8z" fill="currentColor" fill-opacity=".5"/>`),
   /** นั่ง: a campfire, the RO resting spot */
+  /** ขี่รถ: a scooter seen from the side */
+  ride: svg(`<circle cx="6" cy="17" r="2.8"/><circle cx="18.5" cy="17" r="2.8"/><path d="M6 17h4.5l2.5-5.5h3.5L18.5 17" /><path d="M3.5 13.5c0-2 1.6-3 3.5-3h4l-1 3.5" fill="currentColor" fill-opacity=".3"/><path d="M15 5.5h3l-1.5 6"/><path d="M14 5.5h2"/>`),
   sit: svg(`<path d="M12 3.5c2.6 2.6 4 4.8 4 7a4 4 0 0 1-8 0c0-1.3.6-2.4 1.5-3.4.2 1.3.9 2.1 1.8 2.4-.4-2 .1-3.9.7-6z" fill="currentColor" fill-opacity=".3"/><path d="M4.5 20.5l15-3.5M19.5 20.5l-15-3.5"/>`),
   /** ตั้งค่า: a gear */
   option: svg(`<circle cx="12" cy="12" r="3"/><path d="M12 2.8l1.4 2.4 2.7-.6.6 2.7 2.4 1.4-1.2 2.5 1.2 2.5-2.4 1.4-.6 2.7-2.7-.6L12 21.2l-1.4-2.4-2.7.6-.6-2.7-2.4-1.4L6.1 12.8 4.9 10.3l2.4-1.4.6-2.7 2.7.6z" fill="currentColor" fill-opacity=".14"/>`),
