@@ -390,7 +390,8 @@ export async function upgradeMonster(rig: MonsterRig, key: string, alive: () => 
     pivot.add(obj);
     body.add(pivot);
   } else body.add(obj);
-  const crown = rig.body.getObjectByName('crown');
+  // a sculpt mini-boss wears its own crown; the drawn one goes with the drawn body
+  const crown = def.move ? undefined : rig.body.getObjectByName('crown');
   const top = obj.position.y + box.max.y * s;
   if (crown) {
     crown.position.set(0, top - 0.04, 0);
