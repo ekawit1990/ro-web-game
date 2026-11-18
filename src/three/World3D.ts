@@ -5,7 +5,7 @@ import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVE
 import { findPath, GameMap, Npc, THEMES, isLava, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
-import { type MonsterAnimator, preloadMonsters, tickMonsterDeform, upgradeMonster } from './monsters';
+import { type MonsterAnimator, leanToCamera, preloadMonsters, tickMonsterDeform, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setGlasses, setHat } from './models';
 import { buildMount, disposeMount, spinMount, type MountRig } from './mounts';
 import { animateMaxAura, buildMaxAura } from './levelAura';
@@ -1580,7 +1580,11 @@ export class World3D {
       m.moving = Math.hypot(dx, dy) > 0.02;
       if (m.moving) m.rig.root.rotation.y = Math.atan2(dx, dy);
       // a Meshy sculpt is only painted well from the front: it turns no more than ~60 degrees away from the camera
-      if (MONSTERS[m.key]?.move) m.rig.root.rotation.y = this.frontToCamera(m.rig.root.rotation.y, m.x, m.y);
+      if (MONSTERS[m.key]?.move) {
+        m.rig.root.rotation.y = this.frontToCamera(m.rig.root.rotation.y, m.x, m.y);
+        // and tips back toward the camera so its face shows, not just the top of its head
+        leanToCamera(m.rig.body, Math.atan2(this.camera.position.x - m.x, this.camera.position.z - m.y) - m.rig.root.rotation.y);
+      }
       m.x += dx * k;
       m.y += dy * k;
       m.hp = rm.hp;
