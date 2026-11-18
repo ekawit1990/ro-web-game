@@ -36,3 +36,9 @@ Blender), the normal and metal/roughness maps dropped, and the file gzipped. The
 "Crowned Monsters", made by the game's author with Meshy AI (https://www.meshy.ai), licensed CC BY 4.0
 (https://creativecommons.org/licenses/by/4.0/). Credit: Meshy AI. Cut into one model per boss and baked the same way
 as the normal monsters (6,000 triangles each); `tools/meshy_bosses.py` says which piece is which boss.
+
+## ML001.glb.gz (เจลลี่สีชมพู) and ML009.glb.gz (ผึ้งงาน), 2026-11-18
+
+"Bubblegum Blob" and "Golden Bumblebee", each generated on its own by the game's author with Meshy AI
+(https://www.meshy.ai), licensed CC BY 4.0. Credit: Meshy AI. Reduced with `tools/meshy/optimize_single.mjs`
+(6,000 and 16,000 triangles, 1024 px texture). They replace the pieces cut from the sheet.
