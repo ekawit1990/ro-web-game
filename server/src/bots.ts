@@ -60,8 +60,9 @@ const SHOP_SHOUTS = [
 
 /** Field maps the hunters spread over: how many go there and the Base Lv range they have. */
 const HUNT: [map: string, count: number, lvMin: number, lvMax: number][] = [
-  ['field', 6, 5, 12], ['forest', 5, 13, 20], ['marsh', 4, 16, 22], ['canyon', 4, 20, 26], ['snow', 3, 23, 29], ['volcano', 3, 30, 38],
-  ['beach', 3, 35, 44], ['cave', 3, 45, 57], ['deadwood', 3, 56, 68], ['ruins', 2, 70, 82], ['inferno', 2, 85, 97], ['abyss', 2, 92, 99],
+  ['field', 6, 5, 12], ['forest', 5, 13, 20], ['beach', 4, 14, 22], ['canyon', 4, 16, 24], ['ghosttown', 3, 24, 30], ['snow', 3, 28, 34],
+  ['volcano', 3, 30, 38], ['marsh', 3, 38, 46], ['cave', 3, 45, 57], ['ruins', 2, 54, 64], ['deadwood', 3, 62, 74], ['cove', 2, 76, 84],
+  ['inferno', 2, 85, 97], ['abyss', 2, 92, 99],
 ];
 export const SHOP_MAP = 'town';
 const JOBS: ClassKey[] = ['singer', 'guitarist', 'drummer', 'bassist', 'keyboardist', 'dj'];

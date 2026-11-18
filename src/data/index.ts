@@ -233,6 +233,13 @@ export interface MonsterDef {
   model?: string;
   /** The model's height as a multiple of `size` (default 1, Big_ models 1.25). */
   modelScale?: number;
+  /** How a model without animation clips moves (PropAnim): hop, walk, fly, float, slither or plant. */
+  move?: 'hop' | 'walk' | 'fly' | 'float' | 'slither' | 'plant';
+  /** Its cry (sfxMonster voice kind); else guessed from the model name. */
+  voice?: string;
+  /** Kind of creature from the monster sheet (สไลม์, สัตว์, ปีศาจ...) and its rarity (Common..Elite). */
+  kind?: string;
+  rarity?: string;
   /** Recolours the model (a model shared by several monsters): its shading in this colour. */
   tint?: string;
   /** Glows in this colour (lava, crystals, ghosts). */
