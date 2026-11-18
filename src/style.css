@@ -161,7 +161,7 @@ form { display: flex; flex-direction: column; gap: 10px; }
 .dot { position: absolute; top: -3px; right: -3px; width: 8px; height: 8px; border-radius: 50%; background: #ff3b30; }
 
 /* Equipment + status */
-.rw.equip { width: 300px; }
+.rw.equip { width: 400px; max-width: calc(100vw - 16px); }
 .eq-grid { display: grid; grid-template-columns: 1fr 96px 1fr; gap: 4px; align-items: center; background: #fff; border: 1px solid #b8c3d6; padding: 4px; }
 .eq-col { display: flex; flex-direction: column; gap: 6px; }
 .eq-slot { display: flex; gap: 4px; align-items: center; min-height: 36px; padding: 2px; border: 1px solid #d3dae6; background: #f4f6fa; cursor: default; }
