@@ -149,6 +149,7 @@ export class Hud implements WorldHooks {
     s.onChange(() => this.refresh());
     this.bindKeys();
     this.refresh();
+    this.maybeWelcome();
     const loop = () => {
       this.frame();
       this.raf = requestAnimationFrame(loop);
@@ -948,6 +949,7 @@ export class Hud implements WorldHooks {
     if (!w.dataset.wired) {
       w.dataset.wired = '1';
       w.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('[data-welcome]')) return this.showWelcome();
         const t = (e.target as HTMLElement).closest('[data-cg]') as HTMLElement | null;
         if (!t) return;
         this.classTab = t.dataset.cg as ClassKey;
@@ -1017,9 +1019,101 @@ export class Hud implements WorldHooks {
           <div><i>สเตตัสเริ่มต้น</i><span class="cg-stats">${stats}</span></div>
           <div><i>เปลี่ยนอาชีพ</i>${how}</div>
         </div>
+        ${key === START_CLASS ? '<button class="cg-welcome" data-welcome="1">📜 เปิดหน้าต่างต้อนรับผู้เล่นใหม่อีกครั้ง</button>' : ''}
         <div class="cg-sub">สกิล (${skillsOf(key).length})</div>
         ${skills}
       </div>`;
+  }
+
+  // ------------------------------------------------------------ welcome (ผู้เล่นใหม่)
+
+  /** Seen-flag per character, so the welcome shows once on the character's first entry. */
+  private welcomeKey() {
+    return `ml-welcome-${this.s.char.id}`;
+  }
+
+  /** A brand-new character (Teen, Base Lv 1, no EXP yet) that hasn't closed the welcome before. */
+  private maybeWelcome() {
+    const c = this.s.char;
+    if (c.cls !== START_CLASS || c.level > 1 || c.exp > 0) return;
+    try {
+      if (localStorage.getItem(this.welcomeKey())) return;
+    } catch { /* storage blocked: still show it */ }
+    // wait until the loading screen is gone, so the window isn't hidden behind it
+    const tryShow = () => {
+      if (this.ac.signal.aborted) return;
+      const ld = document.getElementById('loading');
+      if (ld && !ld.classList.contains('hidden')) return void setTimeout(tryShow, 500);
+      setTimeout(() => !this.ac.signal.aborted && this.showWelcome(), 600);
+    };
+    tryShow();
+  }
+
+  /** How to walk to each job-change town from เมืองเมโลเดีย (matches the map gates). */
+  private static readonly JOB_ROUTE: Record<string, string> = {
+    town: 'อยู่ใกล้จุดเกิดในเมืองเริ่มต้นเลย',
+    desert: 'เดินออกทางใต้ของเมืองไปหุบผาร็อค แล้วออกทางใต้อีกที หรือให้บูรพาวาร์ป',
+    magic: 'เดินออกทางตะวันตกไปป่าเพลงกระซิบ → บึงจังหวะ แล้วออกทางเหนือ หรือให้บูรพาวาร์ป',
+  };
+
+  private static readonly CLASS_TIP: Partial<Record<ClassKey, string>> = {
+    singer: 'เหมาะกับคนชอบยิงจากระยะไกล อัป DEX',
+    guitarist: 'เหมาะกับคนชอบลุยหน้า ดาเมจแรง อัป STR',
+    drummer: 'ตีเร็ว หายตัวลอบโจมตีได้ อัป AGI/STR',
+    bassist: 'แทงก์ตัวหนา ยืนรับมอนแทนเพื่อน อัป VIT',
+    keyboardist: 'ซัพพอร์ต ฮีล บัฟ ชุบชีวิตเพื่อน อัป INT',
+    dj: 'เวทย์โจมตีวงกว้าง กดที่พื้นได้ อัป INT',
+  };
+
+  showWelcome() {
+    this.root.querySelector('.welcome-ov')?.remove();
+    const { level, monsterLevel, kills } = JOB_CHANGE;
+    const order: ClassKey[] = ['singer', 'guitarist', 'drummer', 'bassist', 'keyboardist', 'dj'];
+    const keys = [...order.filter((k) => CLASS_KEYS.includes(k)), ...CLASS_KEYS.filter((k) => k !== START_CLASS && !order.includes(k))];
+    const atkName = (t: string) => (t === 'melee' ? 'ประชิด' : t === 'ranged' ? 'ระยะไกล' : 'เวทมนตร์');
+    const cards = keys.map((k) => {
+      const c = CLASSES[k];
+      const town = getMap(jobTown(k));
+      const teacher = town.npcs.find((n) => n.id === 'jobs')?.name ?? 'ครูแนะแนวอาชีพ';
+      const route = Hud.JOB_ROUTE[town.id] ?? '';
+      return `<div class="wc-card" style="--cc:${c.fxColor ?? c.color}">
+        <div class="wc-cname"><b>${escapeHtml(c.name)}</b><span>${atkName(c.attackType)} · ${escapeHtml(ITEMS[c.startWeapon]?.name ?? '-')}</span></div>
+        <div class="wc-cdesc">${escapeHtml(c.desc)}</div>
+        ${Hud.CLASS_TIP[k] ? `<div class="wc-tip">💡 ${escapeHtml(Hud.CLASS_TIP[k]!)}</div>` : ''}
+        <div class="wc-where">📍 เปลี่ยนอาชีพที่ <b>${escapeHtml(town.name)}</b> กับ <b>${escapeHtml(teacher)}</b>${route ? `<small>${escapeHtml(route)}</small>` : ''}</div>
+      </div>`;
+    }).join('');
+    const ov = document.createElement('div');
+    ov.className = 'welcome-ov';
+    ov.innerHTML = `<div class="welcome rw" role="dialog" aria-label="ยินดีต้อนรับนักผจญภัยใหม่">
+      <div class="wc-hero"><div class="wc-notes">♪ ♫ ♪</div><h2>ยินดีต้อนรับนักผจญภัยใหม่!</h2>
+        <p>สวัสดี <b>${escapeHtml(this.s.char.name)}</b> ตอนนี้เธอเป็น <b>${escapeHtml(CLASSES[START_CLASS].name)}</b> ถือมีดสั้น พร้อมออกผจญภัยใน Music Land แล้ว</p></div>
+      <div class="wc-scroll">
+        <div class="wc-sec">เส้นทางสู่นักดนตรี</div>
+        <ol class="wc-steps">
+          <li><b>เก็บเลเวลให้ถึง Base Lv ${level}</b> ออกนอกเมืองไปตีมอนสเตอร์ (ทางออกตะวันออกไปทุ่งเหมาะกับมือใหม่)</li>
+          <li><b>คุยกับครูแนะแนวอาชีพ</b> รับเควส แล้วกำจัดมอนสเตอร์ Lv ${monsterLevel} ขึ้นไป ${kills} ตัว</li>
+          <li><b>เลือกอาชีพ</b> กลับไปหาครูของอาชีพที่อยากเป็น (เลือกแล้วเปลี่ยนไม่ได้) สเตตัสจะคืนแต้มให้กดใหม่</li>
+        </ol>
+        <div class="wc-sec">6 อาชีพดนตรี</div>
+        <div class="wc-grid">${cards}</div>
+        <div class="wc-foot">ดูสกิลทุกอาชีพได้ที่ปุ่ม <b>🎼 อาชีพ</b> ข้างมินิแมพ · ไกด์ประจำเมืองอธิบายวิธีเล่นเพิ่มเติม</div>
+      </div>
+      <div class="wc-btns"><button class="wc-guide">ดูคู่มืออาชีพ</button><button class="ok wc-go">เริ่มผจญภัย!</button></div>
+    </div>`;
+    const close = () => {
+      try { localStorage.setItem(this.welcomeKey(), '1'); } catch { /* ignore */ }
+      ov.remove();
+    };
+    ov.querySelector('.wc-go')!.addEventListener('click', () => { sfx('item'); close(); });
+    ov.querySelector('.wc-guide')!.addEventListener('click', () => {
+      close();
+      this.classTab = keys[0];
+      if (!this.isOpen('classes')) this.toggleClasses();
+      else this.renderClasses();
+    });
+    ov.addEventListener('pointerdown', (e) => e.stopPropagation());
+    this.root.appendChild(ov);
   }
 
   private rankRows: RankRow[] = [];
