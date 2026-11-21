@@ -42,3 +42,8 @@ as the normal monsters (6,000 triangles each); `tools/meshy_bosses.py` says whic
 "Bubblegum Blob" and "Golden Bumblebee", each generated on its own by the game's author with Meshy AI
 (https://www.meshy.ai), licensed CC BY 4.0. Credit: Meshy AI. Reduced with `tools/meshy/optimize_single.mjs`
 (6,000 and 16,000 triangles, 1024 px texture). They replace the pieces cut from the sheet.
+
+## ML034.glb.gz (ซอมบี้)
+
+"Little Zombie Wanderer", generated on its own by the game's author with Meshy AI (https://www.meshy.ai), licensed
+CC BY 4.0. Credit: Meshy AI. Reduced with `tools/meshy/optimize_single.mjs` (12,000 triangles, 1024 px texture).
