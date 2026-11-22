@@ -1924,41 +1924,12 @@ export class MapRoom extends Room<{ state: MapState }> {
     const step = Math.min(d, speed * dt);
     const nx = m.x + (dx / d) * step;
     const ny = m.y + (dy / d) * step;
-    if (this.monsterCanStep(m, nx, ny)) {
+    if (this.monsterCanStand(nx, ny)) {
       m.x = nx;
       m.y = ny;
-    } else if (this.monsterCanStep(m, nx, m.y)) m.x = nx;
-    else if (this.monsterCanStep(m, m.x, ny)) m.y = ny;
+    } else if (this.monsterCanStand(nx, m.y)) m.x = nx;
+    else if (this.monsterCanStand(m.x, ny)) m.y = ny;
     else b.wanderTo = null;
-  }
-
-  /** A monster's walking step: the ground must take it, and no รถแห่ wall may be in the way. */
-  private monsterCanStep(m: MonsterState, nx: number, ny: number) {
-    return this.monsterCanStand(nx, ny) && !this.wallInWay(m, nx, ny);
-  }
-
-  /**
-   * รถแห่: true when stepping from where the monster is to (nx, ny) walks into or across a burning wall.
-   * Every monster is stopped, bosses too (they just aren't thrown back); one already inside the fire may walk out.
-   */
-  private wallInWay(m: MonsterState, nx: number, ny: number) {
-    if (!this.walls.length) return false;
-    const r = MONSTERS[m.key].size * 0.3;
-    for (const w of this.walls) {
-      if (w.until <= this.now || !this.mayHit(w.by, m)) continue;
-      const ux = w.py;
-      const uy = -w.px;
-      const along = (nx - w.x) * w.px + (ny - w.y) * w.py;
-      if (Math.abs(along) > w.len / 2 + r) continue;
-      const before = (m.x - w.x) * ux + (m.y - w.y) * uy;
-      const after = (nx - w.x) * ux + (ny - w.y) * uy;
-      const half = 0.5 + r;
-      // crossing straight over the line in one step
-      if (before !== 0 && Math.sign(before) !== Math.sign(after) && Math.abs(before) <= half + 1) return true;
-      // stepping into the fire, or deeper into it
-      if (Math.abs(after) <= half && Math.abs(after) < Math.abs(before)) return true;
-    }
-    return false;
   }
 
   /** Picks a skill the monster can use on `target` now and telegraphs it; false if none fits. */
@@ -2022,11 +1993,6 @@ export class MapRoom extends Room<{ state: MapState }> {
       const seat = this.seats.get(sid);
       const p = this.state.players.get(sid);
       if (!seat || !p) continue;
-      // บูทดีเจ: standing in the DJ's circle stops a monster's (boss's) skill too, one block per hit
-      if (this.wardBlocks(sid, p)) {
-        hits.push({ p: sid, dmg: 0 });
-        continue;
-      }
       const mult = elementMult(monsterElement(def)[0], seat.derived.defElement ?? 'neutral', 1);
       const def2 = sk.magic ? seat.derived.def / 2 : seat.derived.def;
       const dmg = mult === 0 ? 0 : Math.max(1, Math.round((def.atk * sk.mult * rand(0.9, 1.1) - def2) * mult * MONSTER_DAMAGE));
