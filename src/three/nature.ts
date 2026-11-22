@@ -17,6 +17,8 @@ const loader = new GLTFLoader();
 const texLoader = new THREE.TextureLoader();
 const models = new Map<string, Promise<THREE.Mesh[] | null>>();
 const mats = new Map<string, THREE.Material>();
+/** Meshy models (M_*: rocks, the gateway) bring their own painted texture instead of a pack texture. */
+const embedded = new Map<string, THREE.Texture>();
 
 const gradient = (() => {
   const t = new THREE.DataTexture(new Uint8Array([110, 110, 110, 255, 190, 190, 190, 255, 255, 255, 255, 255]), 3, 1, THREE.RGBAFormat);
@@ -45,7 +47,10 @@ function material(name: string, theme: Theme) {
   const key = `${name}:${theme}`;
   if (mats.has(key)) return mats.get(key)!;
   let m: THREE.Material;
-  if (name === 'None') {
+  const own = embedded.get(name);
+  if (own) {
+    m = new THREE.MeshToonMaterial({ map: own, gradientMap: gradient, color: name === GATEWAY ? 0xffffff : TINTS[theme]?.Rock ?? 0xffffff });
+  } else if (name === 'None') {
     m = new THREE.MeshToonMaterial({ color: TINTS[theme]?.None ?? 0x6fb44a, gradientMap: gradient, side: THREE.DoubleSide });
   } else {
     const cut = /Leaves|Flowers/.test(name);
@@ -84,6 +89,11 @@ function load(name: string) {
           const geo = m.geometry.clone().applyMatrix4(m.matrixWorld);
           const mesh = new THREE.Mesh(geo);
           mesh.userData.mat = (m.material as THREE.Material).name || m.name; // the material is picked per map theme
+          const map = (m.material as THREE.MeshStandardMaterial).map;
+          if (name.startsWith('M_') && map) {
+            embedded.set(name, map);
+            mesh.userData.mat = name;
+          }
           meshes.push(mesh);
         });
         return meshes;
@@ -132,7 +142,20 @@ const LOOK: Record<Theme, { trees: string[]; grass: number; flowers: number; bus
 const BUSHES = ['Bush', 'Bush_Flowers', 'Bush_Large', 'Bush_Small_Flowers'];
 const FLOWERS = ['Flower_1_Clump', 'Flower_2_Clump', 'Flower_3_Clump', 'Flower_4_Clump', 'Plant_1', 'Plant_Flowers'];
 const GRASS = ['Grass_Small', 'Grass_Large'];
-const ROCKS = ['Rock_1', 'Rock_2', 'Rock_3', 'Rock_5'];
+/**
+ * Rocks the user made with Meshy AI (2026-11-22, public/models/nature/M_*.glb.gz, 1.4 tiles across, base on the
+ * ground): grey mossy stones for green and cold maps, sandstone for the dry ones. The wide cliffs are 2.2 across and
+ * are drawn smaller (WIDE_SCALE) so they stay near their tile.
+ */
+const GREY_ROCKS = ['M_Asset06_Mossy_Stone', 'M_Layered_Granite_Stack', 'M_Mossbound_Monolith', 'M_Rock_Pile',
+  'M_Stone_of_Growth', 'M_Tall_Rock_Formation_M', 'M_Three_Stones', 'M_Mossy_Stone_Stack', 'M_detailed_wide_cliff', 'M_detailed_wide_rock',
+  'M_Verdant_Stone_Plateau', 'M_Tiered_Rock_Mesh'];
+const SAND_ROCKS = ['M_Moss_Crowned_Stone_St', 'M_Mossy_Boulder', 'M_Mossy_Stone_Cliffs', 'M_Mossy_Stone_Clusters', 'M_Rock_Pile', 'M_Three_Stones'];
+const WIDE_SCALE: Record<string, number> = { M_detailed_wide_cliff: 0.65, M_detailed_wide_rock: 0.65, M_Verdant_Stone_Plateau: 0.65, M_Tiered_Rock_Mesh: 0.65, M_Mossy_Stone_Cliffs: 0.65 };
+const DRY: Theme[] = ['canyon', 'desert', 'volcano', 'inferno', 'beach'];
+const rocksFor = (t: Theme) => (DRY.includes(t) ? SAND_ROCKS : GREY_ROCKS);
+/** A stone archway with a swirling portal (Meshy), stood over every map exit and turned to face into the map. */
+const GATEWAY = 'M_The_Arcane_Gateway';
 
 /** Deterministic per-tile noise so every player sees the same scenery. */
 const hash = (x: number, y: number, k = 0) => {
@@ -161,7 +184,9 @@ function plan(map: GameMap): Spot[] {
       out.push({ model: pick(TOWN_TREES, hash(o.x, o.y, 1)), x: o.x + 0.5, z: o.y + 0.5, y: 0.36, s: 0.36, rot: hash(o.x, o.y, 3) * Math.PI * 2 });
       used.add(`${o.x},${o.y}`);
     } else if (o.kind === 'rock') {
-      out.push({ model: pick(ROCKS, hash(o.x, o.y, 4)), x: o.x + 0.5, z: o.y + 0.5, s: (map.theme === 'canyon' || map.theme === 'volcano' || map.theme === 'inferno' || map.theme === 'cave' ? 0.8 : 0.6) + hash(o.x, o.y, 5) * 0.35, rot: hash(o.x, o.y, 6) * 6.3 });
+      const rock = pick(rocksFor(map.theme), hash(o.x, o.y, 4));
+      const big = map.theme === 'canyon' || map.theme === 'volcano' || map.theme === 'inferno' || map.theme === 'cave';
+      out.push({ model: rock, x: o.x + 0.5, z: o.y + 0.5, s: ((big ? 0.85 : 0.7) + hash(o.x, o.y, 5) * 0.35) * (WIDE_SCALE[rock] ?? 1), rot: hash(o.x, o.y, 6) * 6.3 });
       used.add(`${o.x},${o.y}`);
     } else if ('x' in o) used.add(`${Math.floor(o.x)},${Math.floor(o.y)}`);
   }
@@ -197,7 +222,13 @@ function plan(map: GameMap): Spot[] {
   }
   // boulders ring the ponds, reeds and flowers grow on the bank
   const shore = pondShore(map);
-  for (const [i, r] of shore.rocks.entries()) out.push({ model: pick(ROCKS, hash(i, 1, 19)), x: r.x, z: r.z, y: r.y, s: r.s, rot: hash(i, 2, 19) * 6.3 });
+  const shoreRocks = rocksFor(map.theme).filter((n) => !WIDE_SCALE[n]);
+  for (const [i, r] of shore.rocks.entries()) out.push({ model: pick(shoreRocks, hash(i, 1, 19)), x: r.x, z: r.z, y: r.y, s: r.s, rot: hash(i, 2, 19) * 6.3 });
+  // a gateway over each exit, facing the middle of the map
+  for (const p of map.portals) {
+    const dx = map.w / 2 - (p.x + 0.5), dz = map.h / 2 - (p.y + 0.5);
+    out.push({ model: GATEWAY, x: p.x + 0.5, z: p.y + 0.5, s: 1.15, rot: Math.atan2(dx, dz) });
+  }
   if (look.grass > 0) {
     for (const [i, b] of shore.bank.entries()) {
       const r = hash(i, 3, 19);
@@ -235,7 +266,7 @@ function instance(spots: Spot[], meshes: Map<string, THREE.Mesh[]>, theme: Theme
   const pos = new THREE.Vector3(), scale = new THREE.Vector3();
   for (const [key, list] of byKey) {
     const name = key.split('|')[0];
-    const small = !/Tree|Rock|Bush/.test(name);
+    const small = !/Tree|Rock|Bush|^M_/.test(name);
     const [, cx, cz] = key.split('|').map(Number);
     const lod = meshes.has(`${name}_lod`);
     const all = lod ? [...parts(name).map((p) => ({ ...p, lod: 'hi' as const })), ...parts(`${name}_lod`).map((p) => ({ ...p, lod: 'lo' as const }))] : parts(name);
@@ -266,7 +297,7 @@ export async function upgradeNature(props: THREE.Group, map: GameMap, alive: () 
   const meshes = new Map<string, THREE.Mesh[]>();
   names.forEach((n, i) => loaded[i] && meshes.set(n, loaded[i]!));
   // only swap the trees out if they all arrived, so a flaky connection never leaves holes
-  const trees = spots.filter((s) => /Tree|Rock/.test(s.model));
+  const trees = spots.filter((s) => /Tree|Rock|^M_/.test(s.model));
   if (trees.some((s) => !meshes.has(s.model))) return;
   props.add(instance(spots, meshes, map.theme));
   for (const n of ['trees', 'rocks']) {
