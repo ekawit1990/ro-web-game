@@ -47,3 +47,9 @@ as the normal monsters (6,000 triangles each); `tools/meshy_bosses.py` says whic
 
 "Little Zombie Wanderer", generated on its own by the game's author with Meshy AI (https://www.meshy.ai), licensed
 CC BY 4.0. Credit: Meshy AI. Reduced with `tools/meshy/optimize_single.mjs` (12,000 triangles, 1024 px texture).
+
+## 2026-11-22: one Meshy model per monster
+
+The game's author generated each monster and mini-boss on its own with Meshy AI (https://www.meshy.ai), licensed
+CC BY 4.0. Credit: Meshy AI. They replace the pieces cut from the sheets (ML0xx, MB_*). Which file became which
+model: `tools/meshy/singles_2026-11-22.tsv`; renames: `tools/meshy_singles.py`.
