@@ -173,7 +173,13 @@ export class PropAnim {
   static readonly HURT = 0.22;
 
   /** `h` = the model's height in world units (hops and hovers scale with it). */
-  constructor(private pivot: THREE.Object3D, private style: MoveStyle = 'walk', private h = 1) {}
+  /** `hx`, `hz` = half its width and depth: a tilt about the feet would sink an edge that far out, so it is lifted. */
+  constructor(private pivot: THREE.Object3D, private style: MoveStyle = 'walk', private h = 1, private hx = 0, private hz = 0) {}
+
+  /** Depth over height: above ~1.1 it's a four-legged or crawling body that shouldn't waddle like a duck. */
+  private get long() {
+    return this.hz > this.h * 0.55;
+  }
 
   attack() {
     if (this.dead < 0) this.atk = PropAnim.ATK;
@@ -232,10 +238,18 @@ export class PropAnim {
       sx = 1 + squash * 0.7 + idle;
       rx = mv * 0.08;
     } else if (st === 'walk') {
-      // waddle: sway side to side with each step, bob up on the stride
-      rz = Math.sin(t * 9) * 0.1 * mv + Math.sin(t * 1.1) * 0.03 * (1 - mv);
-      y = Math.abs(Math.sin(t * 9)) * 0.05 * h * mv;
-      rx = 0.1 * mv;
+      const idleSway = Math.sin(t * 1.1) * 0.02 * (1 - mv);
+      if (this.long) {
+        // a trot: the body rocks nose-to-tail twice a stride and bobs, barely any side roll
+        rx = Math.sin(t * 16) * 0.035 * mv;
+        rz = Math.sin(t * 8) * 0.025 * mv + idleSway;
+        y = Math.abs(Math.sin(t * 8)) * 0.035 * h * mv;
+      } else {
+        // a stride: a light sway onto each foot, bob up between steps, lean a little into the walk
+        rz = Math.sin(t * 8) * 0.055 * mv + idleSway;
+        y = Math.abs(Math.sin(t * 8)) * 0.045 * h * mv;
+        rx = 0.06 * mv;
+      }
       const breath = Math.sin(t * 2.2) * 0.015 * (1 - mv);
       sx = 1 + breath;
       sy = 1 - breath;
@@ -283,7 +297,9 @@ export class PropAnim {
       sy *= 1 - j * 0.08;
     }
     p.rotation.set(rx + this.lean, ry, rz);
-    p.position.y = y;
+    // a tilt about the feet pushes one edge into the ground: lift it by that much (not fliers, they hover anyway)
+    const lift = st === 'fly' || st === 'float' ? 0 : Math.abs(Math.sin(rx + this.lean)) * this.hz + Math.abs(Math.sin(rz)) * this.hx;
+    p.position.y = y + lift;
     if (st !== 'slither') p.scale.set(sx, sy, sx);
   }
 }
@@ -342,7 +358,12 @@ export function leanToCamera(body: THREE.Object3D, toCam: number) {
   if (!lean) return;
   // the top tips toward u = (sin, 0, cos): rotate about up x u
   leanAxis.set(Math.cos(toCam), 0, -Math.sin(toCam));
-  lean.quaternion.setFromAxisAngle(leanAxis, LEAN);
+  // a long, low body (a cat, a beetle) tips less: it already shows its side to the camera
+  const [hx, hz, ht] = (body.userData.half as [number, number, number] | undefined) ?? [0, 0, 1];
+  const a = LEAN * Math.min(1, Math.max(0.45, ht / (2 * Math.max(hx, hz, 1e-3))));
+  lean.quaternion.setFromAxisAngle(leanAxis, a);
+  // tipping from the feet sinks the near edge of its footprint: lift it so it stands on the ground
+  lean.position.y = Math.sin(a) * (Math.abs(hx * Math.sin(toCam)) + Math.abs(hz * Math.cos(toCam)));
 }
 
 const recoloured = new Map<string, THREE.Material>();
@@ -411,6 +432,7 @@ export async function upgradeMonster(rig: MonsterRig, key: string, alive: () => 
     lean.add(pivot);
     body.add(lean);
     body.userData.lean = lean;
+    body.userData.half = [(size.x * s) / 2, (size.z * s) / 2, size.y * s];
   } else body.add(obj);
   // a sculpt mini-boss wears its own crown; the drawn one goes with the drawn body
   const crown = def.move ? undefined : rig.body.getObjectByName('crown');
@@ -429,5 +451,5 @@ export async function upgradeMonster(rig: MonsterRig, key: string, alive: () => 
   root.children.splice(Math.max(0, i), 0, body);
   rig.body = body;
   rig.height = top + (crown ? 0.3 : 0);
-  return pivot ? new PropAnim(pivot, def.move ?? 'walk', want) : new MonsterAnim(obj, src.clips);
+  return pivot ? new PropAnim(pivot, def.move ?? 'walk', want, (size.x * s) / 2, (size.z * s) / 2) : new MonsterAnim(obj, src.clips);
 }

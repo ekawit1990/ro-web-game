@@ -139,6 +139,12 @@ function block(m: GameMap, x: number, y: number, w = 1, h = 1) {
   for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (m.blocked[j]?.[i] !== undefined) m.blocked[j][i] = true;
 }
 
+/** A dirt path on this tile or one beside it: rocks keep off it (a rock model is wider than its tile). */
+function nearDirt(m: GameMap, x: number, y: number) {
+  for (let j = y - 1; j <= y + 1; j++) for (let i = x - 1; i <= x + 1; i++) if (m.ground[j]?.[i] === G.Dirt) return true;
+  return false;
+}
+
 function free(m: GameMap, x: number, y: number, w = 1, h = 1) {
   for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (m.blocked[j]?.[i] !== false) return false;
   return true;
@@ -721,7 +727,7 @@ function buildField(): GameMap {
       if ((x < 8 || x > m.w - 9) && Math.abs(y - mid) < 7) continue; // keep the gates clear
       const r = rnd();
       if (r < 0.04) addTree(x, y);
-      else if (r < 0.05 && free(m, x, y)) {
+      else if (r < 0.05 && free(m, x, y) && !nearDirt(m, x, y)) {
         m.objects.push({ kind: 'rock', x, y });
         block(m, x, y);
       }
@@ -864,7 +870,7 @@ function buildWild(sp: WildSpec): GameMap {
       if (nearGate(x, y)) continue; // keep the gates clear
       const r = rnd();
       if (r < sp.trees) addTree(x, y);
-      else if (r < sp.trees + sp.rocks && free(m, x, y) && m.ground[y][x] !== G.Dirt) {
+      else if (r < sp.trees + sp.rocks && free(m, x, y) && !nearDirt(m, x, y)) {
         m.objects.push({ kind: 'rock', x, y });
         block(m, x, y);
       }
@@ -897,7 +903,7 @@ function scatter(m: GameMap, rnd: () => number, count: number, box: [number, num
   for (let i = 0, tries = 0; i < count && tries < count * 30; tries++) {
     const x = Math.floor(box[0] + rnd() * (box[2] - box[0]));
     const y = Math.floor(box[1] + rnd() * (box[3] - box[1]));
-    if (!free(m, x - 1, y - 1, 3, 3) || m.ground[y][x] === G.Dirt || m.ground[y][x] === G.Water) continue;
+    if (!free(m, x - 1, y - 1, 3, 3) || nearDirt(m, x, y) || m.ground[y][x] === G.Water) continue;
     m.objects.push(make(x, y));
     block(m, x, y);
     i++;
@@ -1146,7 +1152,7 @@ function buildRuins(id = 'ruins', name = 'เมืองปราสาทร�
       if (g === G.Cobble || g === G.Plaza || !free(m, x - 1, y - 1, 3, 3)) continue;
       const r = rnd();
       if (r < 0.035) put({ kind: 'tree', x, y, big: rnd() < 0.4 });
-      else if (r < 0.06) put({ kind: 'rock', x, y });
+      else if (r < 0.06) { if (!nearDirt(m, x, y)) put({ kind: 'rock', x, y }); }
       else if (r < 0.068) put({ kind: 'grave', x, y });
     }
   }
@@ -1201,7 +1207,7 @@ function buildArena(): GameMap {
   for (let i = 0, tries = 0; i < 14 && tries < 400; tries++) {
     const x = 4 + Math.floor(rnd() * (N - 8)), y = 4 + Math.floor(rnd() * (N - 10));
     const r = Math.hypot(x + 0.5 - C, y + 0.5 - C);
-    if (r < 12 || r > 19 || (Math.abs(x + 0.5 - C) < 3 && y > C) || !free(m, x - 1, y - 1, 3, 3)) continue;
+    if (r < 12 || r > 19 || (Math.abs(x + 0.5 - C) < 3 && y > C) || !free(m, x - 1, y - 1, 3, 3) || nearDirt(m, x, y)) continue;
     put({ kind: 'rock', x, y });
     i++;
   }

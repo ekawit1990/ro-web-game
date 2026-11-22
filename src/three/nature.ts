@@ -17,7 +17,7 @@ const loader = new GLTFLoader();
 const texLoader = new THREE.TextureLoader();
 const models = new Map<string, Promise<THREE.Mesh[] | null>>();
 const mats = new Map<string, THREE.Material>();
-/** Meshy models (M_*: rocks, the gateway) bring their own painted texture instead of a pack texture. */
+/** Meshy models (M_*: rocks) bring their own painted texture instead of a pack texture. */
 const embedded = new Map<string, THREE.Texture>();
 
 const gradient = (() => {
@@ -49,7 +49,7 @@ function material(name: string, theme: Theme) {
   let m: THREE.Material;
   const own = embedded.get(name);
   if (own) {
-    m = new THREE.MeshToonMaterial({ map: own, gradientMap: gradient, color: name === GATEWAY ? 0xffffff : TINTS[theme]?.Rock ?? 0xffffff });
+    m = new THREE.MeshToonMaterial({ map: own, gradientMap: gradient, color: TINTS[theme]?.Rock ?? 0xffffff });
   } else if (name === 'None') {
     m = new THREE.MeshToonMaterial({ color: TINTS[theme]?.None ?? 0x6fb44a, gradientMap: gradient, side: THREE.DoubleSide });
   } else {
@@ -154,8 +154,6 @@ const SAND_ROCKS = ['M_Moss_Crowned_Stone_St', 'M_Mossy_Boulder', 'M_Mossy_Stone
 const WIDE_SCALE: Record<string, number> = { M_detailed_wide_cliff: 0.65, M_detailed_wide_rock: 0.65, M_Verdant_Stone_Plateau: 0.65, M_Tiered_Rock_Mesh: 0.65, M_Mossy_Stone_Cliffs: 0.65 };
 const DRY: Theme[] = ['canyon', 'desert', 'volcano', 'inferno', 'beach'];
 const rocksFor = (t: Theme) => (DRY.includes(t) ? SAND_ROCKS : GREY_ROCKS);
-/** A stone archway with a swirling portal (Meshy), stood over every map exit and turned to face into the map. */
-const GATEWAY = 'M_The_Arcane_Gateway';
 
 /** Deterministic per-tile noise so every player sees the same scenery. */
 const hash = (x: number, y: number, k = 0) => {
@@ -184,9 +182,20 @@ function plan(map: GameMap): Spot[] {
       out.push({ model: pick(TOWN_TREES, hash(o.x, o.y, 1)), x: o.x + 0.5, z: o.y + 0.5, y: 0.36, s: 0.36, rot: hash(o.x, o.y, 3) * Math.PI * 2 });
       used.add(`${o.x},${o.y}`);
     } else if (o.kind === 'rock') {
-      const rock = pick(rocksFor(map.theme), hash(o.x, o.y, 4));
+      // a rock beside a dirt path is a small one, nudged off the path: the models are wider than their tile and
+      // would spill over the walkway
+      let px = 0, pz = 0;
+      let byPath = false;
+      // the ground blends the path's dirt a tile out, so look two tiles round
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        if (map.ground[o.y + dy]?.[o.x + dx] === G.Dirt) { px -= Math.sign(dx); pz -= Math.sign(dy); byPath = true; }
+      }
+      const list = byPath ? rocksFor(map.theme).filter((n) => !WIDE_SCALE[n]) : rocksFor(map.theme);
+      const rock = pick(list, hash(o.x, o.y, 4));
       const big = map.theme === 'canyon' || map.theme === 'volcano' || map.theme === 'inferno' || map.theme === 'cave';
-      out.push({ model: rock, x: o.x + 0.5, z: o.y + 0.5, s: ((big ? 0.85 : 0.7) + hash(o.x, o.y, 5) * 0.35) * (WIDE_SCALE[rock] ?? 1), rot: hash(o.x, o.y, 6) * 6.3 });
+      const s = byPath ? 0.45 + hash(o.x, o.y, 5) * 0.12 : ((big ? 0.85 : 0.7) + hash(o.x, o.y, 5) * 0.35) * (WIDE_SCALE[rock] ?? 1);
+      const n = Math.hypot(px, pz) || 1;
+      out.push({ model: rock, x: o.x + 0.5 + (px / n) * 0.18, z: o.y + 0.5 + (pz / n) * 0.18, s, rot: hash(o.x, o.y, 6) * 6.3 });
       used.add(`${o.x},${o.y}`);
     } else if ('x' in o) used.add(`${Math.floor(o.x)},${Math.floor(o.y)}`);
   }
@@ -224,11 +233,6 @@ function plan(map: GameMap): Spot[] {
   const shore = pondShore(map);
   const shoreRocks = rocksFor(map.theme).filter((n) => !WIDE_SCALE[n]);
   for (const [i, r] of shore.rocks.entries()) out.push({ model: pick(shoreRocks, hash(i, 1, 19)), x: r.x, z: r.z, y: r.y, s: r.s, rot: hash(i, 2, 19) * 6.3 });
-  // a gateway over each exit, facing the middle of the map
-  for (const p of map.portals) {
-    const dx = map.w / 2 - (p.x + 0.5), dz = map.h / 2 - (p.y + 0.5);
-    out.push({ model: GATEWAY, x: p.x + 0.5, z: p.y + 0.5, s: 1.15, rot: Math.atan2(dx, dz) });
-  }
   if (look.grass > 0) {
     for (const [i, b] of shore.bank.entries()) {
       const r = hash(i, 3, 19);
