@@ -59,6 +59,12 @@
       <div class="card">
         <h1 class="logo">♪ Music Land</h1>
         <p class="sub">ผจญภัยในดินแดนแห่งเสียงเพลง</p>
+        <!-- play now: a guest account kept by this browser, bound to a username at Lv 10 -->
+        <div id="guest-box" class="auth-mode guest-box" data-mode="login">
+          <button type="button" id="btn-guest" class="guest-btn">🎮 เริ่มเล่นทันที</button>
+          <p class="auth-hint" id="guest-hint">ไม่ต้องสมัคร เล่นได้เลย ถึง Lv 10 ค่อยตั้งชื่อผู้ใช้เก็บตัวละครไว้</p>
+          <div class="or-line"><span>หรือเข้าสู่ระบบ</span></div>
+        </div>
         <!-- sign in -->
         <form id="login-form" class="auth-mode" data-mode="login">
           <input id="login-user" type="text" placeholder="ชื่อผู้ใช้ (บัญชีเดิมใส่อีเมลได้)" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" required />
@@ -134,6 +140,7 @@
             <button id="btn-play" class="ok">เข้าเกม</button>
             <button id="btn-make" class="ok hidden">สร้าง</button>
             <button id="btn-delete" class="close">ลบ</button>
+            <button id="btn-bind" class="ok hidden">💾 ผูกบัญชี</button>
             <button id="btn-signout" class="close">ออกจากระบบ</button>
           </div>
           <button type="button" class="install-btn hidden">📲 ติดตั้งเกมลงมือถือ</button>
