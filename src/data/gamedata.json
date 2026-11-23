@@ -8284,7 +8284,7 @@
    ],
    "move": "walk",
    "voice": "roar",
-   "kind": "เผ่าพันธุ์",
+   "kind": "ออร์ค",
    "rarity": "Uncommon"
   },
   "sand_drop": {
@@ -8882,7 +8882,7 @@
    ],
    "move": "walk",
    "voice": "growl",
-   "kind": "เผ่าพันธุ์",
+   "kind": "ออร์ค",
    "rarity": "Rare"
   },
   "flame_metronome": {
@@ -12342,7 +12342,7 @@
    "def": 60,
    "move": "walk",
    "voice": "roar",
-   "kind": "เผ่าพันธุ์",
+   "kind": "ออร์ค",
    "rarity": "Elite",
    "shape": "jelly"
   },
@@ -12515,7 +12515,7 @@
    "def": 66,
    "move": "walk",
    "voice": "roar",
-   "kind": "เผ่าพันธุ์",
+   "kind": "ออร์ค",
    "rarity": "Elite",
    "shape": "jelly"
   },
@@ -13220,13 +13220,35 @@
   },
   {
    "map": "forest",
-   "monster": "dove",
+   "monster": "owl",
    "count": 12,
    "area": [
     31,
     6,
     51,
     27
+   ]
+  },
+  {
+   "map": "forest",
+   "monster": "dove",
+   "count": 12,
+   "area": [
+    53,
+    6,
+    74,
+    27
+   ]
+  },
+  {
+   "map": "forest",
+   "monster": "monkroose",
+   "count": 12,
+   "area": [
+    8,
+    29,
+    29,
+    51
    ]
   },
   {
@@ -13234,28 +13256,6 @@
    "monster": "rocky",
    "count": 12,
    "area": [
-    53,
-    6,
-    74,
-    27
-   ]
-  },
-  {
-   "map": "forest",
-   "monster": "mossy",
-   "count": 12,
-   "area": [
-    8,
-    29,
-    29,
-    51
-   ]
-  },
-  {
-   "map": "forest",
-   "monster": "ninja",
-   "count": 12,
-   "area": [
     31,
     29,
     51,
@@ -13264,7 +13264,7 @@
   },
   {
    "map": "forest",
-   "monster": "sand_drop",
+   "monster": "mossy",
    "count": 12,
    "area": [
     53,
@@ -13275,12 +13275,34 @@
   },
   {
    "map": "forest",
-   "monster": "goleling",
+   "monster": "glub_evo",
    "count": 12,
    "area": [
     8,
     53,
     29,
+    74
+   ]
+  },
+  {
+   "map": "forest",
+   "monster": "sand_drop",
+   "count": 12,
+   "area": [
+    31,
+    53,
+    51,
+    74
+   ]
+  },
+  {
+   "map": "forest",
+   "monster": "goleling",
+   "count": 12,
+   "area": [
+    53,
+    53,
+    74,
     74
    ]
   },
@@ -13298,24 +13320,13 @@
   },
   {
    "map": "beach",
-   "monster": "owl",
+   "monster": "wizard",
    "count": 12,
    "area": [
     6,
     6,
     21,
-    22
-   ]
-  },
-  {
-   "map": "beach",
-   "monster": "wizard",
-   "count": 12,
-   "area": [
-    23,
-    6,
-    37,
-    22
+    27
    ]
   },
   {
@@ -13323,10 +13334,10 @@
    "monster": "metronome",
    "count": 12,
    "area": [
-    39,
+    23,
     6,
-    54,
-    22
+    37,
+    27
    ]
   },
   {
@@ -13334,10 +13345,10 @@
    "monster": "tuba_toad",
    "count": 12,
    "area": [
+    39,
     6,
-    24,
-    21,
-    39
+    54,
+    27
    ]
   },
   {
@@ -13345,10 +13356,10 @@
    "monster": "alien",
    "count": 12,
    "area": [
-    23,
-    24,
-    37,
-    39
+    6,
+    29,
+    21,
+    51
    ]
   },
   {
@@ -13356,10 +13367,10 @@
    "monster": "mosquito",
    "count": 12,
    "area": [
-    39,
-    24,
-    54,
-    39
+    23,
+    29,
+    37,
+    51
    ]
   },
   {
@@ -13367,32 +13378,10 @@
    "monster": "orc",
    "count": 12,
    "area": [
-    6,
-    41,
-    21,
-    56
-   ]
-  },
-  {
-   "map": "beach",
-   "monster": "squidle",
-   "count": 12,
-   "area": [
-    23,
-    41,
-    37,
-    56
-   ]
-  },
-  {
-   "map": "beach",
-   "monster": "glub_evo",
-   "count": 12,
-   "area": [
     39,
-    41,
+    29,
     54,
-    56
+    51
    ]
   },
   {
@@ -13401,7 +13390,7 @@
    "count": 12,
    "area": [
     6,
-    58,
+    53,
     21,
     74
    ]
@@ -13420,8 +13409,8 @@
   },
   {
    "map": "canyon",
-   "monster": "monkroose",
-   "count": 17,
+   "monster": "ninja",
+   "count": 14,
    "area": [
     8,
     6,
@@ -13432,7 +13421,7 @@
   {
    "map": "canyon",
    "monster": "drum_golem",
-   "count": 17,
+   "count": 14,
    "area": [
     31,
     6,
@@ -13442,8 +13431,8 @@
   },
   {
    "map": "canyon",
-   "monster": "alpaking",
-   "count": 17,
+   "monster": "squidle",
+   "count": 14,
    "area": [
     53,
     6,
@@ -13453,8 +13442,8 @@
   },
   {
    "map": "canyon",
-   "monster": "tribal",
-   "count": 17,
+   "monster": "alpaking",
+   "count": 14,
    "area": [
     8,
     41,
@@ -13464,12 +13453,23 @@
   },
   {
    "map": "canyon",
-   "monster": "big_ninja",
-   "count": 17,
+   "monster": "tribal",
+   "count": 14,
    "area": [
     31,
     41,
     51,
+    74
+   ]
+  },
+  {
+   "map": "canyon",
+   "monster": "big_ninja",
+   "count": 14,
+   "area": [
+    53,
+    41,
+    74,
     74
    ]
   },
@@ -13564,21 +13564,32 @@
   },
   {
    "map": "snow",
-   "monster": "magma_golem",
-   "count": 21,
+   "monster": "howler",
+   "count": 17,
    "area": [
     8,
     6,
-    40,
+    29,
+    39
+   ]
+  },
+  {
+   "map": "snow",
+   "monster": "magma_golem",
+   "count": 17,
+   "area": [
+    31,
+    6,
+    51,
     39
    ]
   },
   {
    "map": "snow",
    "monster": "demon",
-   "count": 21,
+   "count": 17,
    "area": [
-    42,
+    53,
     6,
     74,
     39
@@ -13587,22 +13598,22 @@
   {
    "map": "snow",
    "monster": "orc_skull",
-   "count": 21,
+   "count": 17,
    "area": [
     8,
     41,
-    40,
+    29,
     74
    ]
   },
   {
    "map": "snow",
    "monster": "sea_jelly",
-   "count": 21,
+   "count": 17,
    "area": [
-    42,
+    31,
     41,
-    74,
+    51,
     74
    ]
   },
@@ -13620,32 +13631,21 @@
   },
   {
    "map": "volcano",
-   "monster": "howler",
-   "count": 17,
-   "area": [
-    6,
-    6,
-    27,
-    40
-   ]
-  },
-  {
-   "map": "volcano",
    "monster": "flame_metronome",
-   "count": 17,
+   "count": 21,
    "area": [
-    29,
     6,
-    51,
+    6,
+    39,
     40
    ]
   },
   {
    "map": "volcano",
    "monster": "conch_fish",
-   "count": 17,
+   "count": 21,
    "area": [
-    53,
+    41,
     6,
     74,
     40
@@ -13654,22 +13654,22 @@
   {
    "map": "volcano",
    "monster": "lava_crablet",
-   "count": 17,
+   "count": 21,
    "area": [
     6,
     42,
-    27,
+    39,
     76
    ]
   },
   {
    "map": "volcano",
    "monster": "gull",
-   "count": 17,
+   "count": 21,
    "area": [
-    29,
+    41,
     42,
-    51,
+    74,
     76
    ]
   },
@@ -13744,44 +13744,55 @@
   {
    "map": "cave",
    "monster": "echo_slime",
-   "count": 21,
+   "count": 17,
    "area": [
     8,
     6,
-    40,
+    29,
     39
    ]
   },
   {
    "map": "cave",
-   "monster": "gem_golem",
-   "count": 21,
+   "monster": "zombie_yeti",
+   "count": 17,
    "area": [
-    42,
+    31,
     6,
-    74,
+    51,
     39
-   ]
-  },
-  {
-   "map": "cave",
-   "monster": "cave_orc",
-   "count": 21,
-   "area": [
-    8,
-    41,
-    40,
-    74
    ]
   },
   {
    "map": "cave",
    "monster": "bone_dino",
-   "count": 21,
+   "count": 17,
    "area": [
-    42,
-    41,
+    53,
+    6,
     74,
+    39
+   ]
+  },
+  {
+   "map": "cave",
+   "monster": "opera_phantom",
+   "count": 17,
+   "area": [
+    8,
+    41,
+    29,
+    74
+   ]
+  },
+  {
+   "map": "cave",
+   "monster": "bell_angel",
+   "count": 17,
+   "area": [
+    31,
+    41,
+    51,
     74
    ]
   },
@@ -13799,67 +13810,89 @@
   },
   {
    "map": "ruins",
-   "monster": "glow_mush",
-   "count": 14,
+   "monster": "gem_golem",
+   "count": 12,
    "area": [
     8,
     8,
     29,
-    40
+    29
+   ]
+  },
+  {
+   "map": "ruins",
+   "monster": "cave_orc",
+   "count": 12,
+   "area": [
+    31,
+    8,
+    51,
+    29
+   ]
+  },
+  {
+   "map": "ruins",
+   "monster": "glow_mush",
+   "count": 12,
+   "area": [
+    53,
+    8,
+    74,
+    29
    ]
   },
   {
    "map": "ruins",
    "monster": "wisp",
-   "count": 14,
+   "count": 12,
    "area": [
-    31,
     8,
-    51,
-    40
+    31,
+    29,
+    51
    ]
   },
   {
    "map": "ruins",
    "monster": "shadow_ninja",
-   "count": 14,
+   "count": 12,
    "area": [
-    53,
-    8,
-    74,
-    40
+    31,
+    31,
+    51,
+    51
    ]
   },
   {
    "map": "ruins",
    "monster": "crow_skull",
-   "count": 14,
+   "count": 12,
    "area": [
-    8,
-    42,
-    29,
-    74
+    53,
+    31,
+    74,
+    51
    ]
   },
   {
    "map": "ruins",
    "monster": "rot_alien",
-   "count": 14,
+   "count": 12,
    "area": [
-    31,
-    42,
-    51,
+    8,
+    53,
+    29,
     74
    ]
   },
   {
    "map": "ruins",
    "monster": "bog_witch",
-   "count": 14,
+   "count": 12,
    "area": [
+    31,
     53,
-    42,
-    74,
+    51,
     74
    ]
   },
@@ -13877,33 +13910,11 @@
   },
   {
    "map": "deadwood",
-   "monster": "zombie_yeti",
-   "count": 21,
-   "area": [
-    8,
-    6,
-    40,
-    39
-   ]
-  },
-  {
-   "map": "deadwood",
-   "monster": "opera_phantom",
-   "count": 21,
-   "area": [
-    42,
-    6,
-    74,
-    39
-   ]
-  },
-  {
-   "map": "deadwood",
    "monster": "hollow_knight",
-   "count": 21,
+   "count": 42,
    "area": [
     8,
-    41,
+    6,
     40,
     74
    ]
@@ -13911,10 +13922,10 @@
   {
    "map": "deadwood",
    "monster": "bell_gargoyle",
-   "count": 21,
+   "count": 42,
    "area": [
     42,
-    41,
+    6,
     74,
     74
    ]
@@ -13934,33 +13945,22 @@
   {
    "map": "cove",
    "monster": "skull_bandsman",
-   "count": 28,
+   "count": 42,
    "area": [
     6,
     8,
     29,
-    35
+    64
    ]
   },
   {
    "map": "cove",
    "monster": "dark_bishop",
-   "count": 28,
+   "count": 42,
    "area": [
     31,
     8,
     54,
-    35
-   ]
-  },
-  {
-   "map": "cove",
-   "monster": "bell_angel",
-   "count": 28,
-   "area": [
-    6,
-    37,
-    29,
     64
    ]
   }

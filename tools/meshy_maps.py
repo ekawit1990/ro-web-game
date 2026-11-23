@@ -1,4 +1,4 @@
-"""2026-11-18: put the Meshy monsters on maps that fit them (sea creatures on the beach and the new cove, the
+"""2026-11-18 (re-planned 2026-11-23 after the second batch of single Meshy models): put the Meshy monsters on maps that fit them (sea creatures on the beach and the new cove, the
 undead in the ruined towns, ice on the snow peak, fire on the volcano...). Rewrites the normal-monster spawns of
 the hunting maps in src/data/gamedata.json; town/arena spawns and the inferno/abyss/field ones stay as they are.
 Run: python3 tools/meshy_maps.py"""
@@ -8,17 +8,23 @@ P = pathlib.Path(__file__).resolve().parent.parent / 'src/data/gamedata.json'
 
 # map -> (monster ids, boss id or None, spawn box the monsters may use)
 PLAN = {
-    'forest':    (['bat', 'dove', 'rocky', 'mossy', 'ninja', 'sand_drop', 'goleling'], 'elder_tree', (8, 6, 76, 76)),
-    'beach':     (['owl', 'wizard', 'metronome', 'tuba_toad', 'alien', 'mosquito', 'orc', 'squidle', 'glub_evo', 'penguin'], 'marsh_queen', (6, 6, 56, 76)),
-    'canyon':    (['monkroose', 'drum_golem', 'alpaking', 'tribal', 'big_ninja'], 'rock_dragon', (8, 6, 76, 76)),
+    # bugs, plants and beasts of the woods (the bunny swordsman and the two wolves came from the beach and canyon)
+    'forest':    (['bat', 'owl', 'dove', 'monkroose', 'rocky', 'mossy', 'glub_evo', 'sand_drop', 'goleling'], 'elder_tree', (8, 6, 76, 76)),
+    # a cursed shipwreck shore: skeleton guards, a drowned zombie boy, a mimic chest, shore crawlers, a shark, a shrine
+    'beach':     (['wizard', 'metronome', 'tuba_toad', 'alien', 'mosquito', 'orc', 'penguin'], 'marsh_queen', (6, 6, 56, 76)),
+    # desert canyon: scorpions, a golem and mummies, with the goblin camp (archer, poison brewer)
+    'canyon':    (['ninja', 'drum_golem', 'squidle', 'alpaking', 'tribal', 'big_ninja'], 'rock_dragon', (8, 6, 76, 76)),
     'ghosttown': (['ice_jelly', 'hywirl', 'yeti', 'bluedemon', 'alpaking_evo', 'ghost_skull', 'fire_bat'], None, (8, 8, 76, 76)),
-    'snow':      (['magma_golem', 'demon', 'orc_skull', 'sea_jelly'], 'snow_queen', (8, 6, 76, 76)),
-    'volcano':   (['howler', 'flame_metronome', 'conch_fish', 'lava_crablet', 'gull'], 'metal_lord', (6, 6, 76, 78)),
+    # the orc and goblin war camp in the snow, and the ice golem and beast
+    'snow':      (['howler', 'magma_golem', 'demon', 'orc_skull', 'sea_jelly'], 'snow_queen', (8, 6, 76, 76)),
+    'volcano':   (['flame_metronome', 'conch_fish', 'lava_crablet', 'gull'], 'metal_lord', (6, 6, 76, 78)),
     'marsh':     (['surf_frog', 'storm_squid', 'coral_golem', 'crystal_bat'], 'kraken', (8, 6, 76, 76)),
-    'cave':      (['echo_slime', 'gem_golem', 'cave_orc', 'bone_dino'], 'crystal_king', (8, 6, 76, 76)),
-    'ruins':     (['glow_mush', 'wisp', 'shadow_ninja', 'crow_skull', 'rot_alien', 'bog_witch'], 'banshee_queen', (8, 8, 76, 76)),
-    'deadwood':  (['zombie_yeti', 'opera_phantom', 'hollow_knight', 'bell_gargoyle'], 'phantom_king', (8, 6, 76, 76)),
-    'cove':      (['skull_bandsman', 'dark_bishop', 'bell_angel'], None, (6, 8, 56, 66)),
+    # an ice-crystal cave: frost warlord and guardians, the crystal giant deepest in, with werewolves and a brute
+    'cave':      (['echo_slime', 'zombie_yeti', 'bone_dino', 'opera_phantom', 'bell_angel'], 'crystal_king', (8, 6, 76, 76)),
+    # the ruined castle town takes the fire mummy and the crusader skeleton from the cave
+    'ruins':     (['gem_golem', 'cave_orc', 'glow_mush', 'wisp', 'shadow_ninja', 'crow_skull', 'rot_alien', 'bog_witch'], 'banshee_queen', (8, 8, 76, 76)),
+    'deadwood':  (['hollow_knight', 'bell_gargoyle'], 'phantom_king', (8, 6, 76, 76)),
+    'cove':      (['skull_bandsman', 'dark_bishop'], None, (6, 8, 56, 66)),
 }
 # where each map's boss walks (the beach's south-east corner is sea)
 BOSS_AREA = {'beach': [36, 60, 50, 74], 'ruins': [62, 62, 76, 76]}
@@ -65,4 +71,17 @@ def main():
         print(f'{mp:10} Lv {min(lv)}-{max(lv)}  boss {boss}  ' + ', '.join(d['monsters'][m]['name'] for m in ms))
 
 
+# orcs get their own kind (they were เผ่าพันธุ์ with the goblins)
+ORCS = ['howler', 'magma_golem', 'hell_hound', 'lava_dragon']
+
+
+def orc_kind():
+    d = json.loads(P.read_text())
+    for k in ORCS:
+        assert 'ออร์ค' in d['monsters'][k]['name'], k
+        d['monsters'][k]['kind'] = 'ออร์ค'
+    P.write_text(json.dumps(d, ensure_ascii=False, indent=1) + '\n')
+
+
 main()
+orc_kind()
