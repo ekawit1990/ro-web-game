@@ -1,8 +1,9 @@
 // Account endpoints (username + password sign-up, password recovery by phone number).
 // They need the service role key, so they live on the game server, not in the browser.
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { randomBytes } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { USERNAME_RE, authEmail, normalizePhone, normalizeUsername } from '../../src/data/account.ts';
+import { GUEST_DOMAIN, USERNAME_RE, authEmail, normalizePhone, normalizeUsername } from '../../src/data/account.ts';
 
 type Req = IncomingMessage & { body?: unknown; ip?: string };
 type Res = ServerResponse & { status?: unknown };
@@ -19,6 +20,9 @@ class Fail extends Error {
 
 /** wrong phone numbers allowed per account per hour, so nobody can guess one */
 const MAX_PHONE_FAILS = 5;
+/** guest accounts one IP may make per hour, and the whole server per hour */
+const GUEST_PER_IP_HOUR = 5;
+const GUEST_PER_HOUR = 300;
 const FAIL_WINDOW_MS = 60 * 60_000;
 
 function send(res: Res, code: number, body: unknown) {
@@ -82,6 +86,11 @@ export function setupAuthRoutes(app: App, url: string | undefined, serviceKey: s
     url && serviceKey ? createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } }) : null;
   const signupLimit = limiter(10, 60 * 60_000);
   const forgotLimit = limiter(30, 60 * 60_000);
+  // "play now" guest accounts: a few per IP (shared mobile IPs), and a cap for the whole server so a script can't
+  // flood the database. The browser keeps its guest login, so a normal player only ever makes one.
+  const guestLimit = limiter(GUEST_PER_IP_HOUR, 60 * 60_000);
+  const guestTotal = limiter(GUEST_PER_HOUR, 60 * 60_000);
+  const linkLimit = limiter(20, 60 * 60_000);
 
   // CORS: the web client is on another domain (Cloudflare Pages). No cookies are used.
   app.use((req, res, next) => {
@@ -193,6 +202,7 @@ export function setupAuthRoutes(app: App, url: string | undefined, serviceKey: s
     const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
     const { data: u, error: ue } = await db.auth.getUser(token);
     if (ue || !u.user) throw new Fail(401, 'กรุณาเข้าสู่ระบบใหม่');
+    if (u.user.user_metadata?.guest === true) throw new Fail(409, 'บัญชีเล่นทันทีต้องผูกบัญชีจากในเกม');
     const username = normalizeUsername(str(b.username));
     checkUsername(username);
     const phone = checkPhone(str(b.phone));
@@ -217,4 +227,66 @@ export function setupAuthRoutes(app: App, url: string | undefined, serviceKey: s
     return { ok: true, username };
   });
 
+  const userFromToken = async (db: SupabaseClient, req: Req) => {
+    const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
+    const { data: u, error: ue } = await db.auth.getUser(token);
+    if (ue || !u.user) throw new Fail(401, 'กรุณาเข้าสู่ระบบใหม่');
+    return u.user;
+  };
+
+  // 5) "เริ่มเล่นทันที": a real account with a random login the browser keeps; bound to a username later (/auth/link)
+  route('/auth/guest', async (_b, req, db) => {
+    guestLimit(clientIp(req));
+    guestTotal('all');
+    const id = randomBytes(9).toString('hex');
+    const login = `guest-${id}@${GUEST_DOMAIN}`; // "-" can't appear in a username, so it never clashes with one
+    const password = randomBytes(18).toString('base64url');
+    const { data, error } = await db.auth.admin.createUser({
+      email: login,
+      password,
+      email_confirm: true,
+      user_metadata: { guest: true },
+    });
+    if (error || !data.user) throw error ?? new Error('createUser failed');
+    return { ok: true, login, password };
+  });
+
+  // 6) a guest picks username + password + phone; same user id, so characters and items stay
+  route('/auth/link', async (b, req, db) => {
+    const user = await userFromToken(db, req);
+    if (user.user_metadata?.guest !== true) throw new Fail(409, 'บัญชีนี้ผูกชื่อผู้ใช้แล้ว');
+    const username = normalizeUsername(str(b.username));
+    const password = str(b.password);
+    checkUsername(username);
+    checkPassword(password);
+    const phone = checkPhone(str(b.phone));
+    linkLimit(clientIp(req));
+    if (await findAccount(db, username)) throw new Fail(409, 'ชื่อผู้ใช้นี้มีคนใช้แล้ว');
+
+    const ins = await db.from('accounts').insert({ user_id: user.id, username, recovery_phone: phone });
+    if (ins.error) throw ins.error.code === '23505' ? new Fail(409, 'ชื่อผู้ใช้นี้มีคนใช้แล้ว') : ins.error;
+    const { error } = await db.auth.admin.updateUserById(user.id, {
+      email: authEmail(username),
+      email_confirm: true,
+      password,
+      user_metadata: { ...user.user_metadata, guest: false, username },
+    });
+    if (error) {
+      await db.from('accounts').delete().eq('user_id', user.id);
+      if (/already|registered|exists/i.test(error.message)) throw new Fail(409, 'ชื่อผู้ใช้นี้มีคนใช้แล้ว');
+      throw error;
+    }
+    return { ok: true, username };
+  });
+
+  // guests that never played, or left below Lv 10 for 30 days, are removed (needs supabase/add-guest-play.sql)
+  const cleanup = async () => {
+    if (!sb) return;
+    const { data, error } = await sb.rpc('cleanup_guest_accounts');
+    if (error) {
+      if (!/does not exist|Could not find/i.test(error.message)) console.warn('cleanup_guest_accounts:', error.message);
+    } else if (data) console.log(`cleanup_guest_accounts: removed ${data} guest account(s)`);
+  };
+  setTimeout(() => void cleanup(), 60_000);
+  setInterval(() => void cleanup(), 6 * 60 * 60_000);
 }

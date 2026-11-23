@@ -13,6 +13,8 @@ import { audioPrefs, setAudioPrefs, sfx } from '../audio/sound';
 import { drawLook, itemIcon, skillBadge } from './icons';
 import { UI_ICONS } from './uiIcons';
 import { escapeHtml } from './screens';
+import { bindDialog, isGuest } from './guest';
+import { GUEST_BIND_LEVEL } from '../data/account';
 
 /** One row of อันดับผู้กล้า (server/src/MapRoom.ts onRanking). */
 interface RankRow { id: string; name: string; cls: string; level: number; job: number; guild: string; online: boolean }
@@ -150,6 +152,7 @@ export class Hud implements WorldHooks {
     this.bindKeys();
     this.refresh();
     this.maybeWelcome();
+    this.watchGuestBind();
     const loop = () => {
       this.frame();
       this.raf = requestAnimationFrame(loop);
@@ -1037,6 +1040,36 @@ export class Hud implements WorldHooks {
       setTimeout(() => !this.ac.signal.aborted && this.showWelcome(), 600);
     };
     tryShow();
+  }
+
+  /**
+   * "เริ่มเล่นทันที" guests: once Base Lv reaches GUEST_BIND_LEVEL ask them to bind a username + password + phone,
+   * on the level-up itself and again on every later game entry until they do.
+   */
+  private watchGuestBind() {
+    void isGuest().then((guest) => {
+      if (!guest || this.ac.signal.aborted) return;
+      let asked = false;
+      const check = () => {
+        if (asked || this.s.char.level < GUEST_BIND_LEVEL) return;
+        asked = true;
+        off();
+        const tryShow = () => {
+          if (this.ac.signal.aborted) return;
+          const ld = document.getElementById('loading');
+          const busy = (ld && !ld.classList.contains('hidden')) || this.root.querySelector('.welcome-ov');
+          if (busy) return void setTimeout(tryShow, 700);
+          void bindDialog(this.s.char.level);
+        };
+        setTimeout(tryShow, 1200);
+      };
+      const off = this.s.onChange(check);
+      this.ac.signal.addEventListener('abort', () => {
+        off();
+        document.querySelector('.bind-ov')?.remove();
+      });
+      check();
+    });
   }
 
   /** How to walk to each job-change town from เมืองเมโลเดีย (matches the map gates). */

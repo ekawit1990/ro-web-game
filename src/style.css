@@ -808,3 +808,15 @@ button.wm-globe { align-self: flex-end; margin-top: 6px; padding: 5px 12px; font
 .cg-tags { display: flex; flex-wrap: wrap; gap: 3px; margin: 2px 0; }
 .cg-tags span { font-size: 11px; padding: 0 5px; border-radius: 4px; background: #ffffff1c; }
 @media (max-width: 600px) { .cg-info > div { grid-template-columns: 90px 1fr; } }
+
+/* เริ่มเล่นทันที (guest) + ผูกบัญชี */
+.guest-box { display: flex; flex-direction: column; gap: 6px; }
+.guest-btn { width: 100%; min-height: 50px; font-size: 19px; font-weight: 700; color: #3a1d00 !important;
+  background: linear-gradient(180deg, #ffe58a, #ffb52e) !important; border: 1px solid #ffd16b !important; }
+.or-line { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; margin: 4px 0 -2px; }
+.or-line::before, .or-line::after { content: ''; flex: 1; height: 1px; background: rgba(255, 224, 155, 0.3); }
+.bind-ov { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; padding: 12px;
+  background: rgba(8, 6, 24, 0.66); pointer-events: auto; }
+.bind-card { width: min(380px, 100%); display: flex; flex-direction: column; gap: 10px; }
+.bind-card h2 { margin: 0; text-align: center; color: #ffd16b; font-size: 22px; }
+.bind-card .msg { margin: 0; min-height: 1em; text-align: center; }

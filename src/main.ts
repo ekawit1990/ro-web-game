@@ -15,6 +15,7 @@ import { playMusic, sfx, unlockAudio } from './audio/sound';
 import { assetShare, assetsIdle, reset as resetAssets } from './ui/loadProgress';
 import { initInstall } from './ui/install';
 import { applyOverrides, fetchOverrides } from './data/overrides';
+import { setGuestApi } from './ui/guest';
 
 const container = document.getElementById('game')!;
 initInstall();
@@ -23,6 +24,7 @@ let world: World3D | undefined;
 
 /** Game server address. Every map is a room on this server. */
 const SERVER_URL = (import.meta.env.VITE_COLYSEUS_URL as string | undefined) || 'ws://localhost:2567';
+setGuestApi(httpBase(SERVER_URL));
 const store: GameStore = supabase ? new SupabaseStore(supabase) : new LocalStore();
 const devStore = store instanceof LocalStore ? store : undefined;
 /** Close codes of a connection that dropped (network, a stalled tab, the server timing us out), not a real leave. */

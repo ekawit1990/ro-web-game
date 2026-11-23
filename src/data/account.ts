@@ -13,6 +13,11 @@ export const normalizeUsername = (u: string) => u.trim().toLowerCase();
  */
 export const authEmail = (username: string) => `${normalizeUsername(username)}@player.musicland.invalid`;
 
+/** "เริ่มเล่นทันที" guest accounts sign in as guest-<random>@GUEST_DOMAIN until they pick a username (Lv 10). */
+export const GUEST_DOMAIN = 'guest.musicland.invalid';
+/** Base level at which a guest is asked to bind a username + password + phone. */
+export const GUEST_BIND_LEVEL = 10;
+
 /** Thai phone number -> 0XXXXXXXXX (accepts spaces, dashes and +66). Empty string if it doesn't look like one. */
 export function normalizePhone(p: string) {
   let d = p.replace(/\D/g, '');

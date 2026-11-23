@@ -5,6 +5,7 @@ import { drawLook } from './icons';
 import { PHONE } from '../three/device';
 import { vrmModelCount } from '../three/vrm';
 import { USERNAME_RE, authEmail, normalizePhone, normalizeUsername } from '../data/account';
+import { bindDialog, isGuest, playAsGuest, savedGuest } from './guest';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -107,6 +108,28 @@ export function loginScreen(sb: SupabaseClient, apiBase: string): Promise<void> 
 
     run($<HTMLFormElement>('login-form'), () => signIn(val('login-user'), val('login-password')));
 
+    // เริ่มเล่นทันที: no form, so lock the button by hand
+    const guestBtn = $<HTMLButtonElement>('btn-guest');
+    if (savedGuest()) {
+      guestBtn.textContent = '🎮 เล่นต่อ (บัญชีชั่วคราว)';
+      $('guest-hint').textContent = 'เล่นต่อจากตัวละครที่เคยสร้างในเบราว์เซอร์นี้ (ยังไม่ได้ผูกบัญชี)';
+    }
+    guestBtn.onclick = async () => {
+      guestBtn.disabled = true;
+      msg.textContent = '';
+      ok.textContent = 'กำลังเข้าเกม... (ถ้าเซิร์ฟเวอร์เพิ่งตื่นอาจใช้เวลาเกือบ 1 นาที)';
+      try {
+        await playAsGuest(sb);
+        ok.textContent = '';
+        resolve();
+      } catch (err) {
+        ok.textContent = '';
+        msg.textContent = (err as Error).message;
+      } finally {
+        guestBtn.disabled = false;
+      }
+    };
+
     run(
       $<HTMLFormElement>('signup-form'),
       async () => {
@@ -169,11 +192,22 @@ export function characterScreen(store: GameStore): Promise<Character | null> {
   const msg = $('chars-msg');
   const slots = $('char-slots');
   msg.textContent = '';
-  store.userLabel().then((u) => ($('chars-user').textContent = store.online ? u : `${u} (เซฟไว้ในเบราว์เซอร์นี้)`));
+  const bindBtn = $('btn-bind');
+  bindBtn.classList.add('hidden');
+  const label = () =>
+    Promise.all([store.userLabel(), isGuest()]).then(([u, guest]) => {
+      bindBtn.classList.toggle('hidden', !guest);
+      $('chars-user').textContent = guest
+        ? 'บัญชีชั่วคราว (เก็บไว้ในเบราว์เซอร์นี้) · กด "ผูกบัญชี" เพื่อเข้าจากเครื่องอื่นได้'
+        : store.online ? u : `${u} (เซฟไว้ในเบราว์เซอร์นี้)`;
+    });
+  label();
+  bindBtn.onclick = () => void bindDialog().then((done) => { if (done) void label(); });
 
   return new Promise((resolve) => {
     let chars: Character[] = [];
     let selected = 0;
+    let autoMade = false;
 
     const detail = () => {
       const c = chars[selected];
@@ -217,6 +251,11 @@ export function characterScreen(store: GameStore): Promise<Character | null> {
       });
       if (selected >= 3) selected = 0;
       detail();
+      // brand-new account (e.g. just pressed เริ่มเล่นทันที): straight to the character creator, once
+      if (!chars.length && !autoMade && !msg.textContent) {
+        autoMade = true;
+        make();
+      }
     };
 
     const make = async () => {
@@ -236,6 +275,7 @@ export function characterScreen(store: GameStore): Promise<Character | null> {
     };
     $('btn-signout').classList.toggle('hidden', !store.online);
     $('btn-signout').onclick = async () => {
+      if ((await isGuest()) && !confirm('ยังไม่ได้ผูกบัญชี\nออกแล้วกลับมาได้ด้วยปุ่ม "เล่นต่อ" ในเบราว์เซอร์นี้เท่านั้น\nออกจากระบบเลยไหม?')) return;
       await store.signOut();
       resolve(null);
     };
