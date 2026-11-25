@@ -270,6 +270,7 @@ export class Hud implements WorldHooks {
       const up = () => {
         handle.removeEventListener('pointermove', move);
         handle.removeEventListener('pointerup', up);
+        if (id === 'inv') this.fitInv();
         const all = this.loadPos();
         all[id] = [w.offsetLeft, w.offsetTop];
         try {
@@ -454,9 +455,22 @@ export class Hud implements WorldHooks {
   /** จัดเรียง: on = the bag lists items in a tidy order (worn first, then by type and name) */
   private invSort = (() => { try { return localStorage.getItem('ml-inv-sort') === '1'; } catch { return false; } })();
 
+  /** A big bag runs past the bottom of a phone screen: the item grid scrolls inside the window instead. */
+  private fitInv = () => {
+    const w = this.wins.get('inv');
+    const grid = w?.querySelector<HTMLElement>('.grid');
+    if (!w || !grid || w.classList.contains('hidden')) return;
+    grid.style.maxHeight = '';
+    const foot = w.querySelector<HTMLElement>('.inv-foot');
+    const below = (foot?.offsetHeight ?? 16) + 16; // footer + window padding/border
+    const room = Math.floor(window.innerHeight - grid.getBoundingClientRect().top - below);
+    if (grid.scrollHeight > room) grid.style.maxHeight = `${Math.max(110, room)}px`;
+  };
+
   private openInv() {
     const w = this.win('inv', 'Inventory', 'inv');
     if (!w.querySelector('.rw-sort')) {
+      window.addEventListener('resize', () => requestAnimationFrame(this.fitInv), { signal: this.ac.signal });
       const btn = document.createElement('button');
       btn.className = 'rw-sort';
       btn.addEventListener('click', () => {
@@ -506,13 +520,17 @@ export class Hud implements WorldHooks {
         <img src="${itemIcon(r.item_id)}"/>${r.qty > 1 ? `<i>${r.qty}</i>` : ''}${r.equipped ? '<em>E</em>' : ''}${r.refine ? `<u>+${r.refine}</u>` : ''}</div>`)
       .join('');
     const empty = Math.max(0, 24 - rows.length);
+    const oldGrid = b.querySelector<HTMLElement>('.grid');
+    const keepScroll = oldGrid?.dataset.itab === this.invTab ? oldGrid.scrollTop : 0;
     b.innerHTML = `
       <div class="tabs">${(['item', 'equip', 'etc'] as InvTab[])
         .map((t) => `<button data-tab="${t}" class="${t === this.invTab ? 'on' : ''}">${{ item: 'ใช้ได้', equip: 'สวมใส่', etc: 'อื่นๆ' }[t]}</button>`)
         .join('')}</div>
-      <div class="grid">${cells}${'<div class="cell"></div>'.repeat(empty)}</div>
+      <div class="grid" data-itab="${this.invTab}">${cells}${'<div class="cell"></div>'.repeat(empty)}</div>
       <div class="inv-foot">${this.trade ? '<span class="hint">ดับเบิลคลิกไอเท็มเพื่อใส่ในหน้าต่างแลกเปลี่ยน</span>' : `<span class="hint">${lastTouch ? 'แตะ = ดูรายละเอียด · แตะสองครั้ง = ใช้/สวมใส่' : 'ดับเบิลคลิก = ใช้/สวมใส่ · คลิกขวา = รายละเอียด'}</span>`}
         <span>${Math.floor(this.s.derived.weight / 10)} / ${Math.floor(this.s.derived.maxWeight / 10)}</span></div>`;
+    this.fitInv();
+    if (keepScroll) b.querySelector<HTMLElement>('.grid')!.scrollTop = keepScroll;
     b.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((t) =>
       t.addEventListener('click', () => {
         this.invTab = t.dataset.tab as InvTab;
