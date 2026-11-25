@@ -143,6 +143,8 @@ interface Trade {
   offers: Record<string, TradeOffer>;
   locked: Record<string, boolean>;
   confirmed: Record<string, boolean>;
+  /** a request nobody answers must not hold both players forever */
+  expire?: { clear(): void };
 }
 
 /** Server-only data about a monster. */
@@ -1584,7 +1586,11 @@ export class MapRoom extends Room<{ state: MapState }> {
     const pa = this.state.players.get(c.sessionId);
     const pb = this.state.players.get(msg?.to);
     if (!me || !other || !pa || !pb || me === other) return;
-    if (me.trade || other.trade) return c.send('error', { text: 'อีกฝ่ายกำลังแลกเปลี่ยนอยู่' });
+    // asking again (same or another player) replaces our own unanswered request
+    if (me.trade && !me.trade.open && me.trade.a === c.sessionId) this.cancelTrade(me.trade, 'ยกเลิกคำขอแลกเปลี่ยนเดิมแล้ว');
+    if (me.trade) return c.send('error', { text: 'คุณกำลังแลกเปลี่ยนอยู่ ปิดหน้าต่างแลกเปลี่ยนก่อน' });
+    if (other.trade) return c.send('error', { text: `${other.char.name} กำลังแลกเปลี่ยนกับคนอื่นอยู่ ลองใหม่อีกครั้ง` });
+    if (other.char.id === me.char.id) return c.send('error', { text: 'แลกกับตัวเองไม่ได้' });
     if (dist(pa.x, pa.y, pb.x, pb.y) > 6) return c.send('error', { text: 'อยู่ไกลเกินไป เดินเข้าไปใกล้ ๆ ก่อน' });
     const trade: Trade = {
       a: c.sessionId, b: msg.to, open: false,
@@ -1593,6 +1599,9 @@ export class MapRoom extends Room<{ state: MapState }> {
     };
     me.trade = trade;
     other.trade = trade;
+    trade.expire = this.clock.setTimeout(() => {
+      if (!trade.open) this.cancelTrade(trade, `${other.char.name} ไม่ได้ตอบคำขอแลกเปลี่ยน`);
+    }, 30_000);
     other.client.send('tradeInvite', { from: c.sessionId, name: me.char.name, level: me.char.level });
     c.send('system', { text: `ส่งคำขอแลกเปลี่ยนไปที่ ${other.char.name} แล้ว` });
   }
@@ -1603,6 +1612,7 @@ export class MapRoom extends Room<{ state: MapState }> {
     if (!trade || trade.b !== c.sessionId || trade.open) return;
     if (!msg?.accept) return this.cancelTrade(trade, `${seat.char.name} ปฏิเสธการแลกเปลี่ยน`);
     trade.open = true;
+    trade.expire?.clear();
     this.sendTrade(trade);
   }
 
@@ -1828,6 +1838,7 @@ export class MapRoom extends Room<{ state: MapState }> {
 
   private cancelTrade(trade: Trade | undefined, text: string) {
     if (!trade) return;
+    trade.expire?.clear();
     for (const sid of [trade.a, trade.b]) {
       const s = this.seats.get(sid);
       if (s?.trade === trade) {
