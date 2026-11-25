@@ -184,6 +184,7 @@ form { display: flex; flex-direction: column; gap: 10px; }
 /* Inventory */
 .rw.inv { width: 290px; }
 .grid { display: grid; grid-template-columns: repeat(8, 32px); gap: 2px; background: #fff; border: 1px solid #b8c3d6; padding: 3px; }
+.rw.inv .grid { overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; align-content: start; }
 .grid.small { grid-template-columns: repeat(5, 32px); }
 .cell { width: 32px; height: 32px; background: #eef2f8; border: 1px solid #d3dae6; position: relative; }
 .cell img { width: 30px; height: 30px; display: block; }
