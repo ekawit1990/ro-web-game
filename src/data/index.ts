@@ -241,6 +241,8 @@ export interface MonsterDef {
   modelScale?: number;
   /** How a model without animation clips moves (PropAnim): hop, walk, fly, float, slither or plant. */
   move?: 'hop' | 'walk' | 'fly' | 'float' | 'slither' | 'plant';
+  /** Attacks from a distance (an archer, a staff caster): what it fires. It stops RANGED_REACH tiles away to shoot. */
+  ranged?: 'arrow' | 'magic' | 'fire' | 'poison';
   /** Its cry (sfxMonster voice kind); else guessed from the model name. */
   voice?: string;
   /** Kind of creature from the monster sheet (สไลม์, สัตว์, ปีศาจ...) and its rarity (Common..Elite). */
@@ -449,6 +451,8 @@ export const WAVE_FALL_MS = 300;
 export const skillWaves = (s: SkillDef, lv: number) => (s.wavesPerLv ? Math.max(1, lv) : s.waves ?? 0);
 /** Every monster's damage to players is this share of its listed numbers (cut by 30% on 2026-11-15). */
 export const MONSTER_DAMAGE = 0.7;
+/** How far (tiles) a monster with `ranged` (an archer, a caster) stands from its target to shoot. */
+export const RANGED_REACH = 4.5;
 
 export const skillsOf = (cls: ClassKey) => Object.entries(SKILLS).filter(([, s]) => s.cls === cls || s.cls === 'all');
 /** Only your own class's skills (and the ones every class has): the job change refunds Teen skills (see change_job in SQL). */
