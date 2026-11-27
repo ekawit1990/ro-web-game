@@ -19,6 +19,7 @@ import { GUEST_BIND_LEVEL } from '../data/account';
 /** One row of อันดับผู้กล้า (server/src/MapRoom.ts onRanking). */
 interface RankRow { id: string; name: string; cls: string; level: number; job: number; guild: string; online: boolean }
 import { monsterPortrait } from '../three/portrait';
+import { PHONE } from '../three/device';
 
 type WinId = 'info' | 'equip' | 'inv' | 'skill' | 'shop' | 'trade' | 'option' | 'npc' | 'storage' | 'party' | 'item' | 'refine' | 'uncard' | 'worldmap' | 'globe' | 'guide' | 'guild' | 'rank' | 'classes'
   | 'vend' | 'vshop';
@@ -140,7 +141,10 @@ export class Hud implements WorldHooks {
     this.hotkeys = this.loadHotkeys();
 
     this.buildInfo();
+    // phones (2026-11-27): joystick bottom-left, big attack button bottom-right, F1-F9 as a ring of 9 round buttons around it
+    document.body.classList.toggle('touch-ui', PHONE);
     this.buildHotbar();
+    if (PHONE) this.buildTouchControls();
     this.buildMinimap();
     this.buildChat();
     this.root.insertAdjacentHTML('beforeend', `
@@ -802,6 +806,73 @@ export class Hud implements WorldHooks {
     }, { signal: this.ac.signal });
   }
 
+  /** Phone joystick + attack button (2026-11-27). The 9 skill buttons are the hotbar, laid out in a ring by CSS. */
+  private buildTouchControls() {
+    const sig = { signal: this.ac.signal };
+    this.root.insertAdjacentHTML('beforeend', `
+      <div id="joy" class="joy"><div class="joy-knob"></div></div>
+      <button id="atk-btn" class="atk-btn" title="โจมตีมอนสเตอร์ที่ใกล้ที่สุด (กดค้าง = ตีตัวต่อไปเรื่อยๆ)"><i>${UI_ICONS.auto}</i><span>โจมตี</span></button>`);
+    const joy = this.root.querySelector('#joy') as HTMLElement;
+    const knob = joy.querySelector('.joy-knob') as HTMLElement;
+    let jp: number | null = null;
+    const move = (e: PointerEvent) => {
+      const r = joy.getBoundingClientRect();
+      const rad = r.width / 2;
+      let x = (e.clientX - (r.left + rad)) / rad;
+      let y = (e.clientY - (r.top + rad)) / rad;
+      const k = Math.hypot(x, y);
+      if (k > 1) {
+        x /= k;
+        y /= k;
+      }
+      knob.style.transform = `translate(${x * rad * 0.62}px, ${y * rad * 0.62}px)`;
+      this.actions.scene()?.setJoy(x, y);
+    };
+    const end = (e: PointerEvent) => {
+      if (e.pointerId !== jp) return;
+      jp = null;
+      joy.classList.remove('on');
+      knob.style.transform = '';
+      this.actions.scene()?.stopJoy();
+    };
+    joy.addEventListener('pointerdown', (e) => {
+      if (jp !== null) return;
+      e.preventDefault();
+      jp = e.pointerId;
+      joy.setPointerCapture(e.pointerId);
+      joy.classList.add('on');
+      move(e);
+    }, sig);
+    joy.addEventListener('pointermove', (e) => e.pointerId === jp && move(e), sig);
+    joy.addEventListener('pointerup', end, sig);
+    joy.addEventListener('pointercancel', end, sig);
+    joy.addEventListener('lostpointercapture', end, sig);
+
+    const atk = this.root.querySelector('#atk-btn') as HTMLElement;
+    let hold = 0;
+    const stop = () => {
+      clearInterval(hold);
+      hold = 0;
+      atk.classList.remove('on');
+    };
+    atk.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      atk.classList.add('on');
+      if (!this.actions.scene()?.attackNearest()) this.toast('ไม่มีมอนสเตอร์อยู่ใกล้ๆ', 'bad');
+      clearInterval(hold);
+      // held down: when this one falls, go on to the next one
+      hold = window.setInterval(() => this.actions.scene()?.attackNearest(), 400);
+    }, sig);
+    atk.addEventListener('pointerup', stop, sig);
+    atk.addEventListener('pointercancel', stop, sig);
+    atk.addEventListener('pointerleave', stop, sig);
+    atk.addEventListener('contextmenu', (e) => e.preventDefault(), sig);
+    this.ac.signal.addEventListener('abort', () => {
+      clearInterval(hold);
+      document.body.classList.remove('touch-ui');
+    });
+  }
+
   private renderHotbar() {
     const bar = this.root.querySelector('#hotbar') as HTMLElement;
     const sig = JSON.stringify([this.hotkeys, this.s.inv, this.s.char.skills]);
@@ -821,7 +892,7 @@ export class Hud implements WorldHooks {
           const n = this.s.countItem(h.id);
           inner = `<img src="${itemIcon(h.id)}" class="${n ? '' : 'gone'}"/><i>${n}</i>`;
         }
-        return `<div class="hk" data-hk="${i}" draggable="${!!h}"><b>F${i + 1}</b>${inner}<div class="cd"></div></div>`;
+        return `<div class="hk" data-hk="${i}" draggable="${!!h}"><b>${PHONE ? '' : 'F'}${i + 1}</b>${inner}<div class="cd"></div></div>`;
       })
       .join('');
     bar.querySelectorAll<HTMLElement>('[data-hk]').forEach((el) => {
@@ -847,7 +918,7 @@ export class Hud implements WorldHooks {
         const t = setTimeout(() => {
           held = true;
           clear();
-          this.toast(`ล้างช่อง F${i + 1} แล้ว`);
+          this.toast(`ล้างช่อง ${PHONE ? '' : 'F'}${i + 1} แล้ว`);
         }, 600);
         const stop = () => clearTimeout(t);
         el.addEventListener('pointerup', stop, { once: true });
@@ -865,7 +936,7 @@ export class Hud implements WorldHooks {
     this.root.querySelector('#hotbar')!.classList.toggle('picking', !!slot);
     if (!slot) return;
     const name = slot.t === 's' ? SKILLS[slot.id]?.name : ITEMS[slot.id]?.name;
-    this.toast(`แตะช่อง F1-F9 เพื่อวาง ${name ?? ''} (แตะสองครั้ง = ใช้)`);
+    this.toast(`แตะช่อง ${PHONE ? '1-9 รอบปุ่มโจมตี' : 'F1-F9'} เพื่อวาง ${name ?? ''} (แตะสองครั้ง = ใช้)`);
   }
 
   private place(i: number) {
@@ -3193,10 +3264,12 @@ export class Hud implements WorldHooks {
     this.root.querySelectorAll<HTMLElement>('#hotbar [data-hk]').forEach((el) => {
       const h = this.hotkeys[Number(el.dataset.hk)];
       const cd = el.querySelector('.cd') as HTMLElement;
-      if (h?.t !== 's') return void (cd.style.height = '0');
+      if (h?.t !== 's') return void ((cd.style.height = '0'), cd.style.setProperty('--k', '0'));
       const end = this.cooldownEnds.get(h.id) ?? 0;
       const total = SKILLS[h.id]?.cooldown ?? 1;
-      cd.style.height = `${Math.max(0, (end - now) / total) * 100}%`;
+      const k = Math.max(0, (end - now) / total);
+      cd.style.height = `${k * 100}%`;
+      cd.style.setProperty('--k', String(k)); // phones draw it as a pie
     });
     // buff icons
     const box = this.root.querySelector('#buffs')!;

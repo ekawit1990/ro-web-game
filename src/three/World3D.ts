@@ -284,6 +284,8 @@ export class World3D {
    * answer takes a moment, and a step taken meanwhile would cancel the cast (auto kept re-buffing because of it).
    */
   private castWait = 0;
+  /** phone joystick: where the stick points (-1..1, screen right / screen down), or null when let go */
+  private joy: { x: number; y: number } | null = null;
   private targetingSkill: string | null = null;
   private lastAttack = 0;
   /** /auto: fight the nearest monsters with attacks and skills on its own. */
@@ -959,6 +961,9 @@ export class World3D {
       const t = this.target?.kind === 'monster' ? this.monsters.get(this.target.id) : undefined;
       if (t && !t.dead) return this.castAt(id, t.id);
       if (this.target?.kind === 'foe' && this.hostile(this.target.id)) return this.castAt(id, this.target.id);
+      // phones (2026-11-27): no target yet = the nearest monster, like the attack button, instead of asking for a tap
+      const near = PHONE ? this.nearestFoe() : null;
+      if (near) return this.castAt(id, near.id);
       this.startTargeting(id);
     } else if (targetsPlayer(skill)) {
       if (this.targetingSkill === id && skill.type !== 'revive') return this.castAt(id, this.room.sessionId); // press twice = self
@@ -1005,6 +1010,62 @@ export class World3D {
 
   isTargeting() {
     return !!this.targetingSkill;
+  }
+
+  /** Phone joystick (2026-11-27): x/y in -1..1 (screen right, screen down); null = let go. Walking yourself takes back control. */
+  setJoy(x: number, y: number) {
+    if (this.dead) return;
+    if (!this.joy) {
+      this.target = null;
+      this.pendingSkill = null;
+      this.path = [];
+      if (this.auto) this.setAuto(false);
+    }
+    this.joy = { x, y };
+  }
+
+  stopJoy() {
+    this.joy = null;
+  }
+
+  /**
+   * Phone attack button (2026-11-27): keep hitting the target you have, else the nearest monster
+   * (or a foe in PVP) you can walk to. Returns false when nothing is in reach.
+   */
+  attackNearest() {
+    if (this.dead || this.targetingSkill) return false;
+    if (this.target?.kind === 'monster' && !this.monsters.get(this.target.id)?.dead) return true;
+    if (this.target?.kind === 'foe' && this.hostile(this.target.id)) return true;
+    const pick = this.nearestFoe();
+    if (!pick) return false;
+    this.joy = null;
+    this.target = pick;
+    this.pendingSkill = null;
+    this.path = [];
+    return true;
+  }
+
+  /** The nearest live monster you can walk to (or a foe in PVP), within the /auto range. */
+  private nearestFoe(): { kind: 'monster' | 'foe'; id: string } | null {
+    const me = this.me;
+    let best = AUTO_RANGE;
+    let pick: { kind: 'monster' | 'foe'; id: string } | null = null;
+    for (const x of this.monsters.values()) {
+      const d = Math.hypot(x.x - me.x, x.y - me.y);
+      if (!x.dead && d < best && findPath(this.map, Math.floor(me.x), Math.floor(me.y), Math.floor(x.x), Math.floor(x.y))) {
+        best = d;
+        pick = { kind: 'monster', id: x.id };
+      }
+    }
+    for (const a of this.players.values()) {
+      if (a === this.me || a.dead || !this.hostile(a.id)) continue;
+      const d = Math.hypot(a.x - me.x, a.y - me.y);
+      if (d < best) {
+        best = d;
+        pick = { kind: 'foe', id: a.id };
+      }
+    }
+    return pick;
   }
 
   /** /auto on or off; returns the new state. */
@@ -1808,6 +1869,29 @@ export class World3D {
     if (me.cast || this.castWait > performance.now()) {
       // casting (or waiting for the server to start the cast): stand still, walking away cancels it on the server
       if (!me.cast) this.path = [];
+    } else if (this.joy) {
+      // phone joystick: walk the way the stick points, as the camera sees it (up = away from the camera)
+      const k = Math.min(1, Math.hypot(this.joy.x, this.joy.y));
+      if (k > 0.15) {
+        const sin = Math.sin(this.yaw);
+        const cos = Math.cos(this.yaw);
+        const dx = this.joy.x * cos + this.joy.y * sin;
+        const dy = -this.joy.x * sin + this.joy.y * cos;
+        const n = Math.hypot(dx, dy) || 1;
+        const step = speed * dt * (k < 0.6 ? 0.6 : 1);
+        const sx = (dx / n) * step;
+        const sy = (dy / n) * step;
+        // slide along walls: try the full step, then each axis on its own
+        const pad = (v: number) => (v === 0 ? 0 : Math.sign(v) * 0.25);
+        const ok = (x: number, y: number, ox: number, oy: number) => walkable(this.map, x + ox, y + oy);
+        this.face(me, me.x + dx, me.y + dy);
+        if (ok(me.x + sx, me.y + sy, pad(sx), pad(sy))) {
+          me.x += sx;
+          me.y += sy;
+        } else if (sx && ok(me.x + sx, me.y, pad(sx), 0)) me.x += sx;
+        else if (sy && ok(me.x, me.y + sy, 0, pad(sy))) me.y += sy;
+        me.moving = 0.12;
+      }
     } else if (this.target?.kind === 'monster') {
       const m = this.monsters.get(this.target.id);
       if (!m || m.dead) {
@@ -1823,6 +1907,8 @@ export class World3D {
           this.path = [];
           this.face(me, m.x, m.y);
           if (this.pendingSkill) {
+            // a skill with a cast bar: stand still until the server starts it, or chasing the target cancels it
+            if (SKILLS[this.pendingSkill.id]?.castMs) this.castWait = performance.now() + 1500;
             this.room.send('skill', this.pendingSkill);
             this.pendingSkill = null;
             this.lastAttack = time;
@@ -1847,6 +1933,8 @@ export class World3D {
           this.path = [];
           this.face(me, f.x, f.y);
           if (this.pendingSkill) {
+            // a skill with a cast bar: stand still until the server starts it, or chasing the target cancels it
+            if (SKILLS[this.pendingSkill.id]?.castMs) this.castWait = performance.now() + 1500;
             this.room.send('skill', this.pendingSkill);
             this.pendingSkill = null;
             this.lastAttack = time;
