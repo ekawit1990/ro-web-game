@@ -2271,7 +2271,9 @@ export class World3D {
     setTimeout(() => {
       if (this.ac.signal.aborted) return land();
       const yaw = m.rig.root.rotation.y;
-      const from = new THREE.Vector3(m.x + Math.sin(yaw) * 0.45, m.rig.height * 0.6, m.y + Math.cos(yaw) * 0.45);
+      const mouth = MONSTERS[m.key]?.mouth;
+      const up = m.rig.height * (mouth?.[0] ?? 0.6), fwd = mouth ? m.rig.height * mouth[1] : 0.45;
+      const from = new THREE.Vector3(m.x + Math.sin(yaw) * fwd, up, m.y + Math.cos(yaw) * fwd);
       const to = new THREE.Vector3(v.x, 1.0, v.y);
       const dist = from.distanceTo(to);
       const ms = 140 + dist * (kind === 'arrow' ? 45 : 80);

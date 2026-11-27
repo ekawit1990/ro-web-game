@@ -8162,7 +8162,7 @@
     85
    ],
    "speed": 35,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#592e7a",
    "size": 0.9,
    "shape": "jelly",
@@ -8446,7 +8446,12 @@
     2
    ],
    "move": "walk",
-   "voice": "roar"
+   "voice": "roar",
+   "ranged": "fire",
+   "mouth": [
+    0.6,
+    0.3
+   ]
   },
   "penguin": {
    "name": "ทหารกระดูกโล่เหล็ก",
@@ -8461,7 +8466,7 @@
     105
    ],
    "speed": 60,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#5a4b40",
    "size": 0.9,
    "shape": "jelly",
@@ -8530,7 +8535,7 @@
     110
    ],
    "speed": 50,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#726c63",
    "size": 1.15,
    "shape": "jelly",
@@ -8834,7 +8839,7 @@
     140
    ],
    "speed": 35,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#766d52",
    "size": 1.35,
    "shape": "jelly",
@@ -9453,7 +9458,7 @@
     75
    ],
    "speed": 70,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#2d2621",
    "size": 0.85,
    "model": "ML025",
@@ -9593,7 +9598,7 @@
     80
    ],
    "speed": 60,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#5d5184",
    "size": 1.1,
    "model": "ML024",
@@ -9728,7 +9733,7 @@
     90
    ],
    "speed": 75,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#4d4f54",
    "size": 1.35,
    "model": "ML028",
@@ -10000,7 +10005,7 @@
     110
    ],
    "speed": 70,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#473a3a",
    "size": 1.2,
    "model": "ML035",
@@ -10515,7 +10520,7 @@
     155
    ],
    "speed": 50,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#537b9e",
    "size": 0.95,
    "model": "ML045",
@@ -10565,7 +10570,7 @@
     160
    ],
    "speed": 60,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#5b473c",
    "size": 0.95,
    "model": "ML046",
@@ -10664,7 +10669,7 @@
     175
    ],
    "speed": 65,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#4e3832",
    "size": 1.1,
    "model": "ML049",
@@ -10964,7 +10969,7 @@
     215
    ],
    "speed": 45,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#3c3838",
    "size": 1.25,
    "model": "ML053",
@@ -11133,7 +11138,7 @@
     250
    ],
    "speed": 40,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#857168",
    "size": 1.25,
    "model": "ML056",
@@ -11441,7 +11446,7 @@
     285
    ],
    "speed": 45,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#764c4e",
    "size": 1.4,
    "model": "ML060",
@@ -11727,7 +11732,12 @@
    "def": 67,
    "move": "fly",
    "voice": "wail",
-   "shape": "jelly"
+   "shape": "jelly",
+   "ranged": "fire",
+   "mouth": [
+    0.55,
+    0.35
+   ]
   },
   "opera_phantom": {
    "name": "ผู้พิทักษ์ผลึกน้ำแข็ง",
@@ -12031,7 +12041,7 @@
     390
    ],
    "speed": 80,
-   "aggressive": false,
+   "aggressive": true,
    "color": "#647396",
    "size": 1.45,
    "model": "ML069",
@@ -12467,7 +12477,12 @@
    "voice": "roar",
    "kind": "มังกร",
    "rarity": "Elite",
-   "shape": "jelly"
+   "shape": "jelly",
+   "ranged": "fire",
+   "mouth": [
+    0.55,
+    0.35
+   ]
   },
   "lava_dragon": {
    "name": "ขุนศึกออร์คหุ้มเกราะ",
