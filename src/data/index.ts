@@ -243,6 +243,8 @@ export interface MonsterDef {
   move?: 'hop' | 'walk' | 'fly' | 'float' | 'slither' | 'plant';
   /** Attacks from a distance (an archer, a staff caster): what it fires. It stops RANGED_REACH tiles away to shoot. */
   ranged?: 'arrow' | 'magic' | 'fire' | 'poison';
+  /** Where a ranged shot leaves it: [up, forward] as fractions of its height (a dragon's mouth); default the hand. */
+  mouth?: [number, number];
   /** Its cry (sfxMonster voice kind); else guessed from the model name. */
   voice?: string;
   /** Kind of creature from the monster sheet (สไลม์, สัตว์, ปีศาจ...) and its rarity (Common..Elite). */

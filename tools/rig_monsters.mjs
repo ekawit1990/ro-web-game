@@ -38,6 +38,10 @@ export const RELEASE = 0.42;
  *   nothing is arm (big heads, hair); weapons: [{ side: 'R' | 'L', box: [u0, u1, v0, v1, w0?, w1?] }] given to that
  *   hand; weaponSide: the arm that strikes; armW: [w0, w1] depth the arms are in (keeps a cape behind them on the
  *   body); robe: legs hidden under a robe (shorter steps); shot: what a staff fires ('magic' default, 'fire').
+ *   tpose: { elbow, down } the sculpt holds its arms out level (T-pose): the elbow is at u = elbow and the arms are
+ *   lowered by `down` radians in every clip so it stands with them by its sides. tail: w behind which (and under
+ *   tailTop) the body is a tail (a Tail bone that sways) instead of legs. armU: |u| beyond which nothing is arm
+ *   (wing tips). attack 'breath': the head draws back and lunges (the game fires from the mouth at RELEASE).
  * quad: belly (v under the body where the legs start), front / back (w of the front and back legs' tops),
  *   legU (u of the legs), neck (w beyond which it's the head and neck), tail (w behind which it's the tail).
  */
@@ -51,7 +55,7 @@ export const RIGS = {
   ML028: { type: 'biped', attack: 'none', crotch: 0.3, shoulder: 0.8, torso: 0.26, handLow: 0.28, neck: 0.88 }, // rock golem
   ML029: { type: 'biped', attack: 'none', crotch: 0.28, shoulder: 0.54, torso: 0.09, handLow: 0.2, armTop: 0.58, neck: 0.62 }, // tree spirit
   ML031: { type: 'biped', attack: 'none', crotch: 0.36, shoulder: 0.78, handLow: 0.41, neck: 0.84 }, // mummy knight
-  ML032: { type: 'biped', attack: 'none', crotch: 0.33, shoulder: 0.8, torso: 0.11, handLow: 0.74, armTop: 0.84, neck: 0.84 }, // pharaoh
+  ML032: { type: 'biped', attack: 'none', crotch: 0.33, shoulder: 0.825, torso: 0.11, handLow: 0.74, armTop: 0.86, neck: 0.84, tpose: { elbow: 0.25, down: 1.38 } }, // pharaoh, arms out level in the sculpt
   ML033: { type: 'biped', attack: 'melee', crotch: 0.33, shoulder: 0.72, torso: 0.17, handLow: 0.38, neck: 0.76, weapons: [{ side: 'R', box: [-0.4, -0.13, 0.3, 0.56] }, { side: 'R', box: [-0.3, 0.0, 0.08, 0.32, 0.08, 0.5] }, { side: 'L', box: [0.12, 0.4, 0.28, 0.66] }] }, // orc warlord, axe + shield
   ML034: { type: 'biped', attack: 'none', crotch: 0.3, shoulder: 0.6, handLow: 0.22, neck: 0.66 }, // zombie
   ML035: { type: 'biped', attack: 'melee', crotch: 0.33, shoulder: 0.72, torso: 0.14, handLow: 0.38, neck: 0.78, weapons: [{ side: 'R', box: [-0.45, -0.15, 0.02, 0.48] }, { side: 'L', box: [0.15, 0.38, 0.25, 0.62, 0.0, 0.5] }] }, // skeleton knight, sword + shield
@@ -81,6 +85,14 @@ export const RIGS = {
   ML069: { type: 'biped', attack: 'none', crotch: 0.42, shoulder: 0.77, torso: 0.15, handLow: 0.34, armTop: 0.84, neck: 0.86 }, // ice crystal giant
   ML072: { type: 'biped', attack: 'melee', crotch: 0.27, robe: true, shoulder: 0.72, torso: 0.17, handLow: 0.33, neck: 0.76, armW: [-0.02, 0.6], weapons: [{ side: 'R', box: [-0.34, -0.15, 0.33, 0.5, 0.08, 0.6] }, { side: 'R', box: [-0.15, 0.0, 0.24, 0.42, 0.12, 0.6] }, { side: 'R', box: [0.0, 0.3, 0.04, 0.33, 0.12, 0.6] }] }, // orc warlord with a crown
   ML077: { type: 'biped', attack: 'melee', crotch: 0.25, shoulder: 0.68, torso: 0.17, handLow: 0.33, neck: 0.7, weapons: [{ side: 'R', box: [-0.37, -0.17, 0.25, 1.0] }] }, // armoured orc
+  // mini-bosses (MB_<id>.glb.gz); crystal_king / inferno_lord (no legs to speak of), king_jelly, snow_queen and the
+  // flying banshee_queen keep the whole-statue motion
+  MB_rock_dragon: { type: 'biped', attack: 'breath', crotch: 0.27, shoulder: 0.47, torso: 0.15, handLow: 0.1, armTop: 0.48, neck: 0.55, armU: 0.42, armW: [0.1, 0.7], tail: -0.1, tailTop: 0.4 }, // winged dragon
+  MB_phantom_king: { type: 'biped', attack: 'melee', crotch: 0.21, shoulder: 0.5, torso: 0.13, handLow: 0.15, armTop: 0.53, neck: 0.56, armW: [-0.15, 0.6], tail: -0.1, tailTop: 0.3, weapons: [{ side: 'R', box: [-0.5, -0.24, 0.0, 1.0, -0.08, 0.35] }] }, // gargoyle with a trident
+  MB_elder_tree: { type: 'biped', attack: 'melee', crotch: 0.15, shoulder: 0.43, torso: 0.15, handLow: 0.06, armTop: 0.46, neck: 0.47, weaponSide: 'L', weapons: [{ side: 'L', box: [0.02, 0.23, 0.04, 0.27, 0.12, 0.5] }, { side: 'L', box: [0.23, 0.48, 0.04, 0.26] }] }, // mushroom man with a club
+  MB_kraken: { type: 'biped', attack: 'none', crotch: 0.17, shoulder: 0.44, torso: 0.13, handLow: 0.02, armTop: 0.47, neck: 0.5, tail: -0.05, tailTop: 0.3 }, // shark man
+  MB_marsh_queen: { type: 'biped', attack: 'none', crotch: 0.15, shoulder: 0.46, torso: 0.13, handLow: 0.04, armTop: 0.48, neck: 0.5, tail: -0.05, tailTop: 0.32 }, // shark man
+  MB_metal_lord: { type: 'biped', attack: 'none', crotch: 0.1, shoulder: 0.33, torso: 0.13, handLow: 0.02, armTop: 0.31, neck: 0.31 }, // tiki mask with claws
   ML005: { type: 'quad', belly: 0.16, front: 0.38, back: -0.2, legU: 0.18, neck: 0.28, tail: -0.48 }, // calico cat
   ML015: { type: 'quad', belly: 0.33, front: 0.45, back: -0.3, legU: 0.2, neck: 0.42, tail: -0.45 }, // wolf
   ML026: { type: 'quad', belly: 0.35, front: 0.38, back: -0.32, legU: 0.18, neck: 0.42, tail: -0.5 }, // grey wolf
@@ -168,7 +180,7 @@ function measureBiped(P, I, H, o) {
       if (iv.some((s) => s[1] < -torso - 0.01 || s[0] > torso + 0.01)) handLow = v; else if (v < crotch) break;
     }
   }
-  return { crotch, shoulder, torso, legU, handLow, armTop: o.armTop ?? shoulder + 0.03, neck: o.neck ?? shoulder + 0.04 };
+  return { crotch, shoulder, torso, legU, handLow, armTop: o.armTop ?? shoulder + 0.03, neck: o.neck ?? shoulder + 0.04, tpose: o.tpose, tail: o.tail, tailTop: o.tailTop ?? crotch + 0.1 };
 }
 
 // ------------------------------------------------------------------ bones + weights
@@ -176,7 +188,8 @@ function bipedBones(m) {
   const { crotch, shoulder, torso, legU, handLow, neck } = m;
   const sY = shoulder - 0.035;
   const hand = [torso + 0.06, handLow + 0.03];
-  const elbow = [(torso * 0.9 + hand[0]) / 2, (sY + hand[1]) / 2];
+  const elbow = m.tpose ? [m.tpose.elbow, sY] : [(torso * 0.9 + hand[0]) / 2, (sY + hand[1]) / 2];
+  const tail = m.tail === undefined ? [] : [{ name: 'Tail', p: [0, Math.min(m.tailTop, crotch + 0.05), m.tail], parent: 1 }];
   return [
     { name: 'Root', p: [0, 0, 0], parent: -1 },
     { name: 'Hips', p: [0, crotch + 0.04, 0], parent: 0 },
@@ -190,6 +203,7 @@ function bipedBones(m) {
     { name: 'ShinR', p: [-legU, crotch * 0.5, 0], parent: 8 },
     { name: 'ThighL', p: [legU, crotch, 0], parent: 1 },
     { name: 'ShinL', p: [legU, crotch * 0.5, 0], parent: 10 },
+    ...tail,
   ];
 }
 
@@ -201,12 +215,18 @@ function bipedWeights(m, B, o) {
   return (u, v, w) => {
     const side = u < 0 ? 'R' : 'L';
     const au = Math.abs(u);
+    // a tail behind the legs: its own bone, blended into the hips at its root
+    if (m.tail !== undefined && w < m.tail + 0.03 && v < m.tailTop) {
+      const t = ss(m.tail + 0.03, m.tail - 0.05, w) * (1 - ss(m.tailTop - 0.05, m.tailTop, v));
+      if (t > 0) return { Tail: t, Hips: 1 - t };
+    }
     // arms: outside the torso line, between the hands and the shoulders
     const [aw0, aw1] = o.armW ?? [-9, 9];
-    if (v > handLow - 0.02 && v < armTop && w > aw0 && w < aw1) {
+    if (v > handLow - 0.02 && v < armTop && w > aw0 && w < aw1 && au < (o.armU ?? 9)) {
       const k = ss(torso - 0.01, torso + 0.025, au) * (1 - ss(armTop - 0.04, armTop, v));
       if (k > 0) {
-        const f = ss(elbowY + 0.03, elbowY - 0.03, v);
+        // (arms held out level split at the elbow across, hanging ones by height)
+        const f = m.tpose ? ss(m.tpose.elbow - 0.03, m.tpose.elbow + 0.03, au) : ss(elbowY + 0.03, elbowY - 0.03, v);
         const body = v > (crotch + shoulder) / 2 ? 'Chest' : 'Hips';
         return { [`UpperArm${side}`]: k * (1 - f), [`ForeArm${side}`]: k * f, [body]: 1 - k };
       }
@@ -348,6 +368,20 @@ function bipedClips(o, m) {
       [`UpperArm${os}`]: [[0, [0, 0, 0]], [0.25, [-0.6, 0, 0.5 * zOut(os)]], [R, [-1.2, 0, 0.3 * zOut(os)]], [0.6, [-1.1, 0, 0.3 * zOut(os)]], [0.95, [0, 0, 0]]],
       Head: [[0, [0, 0, 0]], [0.25, [-0.15, 0, 0]], [R, [0.1, 0, 0]], [0.95, [0, 0, 0]]],
     };
+  } else if (atk === 'breath') {
+    // rears back with the head high, then lunges with the jaws forward at R (the fire leaves the mouth), arms spread
+    clips.Punch = {
+      Hips: [[0, [0, 0, 0]], [0.25, [-0.12, 0, 0]], [R, [0.15, 0, 0]], [0.6, [0.12, 0, 0]], [0.95, [0, 0, 0]]],
+      Chest: [[0, [0, 0, 0]], [0.25, [-0.25, 0, 0]], [R, [0.3, 0, 0]], [0.6, [0.25, 0, 0]], [0.95, [0, 0, 0]]],
+      Head: [[0, [0, 0, 0]], [0.25, [-0.35, 0, 0]], [R, [0.2, 0, 0]], [0.6, [0.15, 0, 0]], [0.95, [0, 0, 0]]],
+      UpperArmR: [[0, [0, 0, 0]], [0.25, [-0.4, 0, -0.5]], [R, [-0.7, 0, -0.3]], [0.95, [0, 0, 0]]],
+      UpperArmL: [[0, [0, 0, 0]], [0.25, [-0.4, 0, 0.5]], [R, [-0.7, 0, 0.3]], [0.95, [0, 0, 0]]],
+      ForeArmR: [[0, [0, 0, 0]], [0.25, [-0.6, 0, 0]], [0.95, [0, 0, 0]]],
+      ForeArmL: [[0, [0, 0, 0]], [0.25, [-0.6, 0, 0]], [0.95, [0, 0, 0]]],
+      ThighR: [[0, [0, 0, 0]], [0.25, [0.2, 0, 0]], [R, [-0.35, 0, 0]], [0.95, [0, 0, 0]]],
+      ShinR: [[0, [0, 0, 0]], [R, [0.3, 0, 0]], [0.95, [0, 0, 0]]],
+      Tail: [[0, [0, 0, 0]], [0.25, [-0.2, 0, 0]], [R, [0.25, 0, 0]], [0.95, [0, 0, 0]]],
+    };
   } else if (atk === 'melee') {
     // the weapon raised over the head, brought down across the front, then back to guard
     clips.Punch = {
@@ -389,6 +423,18 @@ function bipedClips(o, m) {
     ShinR: [[0, [0, 0, 0]], [0.3, [0.8, 0, 0]], [1.0, [0.2, 0, 0]]],
     'Root.t': [[0, [0, 0, 0]], [0.3, [0, -0.04, 0]], [1.0, [0, 0.02, -0.05]]],
   };
+  if (o.tail !== undefined) {
+    clips.Idle.Tail = loop(2.4, 16, (a) => [S(a * 2) * 0.05, S(a) * 0.25, 0]);
+    clips.Walk.Tail = loop(0.9, 16, (a) => [S(a * 2) * 0.06, -S(a) * 0.3, 0]);
+    clips.HitReact.Tail = [[0, [0, 0, 0]], [0.1, [0.2, 0.2, 0]], [0.4, [0, 0, 0]]];
+  }
+  if (o.tpose) {
+    // every clip keys both arms (the lowering is put under their keys when baked, see rig())
+    for (const c of Object.values(clips)) for (const s of ['R', 'L']) for (const b of ['UpperArm', 'ForeArm']) {
+      const k = c[`${b}${s}`] ?? [[0, [0, 0, 0]]];
+      c[`${b}${s}`] = k;
+    }
+  }
   void m; void keys;
   return clips;
 }
@@ -494,7 +540,7 @@ async function rig(io, inFile, outFile, id, debug) {
     wf = quadWeights(m);
     clips = quadClips();
   }
-  console.log(id, o.type, Object.fromEntries(Object.entries(m).map(([k, v]) => [k, +v.toFixed(3)])));
+  console.log(id, o.type, Object.fromEntries(Object.entries(m).filter(([, v]) => typeof v === "number").map(([k, v]) => [k, +v.toFixed(3)])));
   const B = Object.fromEntries(BONES.map((b, i) => [b.name, i]));
   // A held weapon is usually fused to the body (a fist round the haft, an axe head against a boot): cut it off along
   // its edge, or a swing drags sheets of body along. A triangle with two or more weapon vertices belongs to the
@@ -584,6 +630,29 @@ async function rig(io, inFile, outFile, id, debug) {
     const c1 = Math.cos(x / 2), c2 = Math.cos(y / 2), c3 = Math.cos(z / 2), s1 = Math.sin(x / 2), s2 = Math.sin(y / 2), s3 = Math.sin(z / 2);
     return [s1 * c2 * c3 + c1 * s2 * s3, c1 * s2 * c3 - s1 * c2 * s3, c1 * c2 * s3 + s1 * s2 * c3, c1 * c2 * c3 - s1 * s2 * s3];
   };
+  const qmul = (a, b) => [
+    a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+    a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+    a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+    a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
+  ];
+  // arms held out level: each upper arm is first lowered (about the forward axis), then its clip rotation applies in
+  // the chest's frame; the forearm's clip rotation is carried into the lowered arm's frame (down⁻¹ · r · down), so a
+  // bend of the elbow still bends it forward as it does for hanging arms
+  const down = {};
+  if (o.tpose) for (const s of ['R', 'L']) {
+    const a = (s === 'R' ? 1 : -1) * o.tpose.down; // the right arm points -x: lowering it is +z
+    down[s] = [0, 0, Math.sin(a / 2), Math.cos(a / 2)];
+  }
+  const inv = (q) => [-q[0], -q[1], -q[2], q[3]];
+  const qFor = (bone, e) => {
+    const q = quat(e);
+    const mm = /^(UpperArm|ForeArm)([RL])$/.exec(bone);
+    if (!o.tpose || !mm) return q;
+    const d = down[mm[2]];
+    return mm[1] === 'UpperArm' ? qmul(q, d) : qmul(qmul(inv(d), q), d);
+  };
+  if (o.tpose) for (const s of ['R', 'L']) nodes[B[`UpperArm${s}`]].setRotation(down[s]);
   for (const [name, tracks] of Object.entries(clips)) {
     const anim = doc.createAnimation(name);
     for (const [k, frames] of Object.entries(tracks)) {
@@ -593,7 +662,7 @@ async function rig(io, inFile, outFile, id, debug) {
       const base = nodes[bi].getTranslation();
       const vals = what === 't'
         ? frames.flatMap((f) => [base[0] + f[1][0] * H, base[1] + f[1][1] * H, base[2] + f[1][2] * H])
-        : frames.flatMap((f) => quat(f[1]));
+        : frames.flatMap((f) => qFor(bone, f[1]));
       const sampler = doc.createAnimationSampler()
         .setInput(doc.createAccessor().setType('SCALAR').setArray(new Float32Array(frames.map((f) => f[0]))).setBuffer(buf))
         .setOutput(doc.createAccessor().setType(what === 't' ? 'VEC3' : 'VEC4').setArray(new Float32Array(vals)).setBuffer(buf))
