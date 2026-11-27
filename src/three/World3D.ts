@@ -5,7 +5,7 @@ import { CLASSES, CROWD_MAX, ClassKey, ELEMENTS, ITEMS, monsterElement, MAX_LEVE
 import { findPath, GameMap, Npc, THEMES, isLava, walkable } from '../game/maps';
 import type { Session } from '../game/session';
 import { escapeHtml } from '../ui/screens';
-import { type MonsterAnimator, leanToCamera, preloadMonsters, tickMonsterDeform, upgradeMonster } from './monsters';
+import { MONSTER_RELEASE_MS, MonsterAnim, type MonsterAnimator, leanToCamera, preloadMonsters, tickMonsterDeform, upgradeMonster } from './monsters';
 import { animateMonster, buildCharacter, buildMonster, CharRig, Look, MonsterRig, setEar, setGlasses, setHat } from './models';
 import { buildMount, disposeMount, spinMount, type MountRig } from './mounts';
 import { animateMaxAura, buildMaxAura } from './levelAura';
@@ -172,12 +172,39 @@ interface MonsterActor {
   knock?: { dx: number; dy: number; at: number; dist: number };
   /** stunned / frozen by a DJ spell until then (performance.now()): it stops moving its body */
   stunUntil?: number;
+  /** the way it wants to face (it turns there smoothly): where it walks, or who it hits until faceUntil */
+  faceYaw?: number;
+  faceUntil?: number;
 }
 
 /** How long a knock-back flinch lasts (ms): a quick shove away, then it eases back to where it stands. */
 const KNOCK_MS = 320;
 const KNOCK_OUT_MS = 70;
 /** How far it flinches now (0..1 of the knock's distance). */
+/** A wooden arrow pointing along +Z (a monster archer's shot), geometry and materials shared. */
+let arrowParts: { shaft: THREE.BufferGeometry; head: THREE.BufferGeometry; fin: THREE.BufferGeometry; wood: THREE.Material; iron: THREE.Material; feather: THREE.Material } | null = null;
+function monsterArrow() {
+  if (!arrowParts) {
+    arrowParts = {
+      shaft: new THREE.CylinderGeometry(0.022, 0.022, 0.75, 5).rotateX(Math.PI / 2),
+      head: new THREE.ConeGeometry(0.055, 0.16, 6).rotateX(Math.PI / 2).translate(0, 0, 0.45),
+      fin: new THREE.PlaneGeometry(0.09, 0.16).translate(0, 0, -0.3),
+      wood: new THREE.MeshBasicMaterial({ color: 0x7a4a24 }),
+      iron: new THREE.MeshBasicMaterial({ color: 0xc8ccd4 }),
+      feather: new THREE.MeshBasicMaterial({ color: 0xf2f2f2, side: THREE.DoubleSide }),
+    };
+  }
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(arrowParts.shaft, arrowParts.wood), new THREE.Mesh(arrowParts.head, arrowParts.iron));
+  for (const r of [0, Math.PI / 2]) {
+    const f = new THREE.Mesh(arrowParts.fin, arrowParts.feather);
+    f.rotation.z = r;
+    g.add(f);
+  }
+  g.scale.setScalar(1.3);
+  return g;
+}
+
 function knockAmount(k: { at: number }, now: number) {
   const age = now - k.at;
   if (age < 0 || age >= KNOCK_MS) return 0;
@@ -652,9 +679,14 @@ export class World3D {
     };
     rig.root.visible = !rm.dead;
     this.monsters.set(id, m);
+    const hitH = rig.height + 0.2;
     void upgradeMonster(rig, rm.key, () => !this.ac.signal.aborted && this.monsters.get(id) === m).then((anim) => {
       if (!anim) return;
       m.anim = anim;
+      // the model may stand taller than the drawn body it replaced: so does what you click
+      const k = (rig.height + 0.2) / hitH;
+      hit.scale.set(Math.max(1, k * 0.8), k, Math.max(1, k * 0.8));
+      hit.position.y = (rig.height + 0.2) / 2;
       if (m.dead) anim.die();
     });
     return m;
@@ -1183,21 +1215,30 @@ export class World3D {
         return;
       }
       if (m && v) {
+        // it turns to face who it hits, and keeps facing them for a moment
+        m.faceYaw = Math.atan2(v.x - m.x, v.y - m.y);
+        m.faceUntil = performance.now() + 1500;
         if (m.anim) m.anim.attack();
         else this.lunge(m.rig.root, v.x - m.x, v.y - m.y);
       }
       if (!v) return;
-      if (v === this.me) sfx(msg.dmg === 0 ? 'miss' : 'hurt');
-      const p = new THREE.Vector3(v.x, 1.7, v.y);
-      if (msg.block) {
-        this.floatText(p, 'Block', 'miss');
-        const dir = m ? Math.atan2(m.y - v.y, m.x - v.x) : 0;
-        this.pixelFx('block', { at: () => new THREE.Vector3(v.x + Math.cos(dir) * 0.35, 0, v.y + Math.sin(dir) * 0.35) });
-      } else if (msg.dmg === 0) this.floatText(p, 'Miss', 'miss');
-      else {
-        this.floatText(p, String(msg.dmg), 'take');
-        this.flash(v.rig.root, 0xff3333);
-      }
+      const land = () => {
+        if (v === this.me) sfx(msg.dmg === 0 ? 'miss' : 'hurt');
+        const p = new THREE.Vector3(v.x, 1.7, v.y);
+        if (msg.block) {
+          this.floatText(p, 'Block', 'miss');
+          const dir = m ? Math.atan2(m.y - v.y, m.x - v.x) : 0;
+          this.pixelFx('block', { at: () => new THREE.Vector3(v.x + Math.cos(dir) * 0.35, 0, v.y + Math.sin(dir) * 0.35) });
+        } else if (msg.dmg === 0) this.floatText(p, 'Miss', 'miss');
+        else {
+          this.floatText(p, String(msg.dmg), 'take');
+          this.flash(v.rig.root, 0xff3333);
+        }
+      };
+      // an archer's arrow or a caster's spell flies first: the hit shows when it lands
+      const ranged = m ? MONSTERS[m.key]?.ranged : undefined;
+      if (m && ranged) this.monsterShot(m, v, ranged, land);
+      else land();
       if (v === this.me && m && !m.dead && !this.target && !this.path.length) this.target = { kind: 'monster', id: m.id };
     });
     on('skill', (msg) => {
@@ -1578,13 +1619,19 @@ export class World3D {
       const dx = rm.x - m.x;
       const dy = rm.y - m.y;
       m.moving = Math.hypot(dx, dy) > 0.02;
-      if (m.moving) m.rig.root.rotation.y = Math.atan2(dx, dy);
-      // a Meshy sculpt is only painted well from the front: it turns no more than ~60 degrees away from the camera
+      const facing = performance.now() < (m.faceUntil ?? 0);
+      // it walks the way it faces (never sideways): turned toward where it goes, or who it is fighting
+      if (m.moving && !facing) m.faceYaw = Math.atan2(dx, dy);
       if (MONSTERS[m.key]?.move) {
-        m.rig.root.rotation.y = this.frontToCamera(m.rig.root.rotation.y, m.x, m.y);
+        // a Meshy sculpt without a skeleton is only painted well from the front: standing, it turns no more than ~60
+        // degrees away from the camera (a rigged one, with legs that step, just faces where it goes)
+        let want = m.faceYaw ?? m.rig.root.rotation.y;
+        if (!(m.anim instanceof MonsterAnim) && !m.moving && !facing) want = this.frontToCamera(want, m.x, m.y);
+        const d = Math.atan2(Math.sin(want - m.rig.root.rotation.y), Math.cos(want - m.rig.root.rotation.y));
+        m.rig.root.rotation.y += d * Math.min(1, dt * 10);
         // and tips back toward the camera so its face shows, not just the top of its head
         leanToCamera(m.rig.body, Math.atan2(this.camera.position.x - m.x, this.camera.position.z - m.y) - m.rig.root.rotation.y);
-      }
+      } else if (m.faceYaw !== undefined) m.rig.root.rotation.y = m.faceYaw;
       m.x += dx * k;
       m.y += dy * k;
       m.hp = rm.hp;
@@ -2125,6 +2172,57 @@ export class World3D {
       }
       return true;
     });
+  }
+
+  /**
+   * A bow or staff monster's shot: it leaves the monster's hand when the attack clip lets go (MONSTER_RELEASE_MS) and
+   * flies at the player; `land` shows the hit when it arrives. Arrow = a wooden arrow on a low arc; magic / fire /
+   * poison = a glowing ball (purple / orange / green) with a trail that bursts on the target.
+   */
+  private monsterShot(m: MonsterActor, v: PlayerActor, kind: 'arrow' | 'magic' | 'fire' | 'poison', land: () => void) {
+    setTimeout(() => {
+      if (this.ac.signal.aborted) return land();
+      const yaw = m.rig.root.rotation.y;
+      const from = new THREE.Vector3(m.x + Math.sin(yaw) * 0.45, m.rig.height * 0.6, m.y + Math.cos(yaw) * 0.45);
+      const to = new THREE.Vector3(v.x, 1.0, v.y);
+      const dist = from.distanceTo(to);
+      const ms = 140 + dist * (kind === 'arrow' ? 45 : 80);
+      const arc = kind === 'arrow' ? 0.12 * dist : 0.05 * dist;
+      const color = kind === 'fire' ? 0xff7a1f : kind === 'poison' ? 0x6dff4a : 0xc04dff;
+      let obj: THREE.Object3D;
+      const trail: THREE.Sprite[] = [];
+      if (kind === 'arrow') obj = monsterArrow();
+      else {
+        obj = this.sprite(sparkTexture(), kind === 'fire' ? 0.75 : 0.6, color, true);
+        for (let i = 0; i < 6; i++) trail.push(this.sprite(sparkTexture(), 0.45 - i * 0.05, color, true));
+      }
+      this.scene.add(obj);
+      const at = (t: number) => new THREE.Vector3().lerpVectors(from, to, t).setY(from.y + (to.y - from.y) * t + Math.sin(t * Math.PI) * arc);
+      const past: THREE.Vector3[] = [];
+      let t = 0;
+      this.effects.push((dt) => {
+        t = Math.min(1, t + (dt * 1000) / ms);
+        const p = at(t);
+        // the arrow points along its flight: from where it was a moment ago through where it is
+        if (kind === 'arrow') obj.lookAt(p.clone().multiplyScalar(2).sub(obj.position.lengthSq() ? obj.position : from));
+        obj.position.copy(p);
+        if (kind !== 'arrow') {
+          obj.scale.setScalar((kind === 'fire' ? 0.75 : 0.6) * (1 + Math.sin(t * 40) * 0.12));
+          past.unshift(p.clone());
+          trail.forEach((s, i) => {
+            const q = past[Math.min(past.length - 1, (i + 1) * 2)];
+            s.position.copy(q);
+            s.material.opacity = 0.7 - i * 0.1;
+          });
+        }
+        if (t < 1) return true;
+        this.scene.remove(obj);
+        trail.forEach((s) => this.scene.remove(s));
+        if (kind !== 'arrow') this.burst(to.clone(), color, 10, 2.5);
+        land();
+        return false;
+      });
+    }, MONSTER_RELEASE_MS);
   }
 
   /** Every normal attack sends black music notes flying at the monster; damage shows when the first one lands. */

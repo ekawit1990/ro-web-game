@@ -3,7 +3,7 @@ import { StateView, schema, t, type SchemaType } from '@colyseus/schema';
 import {
   Buffs, CLASSES, CROWD_MAX, Character, Derived, ENDOW_SEC, ITEMS, type Element, elementMult, monsterElement, InvItem, JOB_CHANGE, MAGIC_SP_COST, MONSTERS, SKILLS, SPAWNS, SpawnDef, derive,
   STAT_KEYS, buffBlocks, buffStats, canUseSkill, debuffSec, isHealerBuff, HEALER_BUFF_SEC, type MonsterDef, type SkillDef, hitChance, monsterFlee, monsterHit, questCounts,
-  skillHeal, skillPower, skillSp, skillStatMult, targetsGround, targetsMonster, castTime, WAVE_FALL_MS, skillWaves, MONSTER_DAMAGE, targetsPlayer, totalStats, outfitOf, MONSTER_SKILLS,
+  skillHeal, skillPower, skillSp, skillStatMult, targetsGround, targetsMonster, castTime, WAVE_FALL_MS, skillWaves, MONSTER_DAMAGE, RANGED_REACH, targetsPlayer, totalStats, outfitOf, MONSTER_SKILLS,
   VEND_SKILL, VEND_MAX_PRICE, VEND_MAX_TOTAL, vendSlots, mountOf,
 } from '../../src/data/index.ts';
 import { ARENA_SPAWNS, CASTLE_CRYSTAL, CASTLE_INNER, GameMap, WARP_TOWNS, getMap, walkable } from '../../src/game/maps.ts';
@@ -1909,7 +1909,8 @@ export class MapRoom extends Room<{ state: MapState }> {
     }
     if (target && def.skills?.length && this.now >= (b.skillAt ?? 0) && this.monsterSkillStart(id, m, b, def, target)) return;
     if (target) {
-      const reach = 1.0 + def.size * 0.35;
+      // an archer or a caster shoots from a distance; the rest walk up and strike
+      const reach = def.ranged ? RANGED_REACH : 1.0 + def.size * 0.35;
       if (dist(m.x, m.y, target.x, target.y) > reach) goal = { x: target.x, y: target.y };
       else if (this.now - b.lastAttack > 1600) {
         b.lastAttack = this.now;

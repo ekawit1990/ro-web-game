@@ -11,3 +11,10 @@ that run: paths and the grid of the sheet (11 columns x 7 rows, picked from a fr
    stand (auto, or OVR heights for ones it misses), drops loose bits beside the body, deepens the flat sculpt up to
    x1.8 front to back, decimates, new UVs, bakes the colour onto a 512 px texture, exports. Then gzip -9.
 5. `python3 tools/meshy_monsters.py sheet.xlsx` puts the sheet's names/levels/elements into gamedata.json.
+
+## Skeleton and clips (2026-11-27)
+
+`tools/rig_monsters.mjs` gives the Meshy monsters with arms and legs (39) and the four-legged ones (6) a skeleton,
+skin weights and Idle / Walk / Punch / HitReact / Death clips, so they step instead of sliding and swing their weapon,
+draw a bow or raise a staff. Joint heights and weapon boxes per model are in its RIGS table (units of the model's
+height); its input is the model before rigging (git history, commit 7880335).

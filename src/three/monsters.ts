@@ -11,7 +11,9 @@ import { track } from '../ui/loadProgress';
  * public/models/monsters/. Each one replaces the code-drawn body of its monster once loaded,
  * so the hit cylinder, label and server data stay the same. The models face +Z.
  * A model without animation clips (a sculpt from an AI generator) is moved by PropAnim. The abyss reaper is such a
- * sculpt (made with Meshy AI) given a skeleton and clips by tools/rig_reaper.mjs, so it plays like the others.
+ * sculpt (made with Meshy AI) given a skeleton and clips by tools/rig_reaper.mjs, so it plays like the others; so are
+ * the Meshy monsters with arms and legs or four legs (tools/rig_monsters.mjs): they step, swing their weapon, draw a
+ * bow or raise a staff (the arrow or spell leaves at MONSTER_RELEASE_MS into the attack, see World3D.monsterShot).
  * A model whose glTF scene has extras { selfLit } shows its painted texture partly self-lit (see load()).
  */
 
@@ -80,6 +82,9 @@ export function preloadMonsters(keys: Iterable<string>) {
     if (model) void load(model);
   }
 }
+
+/** When a bow or staff monster's shot leaves its hand, ms into the attack clip (RELEASE in tools/rig_monsters.mjs). */
+export const MONSTER_RELEASE_MS = 420;
 
 type Clip = 'idle' | 'move' | 'attack' | 'hit' | 'death';
 const PICK: Record<Clip, RegExp> = {
@@ -366,6 +371,23 @@ export function leanToCamera(body: THREE.Object3D, toCam: number) {
   lean.position.y = Math.sin(a) * (Math.abs(hx * Math.sin(toCam)) + Math.abs(hz * Math.cos(toCam)));
 }
 
+/** Height of a player's character (world units), see HEIGHT in vrm.ts. */
+const HERO_H = 1.55;
+
+/**
+ * How much the model is scaled. A Meshy monster (one with `move`) stands taller than a player: a normal one from
+ * 1.8 (size 0.75, a slime) to ~2.4 (size 1.7), measured on its height or, for a long low body (a wolf, a scorpion),
+ * on most of its length, so a four-legged one isn't three tiles long. Mini-bosses stay bigger than all of them.
+ * Other models (the reaper, the tiger king) are as tall as their data says.
+ */
+export function modelScaleFor(def: { size: number; model?: string; modelScale?: number; move?: string; boss?: boolean; mvp?: boolean }, size: THREE.Vector3) {
+  const base = Math.max(0.7, def.size * (def.modelScale ?? (def.model?.startsWith('Big_') ? 1.25 : 1.0)));
+  if (!def.move || def.mvp) return base / Math.max(size.y, 1e-3);
+  if (def.boss) return Math.max(base, HERO_H * 1.75) / Math.max(size.y, 1e-3);
+  const target = HERO_H * 1.16 + Math.max(0, def.size - 0.75) * 0.6;
+  return target / Math.max(size.y, 0.8 * Math.max(size.x, size.z), 1e-3);
+}
+
 const recoloured = new Map<string, THREE.Material>();
 
 /**
@@ -415,9 +437,8 @@ export async function upgradeMonster(rig: MonsterRig, key: string, alive: () => 
   const box = new THREE.Box3().setFromObject(obj);
   const size = box.getSize(new THREE.Vector3());
   const flying = def.model.startsWith('Flying_') || def.move === 'fly' || def.move === 'float';
-  // as tall as the old body (bosses get their size from the data), never a speck
-  const want = Math.max(0.7, def.size * (def.modelScale ?? (def.model.startsWith('Big_') ? 1.25 : 1.0)));
-  const s = want / Math.max(size.y, 1e-3);
+  const s = modelScaleFor(def, size);
+  const want = size.y * s;
   obj.scale.setScalar(s);
   const c = box.getCenter(new THREE.Vector3());
   obj.position.set(-c.x * s, -box.min.y * s + (flying ? 0.25 * def.size : 0), -c.z * s);

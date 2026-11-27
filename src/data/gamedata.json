@@ -8657,7 +8657,8 @@
    "move": "walk",
    "voice": "rattle",
    "kind": "โครงกระดูก",
-   "rarity": "Uncommon"
+   "rarity": "Uncommon",
+   "ranged": "arrow"
   },
   "snow_queen": {
    "name": "ราชินีหิมะโซปราโน",
@@ -9436,7 +9437,8 @@
    "voice": "squeak",
    "kind": "เผ่าพันธุ์",
    "rarity": "Common",
-   "shape": "jelly"
+   "shape": "jelly",
+   "ranged": "arrow"
   },
   "squidle": {
    "name": "ก็อบลินนักปรุงพิษ",
@@ -9505,7 +9507,8 @@
    "voice": "squeak",
    "kind": "เผ่าพันธุ์",
    "rarity": "Uncommon",
-   "shape": "jelly"
+   "shape": "jelly",
+   "ranged": "poison"
   },
   "alien": {
    "name": "แมงมุมกระดองแดง",
@@ -10178,7 +10181,8 @@
    "kind": "โครงกระดูก",
    "rarity": "Uncommon",
    "shape": "jelly",
-   "glow": "#a46bff"
+   "glow": "#a46bff",
+   "ranged": "magic"
   },
   "ghost_skull": {
    "name": "ผีคลุมฮู้ด",
@@ -11057,7 +11061,8 @@
    "voice": "crunch",
    "kind": "มัมมี่",
    "rarity": "Rare",
-   "shape": "jelly"
+   "shape": "jelly",
+   "ranged": "fire"
   },
   "cave_orc": {
    "name": "อัศวินกระดูกครูเสด",
@@ -11421,7 +11426,8 @@
    "voice": "rattle",
    "kind": "โครงกระดูก",
    "rarity": "Rare",
-   "shape": "jelly"
+   "shape": "jelly",
+   "ranged": "magic"
   },
   "rot_alien": {
    "name": "ราชาโครงกระดูก",
@@ -11470,7 +11476,8 @@
    "voice": "rattle",
    "kind": "โครงกระดูก",
    "rarity": "Rare",
-   "shape": "jelly"
+   "shape": "jelly",
+   "ranged": "magic"
   },
   "zombie_yeti": {
    "name": "ขุนพลน้ำแข็ง",
