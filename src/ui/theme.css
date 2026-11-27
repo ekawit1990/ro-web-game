@@ -368,3 +368,58 @@ button.rw-sort.on { background: var(--ml-ok); color: #3a2300; border-color: #b07
   .wc-notes { display: none; }
   .wc-btns { padding: 6px 12px 8px; }
 }
+
+/* ---------------------------------------------------------------- phones (2026-11-27): joystick + attack button + 9-skill ring */
+/* body.touch-ui is set by the HUD on phones/tablets; desktops keep the F1-F9 bar */
+.joy, .atk-btn { display: none; }
+.touch-ui .joy {
+  display: block; position: absolute; left: 26px; bottom: 20px; width: 112px; height: 112px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(40, 25, 90, 0.18), rgba(40, 25, 90, 0.55));
+  border: 2px solid rgba(230, 184, 74, 0.7); box-shadow: 0 0 12px rgba(0, 0, 0, 0.35);
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.touch-ui .joy::before { content: ''; position: absolute; inset: 14px; border-radius: 50%; border: 1px dashed rgba(255, 231, 163, 0.35); }
+.touch-ui .joy.on { border-color: var(--ml-gold); background: radial-gradient(circle, rgba(40, 25, 90, 0.3), rgba(40, 25, 90, 0.7)); }
+.touch-ui .joy-knob {
+  position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle at 50% 35%, #fff6d8, #f0c75a 35%, #8a5a1c); border: 2px solid #ffe7a3; box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6);
+}
+.touch-ui .atk-btn {
+  display: grid; place-items: center; position: absolute; right: 16px; bottom: 14px; width: 80px; height: 80px; padding: 0; border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #fff6d8 0%, #f0c75a 22%, #b0782a 60%, #5b3510 100%);
+  border: 3px solid #ffe7a3; color: #3a1d05; cursor: pointer; font-family: 'Kanit', Tahoma, sans-serif;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35), 0 0 16px rgba(255, 210, 110, 0.6), inset 0 -8px 14px rgba(0, 0, 0, 0.4);
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.touch-ui .atk-btn i { display: block; width: 38px; height: 38px; margin-top: -6px; color: #fffbe8; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.7)); }
+.touch-ui .atk-btn i svg { width: 100%; height: 100%; }
+.touch-ui .atk-btn span { position: absolute; bottom: -4px; font-size: 10px; font-weight: 600; color: #fff; background: #3a2290; border: 1px solid var(--ml-edge); border-radius: 8px; padding: 0 7px; line-height: 15px; }
+.touch-ui .atk-btn.on { transform: scale(0.94); filter: brightness(1.15); }
+/* the hotbar box sits on the attack button's centre; each slot is placed around it */
+.touch-ui .hotbar { left: auto; right: 56px; bottom: 54px; width: 0; height: 0; padding: 0; gap: 0; background: none; border: 0; box-shadow: none; transform: none; }
+.touch-ui .hk {
+  position: absolute; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 38%, rgba(120, 100, 225, 0.45), rgba(8, 6, 28, 0.8) 72%);
+  border: 0; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.3), 0 0 0 2px rgba(230, 184, 74, 0.75), 0 3px 6px rgba(0, 0, 0, 0.55);
+  touch-action: manipulation; overflow: visible !important;
+}
+.touch-ui .hk .skb { inset: 0; border-radius: 50%; font-size: 21px; }
+.touch-ui .hk img { width: 28px; height: 28px; }
+.touch-ui .hk .cd { inset: 0; height: auto !important; border-radius: 50%; background: conic-gradient(rgba(4, 2, 18, 0.68) calc(var(--k, 0) * 360deg), transparent 0); }
+.touch-ui .hk b { left: -5px; top: -7px; font-size: 9px; line-height: 13px; padding: 0 3px; border-radius: 7px; background: #1c1240; border: 1px solid var(--ml-edge); color: #fff; text-shadow: none; }
+.touch-ui .hk i { right: -3px; bottom: -5px; font-size: 10px; font-weight: 600; background: rgba(0, 0, 0, 0.6); border-radius: 6px; padding: 0 3px; }
+/* inner ring 1-4 (r 80), outer ring 5-9 (r 125), from the left round to straight up */
+.touch-ui .hk:nth-child(1) { left: -80px; top: 0; }
+.touch-ui .hk:nth-child(2) { left: -69px; top: -40px; }
+.touch-ui .hk:nth-child(3) { left: -40px; top: -69px; }
+.touch-ui .hk:nth-child(4) { left: 0; top: -80px; }
+.touch-ui .hk:nth-child(5) { left: -125px; top: 0; }
+.touch-ui .hk:nth-child(6) { left: -115px; top: -48px; }
+.touch-ui .hk:nth-child(7) { left: -88px; top: -88px; }
+.touch-ui .hk:nth-child(8) { left: -48px; top: -115px; }
+.touch-ui .hk:nth-child(9) { left: 0; top: -125px; }
+/* chat in the middle, between the joystick and the skill ring */
+.touch-ui .chat-log { height: 64px; }
+.touch-ui .chatbox { left: 156px; right: 210px; bottom: 8px; width: auto !important; min-width: 0; max-width: 420px; margin: 0 auto; }
+/* portrait phones: no room between them, so the chat sits above both */
+@media (max-width: 640px) { .touch-ui .chatbox { left: 8px; right: 8px; bottom: 214px; max-width: none; } }

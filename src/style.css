@@ -292,7 +292,7 @@ kbd { background: #fff; border: 1px solid #8193b2; border-radius: 3px; padding: 
 /* ---------- HUD bits ---------- */
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
 #hud > * { pointer-events: auto; }
-#hud > #toasts, #hud > .targeting, #hud > .buffs { pointer-events: none; }
+#hud > #toasts, #hud > .targeting, #hud > .buffs, #hud > .tooltip { pointer-events: none; }
 .auto-badge { position: absolute; top: 34px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 16px); background: rgba(31, 138, 58, 0.9); color: #fff; padding: 3px 6px 3px 14px; border-radius: 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 1px 4px rgba(0,0,0,0.35); pointer-events: auto; }
 .auto-badge .ab-t { animation: autoPulse 1.6s ease-in-out infinite; }
 .auto-badge .ab-pot { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; letter-spacing: 0; }
